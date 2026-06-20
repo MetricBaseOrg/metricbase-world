@@ -11,7 +11,7 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- **Token shop (MetricBase SPL)** — In Pip's shop, open the **Token Shop** tab to buy gold and items with real `DN2PNrZ8Jn65ioJw4QBwXv49j5JiBBL3wPLUDZcrpump` tokens. Wallet signs an on-chain SPL transfer to the game treasury; the server verifies the transaction and credits rewards. Requires `TOKEN_TREASURY_WALLET` on Railway.
+- **Open gold market (MetricBase SPL)** — Pip's **Gold Market** tab is a public order book. Players post bids (buy gold) and offers (sell gold); tokens settle peer-to-peer between wallets — no treasury wallet. Server verifies on-chain transfers and moves escrowed gold.
 - **Merchant shop (Pip)** — Press **E** near Pip in the Hub to open his shop. Buy health potions and a rusty blade with gold; sell training scrap looted from the Wilderness dummy. Gold persists in Postgres and shows in the HUD.
 - **Soft currency (gold)** — New players start with 25 gold. Earn more from quests, combat, and selling items.
 

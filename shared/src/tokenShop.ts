@@ -41,43 +41,8 @@ export interface TokenShopResultPayload {
 
 export const TOKEN_DECIMALS = 6;
 
-export const TOKEN_SHOP_PRODUCTS: TokenShopProduct[] = [
-  {
-    id: "token_gold_100",
-    name: "100 Gold",
-    description: "Instant gold credited to your character.",
-    tokenPrice: 25,
-    grants: { gold: 100 },
-  },
-  {
-    id: "token_gold_500",
-    name: "500 Gold",
-    description: "A hefty pouch of gold for bigger purchases.",
-    tokenPrice: 100,
-    grants: { gold: 500 },
-  },
-  {
-    id: "token_gold_1000",
-    name: "1000 Gold",
-    description: "Merchant's reserve — best value per token.",
-    tokenPrice: 180,
-    grants: { gold: 1000 },
-  },
-  {
-    id: "token_potions_3",
-    name: "3 Health Potions",
-    description: "Stock up on healing supplies.",
-    tokenPrice: 20,
-    grants: { items: [{ itemId: "item_health_potion", quantity: 3 }] },
-  },
-  {
-    id: "token_rusty_blade",
-    name: "Rusty Blade",
-    description: "A practice sword delivered straight to your inventory.",
-    tokenPrice: 50,
-    grants: { items: [{ itemId: "item_rusty_blade", quantity: 1 }] },
-  },
-];
+/** @deprecated Treasury shop replaced by peer gold market. */
+export const TOKEN_SHOP_PRODUCTS: TokenShopProduct[] = [];
 
 export function getTokenShopProduct(productId: string): TokenShopProduct {
   const product = TOKEN_SHOP_PRODUCTS.find((entry) => entry.id === productId);

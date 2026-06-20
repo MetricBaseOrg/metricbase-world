@@ -16,7 +16,6 @@ import {
   getItemDefinition,
   getShopByNpcId,
   getShopDefinition,
-  getTokenShopProduct,
   getZoneConfig,
   removeItemFromInventory,
   STARTING_GOLD,
@@ -56,8 +55,14 @@ import {
 } from "../db/characters.js";
 import { isWalkable } from "../map/collision.js";
 import { walletMeetsTokenGate } from "../solana/tokenBalance.js";
-import { buildTokenShopInfo } from "../tokenShop/catalog.js";
-import { redeemTokenShopPurchase } from "../tokenShop/redeem.js";
+import {
+  acceptBidOrder,
+  buildMarketState,
+  cancelPlayerMarketOrder,
+  completeBidPayment,
+  fillAskOrder,
+  placeMarketOrder,
+} from "../market/service.js";
 
 interface PendingInput {
   dx: number;
@@ -127,8 +132,33 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       );
     });
 
-    this.onMessage("tokenShopBuy", (client, message: { productId?: string; signature?: string }) => {
-      void this.handleTokenShopBuy(client, message.productId ?? "", message.signature ?? "");
+    this.onMessage("marketPlace", (client, message: { side?: string; goldAmount?: number; tokenPrice?: number }) => {
+      void this.handleMarketPlace(
+        client,
+        message.side === "bid" ? "bid" : "ask",
+        message.goldAmount ?? 0,
+        message.tokenPrice ?? 0,
+      );
+    });
+
+    this.onMessage("marketCancel", (client, message: { orderId?: string }) => {
+      void this.handleMarketCancel(client, message.orderId ?? "");
+    });
+
+    this.onMessage("marketFillAsk", (client, message: { orderId?: string; signature?: string }) => {
+      void this.handleMarketFillAsk(client, message.orderId ?? "", message.signature ?? "");
+    });
+
+    this.onMessage("marketAcceptBid", (client, message: { orderId?: string }) => {
+      void this.handleMarketAcceptBid(client, message.orderId ?? "");
+    });
+
+    this.onMessage("marketPayBid", (client, message: { orderId?: string; signature?: string }) => {
+      void this.handleMarketPayBid(client, message.orderId ?? "", message.signature ?? "");
+    });
+
+    this.onMessage("marketRefresh", (client) => {
+      void this.handleMarketRefresh(client);
     });
   }
 
@@ -572,11 +602,11 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     const inventory = this.inventories.get(player.name) ?? [];
     const gold = this.playerGold.get(player.name) ?? STARTING_GOLD;
     const wallet = this.playerWallets.get(player.name) ?? null;
-    const tokenShop = await buildTokenShopInfo(wallet);
+    const market = await buildMarketState(wallet);
 
     client.send(
       "shopOpen",
-      buildShopOpenPayload(shop, npc.name, npc.dialogue, gold, inventory, tokenShop),
+      buildShopOpenPayload(shop, npc.name, npc.dialogue, gold, inventory, market),
     );
   }
 
@@ -610,53 +640,154 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     });
   }
 
-  private async handleTokenShopBuy(client: Client, productId: string, signature: string) {
+  private async handleMarketRefresh(client: Client) {
     const player = this.state.players.get(client.sessionId);
-    if (!player || !productId || !signature) return;
+    if (!player) return;
+
+    const wallet = this.playerWallets.get(player.name) ?? null;
+    client.send("marketResult", { ok: true, market: await buildMarketState(wallet) });
+  }
+
+  private async handleMarketPlace(
+    client: Client,
+    side: "bid" | "ask",
+    goldAmount: number,
+    tokenPrice: number,
+  ) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
 
     const wallet = this.playerWallets.get(player.name);
     if (!wallet) {
-      client.send("tokenShopResult", { ok: false, error: "Connect your wallet to buy with tokens." });
+      client.send("marketResult", { ok: false, error: "Connect your wallet to use the gold market." });
       return;
     }
 
-    const result = await redeemTokenShopPurchase(
+    const { result, playerGold } = await placeMarketOrder({
       wallet,
-      productId,
-      signature,
-      {
-        gold: this.playerGold.get(player.name) ?? STARTING_GOLD,
-        inventory: this.inventories.get(player.name) ?? [],
-      },
-    );
+      playerName: player.name,
+      playerGold: this.playerGold.get(player.name) ?? STARTING_GOLD,
+      side,
+      goldAmount,
+      tokenPrice,
+    });
 
-    if (!result.ok) {
-      client.send("tokenShopResult", result);
+    this.playerGold.set(player.name, playerGold);
+    this.sendProfile(client, player);
+    client.send("marketResult", result);
+    if (result.ok) {
+      await this.persistPlayer(player);
+      this.broadcastMarketTrade(player.name, side === "ask" ? "listed gold for sale" : "posted a gold bid");
+    }
+  }
+
+  private async handleMarketCancel(client: Client, orderId: string) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !orderId) return;
+
+    const wallet = this.playerWallets.get(player.name);
+    if (!wallet) return;
+
+    const { result, playerGold } = await cancelPlayerMarketOrder({
+      wallet,
+      orderId,
+      playerGold: this.playerGold.get(player.name) ?? STARTING_GOLD,
+    });
+
+    this.playerGold.set(player.name, playerGold);
+    this.sendProfile(client, player);
+    client.send("marketResult", result);
+    if (result.ok) await this.persistPlayer(player);
+  }
+
+  private async handleMarketFillAsk(client: Client, orderId: string, signature: string) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !orderId || !signature) return;
+
+    const wallet = this.playerWallets.get(player.name);
+    if (!wallet) {
+      client.send("marketResult", { ok: false, error: "Connect your wallet to buy gold." });
       return;
     }
 
-    if (result.gold !== undefined) {
-      this.playerGold.set(player.name, result.gold);
-    }
-    if (result.inventory) {
-      this.inventories.set(player.name, result.inventory.items);
-    }
+    const { result, buyerGold } = await fillAskOrder({
+      buyerWallet: wallet,
+      buyerName: player.name,
+      buyerGold: this.playerGold.get(player.name) ?? STARTING_GOLD,
+      orderId,
+      signature,
+    });
 
+    this.playerGold.set(player.name, buyerGold);
     this.sendProfile(client, player);
-    this.sendInventory(client, player.name);
+    client.send("marketResult", result);
+    if (result.ok) {
+      await this.persistPlayer(player);
+      this.broadcastMarketTrade(player.name, "bought gold on the open market");
+    }
+  }
 
-    const product = getTokenShopProduct(productId);
+  private async handleMarketAcceptBid(client: Client, orderId: string) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !orderId) return;
+
+    const wallet = this.playerWallets.get(player.name);
+    if (!wallet) {
+      client.send("marketResult", { ok: false, error: "Connect your wallet to sell gold." });
+      return;
+    }
+
+    const { result, sellerGold } = await acceptBidOrder({
+      sellerWallet: wallet,
+      sellerName: player.name,
+      sellerGold: this.playerGold.get(player.name) ?? STARTING_GOLD,
+      orderId,
+    });
+
+    this.playerGold.set(player.name, sellerGold);
+    this.sendProfile(client, player);
+    client.send("marketResult", result);
+    if (result.ok) {
+      await this.persistPlayer(player);
+      this.broadcastMarketTrade(player.name, "accepted a gold bid — awaiting buyer payment");
+    }
+  }
+
+  private async handleMarketPayBid(client: Client, orderId: string, signature: string) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !orderId || !signature) return;
+
+    const wallet = this.playerWallets.get(player.name);
+    if (!wallet) {
+      client.send("marketResult", { ok: false, error: "Connect your wallet to pay for gold." });
+      return;
+    }
+
+    const { result, buyerGold } = await completeBidPayment({
+      buyerWallet: wallet,
+      buyerGold: this.playerGold.get(player.name) ?? STARTING_GOLD,
+      orderId,
+      signature,
+    });
+
+    this.playerGold.set(player.name, buyerGold);
+    this.sendProfile(client, player);
+    client.send("marketResult", result);
+    if (result.ok) {
+      await this.persistPlayer(player);
+      this.broadcastMarketTrade(player.name, "completed a gold market trade");
+    }
+  }
+
+  private broadcastMarketTrade(playerName: string, action: string) {
     this.broadcastChat({
       id: crypto.randomUUID(),
       channel: "system",
       senderId: "system",
-      senderName: "Token Shop",
-      body: `${player.name} purchased ${product.name} with MetricBase tokens.`,
+      senderName: "Gold Market",
+      body: `${playerName} ${action}.`,
       sentAt: Date.now(),
     });
-
-    client.send("tokenShopResult", result);
-    await this.persistPlayer(player);
   }
 
   private async handleShopBuy(client: Client, shopId: string, itemId: string) {

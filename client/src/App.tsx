@@ -76,9 +76,6 @@ export function App() {
     const unsubscribeShopOpen = networkManager.onShopOpen((payload) => {
       setShop(payload);
       setShopOpen(true);
-      if (payload.gold !== undefined) {
-        setPlayerGold(payload.gold);
-      }
     });
 
     const unsubscribeNpcDialogue = networkManager.onNpcDialogue((npcName, dialogue) => {

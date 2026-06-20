@@ -4,7 +4,7 @@ import {
   type InventoryEntry,
   type InventoryStatePayload,
 } from "./items.js";
-import type { TokenShopInfo } from "./tokenShop.js";
+import type { MarketStatePayload } from "./market.js";
 
 export const STARTING_GOLD = 25;
 
@@ -35,7 +35,7 @@ export interface ShopOpenPayload {
   gold: number;
   buyOffers: ShopCatalogItem[];
   sellOffers: ShopCatalogItem[];
-  tokenShop?: TokenShopInfo;
+  market?: MarketStatePayload;
 }
 
 export interface ShopResultPayload {
@@ -81,7 +81,7 @@ export function buildShopOpenPayload(
   greeting: string,
   gold: number,
   inventory: InventoryEntry[],
-  tokenShop?: TokenShopInfo,
+  market?: MarketStatePayload,
 ): ShopOpenPayload {
   const normalized = normalizeInventory(inventory);
 
@@ -118,6 +118,6 @@ export function buildShopOpenPayload(
     gold,
     buyOffers,
     sellOffers,
-    tokenShop,
+    market,
   };
 }

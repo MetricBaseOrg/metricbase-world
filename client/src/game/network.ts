@@ -12,7 +12,7 @@ import {
   QuestStatePayload,
   ShopOpenPayload,
   ShopResultPayload,
-  TokenShopResultPayload,
+  MarketResultPayload,
   ZONE_HUB,
   ZoneState,
   ZoneTransferPayload,
@@ -44,7 +44,7 @@ type AttackResultListener = (payload: AttackResultPayload) => void;
 type InventoryListener = (state: InventoryStatePayload) => void;
 type ShopOpenListener = (payload: ShopOpenPayload) => void;
 type ShopResultListener = (payload: ShopResultPayload) => void;
-type TokenShopResultListener = (payload: TokenShopResultPayload) => void;
+type MarketResultListener = (payload: MarketResultPayload) => void;
 
 export class NetworkManager {
   private client: Client | null = null;
@@ -66,7 +66,7 @@ export class NetworkManager {
   private inventoryListeners = new Set<InventoryListener>();
   private shopOpenListeners = new Set<ShopOpenListener>();
   private shopResultListeners = new Set<ShopResultListener>();
-  private tokenShopResultListeners = new Set<TokenShopResultListener>();
+  private marketResultListeners = new Set<MarketResultListener>();
   private latestQuestState: QuestStatePayload = { active: [], completed: [] };
   private latestInventory: InventoryStatePayload = { items: [], capacity: 16 };
   private isTransferring = false;
@@ -174,8 +174,28 @@ export class NetworkManager {
     this.room?.send("shopSell", { shopId, itemId, quantity });
   }
 
-  sendTokenShopBuy(productId: string, signature: string) {
-    this.room?.send("tokenShopBuy", { productId, signature });
+  sendMarketPlace(side: "bid" | "ask", goldAmount: number, tokenPrice: number) {
+    this.room?.send("marketPlace", { side, goldAmount, tokenPrice });
+  }
+
+  sendMarketCancel(orderId: string) {
+    this.room?.send("marketCancel", { orderId });
+  }
+
+  sendMarketFillAsk(orderId: string, signature: string) {
+    this.room?.send("marketFillAsk", { orderId, signature });
+  }
+
+  sendMarketAcceptBid(orderId: string) {
+    this.room?.send("marketAcceptBid", { orderId });
+  }
+
+  sendMarketPayBid(orderId: string, signature: string) {
+    this.room?.send("marketPayBid", { orderId, signature });
+  }
+
+  sendMarketRefresh() {
+    this.room?.send("marketRefresh", {});
   }
 
   getMobHealth(npcId: string): MobHealthPayload | undefined {
@@ -273,9 +293,9 @@ export class NetworkManager {
     return () => this.shopResultListeners.delete(listener);
   }
 
-  onTokenShopResult(listener: TokenShopResultListener) {
-    this.tokenShopResultListeners.add(listener);
-    return () => this.tokenShopResultListeners.delete(listener);
+  onMarketResult(listener: MarketResultListener) {
+    this.marketResultListeners.add(listener);
+    return () => this.marketResultListeners.delete(listener);
   }
 
   private async joinZone(zoneId: string) {
@@ -345,14 +365,8 @@ export class NetworkManager {
         listener(payload);
       }
     });
-    this.room.onMessage("tokenShopResult", (payload: TokenShopResultPayload) => {
-      if (payload.inventory) {
-        this.latestInventory = payload.inventory;
-        for (const listener of this.inventoryListeners) {
-          listener(payload.inventory);
-        }
-      }
-      for (const listener of this.tokenShopResultListeners) {
+    this.room.onMessage("marketResult", (payload: MarketResultPayload) => {
+      for (const listener of this.marketResultListeners) {
         listener(payload);
       }
     });

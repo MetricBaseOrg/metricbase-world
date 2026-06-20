@@ -1,0 +1,75 @@
+import { METRICBASE_TOKEN_MINT } from "./tokenGate.js";
+import { TOKEN_DECIMALS } from "./tokenShop.js";
+
+export type MarketSide = "bid" | "ask";
+export type MarketOrderStatus = "open" | "pending" | "filled" | "cancelled";
+
+export const MIN_MARKET_GOLD = 10;
+export const MAX_MARKET_GOLD = 5_000;
+export const MIN_MARKET_TOKEN_PRICE = 1;
+export const MARKET_PAYMENT_TIMEOUT_MS = 10 * 60 * 1000;
+
+export interface MarketOrderView {
+  id: string;
+  side: MarketSide;
+  status: MarketOrderStatus;
+  playerName: string;
+  wallet: string;
+  goldAmount: number;
+  tokenPrice: number;
+  tokenPerGold: number;
+  createdAt: number;
+  /** When pending: wallet that must receive token payment. */
+  payToWallet?: string;
+  /** When pending: wallet that must send token payment. */
+  payFromWallet?: string;
+}
+
+export interface MarketStatePayload {
+  enabled: boolean;
+  mint: string;
+  rpcUrl: string;
+  decimals: number;
+  asks: MarketOrderView[];
+  bids: MarketOrderView[];
+  myOrders: MarketOrderView[];
+  minGold: number;
+  maxGold: number;
+}
+
+export interface MarketResultPayload {
+  ok: boolean;
+  error?: string;
+  gold?: number;
+  market?: MarketStatePayload;
+  /** Buyer must pay this wallet to complete a trade. */
+  payment?: {
+    orderId: string;
+    payToWallet: string;
+    tokenAmount: number;
+    goldAmount: number;
+    role: "buyer";
+  };
+}
+
+export function tokenPerGold(goldAmount: number, tokenPrice: number): number {
+  if (goldAmount <= 0) return 0;
+  return Math.round((tokenPrice / goldAmount) * 1000) / 1000;
+}
+
+export function buildEmptyMarketState(
+  rpcUrl: string,
+  enabled: boolean,
+): MarketStatePayload {
+  return {
+    enabled,
+    mint: METRICBASE_TOKEN_MINT,
+    rpcUrl,
+    decimals: TOKEN_DECIMALS,
+    asks: [],
+    bids: [],
+    myOrders: [],
+    minGold: MIN_MARKET_GOLD,
+    maxGold: MAX_MARKET_GOLD,
+  };
+}

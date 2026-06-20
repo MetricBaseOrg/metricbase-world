@@ -9,7 +9,7 @@ import { pickWalletConnector } from "./discovery";
 
 export async function sendMetricbaseTokenPayment(options: {
   payerWallet: string;
-  treasuryWallet: string;
+  recipientWallet: string;
   mint: string;
   uiAmount: number;
   decimals: number;
@@ -21,29 +21,29 @@ export async function sendMetricbaseTokenPayment(options: {
   }
 
   const payer = new PublicKey(options.payerWallet);
-  const treasury = new PublicKey(options.treasuryWallet);
+  const recipient = new PublicKey(options.recipientWallet);
   const mint = new PublicKey(options.mint);
   const connection = new Connection(options.rpcUrl, "confirmed");
 
   const payerAta = await getAssociatedTokenAddress(mint, payer);
-  const treasuryAta = await getAssociatedTokenAddress(mint, treasury);
+  const recipientAta = await getAssociatedTokenAddress(mint, recipient);
   const rawAmount = BigInt(Math.round(options.uiAmount * 10 ** options.decimals));
 
   const transaction = new Transaction();
-  let treasuryAccountExists = true;
+  let recipientAccountExists = true;
   try {
-    await getAccount(connection, treasuryAta);
+    await getAccount(connection, recipientAta);
   } catch {
-    treasuryAccountExists = false;
+    recipientAccountExists = false;
   }
 
-  if (!treasuryAccountExists) {
+  if (!recipientAccountExists) {
     transaction.add(
-      createAssociatedTokenAccountInstruction(payer, treasuryAta, treasury, mint),
+      createAssociatedTokenAccountInstruction(payer, recipientAta, recipient, mint),
     );
   }
 
-  transaction.add(createTransferInstruction(payerAta, treasuryAta, payer, rawAmount));
+  transaction.add(createTransferInstruction(payerAta, recipientAta, payer, rawAmount));
 
   const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash("confirmed");
   transaction.recentBlockhash = blockhash;
