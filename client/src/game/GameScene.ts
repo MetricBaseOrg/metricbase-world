@@ -105,7 +105,6 @@ export class GameScene extends Phaser.Scene {
   private lastSentInput = { dx: 0, dy: 0 };
   private currentZoneId: string | null = null;
   private localChoppingUntil = 0;
-  private cameraFollowTarget: Phaser.GameObjects.Sprite | null = null;
 
   constructor() {
     super("GameScene");
@@ -113,7 +112,7 @@ export class GameScene extends Phaser.Scene {
 
   create() {
     this.cameras.main.setBackgroundColor("#b8e8fc");
-    this.cameras.main.setZoom(2);
+    this.cameras.main.setZoom(1.5);
     this.cameras.main.roundPixels = true;
     this.cameras.main.useBounds = false;
     this.scale.on(Phaser.Scale.Events.RESIZE, this.handleViewportResize, this);
@@ -334,6 +333,8 @@ export class GameScene extends Phaser.Scene {
     const cam = this.cameras.main;
     const local = this.findLocalPlayer();
 
+    cam.stopFollow();
+
     if (local) {
       for (const [sessionId, rendered] of this.renderedPlayers.entries()) {
         if (rendered === local) {
@@ -342,16 +343,9 @@ export class GameScene extends Phaser.Scene {
         }
       }
 
-      if (this.cameraFollowTarget !== local.sprite) {
-        cam.stopFollow();
-        cam.startFollow(local.sprite, true, 1, 1);
-        this.cameraFollowTarget = local.sprite;
-      }
+      cam.centerOn(Math.round(local.sprite.x), Math.round(local.sprite.y));
       return;
     }
-
-    this.cameraFollowTarget = null;
-    cam.stopFollow();
 
     if (!this.currentZoneId) return;
 
@@ -385,9 +379,18 @@ export class GameScene extends Phaser.Scene {
       rendered.sprite.destroy();
       rendered.label.destroy();
       this.renderedPlayers.delete(sessionId);
-      if (this.cameraFollowTarget === rendered.sprite) {
-        this.cameraFollowTarget = null;
-      }
+    }
+  }
+
+  private pruneExtraLocalSprites(playerName: string, keepSessionId: string | null) {
+    if (!keepSessionId) return;
+
+    for (const [sessionId, rendered] of [...this.renderedPlayers.entries()]) {
+      if (sessionId === keepSessionId) continue;
+      if (rendered.label.text !== playerName) continue;
+      rendered.sprite.destroy();
+      rendered.label.destroy();
+      this.renderedPlayers.delete(sessionId);
     }
   }
 
@@ -969,6 +972,10 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
+    const localName = useGameStore.getState().playerName;
+    const canonicalSessionId = networkManager.sessionId;
+    this.pruneExtraLocalSprites(localName, canonicalSessionId);
+
     const seen = new Set<string>();
 
     for (const player of players) {
@@ -1044,7 +1051,6 @@ export class GameScene extends Phaser.Scene {
 
         if (isLocal) {
           this.localSessionId = player.sessionId;
-          this.cameraFollowTarget = null;
           this.bindCameraToLocalPlayer();
         }
       } else {
@@ -1072,6 +1078,9 @@ export class GameScene extends Phaser.Scene {
         this.renderedPlayers.delete(sessionId);
       }
     }
+
+    this.pruneExtraLocalSprites(localName, canonicalSessionId);
+    this.bindCameraToLocalPlayer();
   }
 
   private applyLocalPrediction(dx: number, dy: number, delta: number) {

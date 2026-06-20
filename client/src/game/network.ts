@@ -768,6 +768,8 @@ export class NetworkManager {
     if (!this.room?.state?.players) return [];
 
     const map = this.room.state.players;
+    if (map.size === 0) return [];
+
     const players: RemotePlayer[] = [];
     const seen = new Set<string>();
 
@@ -779,31 +781,24 @@ export class NetworkManager {
       players.push(remote);
     };
 
-    const items = (map as { $items?: Map<string, Player> }).$items;
-    if (items && items.size > 0) {
-      for (const [sessionId, player] of items) {
-        pushPlayer(sessionId, player);
-      }
+    if (map.size === 1 && this.sessionId) {
+      pushPlayer(this.sessionId, map.get(this.sessionId));
       if (players.length > 0) {
         return players;
       }
     }
 
-    if (this.sessionId) {
-      pushPlayer(this.sessionId, map.get(this.sessionId));
-    }
-
-    try {
-      for (const [sessionId, player] of map.entries()) {
+    const items = (map as { $items?: Map<string, Player> }).$items;
+    if (items && items.size > 0) {
+      for (const [sessionId, player] of items) {
         pushPlayer(sessionId, player);
       }
-    } catch {
-      try {
-        map.forEach((player: Player, sessionId: string) => {
-          pushPlayer(sessionId, player);
-        });
-      } catch {
-        // No iterable map entries available.
+      return players;
+    }
+
+    if (typeof map.entries === "function") {
+      for (const [sessionId, player] of map.entries()) {
+        pushPlayer(sessionId, player);
       }
     }
 

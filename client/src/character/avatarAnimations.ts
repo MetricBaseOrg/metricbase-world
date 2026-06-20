@@ -27,7 +27,7 @@ function ensureFrameTexture(
 
   try {
     const canvas = renderAvatarPoseCanvas(appearance, { direction, action, frame });
-    scene.textures.addBase64(key, canvas.toDataURL("image/png"));
+    scene.textures.addCanvas(key, canvas);
     scene.textures.get(key).setFilter(Phaser.Textures.FilterMode.NEAREST);
     return key;
   } catch (error) {
