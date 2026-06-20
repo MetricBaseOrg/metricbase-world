@@ -1,0 +1,336 @@
+# Browser-based isometric MMO — full build plan
+
+## 1. Vision, scope, and constraints
+
+- **Core pitch:** Browser-native isometric MMO with persistent world, real-time multiplayer, and live economy.
+- **Target platforms:** Modern desktop browsers (Chrome, Edge, Firefox, Safari) and recent mobile browsers.
+- **Session profile:** 15–60 minute sessions, thousands of concurrent players per shard.
+- **Art style:** 2D isometric tiles (pixel art or stylized), streamed in chunks.
+- **Business constraints:**
+  - Zero-install, URL-only access.
+  - Reasonable hosting costs, horizontally scalable.
+  - Live-ops friendly (events, patches, balance changes).
+
+---
+
+## 2. High-level architecture
+
+### 2.1 Frontend (client)
+
+- **Rendering:**  
+  - **Engine:** Phaser 3 or similar HTML5 engine, customized for isometric tilemaps and entity batching.   
+  - **Tech:** TypeScript, WebGL (WebGPU optional later), Vite/ESBuild bundling.
+- **UI layer:**
+  - React (or lightweight alternative) for menus: inventory, chat, party, map, settings. 
+  - Global state via Redux/Zustand/Recoil.
+- **Networking:**
+  - WebSocket client (Colyseus client SDK or custom).
+  - Client-side prediction + interpolation for movement. 
+- **Platform integration:**
+  - Auth via JWT/OAuth (email, social login).
+  - Analytics + error reporting (Sentry, custom events).
+
+### 2.2 Backend (game servers)
+
+- **Authoritative game server:**
+  - Node.js + Colyseus (or Nakama/Custom) for rooms, matchmaking, and state sync. 
+  - Each “zone” or “instance” is a room; seamless travel via handoff between rooms. 
+- **Microservices:**
+  - **Auth service:** login, sessions, bans.
+  - **Profile service:** characters, progression, cosmetics.
+  - **Economy service:** currency, items, trades, anti-cheat.
+  - **Blockchain service:** Solana integration, wallet binding, token validation, and on-chain sync for `DN2PNrZ8Jn65ioJw4QBwXv49j5JiBBL3wPLUDZcrpump`.
+  - **Chat/social service:** channels, whispers, guilds.
+- **Data layer:**
+  - Primary DB: PostgreSQL or MongoDB for persistent data. 
+  - Redis for fast state, matchmaking, and pub/sub events. 
+- **Infrastructure:**
+  - Containerized (Docker), orchestrated via Kubernetes or Nomad.
+  - Horizontal scaling of game server pods per CCU demand.
+  - Load balancer + API gateway (NGINX/Envoy).
+
+### 2.3 Tooling and pipelines
+
+- **World building:**
+  - Tiled or LDtk for isometric maps; export to JSON.
+  - Internal “World Editor” for placing NPCs, spawns, triggers.
+- **Content pipeline:**
+  - Git-based workflow, CI/CD for assets and scripts.
+  - Versioned data (items, quests, skills) in JSON/YAML.
+- **Monitoring:**
+  - Metrics (Prometheus + Grafana).
+  - Logs (ELK stack or hosted logging).
+  - Alerting (PagerDuty/Slack).
+
+---
+
+## 3. Game design foundations
+
+### 3.1 Core gameplay loops
+
+- **Exploration loop:**
+  - Move through isometric zones, discover landmarks, unlock fast travel.
+- **Combat loop (if combat-based):**
+  - Real-time or tick-based combat with abilities, cooldowns, and roles.
+- **Progression loop:**
+  - XP, levels, skill trees, gear upgrades, achievements.
+- **Social loop:**
+  - Parties, guilds, shared objectives, world events.
+
+### 3.2 World structure
+
+- **Zones and shards:**
+  - World split into zones (cities, wilderness, dungeons).
+  - Each zone is a Colyseus room; players transfer seamlessly between zones.
+- **Streaming:**
+  - Chunk-based tile loading (e.g., 64×64 tiles per chunk).
+  - Preload adjacent chunks; unload distant ones.
+
+### 3.3 Economy and items
+
+- **Currencies:**
+  - Soft currency (earned via play).
+  - Main in-game currency: Solana token `DN2PNrZ8Jn65ioJw4QBwXv49j5JiBBL3wPLUDZcrpump`.
+  - Optional premium currency (cosmetics only).
+- **Items:**
+  - Equipment, consumables, crafting materials.
+  - Rarity tiers and stat rolls.
+- **Market:**
+  - NPC shops, player trading (auction house or direct trade).
+  - Anti-exploit checks on server side.
+
+---
+
+## 4. Technical implementation plan (phased)
+
+### 4.1 Phase 0 — Foundations and prototypes (2–4 weeks)
+
+- **Decide stack:**
+  - Client: Phaser 3 + TypeScript + React UI.
+  - Server: Node.js + Colyseus + PostgreSQL + Redis.
+- **Set up repos:**
+  - `client/` and `server/` monorepo (e.g., PNPM workspace).
+- **Prototype single-player isometric scene:**
+  - Load isometric tilemap from Tiled.
+  - Implement camera, basic movement, collision.
+- **Prototype WebSocket connection:**
+  - Connect to Colyseus room.
+  - Sync simple player positions.
+
+### 4.2 Phase 1 — Core multiplayer and movement (4–6 weeks)
+
+- **Authoritative movement:**
+  - Client sends input (direction, actions).
+  - Server simulates movement and collision.
+  - Clients render server state with interpolation. 
+- **Basic entities:**
+  - Players, static obstacles, simple NPCs.
+- **Zone architecture:**
+  - Implement multiple rooms (zones).
+  - Teleport between rooms via server handoff.
+- **Persistence:**
+  - Save character data (position, stats, inventory) on logout.
+
+### 4.3 Phase 2 — Combat, abilities, and progression (6–10 weeks)
+
+- **Combat system:**
+  - Server-side damage, cooldowns, hit detection.
+  - Client-side VFX and animation.
+- **Stats and leveling:**
+  - XP gain, level thresholds, stat growth.
+  - Skill trees or ability unlocks.
+- **Loot and items:**
+  - Drop tables, rarity, binding rules.
+  - Inventory UI and server validation.
+
+### 4.4 Phase 3 — Social systems and world expansion (6–10 weeks)
+
+- **Chat:**
+  - Global, zone, party, guild channels.
+  - Moderation tools (mute, report).
+- **Parties and guilds:**
+  - Party invites, shared rewards.
+  - Guild creation, ranks, shared storage (optional).
+- **World content:**
+  - More zones, dungeons, hubs.
+  - Quests, events, daily/weekly activities.
+
+### 4.5 Phase 4 — Economy, trading, and live-ops (8–12 weeks)
+
+- **Economy balancing:**
+  - Currency sinks (repairs, travel, crafting).
+  - Anti-inflation measures (taxes, fees).
+- **Trading systems:**
+  - Player-to-player trade with confirmation.
+  - Auction house with server-side validation.
+- **Live-ops tools:**
+  - Admin panel for events, buffs, announcements.
+  - A/B testing hooks for drop rates, XP boosts.
+
+### 4.6 Phase 5 — Optimization, scaling, and polish (ongoing)
+
+- **Performance:**
+  - Client: sprite batching, culling, LOD, texture atlases.
+  - Server: profiling hot paths, optimizing DB queries.
+- **Scalability:**
+  - Auto-scaling game server pods based on CCU.
+  - Sharding or instancing for overcrowded zones.
+- **UX polish:**
+  - Onboarding tutorial.
+  - Settings (keybinds, graphics, accessibility).
+- **Security:**
+  - Input validation, anti-cheat (speed, teleport, dupes).
+  - Rate limiting and DDoS protection.
+
+---
+
+## 5. Detailed system design
+
+### 5.1 Networking model
+
+- **Client responsibilities:**
+  - Capture input.
+  - Predict movement locally.
+  - Render latest server state.
+- **Server responsibilities:**
+  - Authoritative simulation (movement, combat, economy).
+  - Periodic state snapshots (e.g., 10–20 ticks/sec).
+  - Lag compensation (e.g., input timestamps). 
+
+### 5.2 Data model (examples)
+
+- **Player:**
+  - `id`, `accountId`, `name`
+  - `position` (zoneId, x, y)
+  - `stats` (hp, mana, strength, etc.)
+  - `inventory` (items, quantities)
+- **Item:**
+  - `id`, `templateId`
+  - `rarity`, `stats`, `ownerId`
+- **Zone:**
+  - `id`, `name`
+  - `mapFile`, `spawnPoints`
+  - `maxPlayers`, `instanceType`
+
+### 5.3 World streaming
+
+- **Client:**
+  - Maintain active chunk set around player.
+  - Request chunk data from server or pre-bundled assets.
+- **Server:**
+  - Track entities per chunk.
+  - Only send relevant entities to each client (interest management).
+
+---
+
+## 6. Team, workflow, and tools
+
+- **Roles:**
+  - **Tech lead:** architecture, code reviews.
+  - **Frontend devs:** Phaser + React.
+  - **Backend devs:** Node.js + Colyseus + DB.
+  - **Game designer:** systems, balance, content.
+  - **Artist(s):** tilesets, characters, UI.
+  - **DevOps:** infra, CI/CD, monitoring.
+- **Workflow:**
+  - Agile sprints (2 weeks).
+  - Feature branches + PRs.
+  - Automated tests for core systems (movement, combat, economy).
+- **Tools:**
+  - GitHub/GitLab, CI (GitHub Actions).
+  - Issue tracking (Jira/Linear).
+  - Design docs in Markdown (like this plan).
+
+---
+
+## 7. Milestones and deliverables
+
+- **Milestone 1:**  
+  - Single zone, 20 players, movement + chat.
+- **Milestone 2:**  
+  - Combat, basic progression, 3 zones.
+- **Milestone 3:**  
+  - Parties, guilds, trading, 500+ CCU per shard.
+- **Milestone 4:**  
+  - Live-ops tools, events, performance pass.
+- **Milestone 5:**  
+  - Soft launch, telemetry-driven tuning, roadmap for expansions.
+
+---
+
+## 8. Specification requirements
+
+- **Platform support:**
+  - Browser-based 3D experience that runs on modern desktop browsers and recent mobile browsers.
+  - Graceful fallback or reduced feature mode for lower-end devices.
+- **Rendering & world:**
+  - Roblox-style 3D world with low-poly/blocky assets, physics-friendly movement, and scalable scene streaming.
+  - Seamless room/zone transitions with minimal loading disruptions.
+- **Networking:**
+  - Real-time WebSocket sync for player movement, state updates, and chat.
+  - Authoritative server simulation with client-side prediction and reconciliation.
+- **Economy:**
+  - Solana token support for the main currency: `DN2PNrZ8Jn65ioJw4QBwXv49j5JiBBL3wPLUDZcrpump`.
+  - Backend blockchain service for wallet integration, token verification, and on-chain transaction tracking.
+- **Security & validation:**
+  - Anti-cheat and anti-exploit checks on the server for movement, item trades, and currency flows.
+  - Secure authentication, session handling, and rate limiting.
+- **Content pipeline:**
+  - Versioned game data and world assets managed through Git and CI.
+  - Editable world and item definitions for rapid iteration.
+
+  ---
+
+  ## 9. Hosting & Scaling
+
+  - **Hosting:**
+    - Static assets (models, textures, JS bundles) served from CDN / object storage (S3, Azure Blob) with cache-control and immutable asset hashes.
+    - Game server fleet (authoritative Colyseus/Nakama rooms) hosted in containerized Kubernetes clusters (EKS/GKE/AKS) or managed container services.
+    - Managed databases for persistence: Primary PostgreSQL with read-replicas and automated backups; Redis (managed) for ephemeral state and pub/sub.
+    - Solana-related infrastructure: a lightweight blockchain service (stateless API) to interact with Solana RPC endpoints, a secure signing gateway for authorized on-chain actions, and optional indexer for token activity.
+
+  - **Scaling plan:**
+    - Horizontal scaling of game server pods with HPA (Horizontal Pod Autoscaler) driven by custom metrics (active rooms, CCU per pod, CPU) and KEDA or custom scaler for event-driven spikes.
+    - Shard sizing: define target CCU per shard (e.g., 500–2,000 CCU) and autoscale pod count per shard; use load balancer + routing to distribute new sessions evenly.
+    - Database scaling: use connection pooling (PgBouncer), read replicas for heavy read workloads, and partitioning/archival for large tables.
+    - Asset delivery: use CDN with regional POPs and edge caching; fallback to origin on cache-miss.
+    - State and session handoff: design lightweight handoff protocol to transfer players between pods/rooms with minimal loss; persist durable state in DB and ephemeral state in Redis.
+    - Cost controls: scale down idle shards during off-peak hours, apply spot/low-cost instances for non-critical workloads, and implement rate limits for auto-scaling to avoid runaway costs.
+    - Observability: instrument autoscaling metrics, request/response latencies, resource usage, and on-chain transaction rates; feed into Prometheus + Grafana and alerting.
+
+  ---
+
+  ## 10. Cost estimates
+
+  - **Assumptions:**
+  - Target shard CCU: 100–500 concurrent users per shard for early MVP.
+  - Average session length: 30 minutes.
+  - Typical pod supports ~100–250 CCU for lean isometric simulation.
+
+- **Recurring monthly costs (order-of-magnitude):**
+  - CDN / storage (models, bundles): $50–$500 (depends on traffic and asset size).
+  - Game server compute (K8s nodes / pods): $200–$4,000 for a small fleet, shrinking further with aggressive autoscaling and spot capacity.
+  - Database (managed Postgres + replicas): $100–$1,000.
+  - Redis (managed): $50–$500.
+  - Solana RPC & indexer (RPC calls, minimal on-chain usage): $50–$500.
+  - Monitoring, logs, and alerting: $20–$200.
+  - Bandwidth egress: $100–$1,000 depending on CCU and asset sizes.
+  - Misc (CDN invalidations, backups, incidental services): $25–$200.
+
+- **One-time / upfront costs:**
+  - Development and integration (team months): Varies by team size; budget accordingly.
+  - CI/CD and infra automation setup: $2k–$8k (or equivalent engineering time).
+  - Optional Solana indexer or custom signer gateway setup: $1k–$4k initial engineering + infra.
+
+- **Cost model guidance:**
+  - Use a per-CCU marginal cost model to forecast monthly spend: estimate per-CCU CPU/memory footprint, convert to node-hour costs, and multiply by projected CCU-hours.
+  - Factor in peak provisioning and autoscaling inefficiencies (reserve ~20% headroom).
+  - For Solana token operations, minimize on-chain calls and budget for covered RPC provider tiers during initial launch.
+  ## 11. Next steps (practical)
+
+1. **Lock tech stack** (Phaser 3 + Colyseus + Postgres + Redis).
+2. **Create monorepo** and minimal client/server skeleton.
+3. **Build isometric single-player prototype** (movement, camera, collision).
+4. **Integrate Colyseus** and get 2–4 players moving in the same map.
+5. **Iterate** toward Milestone 1 with strict scope control.
+

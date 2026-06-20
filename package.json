@@ -1,0 +1,18 @@
+{
+  "name": "metricbase-world",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Browser-based isometric MMO",
+  "scripts": {
+    "dev": "pnpm run --parallel dev",
+    "dev:client": "pnpm --filter @metricbase/client dev",
+    "dev:server": "pnpm --filter @metricbase/server dev",
+    "build": "pnpm run -r build",
+    "build:client": "pnpm --filter @metricbase/client build",
+    "typecheck": "pnpm run -r typecheck",
+    "vercel-build": "pnpm --filter @metricbase/client build"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

@@ -1,0 +1,39 @@
+import { ChatMessagePayload } from "@metricbase/shared";
+import { create } from "zustand";
+
+interface GameStore {
+  playerName: string;
+  playerLevel: number;
+  connected: boolean;
+  playerCount: number;
+  zoneName: string;
+  chatMessages: ChatMessagePayload[];
+  setPlayerName: (name: string) => void;
+  setPlayerLevel: (level: number) => void;
+  setConnected: (connected: boolean) => void;
+  setPlayerCount: (count: number) => void;
+  setZoneName: (zoneName: string) => void;
+  addChatMessage: (message: ChatMessagePayload) => void;
+  clearChat: () => void;
+}
+
+const MAX_CHAT_MESSAGES = 100;
+
+export const useGameStore = create<GameStore>((set) => ({
+  playerName: "Traveler",
+  playerLevel: 1,
+  connected: false,
+  playerCount: 0,
+  zoneName: "MetricBase Hub",
+  chatMessages: [],
+  setPlayerName: (name) => set({ playerName: name }),
+  setPlayerLevel: (level) => set({ playerLevel: level }),
+  setConnected: (connected) => set({ connected }),
+  setPlayerCount: (count) => set({ playerCount: count }),
+  setZoneName: (zoneName) => set({ zoneName }),
+  addChatMessage: (message) =>
+    set((state) => ({
+      chatMessages: [...state.chatMessages, message].slice(-MAX_CHAT_MESSAGES),
+    })),
+  clearChat: () => set({ chatMessages: [] }),
+}));

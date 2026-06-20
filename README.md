@@ -1,2 +1,117 @@
-# metricbase-world
-The world of MetricBase
+# MetricBase World
+
+Browser-native isometric MMO prototype.
+
+## Stack
+
+| Layer | Tech | Host |
+|-------|------|------|
+| Client | Phaser 3, React, Vite | **Vercel** |
+| Game server | Colyseus, Express | WebSocket host (Railway, Fly.io, Render) |
+| Database | PostgreSQL | **Neon** (Vercel integration) |
+| Shared | TypeScript | Monorepo workspace |
+
+> **Why not all on Vercel?** Colyseus needs a persistent WebSocket server. Vercel serverless functions can't host real-time game rooms. The client ships to Vercel; the game server runs on a small always-on Node host.
+
+## Local development
+
+```bash
+npx pnpm install
+npx pnpm dev
+```
+
+- Client: http://localhost:5173
+- Server: ws://localhost:2567
+
+Move with **WASD**, chat in the zone panel, walk onto **purple portal tiles** to change zones.
+
+## Deploy client to Vercel
+
+1. Push this repo to GitHub.
+2. Import the project in [Vercel](https://vercel.com/new).
+3. Vercel reads `vercel.json` automatically — no root directory override needed.
+4. Add environment variable:
+
+   | Variable | Example |
+   |----------|---------|
+   | `VITE_SERVER_URL` | `wss://metricbase-game.up.railway.app` |
+
+5. Deploy.
+
+Or via CLI:
+
+```bash
+npx vercel
+```
+
+## Database (Neon)
+
+Use [Neon](https://neon.tech) — it integrates directly with Vercel's marketplace.
+
+1. Copy your Neon **pooled** connection string.
+2. Save it to `server/.env` (never commit this file):
+
+   ```
+   DATABASE_URL=postgresql://...@ep-xxx-pooler....neon.tech/neondb?sslmode=require
+   PORT=2567
+   ```
+
+3. Initialize the schema:
+
+   ```bash
+   cd server && pnpm db:init
+   ```
+
+4. Set the same `DATABASE_URL` on your **game server** production host (not Vercel).
+
+Without `DATABASE_URL`, the game runs fine — characters just won't persist between sessions.
+
+## Deploy game server (Railway)
+
+The Colyseus server must run on a WebSocket-capable host. This repo includes `railway.toml`.
+
+1. Create a [Railway](https://railway.app) project from this repo.
+2. Set environment variables:
+
+   | Variable | Value |
+   |----------|-------|
+   | `DATABASE_URL` | Neon connection string |
+   | `PORT` | *(Railway sets this automatically)* |
+
+3. Deploy — Railway builds shared + server and runs `node server/dist/index.js`.
+4. Copy the public Railway URL into Vercel:
+
+   ```
+   VITE_SERVER_URL=wss://<app>.up.railway.app
+   VITE_SERVER_HTTP_URL=https://<app>.up.railway.app
+   ```
+
+## Scripts
+
+| Command | Description |
+|---------|-------------|
+| `pnpm dev` | Client + server locally |
+| `pnpm build:client` | Production client build (Vercel) |
+| `pnpm dev:server` | Game server only |
+| `pnpm typecheck` | Type-check all packages |
+
+## Project layout
+
+```
+client/   Phaser renderer + React UI  →  Vercel
+server/   Colyseus zones + chat       →  Railway / Fly / Render
+shared/   Zone maps, protocol types
+```
+
+## Progress
+
+- [x] Isometric multiplayer movement
+- [x] Zone chat
+- [x] Two zones with portals
+- [x] PostgreSQL persistence (Neon)
+- [x] Vercel client deployment config
+- [x] Railway game server deploy config
+- [x] Character lookup API + rejoin saved zone
+- [x] Client-side movement prediction
+- [ ] Redis session layer
+- [ ] Combat and progression

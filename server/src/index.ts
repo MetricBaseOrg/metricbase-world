@@ -1,0 +1,37 @@
+import { Server } from "@colyseus/core";
+import { WebSocketTransport } from "@colyseus/ws-transport";
+import { ZONE_HUB, ZONE_WILDERNESS } from "@metricbase/shared";
+import cors from "cors";
+import express from "express";
+import { createServer } from "node:http";
+import { characterRouter } from "./api/characters.js";
+import { initDatabase } from "./db/pool.js";
+import { ZoneRoom } from "./rooms/ZoneRoom.js";
+
+const PORT = Number(process.env.PORT ?? 2567);
+
+const app = express();
+
+app.use(cors({ origin: true }));
+app.use(express.json());
+
+app.get("/health", (_req, res) => {
+  res.json({ status: "ok", version: "0.1.0" });
+});
+
+app.use("/api", characterRouter);
+
+const httpServer = createServer(app);
+
+const gameServer = new Server({
+  transport: new WebSocketTransport({ server: httpServer }),
+});
+
+gameServer.define(ZONE_HUB, ZoneRoom, { zoneId: ZONE_HUB });
+gameServer.define(ZONE_WILDERNESS, ZoneRoom, { zoneId: ZONE_WILDERNESS });
+
+await initDatabase();
+
+httpServer.listen(PORT, () => {
+  console.log(`MetricBase game server listening on ws://localhost:${PORT}`);
+});
