@@ -5,7 +5,13 @@ import {
 } from "@metricbase/shared";
 import bs58 from "bs58";
 import { getHttpServerUrl } from "../game/serverUrl";
-import { getSolanaProvider } from "./solanaProvider";
+import {
+  clearSelectedWalletId,
+  discoverWallets,
+  pickWalletConnector,
+  setSelectedWalletId,
+  type WalletConnector,
+} from "./discovery";
 
 const STORAGE_KEY = "metricbase_access_token";
 
@@ -15,6 +21,7 @@ export function getStoredAccessToken(): string | null {
 
 export function clearStoredAccessToken(): void {
   sessionStorage.removeItem(STORAGE_KEY);
+  clearSelectedWalletId();
 }
 
 export async function fetchTokenGateInfo(): Promise<TokenGateInfoResponse> {
@@ -25,17 +32,23 @@ export async function fetchTokenGateInfo(): Promise<TokenGateInfoResponse> {
   return response.json() as Promise<TokenGateInfoResponse>;
 }
 
-export async function connectAndVerifyWallet(): Promise<AuthVerifyResponse> {
-  const provider = getSolanaProvider();
-  if (!provider) {
-    throw new Error("Install Phantom or another Solana wallet to play.");
-  }
+export function listAvailableWallets(): WalletConnector[] {
+  return discoverWallets();
+}
 
-  const connection = await provider.connect();
-  const wallet = connection.publicKey.toString();
+export function resolveWalletConnector(preferredId?: string | null): WalletConnector | null {
+  return pickWalletConnector(preferredId);
+}
+
+export async function connectAndVerifyWallet(
+  wallet: WalletConnector,
+): Promise<AuthVerifyResponse> {
+  setSelectedWalletId(wallet.id);
+
+  const walletAddress = await wallet.connect();
 
   const challengeResponse = await fetch(
-    `${getHttpServerUrl()}/api/auth/challenge?wallet=${encodeURIComponent(wallet)}`,
+    `${getHttpServerUrl()}/api/auth/challenge?wallet=${encodeURIComponent(walletAddress)}`,
   );
   if (!challengeResponse.ok) {
     throw new Error("Failed to start wallet verification");
@@ -43,24 +56,28 @@ export async function connectAndVerifyWallet(): Promise<AuthVerifyResponse> {
 
   const challenge = (await challengeResponse.json()) as AuthChallengeResponse;
   const messageBytes = new TextEncoder().encode(challenge.message);
-  const signed = await provider.signMessage(messageBytes, "utf8");
-  const signature = bs58.encode(signed.signature);
+  const signatureBytes = await wallet.signMessage(messageBytes);
+  const signature = bs58.encode(signatureBytes);
 
   const verifyResponse = await fetch(`${getHttpServerUrl()}/api/auth/verify`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      wallet,
+      wallet: walletAddress,
       signature,
       message: challenge.message,
     }),
   });
 
-  const body = (await verifyResponse.json()) as AuthVerifyResponse & { error?: string; balance?: number; required?: number };
+  const body = (await verifyResponse.json()) as AuthVerifyResponse & {
+    error?: string;
+    balance?: number;
+    required?: number;
+  };
   if (!verifyResponse.ok) {
     if (verifyResponse.status === 403 && body.balance !== undefined) {
       throw new Error(
-        `Token required. Balance: ${body.balance} (need ${body.required ?? "> 0"}).`,
+        `Need at least ${body.required ?? "the required"} tokens. Your balance: ${body.balance}.`,
       );
     }
     throw new Error(body.error ?? "Wallet verification failed");
@@ -93,5 +110,10 @@ export async function ensureWalletAccess(): Promise<AuthVerifyResponse | null> {
     clearStoredAccessToken();
   }
 
-  return connectAndVerifyWallet();
+  const wallet = pickWalletConnector();
+  if (!wallet) {
+    throw new Error("Choose a wallet to continue.");
+  }
+
+  return connectAndVerifyWallet(wallet);
 }

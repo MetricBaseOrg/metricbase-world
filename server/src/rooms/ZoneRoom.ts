@@ -13,6 +13,7 @@ import {
   getZoneConfig,
   JoinOptions,
   normalizeCharacterAppearance,
+  MIN_TOKEN_UI_AMOUNT,
   levelFromXp,
   MAX_PLAYERS_PER_ZONE,
   NPC_INTERACT_COOLDOWN_MS,
@@ -104,7 +105,10 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
     const meetsGate = await walletMeetsTokenGate(payload.wallet);
     if (!meetsGate) {
-      throw new ServerError(403, "You need MetricBase token in your wallet to enter.");
+      throw new ServerError(
+        403,
+        `You need at least ${process.env.MIN_TOKEN_UI_AMOUNT ?? MIN_TOKEN_UI_AMOUNT} MetricBase tokens to enter.`,
+      );
     }
 
     return { ...options, wallet: payload.wallet };

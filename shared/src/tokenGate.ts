@@ -1,7 +1,7 @@
 export const METRICBASE_TOKEN_MINT = "DN2PNrZ8Jn65ioJw4QBwXv49j5JiBBL3wPLUDZcrpump";
 
-/** Minimum UI token amount required to enter the world (must hold > 0 by default). */
-export const MIN_TOKEN_UI_AMOUNT = 0.000001;
+/** Minimum token balance required to enter the world. */
+export const MIN_TOKEN_UI_AMOUNT = 1000;
 
 export interface AuthChallengeResponse {
   wallet: string;

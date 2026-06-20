@@ -11,18 +11,22 @@ import {
   type HairStyle,
   type OutfitStyle,
 } from "@metricbase/shared";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { lookupCharacter, saveCharacterAppearance } from "../character/characterApi";
 import { useGameStore } from "../store/gameStore";
+import type { WalletConnector } from "../wallet/discovery";
+import { shortenWallet } from "../wallet/solanaProvider";
 import {
   clearStoredAccessToken,
   connectAndVerifyWallet,
   ensureWalletAccess,
   fetchTokenGateInfo,
   getStoredAccessToken,
+  listAvailableWallets,
+  resolveWalletConnector,
 } from "../wallet/tokenGate";
-import { shortenWallet } from "../wallet/solanaProvider";
 import { CharacterPreview } from "./CharacterPreview";
+import { WalletPicker } from "./WalletPicker";
 
 interface LoginOverlayProps {
   onJoin: (
@@ -132,8 +136,15 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
   const [error, setError] = useState<string | null>(null);
   const [gateEnabled, setGateEnabled] = useState(true);
   const [tokenMint, setTokenMint] = useState(METRICBASE_TOKEN_MINT);
+  const [minTokenAmount, setMinTokenAmount] = useState(1000);
   const [walletAddress, setWalletAddressLocal] = useState<string | null>(null);
   const [tokenBalance, setTokenBalance] = useState<number | null>(null);
+  const [walletPickerOpen, setWalletPickerOpen] = useState(false);
+  const [detectedWallets, setDetectedWallets] = useState<WalletConnector[]>([]);
+  const walletConnectResolver = useRef<{
+    resolve: (value: Awaited<ReturnType<typeof connectAndVerifyWallet>>) => void;
+    reject: (reason?: unknown) => void;
+  } | null>(null);
 
   useEffect(() => {
     void (async () => {
@@ -141,6 +152,7 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
         const info = await fetchTokenGateInfo();
         setGateEnabled(info.enabled);
         setTokenMint(info.mint);
+        setMinTokenAmount(info.minUiAmount);
 
         if (!info.enabled || !getStoredAccessToken()) return;
 
@@ -183,17 +195,73 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
     setAppearance((current) => ({ ...current, ...patch }));
   };
 
+  const connectSelectedWallet = async (wallet: WalletConnector) => {
+    const verified = await connectAndVerifyWallet(wallet);
+    setWalletAddressLocal(verified.wallet);
+    setWalletAddress(verified.wallet);
+    setTokenBalance(verified.tokenBalance);
+    return verified;
+  };
+
+  const requestWalletConnection = async () => {
+    const wallets = listAvailableWallets();
+    if (wallets.length === 0) {
+      throw new Error(
+        "No Solana wallet detected. Install Jupiter Wallet (or another Solana wallet), then refresh this page.",
+      );
+    }
+
+    const wallet = resolveWalletConnector();
+    if (wallet) {
+      return connectSelectedWallet(wallet);
+    }
+
+    setDetectedWallets(wallets);
+    setWalletPickerOpen(true);
+    return new Promise<Awaited<ReturnType<typeof connectAndVerifyWallet>>>((resolve, reject) => {
+      walletConnectResolver.current = { resolve, reject };
+    });
+  };
+
+  const handleWalletPicked = async (wallet: WalletConnector) => {
+    setWalletPickerOpen(false);
+    setConnectingWallet(true);
+    setError(null);
+
+    try {
+      const verified = await connectSelectedWallet(wallet);
+      walletConnectResolver.current?.resolve(verified);
+    } catch (walletError) {
+      const message =
+        walletError instanceof Error ? walletError.message : "Wallet verification failed.";
+      setError(message);
+      setWalletAddressLocal(null);
+      setWalletAddress(null);
+      setTokenBalance(null);
+      walletConnectResolver.current?.reject(walletError);
+    } finally {
+      walletConnectResolver.current = null;
+      setConnectingWallet(false);
+    }
+  };
+
+  const handleWalletPickerClose = () => {
+    setWalletPickerOpen(false);
+    walletConnectResolver.current?.reject(new Error("Wallet connection cancelled."));
+    walletConnectResolver.current = null;
+  };
+
   const handleConnectWallet = async () => {
     setConnectingWallet(true);
     setError(null);
     clearStoredAccessToken();
 
     try {
-      const verified = await connectAndVerifyWallet();
-      setWalletAddressLocal(verified.wallet);
-      setWalletAddress(verified.wallet);
-      setTokenBalance(verified.tokenBalance);
+      await requestWalletConnection();
     } catch (walletError) {
+      if (walletError instanceof Error && walletError.message === "Wallet connection cancelled.") {
+        return;
+      }
       const message =
         walletError instanceof Error ? walletError.message : "Wallet verification failed.";
       setError(message);
@@ -217,7 +285,7 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
       if (gateEnabled) {
         const session = getStoredAccessToken()
           ? await ensureWalletAccess()
-          : await connectAndVerifyWallet();
+          : await requestWalletConnection();
         if (!session) {
           throw new Error("Wallet verification is required.");
         }
@@ -370,6 +438,13 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
                 }}
               >
                 <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 8 }}>Required token</div>
+                <div style={{ fontSize: 13, marginBottom: 8 }}>
+                  Hold at least{" "}
+                  <span style={{ color: "#9ad7ff", fontWeight: 700 }}>
+                    {minTokenAmount.toLocaleString()}
+                  </span>{" "}
+                  tokens to enter
+                </div>
                 <div
                   style={{
                     fontSize: 11,
@@ -391,7 +466,7 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
                   </div>
                 ) : (
                   <div style={{ fontSize: 13, opacity: 0.65, marginBottom: 10 }}>
-                    Connect Phantom (or Solana wallet) and sign to verify holdings.
+                    Connect Jupiter, Phantom, or another Solana wallet and sign to verify holdings.
                   </div>
                 )}
 
@@ -459,6 +534,14 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
           {joining ? "Entering world..." : "Enter Zone"}
         </button>
       </form>
+
+      {walletPickerOpen && (
+        <WalletPicker
+          wallets={detectedWallets}
+          onSelect={(wallet) => void handleWalletPicked(wallet)}
+          onClose={handleWalletPickerClose}
+        />
+      )}
     </div>
   );
 }

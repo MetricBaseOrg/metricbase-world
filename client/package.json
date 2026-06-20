@@ -11,12 +11,16 @@
   },
   "dependencies": {
     "@metricbase/shared": "workspace:*",
+    "@solana/wallet-standard-features": "^1.4.0",
+    "@wallet-standard/app": "^1.1.1",
+    "@wallet-standard/base": "^1.1.1",
+    "@wallet-standard/features": "^1.1.1",
+    "bs58": "^6.0.0",
     "colyseus.js": "^0.16.0",
     "phaser": "^3.87.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "zustand": "^5.0.3",
-    "bs58": "^6.0.0"
+    "zustand": "^5.0.3"
   },
   "devDependencies": {
     "@types/react": "^18.3.18",
