@@ -18,13 +18,11 @@ export function CharacterPreview({ appearance, width = 200, height = 240 }: Char
     if (!ctx) return;
 
     const gradient = ctx.createLinearGradient(0, 0, 0, height);
-    gradient.addColorStop(0, "rgba(79, 140, 255, 0.16)");
-    gradient.addColorStop(1, "rgba(108, 92, 231, 0.1)");
+    gradient.addColorStop(0, "#dff4ff");
+    gradient.addColorStop(1, "#fff4e6");
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, width, height);
 
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
-    ctx.lineWidth = 1;
     const cx = width / 2;
     const cy = height - 42;
     ctx.beginPath();
@@ -33,8 +31,10 @@ export function CharacterPreview({ appearance, width = 200, height = 240 }: Char
     ctx.lineTo(cx, cy + 18);
     ctx.lineTo(cx - 42, cy);
     ctx.closePath();
-    ctx.fillStyle = "rgba(92, 184, 92, 0.28)";
+    ctx.fillStyle = "rgba(126, 217, 87, 0.45)";
     ctx.fill();
+    ctx.strokeStyle = "#4a3728";
+    ctx.lineWidth = 2;
     ctx.stroke();
 
     drawCharacter(ctx, appearance, width, height);
@@ -48,9 +48,10 @@ export function CharacterPreview({ appearance, width = 200, height = 240 }: Char
       style={{
         width: "100%",
         height: "auto",
-        borderRadius: 12,
-        border: "1px solid rgba(255, 255, 255, 0.1)",
-        background: "rgba(0, 0, 0, 0.2)",
+        borderRadius: 16,
+        border: "3px solid var(--chibi-outline)",
+        boxShadow: "0 5px 0 var(--chibi-shadow)",
+        background: "#fff",
       }}
     />
   );

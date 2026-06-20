@@ -56,7 +56,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   create() {
-    this.cameras.main.setBackgroundColor("#87ceeb");
+    this.cameras.main.setBackgroundColor("#b8e8fc");
     this.cameras.main.setZoom(1);
 
     if (this.input.keyboard) {
@@ -172,12 +172,15 @@ export class GameScene extends Phaser.Scene {
       }
 
       const label = this.add
-        .text(x, y - 28, npc.name, {
-          fontFamily: "system-ui, sans-serif",
-          fontSize: "11px",
-          color: isCombat ? "#ffcc80" : "#e1bee7",
-          stroke: "#000000",
-          strokeThickness: 2,
+        .text(x, y - 32, npc.name, {
+          fontFamily: '"Fredoka", "Nunito", sans-serif',
+          fontSize: "12px",
+          fontStyle: "bold",
+          color: isCombat ? "#e67e22" : "#7c3aed",
+          stroke: "#fff9f0",
+          strokeThickness: 4,
+          backgroundColor: isCombat ? "#fff3d6" : "#f3ebff",
+          padding: { x: 6, y: 3 },
         })
         .setOrigin(0.5, 1)
         .setDepth(901);
@@ -213,16 +216,18 @@ export class GameScene extends Phaser.Scene {
 
     if (!npc.combat || npc.maxHp <= 0) return;
 
-    const width = 36;
-    const height = 5;
+    const width = 40;
+    const height = 8;
     const x = npc.worldX - width / 2;
-    const y = npc.worldY - 42;
-    const fillWidth = Math.max(0, (npc.currentHp / npc.maxHp) * width);
+    const y = npc.worldY - 46;
+    const fillWidth = Math.max(0, (npc.currentHp / npc.maxHp) * (width - 4));
 
-    npc.hpBarBg.fillStyle(0x000000, 0.55);
-    npc.hpBarBg.fillRect(x, y, width, height);
-    npc.hpBarFill.fillStyle(npc.currentHp > 0 ? 0xff5252 : 0x666666, 1);
-    npc.hpBarFill.fillRect(x, y, fillWidth, height);
+    npc.hpBarBg.fillStyle(0xfff9f0, 1);
+    npc.hpBarBg.fillRoundedRect(x, y, width, height, 4);
+    npc.hpBarBg.lineStyle(2, 0x4a3728, 1);
+    npc.hpBarBg.strokeRoundedRect(x, y, width, height, 4);
+    npc.hpBarFill.fillStyle(npc.currentHp > 0 ? 0xff6b9d : 0xc9b8a8, 1);
+    npc.hpBarFill.fillRoundedRect(x + 2, y + 2, fillWidth, height - 4, 3);
   }
 
   private updateNpcHealth(npcId: string, currentHp: number, maxHp: number) {
@@ -313,12 +318,15 @@ export class GameScene extends Phaser.Scene {
         const sprite = this.add.sprite(player.x, player.y, textureKey);
         sprite.setDepth(1000);
         const label = this.add
-          .text(player.x, player.y - 28, player.name, {
-            fontFamily: "system-ui, sans-serif",
-            fontSize: "11px",
-            color: isLocal ? "#ffd27f" : "#ffffff",
-            stroke: "#000000",
-            strokeThickness: 2,
+          .text(player.x, player.y - 34, player.name, {
+            fontFamily: '"Fredoka", "Nunito", sans-serif',
+            fontSize: "12px",
+            fontStyle: "bold",
+            color: isLocal ? "#e6a800" : "#3d2b1f",
+            stroke: "#fff9f0",
+            strokeThickness: 4,
+            backgroundColor: isLocal ? "#fff3d6" : "#ffffff",
+            padding: { x: 6, y: 3 },
           })
           .setOrigin(0.5, 1)
           .setDepth(1001);
@@ -350,7 +358,7 @@ export class GameScene extends Phaser.Scene {
             ? reconcilePrediction(existing.predicted, { x: player.x, y: player.y })
             : { x: player.x, y: player.y };
           existing.sprite.setPosition(existing.predicted.x, existing.predicted.y);
-          existing.label.setPosition(existing.predicted.x, existing.predicted.y - 28);
+          existing.label.setPosition(existing.predicted.x, existing.predicted.y - 34);
         }
 
         existing.label.setText(player.name);
@@ -375,7 +383,7 @@ export class GameScene extends Phaser.Scene {
 
     local.predicted = stepPrediction(local.predicted, dx, dy, delta);
     local.sprite.setPosition(local.predicted.x, local.predicted.y);
-    local.label.setPosition(local.predicted.x, local.predicted.y - 28);
+    local.label.setPosition(local.predicted.x, local.predicted.y - 34);
   }
 
   private interpolateRemotePlayers() {
@@ -386,7 +394,7 @@ export class GameScene extends Phaser.Scene {
 
       rendered.sprite.x = Phaser.Math.Linear(rendered.sprite.x, rendered.targetX, alpha);
       rendered.sprite.y = Phaser.Math.Linear(rendered.sprite.y, rendered.targetY, alpha);
-      rendered.label.setPosition(rendered.sprite.x, rendered.sprite.y - 28);
+      rendered.label.setPosition(rendered.sprite.x, rendered.sprite.y - 34);
     }
   }
 

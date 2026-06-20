@@ -113,44 +113,28 @@ export function WalletConnectBar({ compact, hint }: WalletConnectBarProps) {
 
   if (walletAddress && compact) {
     return (
-      <div style={{ fontSize: 12, opacity: 0.75 }}>
-        Wallet: <span style={{ color: "#9ad7ff" }}>{shortenWallet(walletAddress)}</span>
+      <div className="chibi-text-muted" style={{ fontSize: "0.78rem" }}>
+        💳 <span style={{ color: "var(--chibi-mint-deep)", fontWeight: 700 }}>{shortenWallet(walletAddress)}</span>
       </div>
     );
   }
 
   if (walletAddress) {
     return (
-      <div
-        style={{
-          padding: "10px 12px",
-          borderRadius: 8,
-          background: "rgba(46, 204, 113, 0.1)",
-          border: "1px solid rgba(46, 204, 113, 0.25)",
-          fontSize: 13,
-        }}
-      >
-        <div>
-          Wallet connected: <span style={{ color: "#9ad7ff" }}>{shortenWallet(walletAddress)}</span>
+      <div className="chibi-card" style={{ padding: "10px 12px", background: "#f0fff9", borderColor: "var(--chibi-mint)" }}>
+        <div style={{ fontWeight: 700, fontSize: "0.85rem" }}>
+          Wallet connected: <span style={{ color: "var(--chibi-mint-deep)" }}>{shortenWallet(walletAddress)}</span>
         </div>
         <button
           type="button"
+          className="chibi-btn chibi-btn--secondary"
           onClick={() => void handleConnect()}
           disabled={connecting}
-          style={{
-            marginTop: 8,
-            padding: "6px 10px",
-            borderRadius: 6,
-            border: "1px solid rgba(255,255,255,0.15)",
-            background: "rgba(255,255,255,0.06)",
-            color: "#fff",
-            fontSize: 11,
-            cursor: connecting ? "wait" : "pointer",
-          }}
+          style={{ marginTop: 8, padding: "6px 10px", fontSize: "0.75rem" }}
         >
           {connecting ? "Verifying..." : "Reconnect Wallet"}
         </button>
-        {error && <div style={{ marginTop: 8, fontSize: 11, color: "#ffb4b4" }}>{error}</div>}
+        {error && <div className="chibi-card chibi-card--danger" style={{ marginTop: 8, fontSize: "0.75rem", padding: "6px 8px" }}>{error}</div>}
         {pickerOpen && (
           <WalletPicker
             wallets={detectedWallets}
@@ -164,43 +148,25 @@ export function WalletConnectBar({ compact, hint }: WalletConnectBarProps) {
 
   return (
     <>
-      <div
-        style={{
-          padding: compact ? "10px 12px" : "14px 16px",
-          borderRadius: 10,
-          background: "rgba(255, 120, 80, 0.12)",
-          border: "1px solid rgba(255, 140, 100, 0.35)",
-        }}
-      >
-        <div style={{ fontSize: compact ? 12 : 14, fontWeight: 600, marginBottom: 6 }}>
+      <div className="chibi-card chibi-card--gold" style={{ padding: compact ? "10px 12px" : "14px 16px" }}>
+        <div style={{ fontSize: compact ? "0.8rem" : "0.9rem", fontWeight: 800, marginBottom: 6 }}>
           Wallet required
         </div>
-        <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 10, lineHeight: 1.45 }}>
+        <div className="chibi-text-muted" style={{ marginBottom: 10, lineHeight: 1.45 }}>
           {hint ??
             "Connect your Solana wallet to trade gold on the open market. Payments go directly between players."}
         </div>
         <button
           type="button"
+          className="chibi-btn chibi-btn--primary"
           onClick={() => void handleConnect()}
           disabled={connecting}
-          style={{
-            width: "100%",
-            padding: compact ? "9px 12px" : "11px 14px",
-            border: "none",
-            borderRadius: 8,
-            background: connecting
-              ? "rgba(79, 140, 255, 0.45)"
-              : "linear-gradient(135deg, #4f8cff, #6c5ce7)",
-            color: "#fff",
-            fontWeight: 700,
-            fontSize: compact ? 12 : 14,
-            cursor: connecting ? "wait" : "pointer",
-          }}
+          style={{ width: "100%", padding: compact ? "9px 12px" : "11px 14px", fontSize: compact ? "0.8rem" : "0.9rem" }}
         >
           {connecting ? "Connecting wallet..." : "Connect Wallet"}
         </button>
         {error && (
-          <div style={{ marginTop: 10, fontSize: 11, color: "#ffb4b4", lineHeight: 1.4 }}>{error}</div>
+          <div className="chibi-card chibi-card--danger" style={{ marginTop: 10, fontSize: "0.75rem", padding: "8px" }}>{error}</div>
         )}
       </div>
       {pickerOpen && (

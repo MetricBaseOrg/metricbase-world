@@ -52,16 +52,9 @@ function ColorSwatches({
           <button
             key={color}
             type="button"
+            className={`chibi-swatch${active ? " active" : ""}`}
             onClick={() => onSelect(color)}
-            style={{
-              width: 28,
-              height: 28,
-              borderRadius: 999,
-              border: active ? "2px solid #fff" : "2px solid rgba(255,255,255,0.15)",
-              background: `#${color.toString(16).padStart(6, "0")}`,
-              cursor: "pointer",
-              boxShadow: active ? "0 0 0 2px rgba(79,140,255,0.8)" : "none",
-            }}
+            style={{ background: `#${color.toString(16).padStart(6, "0")}` }}
             aria-label={`Color ${color}`}
           />
         );
@@ -89,18 +82,8 @@ function StylePicker<T extends string>({
           <button
             key={option}
             type="button"
+            className={`chibi-chip${active ? " active" : ""}`}
             onClick={() => onSelect(option)}
-            style={{
-              padding: "8px 12px",
-              borderRadius: 8,
-              border: active ? "1px solid rgba(79,140,255,0.8)" : "1px solid rgba(255,255,255,0.12)",
-              background: active ? "rgba(79,140,255,0.2)" : "rgba(255,255,255,0.04)",
-              color: "#fff",
-              fontSize: 12,
-              fontWeight: active ? 700 : 500,
-              cursor: "pointer",
-              textTransform: "capitalize",
-            }}
           >
             {labels[option]}
           </button>
@@ -317,35 +300,11 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
   const enterDisabled = joining || loadingCharacter || !nameReady;
 
   return (
-    <div
-      style={{
-        position: "absolute",
-        inset: 0,
-        display: "grid",
-        placeItems: "center",
-        background:
-          "radial-gradient(circle at top, rgba(79,140,255,0.18), transparent 45%), rgba(5, 8, 18, 0.88)",
-        backdropFilter: "blur(6px)",
-        zIndex: 20,
-        overflowY: "auto",
-        padding: 24,
-      }}
-    >
-      <form
-        onSubmit={handleSubmit}
-        style={{
-          width: "min(920px, 100%)",
-          padding: 28,
-          borderRadius: 18,
-          background: "rgba(12, 18, 34, 0.96)",
-          border: "1px solid rgba(255, 255, 255, 0.1)",
-          color: "#f4f7ff",
-          boxShadow: "0 24px 80px rgba(0, 0, 0, 0.5)",
-        }}
-      >
+    <div className="chibi-overlay">
+      <form onSubmit={handleSubmit} className="chibi-panel chibi-panel--modal">
         <div style={{ marginBottom: 24 }}>
-          <h1 style={{ margin: 0, fontSize: 28 }}>Create Your Character</h1>
-          <p style={{ margin: "8px 0 0", opacity: 0.75, fontSize: 14, maxWidth: 560 }}>
+          <h1 className="chibi-title chibi-sparkle-title">Create Your Chibi Hero</h1>
+          <p className="chibi-subtitle" style={{ maxWidth: 560 }}>
             Connect your wallet to bond your character. Name, avatar, and progress stay linked to
             your wallet across sessions.
           </p>
@@ -359,33 +318,23 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
           }}
         >
           <div>
-            <div style={{ fontSize: 12, opacity: 0.65, marginBottom: 10, letterSpacing: 0.4 }}>
-              PREVIEW
-            </div>
+            <div className="chibi-label">Preview</div>
             <CharacterPreview appearance={appearance} />
-            <div style={{ marginTop: 12, fontSize: 13, opacity: 0.7, textAlign: "center" }}>
-              {loadingCharacter ? "Loading saved character..." : "Isometric preview"}
+            <div className="chibi-text-muted" style={{ marginTop: 12, textAlign: "center" }}>
+              {loadingCharacter ? "Loading saved character..." : "Your chibi adventurer"}
             </div>
           </div>
 
           <div style={{ display: "grid", gap: 18 }}>
             <div>
-              <label style={{ display: "block", fontSize: 13, marginBottom: 8 }}>Character name</label>
+              <label className="chibi-label">Character name</label>
               <input
+                className="chibi-input"
                 value={name}
                 onChange={(event) => setName(event.target.value)}
                 maxLength={16}
                 placeholder="At least 2 characters"
                 readOnly={nameBonded}
-                style={{
-                  width: "100%",
-                  padding: "10px 12px",
-                  borderRadius: 8,
-                  border: "1px solid rgba(255, 255, 255, 0.15)",
-                  background: nameBonded ? "rgba(255, 255, 255, 0.02)" : "rgba(255, 255, 255, 0.05)",
-                  color: "#fff",
-                  cursor: nameBonded ? "not-allowed" : "text",
-                }}
               />
               {nameBonded && (
                 <div style={{ fontSize: 11, opacity: 0.6, marginTop: 6 }}>
@@ -395,7 +344,7 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
             </div>
 
             <div>
-              <div style={{ fontSize: 13, marginBottom: 8 }}>Skin tone</div>
+              <div className="chibi-label" style={{ textTransform: "none", letterSpacing: 0 }}>Skin tone</div>
               <ColorSwatches
                 colors={SKIN_TONES}
                 selected={appearance.bodyColor}
@@ -404,7 +353,7 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
             </div>
 
             <div>
-              <div style={{ fontSize: 13, marginBottom: 8 }}>Hair color</div>
+              <div className="chibi-label" style={{ textTransform: "none", letterSpacing: 0 }}>Hair color</div>
               <ColorSwatches
                 colors={HAIR_COLORS}
                 selected={appearance.hairColor}
@@ -413,7 +362,7 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
             </div>
 
             <div>
-              <div style={{ fontSize: 13, marginBottom: 8 }}>Outfit color</div>
+              <div className="chibi-label" style={{ textTransform: "none", letterSpacing: 0 }}>Outfit color</div>
               <ColorSwatches
                 colors={OUTFIT_COLORS}
                 selected={appearance.outfitColor}
@@ -422,7 +371,7 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
             </div>
 
             <div>
-              <div style={{ fontSize: 13, marginBottom: 8 }}>Hair style</div>
+              <div className="chibi-label" style={{ textTransform: "none", letterSpacing: 0 }}>Hair style</div>
               <StylePicker
                 options={HAIR_STYLES}
                 selected={appearance.hairStyle}
@@ -432,7 +381,7 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
             </div>
 
             <div>
-              <div style={{ fontSize: 13, marginBottom: 8 }}>Outfit style</div>
+              <div className="chibi-label" style={{ textTransform: "none", letterSpacing: 0 }}>Outfit style</div>
               <StylePicker
                 options={OUTFIT_STYLES}
                 selected={appearance.outfitStyle}
@@ -441,15 +390,8 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
               />
             </div>
 
-            <div
-                style={{
-                  padding: "14px 16px",
-                  borderRadius: 10,
-                  background: "rgba(255, 255, 255, 0.04)",
-                  border: "1px solid rgba(255, 255, 255, 0.08)",
-                }}
-              >
-                <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 8 }}>Wallet</div>
+            <div className="chibi-card chibi-card--info" style={{ padding: "14px 16px" }}>
+                <div className="chibi-label">Wallet</div>
                 {gateEnabled && (
                   <>
                     <div style={{ fontSize: 13, marginBottom: 8 }}>
@@ -488,18 +430,10 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
 
                 <button
                   type="button"
+                  className="chibi-btn chibi-btn--secondary"
                   onClick={() => void handleConnectWallet()}
                   disabled={connectingWallet || joining}
-                  style={{
-                    width: "100%",
-                    padding: "10px 12px",
-                    border: "1px solid rgba(255, 255, 255, 0.15)",
-                    borderRadius: 8,
-                    background: "rgba(255, 255, 255, 0.06)",
-                    color: "#fff",
-                    fontWeight: 600,
-                    cursor: connectingWallet ? "wait" : "pointer",
-                  }}
+                  style={{ width: "100%", padding: "10px 12px" }}
                 >
                   {connectingWallet
                     ? "Verifying wallet..."
@@ -512,38 +446,16 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
         </div>
 
         {error && (
-          <p
-            style={{
-              margin: "20px 0 0",
-              padding: "10px 12px",
-              borderRadius: 8,
-              background: "rgba(255, 80, 80, 0.12)",
-              border: "1px solid rgba(255, 120, 120, 0.35)",
-              color: "#ffb4b4",
-              fontSize: 13,
-            }}
-          >
+          <p className="chibi-card chibi-card--danger" style={{ margin: "20px 0 0", fontSize: "0.85rem" }}>
             {error}
           </p>
         )}
 
         <button
           type="submit"
+          className="chibi-btn chibi-btn--primary"
           disabled={enterDisabled}
-          style={{
-            width: "100%",
-            marginTop: 20,
-            padding: "13px 12px",
-            border: "none",
-            borderRadius: 10,
-            background: enterDisabled
-              ? "rgba(79, 140, 255, 0.45)"
-              : "linear-gradient(135deg, #4f8cff, #6c5ce7)",
-            color: "#fff",
-            fontWeight: 700,
-            fontSize: 15,
-            cursor: enterDisabled ? "not-allowed" : "pointer",
-          }}
+          style={{ width: "100%", marginTop: 20, padding: "13px 12px", fontSize: "1rem" }}
         >
           {joining
             ? "Entering world..."

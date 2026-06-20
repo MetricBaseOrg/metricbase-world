@@ -3,6 +3,7 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 import { setUiTypingActive } from "../game/inputControl";
 import { networkManager } from "../game/network";
 import { useGameStore } from "../store/gameStore";
+import { panelPosition } from "./chibiTheme";
 
 export function ChatPanel() {
   const [draft, setDraft] = useState("");
@@ -25,41 +26,28 @@ export function ChatPanel() {
 
   return (
     <div
+      className="chibi-panel chibi-panel--floating"
       style={{
-        position: "absolute",
-        left: 16,
-        bottom: 16,
+        ...panelPosition("bottom-left"),
         width: 360,
         display: "flex",
         flexDirection: "column",
         gap: 8,
-        pointerEvents: "auto",
+        padding: 10,
+        zIndex: 17,
       }}
     >
-      <div
-        ref={listRef}
-        style={{
-          height: 180,
-          overflowY: "auto",
-          padding: "10px 12px",
-          borderRadius: 10,
-          background: "rgba(8, 12, 24, 0.82)",
-          border: "1px solid rgba(255, 255, 255, 0.08)",
-          color: "#f4f7ff",
-          fontSize: 13,
-          lineHeight: 1.45,
-        }}
-      >
+      <div ref={listRef} className="chibi-chat-log chibi-card" style={{ background: "#fff" }}>
         {messages.length === 0 ? (
-          <div style={{ opacity: 0.55 }}>Zone chat is live. Say hello.</div>
+          <div className="chibi-text-muted">💬 Zone chat is live. Say hello!</div>
         ) : (
           messages.map((message) => (
-            <div key={message.id} style={{ marginBottom: 6 }}>
+            <div key={message.id} style={{ marginBottom: 6, fontSize: "0.84rem", lineHeight: 1.45 }}>
               {message.channel === "system" ? (
-                <span style={{ color: "#9ad7ff", fontStyle: "italic" }}>{message.body}</span>
+                <span className="chibi-chat-system">{message.body}</span>
               ) : (
                 <>
-                  <span style={{ color: "#ffd27f", fontWeight: 600 }}>{message.senderName}: </span>
+                  <span className="chibi-chat-name">{message.senderName}: </span>
                   <span>{message.body}</span>
                 </>
               )}
@@ -68,14 +56,9 @@ export function ChatPanel() {
         )}
       </div>
 
-      <form
-        onSubmit={handleSubmit}
-        style={{
-          display: "flex",
-          gap: 8,
-        }}
-      >
+      <form onSubmit={handleSubmit} style={{ display: "flex", gap: 8 }}>
         <input
+          className="chibi-input"
           value={draft}
           onChange={(event) => setDraft(event.target.value.slice(0, CHAT_MAX_LENGTH))}
           onFocus={() => {
@@ -84,26 +67,12 @@ export function ChatPanel() {
           }}
           onBlur={() => setUiTypingActive(false)}
           placeholder="Press Enter to chat..."
-          style={{
-            flex: 1,
-            padding: "10px 12px",
-            borderRadius: 8,
-            border: "1px solid rgba(255, 255, 255, 0.12)",
-            background: "rgba(8, 12, 24, 0.9)",
-            color: "#fff",
-          }}
+          style={{ flex: 1 }}
         />
         <button
           type="submit"
-          style={{
-            padding: "10px 14px",
-            border: "none",
-            borderRadius: 8,
-            background: "#4f8cff",
-            color: "#fff",
-            fontWeight: 600,
-            cursor: "pointer",
-          }}
+          className="chibi-btn chibi-btn--mint"
+          style={{ padding: "10px 14px", fontSize: "0.82rem" }}
         >
           Send
         </button>

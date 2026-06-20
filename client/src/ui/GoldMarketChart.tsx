@@ -22,13 +22,7 @@ function tradedCandles(candles: MarketCandle[]): MarketCandle[] {
 }
 
 function chartPanelStyle(): React.CSSProperties {
-  return {
-    marginTop: 16,
-    padding: "14px 16px",
-    borderRadius: 10,
-    background: "rgba(255,255,255,0.03)",
-    border: "1px solid rgba(255,255,255,0.08)",
-  };
+  return { marginTop: 16 };
 }
 
 export function GoldMarketChart({ chart }: GoldMarketChartProps) {
@@ -36,23 +30,23 @@ export function GoldMarketChart({ chart }: GoldMarketChartProps) {
 
   if (!payload.hasTrades) {
     return (
-      <div style={chartPanelStyle()}>
-        <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6 }}>Gold / Token Price</div>
+      <div className="chibi-card chibi-card--info" style={chartPanelStyle()}>
+        <div className="chibi-title chibi-title--sm" style={{ marginBottom: 8 }}>Gold / Token Price</div>
         <div
           style={{
             padding: "18px 14px",
-            borderRadius: 8,
-            background: "rgba(79, 140, 255, 0.08)",
-            border: "1px dashed rgba(79, 140, 255, 0.28)",
+            borderRadius: 12,
+            background: "#fff",
+            border: "2px dashed var(--chibi-sky-deep)",
             textAlign: "center",
           }}
         >
-          <div style={{ fontSize: 13, fontWeight: 600, color: "#d6e4ff" }}>No trades yet</div>
-          <div style={{ fontSize: 12, opacity: 0.72, marginTop: 6, lineHeight: 1.45 }}>
+          <div style={{ fontSize: "0.9rem", fontWeight: 800, color: "var(--chibi-ink)" }}>No trades yet</div>
+          <div className="chibi-text-muted" style={{ marginTop: 6, lineHeight: 1.45 }}>
             Candlesticks appear after the first gold market trade fills on-chain.
           </div>
           {payload.indicativePrice !== null && (
-            <div style={{ fontSize: 12, marginTop: 10, color: "#ffd27a" }}>
+            <div style={{ fontSize: "0.82rem", marginTop: 10, color: "var(--chibi-gold-deep)", fontWeight: 800 }}>
               Order book mid: {formatPrice(payload.indicativePrice)} tokens/gold
             </div>
           )}
@@ -97,20 +91,20 @@ export function GoldMarketChart({ chart }: GoldMarketChartProps) {
         : "#ff8f8f";
 
   return (
-    <div style={{ ...chartPanelStyle(), paddingBottom: 10 }}>
+    <div className="chibi-card" style={{ ...chartPanelStyle(), paddingBottom: 10, background: "#fff" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
         <div>
-          <div style={{ fontSize: 13, fontWeight: 700 }}>Gold / Token Price</div>
-          <div style={{ fontSize: 11, opacity: 0.6, marginTop: 4 }}>
+          <div className="chibi-title chibi-title--sm">Gold / Token Price</div>
+          <div className="chibi-text-muted" style={{ marginTop: 4 }}>
             Tokens per 1 gold · {payload.intervalLabel} candles
           </div>
         </div>
         <div style={{ textAlign: "right" }}>
-          <div style={{ fontSize: 18, fontWeight: 700, color: "#ffd27a" }}>
+          <div style={{ fontSize: "1.2rem", fontWeight: 800, color: "var(--chibi-gold-deep)" }}>
             {payload.lastPrice !== null ? formatPrice(payload.lastPrice) : "—"}
           </div>
           {payload.changePercent !== null && (
-            <div style={{ fontSize: 11, color: changeColor, marginTop: 2 }}>
+            <div style={{ fontSize: "0.75rem", color: changeColor, marginTop: 2, fontWeight: 700 }}>
               {payload.changePercent >= 0 ? "+" : ""}
               {payload.changePercent.toFixed(2)}% (24h)
             </div>

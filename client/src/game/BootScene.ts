@@ -3,11 +3,11 @@ import { TILE_HEIGHT, TILE_WIDTH } from "@metricbase/shared";
 import { TILESET_COLUMNS } from "./mapData";
 
 const TILE_COLORS = {
-  grass: { top: 0x5cb85c, left: 0x449d44, right: 0x3d8b3d },
-  stone: { top: 0x9e9e9e, left: 0x757575, right: 0x616161 },
-  water: { top: 0x4aa3df, left: 0x2f7fbf, right: 0x256ba3 },
-  wall: { top: 0x6d4c41, left: 0x4e342e, right: 0x3e2723 },
-  portal: { top: 0xb388ff, left: 0x7e57c2, right: 0x5e35b1 },
+  grass: { top: 0x9be870, left: 0x7ed957, right: 0x5fbf42 },
+  stone: { top: 0xd7ccc8, left: 0xbca59f, right: 0xa1887f },
+  water: { top: 0x7dd3fc, left: 0x5ec8f2, right: 0x38bdf8 },
+  wall: { top: 0xc49a6c, left: 0xa67c52, right: 0x8d6e63 },
+  portal: { top: 0xf0abfc, left: 0xe879f9, right: 0xd946ef },
 };
 
 export class BootScene extends Phaser.Scene {
@@ -60,48 +60,72 @@ export class BootScene extends Phaser.Scene {
   private createNpcTexture() {
     const graphics = this.make.graphics({ x: 0, y: 0 });
     const cx = 16;
-    const cy = 28;
+    const cy = 30;
+    const headY = cy - 20;
 
+    graphics.fillStyle(0x4a3728, 0.25);
+    graphics.fillEllipse(cx, cy + 2, 16, 7);
+    graphics.fillStyle(0xb794f6, 1);
+    graphics.fillRoundedRect(cx - 7, cy - 4, 14, 10, 4);
+    graphics.fillStyle(0xffd5c8, 1);
+    graphics.fillCircle(cx, headY, 12);
+    graphics.lineStyle(2, 0x4a3728, 1);
+    graphics.strokeCircle(cx, headY, 12);
+    graphics.fillStyle(0x7c3aed, 1);
+    graphics.fillCircle(cx, headY - 1, 12);
+    graphics.fillStyle(0xffffff, 1);
+    graphics.fillCircle(cx - 4, headY + 2, 2.5);
+    graphics.fillCircle(cx + 4, headY + 2, 2.5);
     graphics.fillStyle(0x2d3436, 1);
-    graphics.fillEllipse(cx, cy, 20, 10);
-    graphics.fillStyle(0xb388ff, 1);
-    graphics.fillCircle(cx, cy - 14, 10);
-    graphics.fillStyle(0x4a148c, 1);
-    graphics.fillRoundedRect(cx - 8, cy - 8, 16, 14, 3);
+    graphics.fillCircle(cx - 4, headY + 2.5, 1.2);
+    graphics.fillCircle(cx + 4, headY + 2.5, 1.2);
 
-    graphics.generateTexture("npc", 32, 40);
+    graphics.generateTexture("npc", 36, 44);
     graphics.destroy();
   }
 
   private createDummyTexture() {
     const graphics = this.make.graphics({ x: 0, y: 0 });
     const cx = 16;
-    const cy = 28;
+    const cy = 30;
 
-    graphics.fillStyle(0x2d3436, 1);
-    graphics.fillEllipse(cx, cy, 22, 11);
-    graphics.fillStyle(0xd4a574, 1);
-    graphics.fillRoundedRect(cx - 10, cy - 24, 20, 28, 4);
+    graphics.fillStyle(0x4a3728, 0.25);
+    graphics.fillEllipse(cx, cy + 2, 18, 8);
+    graphics.fillStyle(0xffb4a2, 1);
+    graphics.fillRoundedRect(cx - 9, cy - 18, 18, 22, 6);
+    graphics.lineStyle(2, 0x4a3728, 1);
+    graphics.strokeRoundedRect(cx - 9, cy - 18, 18, 22, 6);
     graphics.fillStyle(0x8d6e63, 1);
-    graphics.fillRect(cx - 8, cy - 20, 16, 8);
+    graphics.fillRect(cx - 7, cy - 14, 14, 6);
+    graphics.fillStyle(0xffffff, 1);
+    graphics.fillCircle(cx - 3, cy - 8, 2);
+    graphics.fillCircle(cx + 3, cy - 8, 2);
 
-    graphics.generateTexture("dummy", 32, 40);
+    graphics.generateTexture("dummy", 36, 44);
     graphics.destroy();
   }
 
   private createPlayerTexture() {
     const graphics = this.make.graphics({ x: 0, y: 0 });
     const cx = 16;
-    const cy = 28;
+    const cy = 30;
+    const headY = cy - 20;
 
-    graphics.fillStyle(0x2d3436, 1);
-    graphics.fillEllipse(cx, cy, 20, 10);
+    graphics.fillStyle(0x4a3728, 0.25);
+    graphics.fillEllipse(cx, cy + 2, 16, 7);
+    graphics.fillStyle(0x4ecdc4, 1);
+    graphics.fillRoundedRect(cx - 7, cy - 4, 14, 10, 4);
+    graphics.fillStyle(0xffd5c8, 1);
+    graphics.fillCircle(cx, headY, 12);
+    graphics.lineStyle(2, 0x4a3728, 1);
+    graphics.strokeCircle(cx, headY, 12);
     graphics.fillStyle(0xffc857, 1);
-    graphics.fillCircle(cx, cy - 14, 10);
-    graphics.fillStyle(0x355070, 1);
-    graphics.fillRoundedRect(cx - 8, cy - 8, 16, 14, 3);
+    graphics.fillCircle(cx, headY - 1, 11);
+    graphics.fillStyle(0xffffff, 1);
+    graphics.fillCircle(cx - 4, headY + 2, 2.5);
+    graphics.fillCircle(cx + 4, headY + 2, 2.5);
 
-    graphics.generateTexture("player", 32, 40);
+    graphics.generateTexture("player", 36, 44);
     graphics.destroy();
   }
 

@@ -1,6 +1,7 @@
 import { xpProgress } from "@metricbase/shared";
 import { useGameStore } from "../store/gameStore";
 import { shortenWallet } from "../wallet/solanaProvider";
+import { panelPosition } from "./chibiTheme";
 import { WalletConnectBar } from "./WalletConnectBar";
 
 interface HUDProps {
@@ -22,78 +23,54 @@ export function HUD({ onLeave }: HUDProps) {
   const percent = Math.min(100, Math.round((progress.current / progress.required) * 100));
 
   return (
-    <div
-      style={{
-        position: "absolute",
-        top: 16,
-        left: 16,
-        padding: "12px 16px",
-        borderRadius: 10,
-        background: "rgba(8, 12, 24, 0.78)",
-        border: "1px solid rgba(255, 255, 255, 0.08)",
-        color: "#f4f7ff",
-        backdropFilter: "blur(8px)",
-        pointerEvents: "auto",
-        minWidth: 220,
-      }}
-    >
-      <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 6 }}>MetricBase World</div>
-      <div style={{ fontSize: 13, opacity: 0.85 }}>Zone: {zoneName}</div>
-      <div style={{ fontSize: 13, opacity: 0.85, marginTop: 4 }}>
-        {playerName} · Lv {playerLevel} · {playerGold} gold
+    <div className="chibi-panel chibi-panel--hud" style={panelPosition("top-left")}>
+      <div className="chibi-title chibi-sparkle-title" style={{ fontSize: "1.25rem", marginBottom: 8 }}>
+        MetricBase World
       </div>
+
+      <div className="chibi-stat-pill" style={{ marginBottom: 6 }}>
+        <span>🗺️</span> {zoneName}
+      </div>
+
+      <div style={{ fontSize: "0.88rem", fontWeight: 700, marginTop: 8 }}>
+        {playerName} · Lv {playerLevel} · <span style={{ color: "var(--chibi-gold-deep)" }}>🪙 {playerGold}</span>
+      </div>
+
       {walletAddress ? (
-        <div style={{ fontSize: 12, opacity: 0.65, marginTop: 4 }}>
-          Wallet: {shortenWallet(walletAddress)}
+        <div className="chibi-text-muted" style={{ marginTop: 6 }}>
+          💳 {shortenWallet(walletAddress)}
         </div>
       ) : (
         <div style={{ marginTop: 8 }}>
           <WalletConnectBar compact hint="Connect wallet to trade on the gold market (E at Pip)." />
         </div>
       )}
-      <div style={{ marginTop: 8 }}>
-        <div
-          style={{
-            height: 6,
-            borderRadius: 999,
-            background: "rgba(255, 255, 255, 0.08)",
-            overflow: "hidden",
-          }}
-        >
-          <div
-            style={{
-              width: `${percent}%`,
-              height: "100%",
-              borderRadius: 999,
-              background: "linear-gradient(90deg, #4f8cff, #6c5ce7)",
-            }}
-          />
+
+      <div style={{ marginTop: 10 }}>
+        <div className="chibi-progress">
+          <div className="chibi-progress__fill" style={{ width: `${percent}%` }} />
         </div>
-        <div style={{ fontSize: 11, opacity: 0.6, marginTop: 4 }}>
+        <div className="chibi-text-muted" style={{ marginTop: 4 }}>
           XP {progress.current} / {progress.required}
         </div>
       </div>
-      <div style={{ fontSize: 13, opacity: 0.85, marginTop: 4 }}>
-        Status: {connected ? "Connected" : "Connecting..."}
+
+      <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
+        <span className={`chibi-badge ${connected ? "chibi-badge--online" : "chibi-badge--offline"}`}>
+          {connected ? "Online" : "Connecting"}
+        </span>
+        <span className="chibi-stat-pill">👥 {playerCount}</span>
       </div>
-      <div style={{ fontSize: 13, opacity: 0.85, marginTop: 4 }}>Online: {playerCount}</div>
-      <div style={{ fontSize: 12, opacity: 0.6, marginTop: 10 }}>
-        WASD move · E shop/market · Space attack · I inventory · Purple tiles = portals
+
+      <div className="chibi-key-hint">
+        WASD move · E shop · Space attack · I inventory · Purple tiles = portals
       </div>
+
       <button
         type="button"
+        className="chibi-btn chibi-btn--secondary"
         onClick={onLeave}
-        style={{
-          marginTop: 12,
-          width: "100%",
-          padding: "8px 10px",
-          border: "1px solid rgba(255, 255, 255, 0.15)",
-          borderRadius: 8,
-          background: "rgba(255, 255, 255, 0.05)",
-          color: "#f4f7ff",
-          fontSize: 12,
-          cursor: "pointer",
-        }}
+        style={{ marginTop: 12, width: "100%", padding: "8px 10px", fontSize: "0.82rem" }}
       >
         Leave World
       </button>
