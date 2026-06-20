@@ -464,9 +464,10 @@ export class GameScene extends Phaser.Scene {
       if (!existing) {
         const textureKey = ensurePhaserCharacterTexture(this, player.appearance);
         const sprite = this.add.sprite(player.x, player.y, textureKey);
+        sprite.setOrigin(0.5, 0.93);
         sprite.setDepth(1000);
         const label = this.add
-          .text(player.x, player.y - 34, player.name, {
+          .text(player.x, player.y - 42, player.name, {
             fontFamily: '"Fredoka", "Nunito", sans-serif',
             fontSize: "12px",
             fontStyle: "bold",
@@ -506,7 +507,7 @@ export class GameScene extends Phaser.Scene {
             ? reconcilePrediction(existing.predicted, { x: player.x, y: player.y })
             : { x: player.x, y: player.y };
           existing.sprite.setPosition(existing.predicted.x, existing.predicted.y);
-          existing.label.setPosition(existing.predicted.x, existing.predicted.y - 34);
+          existing.label.setPosition(existing.predicted.x, existing.predicted.y - 42);
         }
 
         existing.label.setText(player.name);
@@ -531,7 +532,7 @@ export class GameScene extends Phaser.Scene {
 
     local.predicted = stepPrediction(local.predicted, dx, dy, delta);
     local.sprite.setPosition(local.predicted.x, local.predicted.y);
-    local.label.setPosition(local.predicted.x, local.predicted.y - 34);
+    local.label.setPosition(local.predicted.x, local.predicted.y - 42);
   }
 
   private interpolateRemotePlayers() {
@@ -542,7 +543,7 @@ export class GameScene extends Phaser.Scene {
 
       rendered.sprite.x = Phaser.Math.Linear(rendered.sprite.x, rendered.targetX, alpha);
       rendered.sprite.y = Phaser.Math.Linear(rendered.sprite.y, rendered.targetY, alpha);
-      rendered.label.setPosition(rendered.sprite.x, rendered.sprite.y - 34);
+      rendered.label.setPosition(rendered.sprite.x, rendered.sprite.y - 42);
     }
   }
 
