@@ -96,6 +96,7 @@ export class GameScene extends Phaser.Scene {
     D: Phaser.Input.Keyboard.Key;
   };
   private renderedPlayers = new Map<string, RenderedPlayer>();
+  private localAvatar: RenderedPlayer | null = null;
   private localSessionId: string | null = null;
   private mapTiles: Phaser.GameObjects.Image[] = [];
   private renderedNpcs: RenderedNpc[] = [];
@@ -140,6 +141,7 @@ export class GameScene extends Phaser.Scene {
       networkManager.sendInput(0, 0);
       this.localSessionId = null;
       this.localChoppingUntil = 0;
+      this.destroyLocalAvatar();
       this.renderedPlayers.forEach((entry) => {
         entry.sprite.destroy();
         entry.label.destroy();
@@ -245,6 +247,7 @@ export class GameScene extends Phaser.Scene {
       this.clearMap();
       this.clearNpcs();
       this.clearResources();
+      this.destroyLocalAvatar();
       this.renderedPlayers.forEach((entry) => {
         entry.sprite.destroy();
         entry.label.destroy();
@@ -295,25 +298,14 @@ export class GameScene extends Phaser.Scene {
   }
 
   private findLocalPlayer(): RenderedPlayer | null {
-    if (this.localSessionId) {
-      const match = this.renderedPlayers.get(this.localSessionId);
-      if (match) return match;
-    }
+    return this.localAvatar;
+  }
 
-    const sessionId = networkManager.sessionId;
-    if (sessionId) {
-      const match = this.renderedPlayers.get(sessionId);
-      if (match) return match;
-    }
-
-    const playerName = useGameStore.getState().playerName;
-    for (const rendered of this.renderedPlayers.values()) {
-      if (rendered.label.text === playerName) {
-        return rendered;
-      }
-    }
-
-    return null;
+  private destroyLocalAvatar() {
+    if (!this.localAvatar) return;
+    this.localAvatar.sprite.destroy();
+    this.localAvatar.label.destroy();
+    this.localAvatar = null;
   }
 
   private bootstrapFromNetwork() {
@@ -396,13 +388,8 @@ export class GameScene extends Phaser.Scene {
     const sessionId = networkManager.sessionId ?? player.sessionId;
     this.localSessionId = sessionId;
 
-    const existing = this.findLocalPlayer();
-    if (existing) {
-      const currentKey = this.findRenderedSessionId(existing);
-      if (currentKey && currentKey !== sessionId) {
-        this.adoptRenderedSessionId(currentKey, sessionId, existing);
-      }
-
+    if (this.localAvatar) {
+      const existing = this.localAvatar;
       existing.lastTargetX = existing.targetX;
       existing.lastTargetY = existing.targetY;
       existing.targetX = player.x;
@@ -417,16 +404,8 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    this.destroyAllLocalPlayerEntries(sessionId);
-    const entry = this.createRenderedPlayerEntry(player, true);
-    this.renderedPlayers.set(sessionId, entry);
-  }
-
-  private findRenderedSessionId(rendered: RenderedPlayer): string | null {
-    for (const [sessionId, entry] of this.renderedPlayers.entries()) {
-      if (entry === rendered) return sessionId;
-    }
-    return null;
+    this.destroyAllLocalPlayerEntries();
+    this.localAvatar = this.createRenderedPlayerEntry(player, true);
   }
 
   private destroyRenderedPlayer(sessionId: string, rendered: RenderedPlayer) {
@@ -435,10 +414,10 @@ export class GameScene extends Phaser.Scene {
     this.renderedPlayers.delete(sessionId);
   }
 
-  private destroyAllLocalPlayerEntries(keepSessionId: string) {
+  private destroyAllLocalPlayerEntries() {
+    this.destroyLocalAvatar();
     const playerName = useGameStore.getState().playerName;
     for (const [sessionId, rendered] of [...this.renderedPlayers.entries()]) {
-      if (sessionId === keepSessionId) continue;
       if (rendered.label.text === playerName || sessionId === networkManager.sessionId) {
         this.destroyRenderedPlayer(sessionId, rendered);
       }
@@ -453,6 +432,11 @@ export class GameScene extends Phaser.Scene {
   private sweepStrayAvatarSprites() {
     const trackedSprites = new Set<Phaser.GameObjects.Sprite>();
     const trackedLabels = new Set<Phaser.GameObjects.Text>();
+
+    if (this.localAvatar?.sprite.active) {
+      trackedSprites.add(this.localAvatar.sprite);
+      trackedLabels.add(this.localAvatar.label);
+    }
 
     for (const rendered of this.renderedPlayers.values()) {
       if (!rendered.sprite.active) continue;
@@ -525,15 +509,6 @@ export class GameScene extends Phaser.Scene {
       prevSpriteX: player.x,
       prevSpriteY: player.y,
     };
-  }
-
-  private adoptRenderedSessionId(oldSessionId: string, newSessionId: string, rendered: RenderedPlayer) {
-    if (oldSessionId === newSessionId) return;
-    this.renderedPlayers.delete(oldSessionId);
-    this.renderedPlayers.set(newSessionId, rendered);
-    if (this.localSessionId === oldSessionId) {
-      this.localSessionId = newSessionId;
-    }
   }
 
   private renderZone(zoneId: string) {
@@ -1021,10 +996,12 @@ export class GameScene extends Phaser.Scene {
 
   private updatePlayerAnimations() {
     const now = Date.now();
-    const localPlayer = this.findLocalPlayer();
+    const entries: RenderedPlayer[] = [];
+    if (this.localAvatar) entries.push(this.localAvatar);
+    for (const rendered of this.renderedPlayers.values()) entries.push(rendered);
 
-    for (const [, rendered] of this.renderedPlayers) {
-      const isLocal = localPlayer !== null && rendered === localPlayer;
+    for (const rendered of entries) {
+      const isLocal = rendered === this.localAvatar;
       let direction = rendered.direction;
       let action: AvatarAction = "idle";
 
@@ -1131,7 +1108,6 @@ export class GameScene extends Phaser.Scene {
 
       if (isLocal) {
         this.upsertLocalPlayer(player);
-        seen.add(networkManager.sessionId ?? player.sessionId);
         continue;
       }
 
@@ -1148,14 +1124,6 @@ export class GameScene extends Phaser.Scene {
         existing.targetX = player.x;
         existing.targetY = player.y;
         existing.label.setText(player.name);
-      }
-    }
-
-    const localRendered = this.findLocalPlayer();
-    if (localRendered) {
-      const localKey = this.findRenderedSessionId(localRendered);
-      if (localKey) {
-        seen.add(localKey);
       }
     }
 

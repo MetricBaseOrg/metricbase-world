@@ -1,4 +1,4 @@
-import { getItemDefinition, woodcuttingXpProgress, xpProgress } from "@metricbase/shared";
+import { GAME_VERSION, getItemDefinition, woodcuttingXpProgress, xpProgress } from "@metricbase/shared";
 import { useState } from "react";
 import { isSoundEnabled, playSfx, setSoundEnabled } from "../audio/soundEffects";
 import { useGameStore } from "../store/gameStore";
@@ -170,6 +170,10 @@ export function HUD({ onLeave }: HUDProps) {
               WASD move · E interact · Space attack/chop · F chop · G fish · I inventory
             </div>
           )}
+
+          <div className="chibi-text-muted" style={{ marginTop: 8, fontSize: "0.68rem", textAlign: "center" }}>
+            client v{GAME_VERSION}
+          </div>
 
           <button
             type="button"
