@@ -34,9 +34,11 @@ export function App() {
     setShop,
     setShopOpen,
     setPlayerGold,
+    setSkillState,
   } = useGameStore();
 
   const previousLevelRef = useRef(1);
+  const previousWoodcuttingLevelRef = useRef(1);
   const previousCompletedQuestsRef = useRef(0);
 
   useEffect(() => bindUiTypingFocusGuard(), []);
@@ -117,6 +119,14 @@ export function App() {
       setShopOpen(true);
     });
 
+    const unsubscribeSkillState = networkManager.onSkillState((state) => {
+      if (state.woodcutting.level > previousWoodcuttingLevelRef.current) {
+        playSfx("skill_level_up");
+      }
+      previousWoodcuttingLevelRef.current = state.woodcutting.level;
+      setSkillState(state.woodcutting.level, state.woodcutting.xp);
+    });
+
     const unsubscribeNpcDialogue = networkManager.onNpcDialogue((npcName, dialogue) => {
       addChatMessage({
         id: crypto.randomUUID(),
@@ -140,6 +150,7 @@ export function App() {
       unsubscribeInventory();
       unsubscribeShopOpen();
       unsubscribeNpcDialogue();
+      unsubscribeSkillState();
       void networkManager.disconnect();
     };
   }, [
@@ -153,6 +164,7 @@ export function App() {
     setShopOpen,
     setQuestState,
     setZoneName,
+    setSkillState,
   ]);
 
   const handleJoin = async (
@@ -194,6 +206,7 @@ export function App() {
   const handleLeave = async () => {
     resetMobileInput();
     previousLevelRef.current = 1;
+    previousWoodcuttingLevelRef.current = 1;
     previousCompletedQuestsRef.current = 0;
     await networkManager.disconnect();
     clearChat();
@@ -209,6 +222,7 @@ export function App() {
     const store = useGameStore.getState();
     store.setPlayerVitals(40, 40);
     store.setProfile(store.playerLevel, store.playerXp, 0, 40, 40, null, false, null);
+    store.setSkillState(1, 0);
     setJoined(false);
   };
 

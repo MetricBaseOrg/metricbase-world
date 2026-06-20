@@ -56,6 +56,14 @@ export const ITEMS: Record<string, ItemDefinition> = {
     maxStack: 1,
     kind: "weapon",
   },
+  item_wood: {
+    id: "item_wood",
+    name: "Wood",
+    description: "Logs from felled trees. Pip buys these for crafting supplies.",
+    stackable: true,
+    maxStack: 99,
+    kind: "material",
+  },
   item_slime_gel: {
     id: "item_slime_gel",
     name: "Slime Gel",

@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import {
   ATTACK_RANGE,
+  CHOP_RANGE,
   SLIME_BRUTE_NPC_ID,
   WILD_SLIME_NPC_ID,
   getZoneConfig,
@@ -44,6 +45,18 @@ interface RenderedNpc {
   currentHp: number;
 }
 
+interface RenderedResource {
+  id: string;
+  sprite: Phaser.GameObjects.Sprite;
+  label: Phaser.GameObjects.Text;
+  worldX: number;
+  worldY: number;
+  chopBarBg: Phaser.GameObjects.Graphics;
+  chopBarFill: Phaser.GameObjects.Graphics;
+  maxChops: number;
+  currentChops: number;
+}
+
 export class GameScene extends Phaser.Scene {
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private wasd!: {
@@ -56,8 +69,10 @@ export class GameScene extends Phaser.Scene {
   private localSessionId: string | null = null;
   private mapTiles: Phaser.GameObjects.Image[] = [];
   private renderedNpcs: RenderedNpc[] = [];
+  private renderedResources: RenderedResource[] = [];
   private interactKey: Phaser.Input.Keyboard.Key | null = null;
   private attackKey: Phaser.Input.Keyboard.Key | null = null;
+  private chopKey: Phaser.Input.Keyboard.Key | null = null;
   private lastSentInput = { dx: 0, dy: 0 };
   private currentZoneId: string | null = null;
 
@@ -74,6 +89,7 @@ export class GameScene extends Phaser.Scene {
       this.wasd = this.input.keyboard.addKeys("W,A,S,D") as GameScene["wasd"];
       this.interactKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
       this.attackKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+      this.chopKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.F);
     }
 
     const unsubscribePlayers = networkManager.onPlayersChange((players, sessionId) => {
@@ -112,6 +128,23 @@ export class GameScene extends Phaser.Scene {
       playSfx("player_hurt");
     });
 
+    const unsubscribeResourceHealth = networkManager.onResourceHealth((payload) => {
+      this.updateResourceHealth(payload.resourceId, payload.currentChops, payload.maxChops);
+    });
+
+    const unsubscribeChopResult = networkManager.onChopResult((payload) => {
+      this.updateResourceHealth(payload.resourceId, payload.currentChops, payload.maxChops);
+      if (payload.ok === false) {
+        playSfx("shop_fail");
+        return;
+      }
+      if (payload.depleted) {
+        playSfx("chop_fell");
+      } else {
+        playSfx("chop_hit");
+      }
+    });
+
     this.renderZone(networkManager.zoneId);
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
@@ -120,8 +153,11 @@ export class GameScene extends Phaser.Scene {
       unsubscribeMobHealth();
       unsubscribeAttackResult();
       unsubscribePlayerDamage();
+      unsubscribeResourceHealth();
+      unsubscribeChopResult();
       this.clearMap();
       this.clearNpcs();
+      this.clearResources();
       this.renderedPlayers.forEach((entry) => {
         entry.sprite.destroy();
         entry.label.destroy();
@@ -153,6 +189,7 @@ export class GameScene extends Phaser.Scene {
     this.applyKnockedOutVisuals();
     this.tryInteract();
     this.tryAttack();
+    this.tryChop();
   }
 
   private renderZone(zoneId: string) {
@@ -160,6 +197,7 @@ export class GameScene extends Phaser.Scene {
     this.currentZoneId = zoneId;
     this.clearMap();
     this.clearNpcs();
+    this.clearResources();
 
     const ground = buildZoneMap(zoneId);
 
@@ -176,6 +214,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.renderNpcs(zoneId);
+    this.renderResources(zoneId);
   }
 
   private clearMap() {
@@ -191,6 +230,16 @@ export class GameScene extends Phaser.Scene {
       npc.hpBarFill.destroy();
     });
     this.renderedNpcs = [];
+  }
+
+  private clearResources() {
+    this.renderedResources.forEach((resource) => {
+      resource.sprite.destroy();
+      resource.label.destroy();
+      resource.chopBarBg.destroy();
+      resource.chopBarFill.destroy();
+    });
+    this.renderedResources = [];
   }
 
   private renderNpcs(zoneId: string) {
@@ -269,6 +318,83 @@ export class GameScene extends Phaser.Scene {
         this.drawNpcHealthBar(rendered);
       }
     }
+  }
+
+  private renderResources(zoneId: string) {
+    const config = getZoneConfig(zoneId);
+
+    for (const resource of config.resources ?? []) {
+      const { x, y } = tileToWorld(resource.tileX, resource.tileY);
+      const saved = networkManager.getResourceHealth(resource.id);
+      const maxChops = resource.woodcutting.maxChops;
+      const currentChops = saved?.currentChops ?? maxChops;
+
+      const sprite = this.add.sprite(x, y, "tree");
+      sprite.setDepth(850);
+      sprite.setAlpha(currentChops > 0 ? 1 : 0.35);
+
+      const label = this.add
+        .text(x, y - 40, resource.name, {
+          fontFamily: '"Fredoka", "Nunito", sans-serif',
+          fontSize: "11px",
+          fontStyle: "bold",
+          color: "#2e7d32",
+          stroke: "#fff9f0",
+          strokeThickness: 4,
+          backgroundColor: "#dcfce7",
+          padding: { x: 5, y: 2 },
+        })
+        .setOrigin(0.5, 1)
+        .setDepth(851);
+
+      const chopBarBg = this.add.graphics().setDepth(852);
+      const chopBarFill = this.add.graphics().setDepth(853);
+
+      const rendered: RenderedResource = {
+        id: resource.id,
+        sprite,
+        label,
+        worldX: x,
+        worldY: y,
+        chopBarBg,
+        chopBarFill,
+        maxChops,
+        currentChops,
+      };
+
+      this.renderedResources.push(rendered);
+      this.drawResourceChopBar(rendered);
+    }
+  }
+
+  private updateResourceHealth(resourceId: string, currentChops: number, maxChops: number) {
+    const resource = this.renderedResources.find((entry) => entry.id === resourceId);
+    if (!resource) return;
+
+    resource.currentChops = currentChops;
+    resource.maxChops = maxChops;
+    resource.sprite.setAlpha(currentChops > 0 ? 1 : 0.35);
+    this.drawResourceChopBar(resource);
+  }
+
+  private drawResourceChopBar(resource: RenderedResource) {
+    resource.chopBarBg.clear();
+    resource.chopBarFill.clear();
+
+    if (resource.maxChops <= 0) return;
+
+    const width = 36;
+    const height = 6;
+    const x = resource.worldX - width / 2;
+    const y = resource.worldY - 52;
+    const fillWidth = Math.max(0, (resource.currentChops / resource.maxChops) * (width - 4));
+
+    resource.chopBarBg.fillStyle(0xfff9f0, 1);
+    resource.chopBarBg.fillRoundedRect(x, y, width, height, 3);
+    resource.chopBarBg.lineStyle(1.5, 0x4a3728, 1);
+    resource.chopBarBg.strokeRoundedRect(x, y, width, height, 3);
+    resource.chopBarFill.fillStyle(resource.currentChops > 0 ? 0x66bb6a : 0xc9b8a8, 1);
+    resource.chopBarFill.fillRoundedRect(x + 2, y + 2, fillWidth, height - 4, 2);
   }
 
   private drawNpcHealthBar(npc: RenderedNpc) {
@@ -426,6 +552,44 @@ export class GameScene extends Phaser.Scene {
     if (nearest) {
       playSfx("attack_swing");
       networkManager.sendAttack(nearest.id);
+      return;
+    }
+
+    if (mobileAttack || keyboardAttack) {
+      this.chopNearestTree(local);
+    }
+  }
+
+  private tryChop() {
+    const keyboardChop = this.chopKey !== null && Phaser.Input.Keyboard.JustDown(this.chopKey);
+    if (!keyboardChop) return;
+    if (!this.localSessionId) return;
+
+    const local = this.renderedPlayers.get(this.localSessionId);
+    if (!local) return;
+
+    this.chopNearestTree(local);
+  }
+
+  private chopNearestTree(local: RenderedPlayer) {
+    let nearest: RenderedResource | null = null;
+    let nearestDistance = CHOP_RANGE;
+
+    for (const resource of this.renderedResources) {
+      if (resource.currentChops <= 0) continue;
+      const distance = Math.hypot(
+        local.predicted.x - resource.worldX,
+        local.predicted.y - resource.worldY,
+      );
+      if (distance <= nearestDistance) {
+        nearest = resource;
+        nearestDistance = distance;
+      }
+    }
+
+    if (nearest) {
+      playSfx("chop_swing");
+      networkManager.sendChop(nearest.id);
     }
   }
 

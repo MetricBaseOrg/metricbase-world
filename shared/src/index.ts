@@ -45,6 +45,8 @@ export * from "./equipment.js";
 export * from "./shop.js";
 export * from "./tokenShop.js";
 export * from "./market.js";
+export * from "./skills.js";
+export * from "./resources.js";
 export * from "./schema/PlayerSchema.js";
 export * from "./schema/ZoneState.js";
 

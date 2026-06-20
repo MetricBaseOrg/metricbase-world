@@ -1,6 +1,7 @@
 import { Client, Room } from "colyseus.js";
 import {
   AttackResultPayload,
+  ChopResultPayload,
   CharacterLookupResponse,
   ChatMessagePayload,
   getZoneConfig,
@@ -11,8 +12,10 @@ import {
   normalizeCharacterAppearance,
   PlayerDamagePayload,
   ProfilePayload,
+  ResourceHealthPayload,
   RespawnResultPayload,
   QuestStatePayload,
+  SkillStatePayload,
   ShopOpenPayload,
   ShopResultPayload,
   MarketResultPayload,
@@ -53,6 +56,9 @@ type MarketResultListener = (payload: MarketResultPayload) => void;
 type WalletLinkedListener = (payload: { ok: boolean; wallet?: string; error?: string }) => void;
 type RespawnResultListener = (payload: RespawnResultPayload) => void;
 type PlayerDamageListener = (payload: PlayerDamagePayload) => void;
+type ResourceHealthListener = (payload: ResourceHealthPayload) => void;
+type ChopResultListener = (payload: ChopResultPayload) => void;
+type SkillStateListener = (payload: SkillStatePayload) => void;
 
 export class NetworkManager {
   private client: Client | null = null;
@@ -79,10 +85,15 @@ export class NetworkManager {
   private walletLinkedListeners = new Set<WalletLinkedListener>();
   private respawnResultListeners = new Set<RespawnResultListener>();
   private playerDamageListeners = new Set<PlayerDamageListener>();
+  private resourceHealthListeners = new Set<ResourceHealthListener>();
+  private chopResultListeners = new Set<ChopResultListener>();
+  private skillStateListeners = new Set<SkillStateListener>();
   private latestQuestState: QuestStatePayload = { active: [], completed: [] };
   private latestInventory: InventoryStatePayload = { items: [], capacity: 16 };
+  private latestSkillState: SkillStatePayload = { woodcutting: { level: 1, xp: 0 } };
   private isTransferring = false;
   private mobHealth = new Map<string, MobHealthPayload>();
+  private resourceHealth = new Map<string, ResourceHealthPayload>();
 
   get sessionId(): string | null {
     return this.room?.sessionId ?? null;
@@ -184,6 +195,10 @@ export class NetworkManager {
     this.room?.send("attack", { npcId });
   }
 
+  sendChop(resourceId: string) {
+    this.room?.send("chop", { resourceId });
+  }
+
   sendShopBuy(shopId: string, itemId: string) {
     this.room?.send("shopBuy", { shopId, itemId });
   }
@@ -277,6 +292,10 @@ export class NetworkManager {
     return this.mobHealth.get(npcId);
   }
 
+  getResourceHealth(resourceId: string): ResourceHealthPayload | undefined {
+    return this.resourceHealth.get(resourceId);
+  }
+
   async disconnect() {
     await this.leaveCurrentRoom();
     this.client = null;
@@ -285,6 +304,8 @@ export class NetworkManager {
     this.latestQuestState = { active: [], completed: [] };
     this.latestInventory = { items: [], capacity: 16 };
     this.mobHealth.clear();
+    this.resourceHealth.clear();
+    this.latestSkillState = { woodcutting: { level: 1, xp: 0 } };
     this.emitConnection(false, 0);
     this.emitPlayers();
   }
@@ -393,6 +414,25 @@ export class NetworkManager {
     return () => this.playerDamageListeners.delete(listener);
   }
 
+  onResourceHealth(listener: ResourceHealthListener) {
+    this.resourceHealthListeners.add(listener);
+    for (const payload of this.resourceHealth.values()) {
+      listener(payload);
+    }
+    return () => this.resourceHealthListeners.delete(listener);
+  }
+
+  onChopResult(listener: ChopResultListener) {
+    this.chopResultListeners.add(listener);
+    return () => this.chopResultListeners.delete(listener);
+  }
+
+  onSkillState(listener: SkillStateListener) {
+    this.skillStateListeners.add(listener);
+    listener(this.latestSkillState);
+    return () => this.skillStateListeners.delete(listener);
+  }
+
   private async joinZone(zoneId: string) {
     if (!this.client) {
       this.client = new Client(getWebSocketUrl());
@@ -412,6 +452,7 @@ export class NetworkManager {
     }
     this.currentZoneId = zoneId;
     this.mobHealth.clear();
+    this.resourceHealth.clear();
 
     this.room.onStateChange(() => this.emitPlayers());
     this.room.onMessage("chat", (message: ChatMessagePayload) => {
@@ -446,6 +487,35 @@ export class NetworkManager {
     this.room.onMessage("mobHealth", (payload: MobHealthPayload) => {
       this.mobHealth.set(payload.npcId, payload);
       for (const listener of this.mobHealthListeners) {
+        listener(payload);
+      }
+    });
+    this.room.onMessage("resourceHealth", (payload: ResourceHealthPayload) => {
+      this.resourceHealth.set(payload.resourceId, payload);
+      for (const listener of this.resourceHealthListeners) {
+        listener(payload);
+      }
+    });
+    this.room.onMessage("chopResult", (payload: ChopResultPayload) => {
+      this.resourceHealth.set(payload.resourceId, {
+        resourceId: payload.resourceId,
+        currentChops: payload.currentChops,
+        maxChops: payload.maxChops,
+      });
+      for (const listener of this.chopResultListeners) {
+        listener(payload);
+      }
+      for (const listener of this.resourceHealthListeners) {
+        listener({
+          resourceId: payload.resourceId,
+          currentChops: payload.currentChops,
+          maxChops: payload.maxChops,
+        });
+      }
+    });
+    this.room.onMessage("skillState", (payload: SkillStatePayload) => {
+      this.latestSkillState = payload;
+      for (const listener of this.skillStateListeners) {
         listener(payload);
       }
     });

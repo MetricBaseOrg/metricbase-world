@@ -1,4 +1,5 @@
 import type { NpcCombatConfig } from "./combat.js";
+import type { ZoneResourceNode } from "./resources.js";
 
 export const ZONE_HUB = "zone_hub";
 export const ZONE_WILDERNESS = "zone_wilderness";
@@ -36,6 +37,7 @@ export interface ZoneConfig {
   spawnTile: { x: number; y: number };
   portals: ZonePortal[];
   npcs: ZoneNpc[];
+  resources?: ZoneResourceNode[];
 }
 
 export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
@@ -59,7 +61,7 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
         tileX: 12,
         tileY: 10,
         dialogue:
-          "Welcome to MetricBase Hub! I track quests for new adventurers. Purple tiles are portals to the Wilderness.",
+          "Welcome to MetricBase Hub! Chop the oaks west of town for wood, then sell logs to Pip. Purple tiles lead to the Wilderness.",
       },
       {
         id: "hub_merchant",
@@ -69,6 +71,50 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
         shopId: "pip_general",
         dialogue:
           "Welcome to Pip's Provisions! Trade gold on the open market, or buy gear with in-game gold.",
+      },
+    ],
+    resources: [
+      {
+        id: "hub_tree_north",
+        name: "Young Oak",
+        tileX: 7,
+        tileY: 8,
+        kind: "tree",
+        woodcutting: {
+          maxChops: 3,
+          skillXp: 10,
+          respawnMs: 25_000,
+          lootItemId: "item_wood",
+          lootQuantity: 1,
+        },
+      },
+      {
+        id: "hub_tree_south",
+        name: "Young Oak",
+        tileX: 7,
+        tileY: 16,
+        kind: "tree",
+        woodcutting: {
+          maxChops: 3,
+          skillXp: 10,
+          respawnMs: 25_000,
+          lootItemId: "item_wood",
+          lootQuantity: 1,
+        },
+      },
+      {
+        id: "hub_tree_east",
+        name: "Sapling",
+        tileX: 19,
+        tileY: 8,
+        kind: "tree",
+        woodcutting: {
+          maxChops: 2,
+          skillXp: 8,
+          respawnMs: 20_000,
+          lootItemId: "item_wood",
+          lootQuantity: 1,
+        },
       },
     ],
   },
@@ -98,7 +144,7 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
         tileX: 8,
         tileY: 8,
         dialogue:
-          "Head east to the Training Dummy, or south to hunt Wild Slimes. Veterans can pick up patrol work from me — bring back Slime Gel!",
+          "Chop trees in the west grove for wood and Woodcutting XP. Head east for the Training Dummy, or south to hunt Wild Slimes.",
       },
       {
         id: "training_dummy",
@@ -115,6 +161,80 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
         tileY: 14,
         dialogue: "Gloop! A squishy slime. Easier than the dummy, but still fights back.",
         combat: { maxHp: 45, rewardXp: 20, respawnMs: 8_000 },
+      },
+    ],
+    resources: [
+      {
+        id: "wild_tree_west_1",
+        name: "Wild Oak",
+        tileX: 6,
+        tileY: 10,
+        kind: "tree",
+        woodcutting: {
+          maxChops: 4,
+          skillXp: 14,
+          respawnMs: 30_000,
+          lootItemId: "item_wood",
+          lootQuantity: 1,
+        },
+      },
+      {
+        id: "wild_tree_west_2",
+        name: "Wild Oak",
+        tileX: 6,
+        tileY: 16,
+        kind: "tree",
+        woodcutting: {
+          maxChops: 4,
+          skillXp: 14,
+          respawnMs: 30_000,
+          lootItemId: "item_wood",
+          lootQuantity: 1,
+        },
+      },
+      {
+        id: "wild_tree_north",
+        name: "Pine",
+        tileX: 10,
+        tileY: 6,
+        kind: "tree",
+        woodcutting: {
+          maxChops: 5,
+          requiredLevel: 2,
+          skillXp: 18,
+          respawnMs: 35_000,
+          lootItemId: "item_wood",
+          lootQuantity: 2,
+        },
+      },
+      {
+        id: "wild_tree_south",
+        name: "Wild Oak",
+        tileX: 12,
+        tileY: 18,
+        kind: "tree",
+        woodcutting: {
+          maxChops: 4,
+          skillXp: 14,
+          respawnMs: 30_000,
+          lootItemId: "item_wood",
+          lootQuantity: 1,
+        },
+      },
+      {
+        id: "wild_tree_east",
+        name: "Ironwood",
+        tileX: 20,
+        tileY: 8,
+        kind: "tree",
+        woodcutting: {
+          maxChops: 6,
+          requiredLevel: 4,
+          skillXp: 28,
+          respawnMs: 45_000,
+          lootItemId: "item_wood",
+          lootQuantity: 2,
+        },
       },
     ],
   },

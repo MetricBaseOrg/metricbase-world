@@ -17,7 +17,11 @@ export type SfxType =
   | "market_fail"
   | "item_use"
   | "level_up"
-  | "player_hurt";
+  | "skill_level_up"
+  | "player_hurt"
+  | "chop_swing"
+  | "chop_hit"
+  | "chop_fell";
 
 const MASTER_VOLUME = 0.32;
 const MUTE_STORAGE_KEY = "metricbase-sfx-muted";
@@ -158,6 +162,23 @@ export function playSfx(type: SfxType): void {
       playTone(ctx, masterGain, now + 0.09, 440, "square", 0.08, 0.2);
       playTone(ctx, masterGain, now + 0.18, 554, "square", 0.08, 0.2);
       playTone(ctx, masterGain, now + 0.27, 660, "square", 0.14, 0.24);
+      break;
+    case "skill_level_up":
+      playTone(ctx, masterGain, now, 294, "square", 0.08, 0.18);
+      playTone(ctx, masterGain, now + 0.09, 392, "square", 0.08, 0.18);
+      playTone(ctx, masterGain, now + 0.18, 494, "square", 0.12, 0.2);
+      break;
+    case "chop_swing":
+      playSweep(ctx, masterGain, now, 320, 120, 0.05, "triangle", 0.12);
+      break;
+    case "chop_hit":
+      playTone(ctx, masterGain, now, 180, "square", 0.05, 0.16);
+      playNoiseBurst(ctx, masterGain, now + 0.01, 0.04, 0.1);
+      break;
+    case "chop_fell":
+      playTone(ctx, masterGain, now, 110, "square", 0.08, 0.2);
+      playNoiseBurst(ctx, masterGain, now + 0.03, 0.12, 0.14);
+      playTone(ctx, masterGain, now + 0.14, 220, "square", 0.1, 0.16);
       break;
     case "player_hurt":
       playTone(ctx, masterGain, now, 180, "sawtooth", 0.06, 0.16);

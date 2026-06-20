@@ -63,3 +63,5 @@ export type { QuestStatePayload } from "./quests.js";
 export type { AttackResultPayload, MobHealthPayload, PlayerDamagePayload } from "./combat.js";
 export type { InventoryResultPayload, InventoryStatePayload } from "./items.js";
 export type { ShopOpenPayload, ShopResultPayload } from "./shop.js";
+export type { SkillStatePayload } from "./skills.js";
+export type { ChopResultPayload, ResourceHealthPayload } from "./resources.js";

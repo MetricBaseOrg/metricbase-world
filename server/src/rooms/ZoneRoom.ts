@@ -3,7 +3,10 @@ import {
   advanceQuestObjective,
   ATTACK_COOLDOWN_MS,
   ATTACK_RANGE,
+  buildSkillStatePayload,
   buildQuestViews,
+  CHOP_COOLDOWN_MS,
+  CHOP_RANGE,
   CHAT_COOLDOWN_MS,
   CHAT_MAX_LENGTH,
   ChatMessagePayload,
@@ -23,6 +26,8 @@ import {
   JoinOptions,
   normalizeCharacterAppearance,
   normalizeInventory,
+  normalizeSkills,
+  woodcuttingLevelFromXp,
   MIN_TOKEN_UI_AMOUNT,
   PORTAL_TRIGGER_RANGE,
   levelFromXp,
@@ -99,6 +104,10 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   private questProgress = new Map<string, QuestProgress>();
   private mobHp = new Map<string, number>();
   private mobRespawnAt = new Map<string, number>();
+  private resourceChopsRemaining = new Map<string, number>();
+  private resourceRespawnAt = new Map<string, number>();
+  private playerSkills = new Map<string, ReturnType<typeof normalizeSkills>>();
+  private chopCooldowns = new Map<string, number>();
   private inventories = new Map<string, InventoryEntry[]>();
   private playerGold = new Map<string, number>();
   private playerHp = new Map<string, number>();
@@ -115,6 +124,10 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       if (npc.combat) {
         this.mobHp.set(npc.id, npc.combat.maxHp);
       }
+    }
+
+    for (const resource of this.zoneConfig.resources ?? []) {
+      this.resourceChopsRemaining.set(resource.id, resource.woodcutting.maxChops);
     }
 
     this.setSimulationInterval((deltaTime) => this.tick(deltaTime), 1000 / TICK_RATE);
@@ -136,6 +149,10 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
     this.onMessage("attack", (client, message: { npcId?: string }) => {
       void this.handleAttack(client, message.npcId ?? "");
+    });
+
+    this.onMessage("chop", (client, message: { resourceId?: string }) => {
+      void this.handleChop(client, message.resourceId ?? "");
     });
 
     this.onMessage("shopBuy", (client, message: { shopId?: string; itemId?: string }) => {
@@ -297,11 +314,14 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     );
     this.npcInteractAt.set(player.name, saved?.npcInteractAt ?? {});
     this.mobGoldClaimed.set(player.name, saved?.mobGoldClaimed ?? {});
+    this.playerSkills.set(player.name, normalizeSkills(saved?.skills));
 
     this.sendProfile(client, player);
     this.sendQuestState(client, player.name);
     this.sendInventory(client, player.name);
     this.sendMobHealth(client);
+    this.sendResourceHealth(client);
+    this.sendSkillState(client, player.name);
 
     this.broadcastChat({
       id: crypto.randomUUID(),
@@ -343,12 +363,14 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       this.playerLastCombatAt.delete(player.name);
       this.playerLastRegenAt.delete(player.name);
       this.playerWallets.delete(client.sessionId);
+      this.playerSkills.delete(player.name);
     }
 
     this.state.players.delete(client.sessionId);
     this.inputs.delete(client.sessionId);
     this.chatCooldowns.delete(client.sessionId);
     this.attackCooldowns.delete(client.sessionId);
+    this.chopCooldowns.delete(client.sessionId);
     this.transferring.delete(client.sessionId);
   }
 
@@ -363,6 +385,15 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         this.mobHp.set(npc.id, npc.combat.maxHp);
         this.mobRespawnAt.delete(npc.id);
         this.broadcastMobHealth(npc.id);
+      }
+    }
+
+    for (const resource of this.zoneConfig.resources ?? []) {
+      const respawnAt = this.resourceRespawnAt.get(resource.id);
+      if (respawnAt && now >= respawnAt) {
+        this.resourceChopsRemaining.set(resource.id, resource.woodcutting.maxChops);
+        this.resourceRespawnAt.delete(resource.id);
+        this.broadcastResourceHealth(resource.id);
       }
     }
 
@@ -1413,6 +1444,146 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     await this.persistPlayer(player);
   }
 
+  private async handleChop(client: Client, resourceId: string) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !resourceId) return;
+
+    const resource = (this.zoneConfig.resources ?? []).find((entry) => entry.id === resourceId);
+    if (!resource) return;
+
+    const now = Date.now();
+    const lastChop = this.chopCooldowns.get(client.sessionId) ?? 0;
+    if (now - lastChop < CHOP_COOLDOWN_MS) return;
+
+    if (this.isKnockedOut(player.name)) return;
+
+    const resourcePosition = tileToWorld(resource.tileX, resource.tileY);
+    const distance = Math.hypot(player.x - resourcePosition.x, player.y - resourcePosition.y);
+    if (distance > CHOP_RANGE) return;
+
+    const remaining = this.resourceChopsRemaining.get(resourceId);
+    if (remaining === undefined || remaining <= 0) return;
+
+    const skills = this.playerSkills.get(player.name) ?? normalizeSkills();
+    const woodcuttingLevel = woodcuttingLevelFromXp(skills.woodcutting);
+    const requiredLevel = resource.woodcutting.requiredLevel ?? 1;
+    if (woodcuttingLevel < requiredLevel) {
+      client.send("chopResult", {
+        resourceId,
+        currentChops: remaining,
+        maxChops: resource.woodcutting.maxChops,
+        depleted: false,
+        skillXpGained: 0,
+        woodcuttingLevel,
+        ok: false,
+        error: `Woodcutting level ${requiredLevel} required.`,
+      });
+      return;
+    }
+
+    this.chopCooldowns.set(client.sessionId, now);
+    const nextRemaining = remaining - 1;
+    this.resourceChopsRemaining.set(resourceId, nextRemaining);
+
+    const skillXpGained = resource.woodcutting.skillXp;
+    const depleted = nextRemaining === 0;
+    if (depleted) {
+      this.resourceRespawnAt.set(resourceId, now + resource.woodcutting.respawnMs);
+      await this.grantLoot(
+        client,
+        player.name,
+        resource.woodcutting.lootItemId,
+        resource.woodcutting.lootQuantity,
+      );
+      await this.persistPlayer(player);
+    }
+
+    const { newLevel, leveledUp } = this.grantWoodcuttingXp(player.name, skillXpGained);
+    this.sendSkillState(client, player.name);
+
+    if (leveledUp) {
+      this.broadcastChat({
+        id: crypto.randomUUID(),
+        channel: "system",
+        senderId: "system",
+        senderName: "Woodcutting",
+        body: `${player.name} reached Woodcutting level ${newLevel}!`,
+        sentAt: now,
+      });
+      await this.persistPlayer(player);
+    }
+
+    this.broadcastChat({
+      id: crypto.randomUUID(),
+      channel: "system",
+      senderId: "system",
+      senderName: "Woodcutting",
+      body: depleted
+        ? `${player.name} felled ${resource.name} (+${skillXpGained} Woodcutting XP).`
+        : `${player.name} chopped ${resource.name} (${nextRemaining} swings left).`,
+      sentAt: now,
+    });
+
+    const payload = {
+      resourceId,
+      currentChops: nextRemaining,
+      maxChops: resource.woodcutting.maxChops,
+      depleted,
+      skillXpGained,
+      woodcuttingLevel: newLevel,
+      ok: true,
+    };
+
+    this.broadcast("chopResult", payload);
+  }
+
+  private grantWoodcuttingXp(playerName: string, amount: number) {
+    const skills = this.playerSkills.get(playerName) ?? normalizeSkills();
+    const previousLevel = woodcuttingLevelFromXp(skills.woodcutting);
+    const updated = {
+      ...skills,
+      woodcutting: skills.woodcutting + amount,
+    };
+    this.playerSkills.set(playerName, updated);
+    const newLevel = woodcuttingLevelFromXp(updated.woodcutting);
+    return {
+      updated,
+      previousLevel,
+      newLevel,
+      leveledUp: newLevel > previousLevel,
+    };
+  }
+
+  private sendSkillState(client: Client, playerName: string) {
+    const skills = this.playerSkills.get(playerName) ?? normalizeSkills();
+    client.send("skillState", buildSkillStatePayload(skills));
+  }
+
+  private sendResourceHealth(client: Client) {
+    for (const resource of this.zoneConfig.resources ?? []) {
+      const currentChops =
+        this.resourceChopsRemaining.get(resource.id) ?? resource.woodcutting.maxChops;
+      client.send("resourceHealth", {
+        resourceId: resource.id,
+        currentChops,
+        maxChops: resource.woodcutting.maxChops,
+      });
+    }
+  }
+
+  private broadcastResourceHealth(resourceId: string) {
+    const resource = (this.zoneConfig.resources ?? []).find((entry) => entry.id === resourceId);
+    if (!resource) return;
+
+    const payload = {
+      resourceId,
+      currentChops: this.resourceChopsRemaining.get(resourceId) ?? resource.woodcutting.maxChops,
+      maxChops: resource.woodcutting.maxChops,
+    };
+
+    this.broadcast("resourceHealth", payload);
+  }
+
   private sendMobHealth(client: Client) {
     for (const npc of this.zoneConfig.npcs) {
       if (!npc.combat) continue;
@@ -1469,6 +1640,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       knockedOutUntil: this.isKnockedOut(player.name)
         ? (this.playerKnockedOutUntil.get(player.name) ?? null)
         : null,
+      skills: normalizeSkills(this.playerSkills.get(player.name)),
     });
   }
 

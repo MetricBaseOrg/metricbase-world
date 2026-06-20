@@ -1,4 +1,4 @@
-import { getItemDefinition, xpProgress } from "@metricbase/shared";
+import { getItemDefinition, woodcuttingXpProgress, xpProgress } from "@metricbase/shared";
 import { useState } from "react";
 import { isSoundEnabled, playSfx, setSoundEnabled } from "../audio/soundEffects";
 import { useGameStore } from "../store/gameStore";
@@ -27,9 +27,16 @@ export function HUD({ onLeave }: HUDProps) {
     playerCount,
     zoneName,
     questState,
+    woodcuttingLevel,
+    woodcuttingXp,
   } = useGameStore();
   const progress = xpProgress(playerXp, playerLevel);
   const percent = Math.min(100, Math.round((progress.current / progress.required) * 100));
+  const woodcuttingProgress = woodcuttingXpProgress(woodcuttingXp, woodcuttingLevel);
+  const woodcuttingPercent = Math.min(
+    100,
+    Math.round((woodcuttingProgress.current / woodcuttingProgress.required) * 100),
+  );
   const activeQuest = questState.active[0];
 
   return (
@@ -133,6 +140,31 @@ export function HUD({ onLeave }: HUDProps) {
             </div>
           </div>
 
+          <div style={{ marginTop: 10 }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                fontSize: "0.75rem",
+                fontWeight: 700,
+              }}
+            >
+              <span>🪓 Woodcutting Lv {woodcuttingLevel}</span>
+              <span>
+                {woodcuttingProgress.current} / {woodcuttingProgress.required}
+              </span>
+            </div>
+            <div className="chibi-progress" style={{ marginTop: 4 }}>
+              <div
+                className="chibi-progress__fill"
+                style={{
+                  width: `${woodcuttingPercent}%`,
+                  background: "linear-gradient(90deg, #43a047, #81c784)",
+                }}
+              />
+            </div>
+          </div>
+
           <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap", alignItems: "center" }}>
             <span className={`chibi-badge ${connected ? "chibi-badge--online" : "chibi-badge--offline"}`}>
               {connected ? "Online" : "Connecting"}
@@ -168,7 +200,7 @@ export function HUD({ onLeave }: HUDProps) {
 
           {!mobileLayout && (
             <div className="chibi-key-hint chibi-key-hint--desktop">
-              WASD move · E shop · Space attack · I inventory · HP regens out of combat
+              WASD move · E interact · Space attack/chop · F chop tree · I inventory
             </div>
           )}
 

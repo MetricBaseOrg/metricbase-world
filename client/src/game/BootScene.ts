@@ -22,6 +22,7 @@ export class BootScene extends Phaser.Scene {
     this.createDummyTexture();
     this.createSlimeTexture();
     this.createBruteTexture();
+    this.createTreeTexture();
   }
 
   create() {
@@ -150,6 +151,27 @@ export class BootScene extends Phaser.Scene {
     graphics.fillCircle(cx + 6, cy - 12, 1.8);
 
     graphics.generateTexture("brute", 40, 50);
+    graphics.destroy();
+  }
+
+  private createTreeTexture() {
+    const graphics = this.make.graphics({ x: 0, y: 0 });
+    const cx = 18;
+    const baseY = 38;
+
+    graphics.fillStyle(0x3e2723, 0.25);
+    graphics.fillEllipse(cx, baseY + 2, 14, 6);
+    graphics.fillStyle(0x6d4c41, 1);
+    graphics.fillRoundedRect(cx - 3, baseY - 14, 6, 16, 2);
+    graphics.fillStyle(0x2e7d32, 1);
+    graphics.fillCircle(cx - 6, baseY - 20, 9);
+    graphics.fillCircle(cx + 6, baseY - 20, 9);
+    graphics.fillCircle(cx, baseY - 26, 10);
+    graphics.fillStyle(0x43a047, 1);
+    graphics.fillCircle(cx - 3, baseY - 22, 6);
+    graphics.fillCircle(cx + 4, baseY - 24, 5);
+
+    graphics.generateTexture("tree", 40, 48);
     graphics.destroy();
   }
 

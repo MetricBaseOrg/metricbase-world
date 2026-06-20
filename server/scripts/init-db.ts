@@ -27,6 +27,7 @@ await saveCharacter({
   npcInteractAt: {},
   mobGoldClaimed: {},
   knockedOutUntil: null,
+  skills: { woodcutting: 0 },
 });
 
 const loaded = await loadCharacter("__healthcheck__");
