@@ -1,4 +1,9 @@
-import { ChatMessagePayload, QuestStatePayload, type CharacterAppearance } from "@metricbase/shared";
+import {
+  ChatMessagePayload,
+  QuestStatePayload,
+  type CharacterAppearance,
+  type InventoryStatePayload,
+} from "@metricbase/shared";
 import { create } from "zustand";
 
 interface GameStore {
@@ -12,6 +17,8 @@ interface GameStore {
   zoneName: string;
   chatMessages: ChatMessagePayload[];
   questState: QuestStatePayload;
+  inventory: InventoryStatePayload;
+  inventoryOpen: boolean;
   setPlayerName: (name: string) => void;
   setCharacterAppearance: (appearance: CharacterAppearance | null) => void;
   setPlayerLevel: (level: number) => void;
@@ -24,6 +31,9 @@ interface GameStore {
   addChatMessage: (message: ChatMessagePayload) => void;
   clearChat: () => void;
   setQuestState: (questState: QuestStatePayload) => void;
+  setInventory: (inventory: InventoryStatePayload) => void;
+  setInventoryOpen: (open: boolean) => void;
+  toggleInventoryOpen: () => void;
 }
 
 const MAX_CHAT_MESSAGES = 100;
@@ -39,6 +49,8 @@ export const useGameStore = create<GameStore>((set) => ({
   zoneName: "MetricBase Hub",
   chatMessages: [],
   questState: { active: [], completed: [] },
+  inventory: { items: [], capacity: 16 },
+  inventoryOpen: false,
   setPlayerName: (name) => set({ playerName: name }),
   setCharacterAppearance: (characterAppearance) => set({ characterAppearance }),
   setPlayerLevel: (level) => set({ playerLevel: level }),
@@ -54,4 +66,7 @@ export const useGameStore = create<GameStore>((set) => ({
     })),
   clearChat: () => set({ chatMessages: [] }),
   setQuestState: (questState) => set({ questState }),
+  setInventory: (inventory) => set({ inventory }),
+  setInventoryOpen: (inventoryOpen) => set({ inventoryOpen }),
+  toggleInventoryOpen: () => set((state) => ({ inventoryOpen: !state.inventoryOpen })),
 }));

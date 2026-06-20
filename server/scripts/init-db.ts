@@ -19,6 +19,7 @@ await saveCharacter({
     hairStyle: "short",
     outfitStyle: "robe",
   },
+  inventory: [],
 });
 
 const loaded = await loadCharacter("__healthcheck__");

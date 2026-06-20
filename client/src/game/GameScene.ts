@@ -72,6 +72,14 @@ export class GameScene extends Phaser.Scene {
     });
 
     const unsubscribeZone = networkManager.onZoneChange((zoneId) => {
+      this.lastSentInput = { dx: 0, dy: 0 };
+      networkManager.sendInput(0, 0);
+      this.localSessionId = null;
+      this.renderedPlayers.forEach((entry) => {
+        entry.sprite.destroy();
+        entry.label.destroy();
+      });
+      this.renderedPlayers.clear();
       this.renderZone(zoneId);
     });
 

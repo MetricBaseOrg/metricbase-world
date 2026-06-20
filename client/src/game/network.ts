@@ -5,6 +5,7 @@ import {
   ChatMessagePayload,
   getZoneConfig,
   JoinOptions,
+  InventoryStatePayload,
   MobHealthPayload,
   normalizeCharacterAppearance,
   ProfilePayload,
@@ -37,6 +38,7 @@ type NpcDialogueListener = (npcName: string, dialogue: string) => void;
 type QuestStateListener = (state: QuestStatePayload) => void;
 type MobHealthListener = (payload: MobHealthPayload) => void;
 type AttackResultListener = (payload: AttackResultPayload) => void;
+type InventoryListener = (state: InventoryStatePayload) => void;
 
 export class NetworkManager {
   private client: Client | null = null;
@@ -55,7 +57,10 @@ export class NetworkManager {
   private questStateListeners = new Set<QuestStateListener>();
   private mobHealthListeners = new Set<MobHealthListener>();
   private attackResultListeners = new Set<AttackResultListener>();
+  private inventoryListeners = new Set<InventoryListener>();
   private latestQuestState: QuestStatePayload = { active: [], completed: [] };
+  private latestInventory: InventoryStatePayload = { items: [], capacity: 16 };
+  private isTransferring = false;
   private mobHealth = new Map<string, MobHealthPayload>();
 
   get sessionId(): string | null {
@@ -114,9 +119,14 @@ export class NetworkManager {
 
   async transferToZone(targetZone: string): Promise<void> {
     if (!this.client) return;
-    await this.leaveCurrentRoom();
-    this.currentZoneId = targetZone;
-    await this.joinZone(targetZone);
+    this.isTransferring = true;
+    try {
+      await this.leaveCurrentRoom();
+      this.currentZoneId = targetZone;
+      await this.joinZone(targetZone);
+    } finally {
+      this.isTransferring = false;
+    }
   }
 
   sendInput(dx: number, dy: number) {
@@ -145,6 +155,7 @@ export class NetworkManager {
     this.accessToken = null;
     this.appearance = null;
     this.latestQuestState = { active: [], completed: [] };
+    this.latestInventory = { items: [], capacity: 16 };
     this.mobHealth.clear();
     this.emitConnection(false, 0);
     this.emitPlayers();
@@ -213,6 +224,12 @@ export class NetworkManager {
     return () => this.attackResultListeners.delete(listener);
   }
 
+  onInventoryState(listener: InventoryListener) {
+    this.inventoryListeners.add(listener);
+    listener(this.latestInventory);
+    return () => this.inventoryListeners.delete(listener);
+  }
+
   private async joinZone(zoneId: string) {
     if (!this.client) {
       this.client = new Client(getWebSocketUrl());
@@ -239,7 +256,9 @@ export class NetworkManager {
       for (const listener of this.transferListeners) {
         listener(payload);
       }
-      void this.transferToZone(payload.targetZone);
+      void this.transferToZone(payload.targetZone).catch((error) => {
+        console.error("Zone transfer failed:", error);
+      });
     });
     this.room.onMessage("profile", (profile: ProfilePayload) => {
       for (const listener of this.profileListeners) {
@@ -263,6 +282,12 @@ export class NetworkManager {
         listener(payload);
       }
     });
+    this.room.onMessage("inventory", (payload: InventoryStatePayload) => {
+      this.latestInventory = payload;
+      for (const listener of this.inventoryListeners) {
+        listener(payload);
+      }
+    });
     this.room.onMessage("attackResult", (payload: AttackResultPayload) => {
       this.mobHealth.set(payload.npcId, {
         npcId: payload.npcId,
@@ -282,7 +307,9 @@ export class NetworkManager {
     });
     this.room.onLeave(() => {
       this.room = null;
-      this.emitConnection(false, 0);
+      if (!this.isTransferring) {
+        this.emitConnection(false, 0);
+      }
       this.emitPlayers();
     });
 

@@ -63,6 +63,7 @@ characterRouter.post("/character", async (req, res) => {
     xp: saved?.xp ?? 0,
     questProgress: saved?.questProgress ?? { active: [], objectiveIndex: {}, completed: [] },
     appearance,
+    inventory: saved?.inventory ?? [],
   });
 
   res.json({ ok: true, name, appearance });

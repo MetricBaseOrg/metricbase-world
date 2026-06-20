@@ -10,11 +10,17 @@ import {
   completeQuest,
   getQuestDefinition,
   getQuestsOfferedByNpc,
+  addItemToInventory,
+  buildInventoryPayload,
+  getItemDefinition,
   getZoneConfig,
   JoinOptions,
   normalizeCharacterAppearance,
+  normalizeInventory,
   MIN_TOKEN_UI_AMOUNT,
+  PORTAL_TRIGGER_RANGE,
   levelFromXp,
+  type InventoryEntry,
   MAX_PLAYERS_PER_ZONE,
   NPC_INTERACT_COOLDOWN_MS,
   NPC_INTERACT_RANGE,
@@ -58,6 +64,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   private questProgress = new Map<string, QuestProgress>();
   private mobHp = new Map<string, number>();
   private mobRespawnAt = new Map<string, number>();
+  private inventories = new Map<string, InventoryEntry[]>();
   private zoneConfig!: ZoneConfig;
 
   onCreate(options: ZoneRoomOptions) {
@@ -142,9 +149,11 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     this.state.players.set(client.sessionId, player);
     this.inputs.set(client.sessionId, { dx: 0, dy: 0 });
     this.questProgress.set(player.name, saved?.questProgress ?? { active: [], objectiveIndex: {}, completed: [] });
+    this.inventories.set(player.name, normalizeInventory(saved?.inventory));
 
     client.send("profile", { level: player.level, xp: player.xp });
     this.sendQuestState(client, player.name);
+    this.sendInventory(client, player.name);
     this.sendMobHealth(client);
 
     this.broadcastChat({
@@ -177,6 +186,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
     if (player) {
       this.questProgress.delete(player.name);
+      this.inventories.delete(player.name);
     }
 
     this.state.players.delete(client.sessionId);
@@ -229,11 +239,9 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   private checkPortals(sessionId: string, worldX: number, worldY: number) {
     if (this.transferring.has(sessionId)) return;
 
-    const { tileX, tileY } = worldToTile(worldX, worldY);
-    const portal = this.zoneConfig.portals.find(
-      (entry) => entry.tileX === tileX && entry.tileY === tileY,
+    const portal = this.zoneConfig.portals.find((entry) =>
+      this.isNearPortal(worldX, worldY, entry.tileX, entry.tileY),
     );
-
     if (!portal) return;
 
     const client = this.clients.find((entry) => entry.sessionId === sessionId);
@@ -244,23 +252,40 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     void this.transferPlayer(client, player, portal);
   }
 
+  private isNearPortal(worldX: number, worldY: number, tileX: number, tileY: number): boolean {
+    const portalPos = tileToWorld(tileX, tileY);
+    if (Math.hypot(worldX - portalPos.x, worldY - portalPos.y) <= PORTAL_TRIGGER_RANGE) {
+      return true;
+    }
+
+    const playerTile = worldToTile(worldX, worldY);
+    return (
+      Math.abs(playerTile.tileX - tileX) <= 1 && Math.abs(playerTile.tileY - tileY) <= 1
+    );
+  }
+
   private async transferPlayer(
     client: Client,
     player: InstanceType<typeof PlayerSchema>,
     portal: ZoneConfig["portals"][number],
   ) {
-    const targetConfig = getZoneConfig(portal.targetZone);
-    const spawn = tileToWorld(targetConfig.spawnTile.x, targetConfig.spawnTile.y);
+    try {
+      const targetConfig = getZoneConfig(portal.targetZone);
+      const spawn = tileToWorld(targetConfig.spawnTile.x, targetConfig.spawnTile.y);
 
-    this.grantXp(client, player, XP_PORTAL_TRAVEL, `traveled through ${portal.label}`);
-    await this.checkVisitZoneObjectives(client, player.name, portal.targetZone);
+      this.grantXp(client, player, XP_PORTAL_TRAVEL, `traveled through ${portal.label}`);
+      await this.checkVisitZoneObjectives(client, player.name, portal.targetZone);
 
-    await this.persistPlayer(player, portal.targetZone, spawn.x, spawn.y);
+      await this.persistPlayer(player, portal.targetZone, spawn.x, spawn.y);
 
-    client.send("transfer", {
-      targetZone: portal.targetZone,
-      label: portal.label,
-    });
+      client.send("transfer", {
+        targetZone: portal.targetZone,
+        label: portal.label,
+      } satisfies ZoneTransferPayload);
+    } catch (error) {
+      this.transferring.delete(client.sessionId);
+      console.error("Portal transfer failed:", error);
+    }
   }
 
   private async handleInteract(client: Client, npcId: string) {
@@ -328,6 +353,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     if (defeated) {
       this.mobRespawnAt.set(npcId, now + npc.combat.respawnMs);
       this.grantXp(client, player, npc.combat.rewardXp, `defeated ${npc.name}`);
+      this.grantLoot(client, player.name, "item_training_scrap", 1);
       await this.persistPlayer(player);
     }
 
@@ -466,6 +492,32 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     );
   }
 
+  private sendInventory(client: Client, playerName: string) {
+    const inventory = this.inventories.get(playerName) ?? [];
+    client.send("inventory", buildInventoryPayload(inventory));
+  }
+
+  private grantLoot(client: Client, playerName: string, itemId: string, quantity: number) {
+    const current = this.inventories.get(playerName) ?? [];
+    const { inventory, added } = addItemToInventory(current, itemId, quantity);
+    if (added <= 0) return;
+
+    this.inventories.set(playerName, inventory);
+    this.sendInventory(client, playerName);
+
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+
+    this.broadcastChat({
+      id: crypto.randomUUID(),
+      channel: "system",
+      senderId: "system",
+      senderName: "Loot",
+      body: `${player.name} received ${added}x ${getItemDefinition(itemId).name}.`,
+      sentAt: Date.now(),
+    });
+  }
+
   private sendQuestState(client: Client, playerName: string) {
     client.send("questState", buildQuestViews(this.getQuestProgress(playerName)));
   }
@@ -516,6 +568,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         hairStyle: player.hairStyle as "short" | "long" | "spiky",
         outfitStyle: player.outfitStyle as "robe" | "armor" | "casual",
       },
+      inventory: normalizeInventory(this.inventories.get(player.name)),
     });
   }
 

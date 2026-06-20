@@ -7,6 +7,8 @@ import { useGameStore } from "./store/gameStore";
 import { ChatPanel } from "./ui/ChatPanel";
 import { HUD } from "./ui/HUD";
 import { LoginOverlay } from "./ui/LoginOverlay";
+import { InventoryHotkey } from "./ui/InventoryHotkey";
+import { InventoryPanel } from "./ui/InventoryPanel";
 import { QuestPanel } from "./ui/QuestPanel";
 
 export function App() {
@@ -22,6 +24,8 @@ export function App() {
     addChatMessage,
     clearChat,
     setQuestState,
+    setInventory,
+    setInventoryOpen,
   } = useGameStore();
 
   useEffect(() => {
@@ -40,7 +44,6 @@ export function App() {
 
     const unsubscribeZone = networkManager.onZoneChange((_zoneId, zoneName) => {
       setZoneName(zoneName);
-      clearChat();
     });
 
     const unsubscribeProfile = networkManager.onProfile((profile) => {
@@ -49,6 +52,21 @@ export function App() {
 
     const unsubscribeQuestState = networkManager.onQuestState((state) => {
       setQuestState(state);
+    });
+
+    const unsubscribeTransfer = networkManager.onTransfer((payload) => {
+      addChatMessage({
+        id: crypto.randomUUID(),
+        channel: "system",
+        senderId: "system",
+        senderName: "Portal",
+        body: `Traveling through ${payload.label}...`,
+        sentAt: Date.now(),
+      });
+    });
+
+    const unsubscribeInventory = networkManager.onInventoryState((state) => {
+      setInventory(state);
     });
 
     const unsubscribeNpcDialogue = networkManager.onNpcDialogue((npcName, dialogue) => {
@@ -69,10 +87,21 @@ export function App() {
       unsubscribeZone();
       unsubscribeProfile();
       unsubscribeQuestState();
+      unsubscribeTransfer();
+      unsubscribeInventory();
       unsubscribeNpcDialogue();
       void networkManager.disconnect();
     };
-  }, [addChatMessage, clearChat, setConnected, setPlayerCount, setProfile, setQuestState, setZoneName]);
+  }, [
+    addChatMessage,
+    clearChat,
+    setConnected,
+    setInventory,
+    setPlayerCount,
+    setProfile,
+    setQuestState,
+    setZoneName,
+  ]);
 
   const handleJoin = async (
     name: string,
@@ -98,6 +127,8 @@ export function App() {
     setWalletAddress(null);
     setCharacterAppearance(null);
     setQuestState({ active: [], completed: [] });
+    setInventory({ items: [], capacity: 16 });
+    setInventoryOpen(false);
     setJoined(false);
   };
 
@@ -106,6 +137,8 @@ export function App() {
       {joined && <PhaserGame />}
       {joined && <HUD onLeave={() => void handleLeave()} />}
       {joined && <QuestPanel />}
+      {joined && <InventoryPanel />}
+      {joined && <InventoryHotkey />}
       {joined && <ChatPanel />}
       {!joined && <LoginOverlay onJoin={handleJoin} />}
     </div>

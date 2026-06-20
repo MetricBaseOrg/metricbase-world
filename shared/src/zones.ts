@@ -5,6 +5,9 @@ export const ZONE_WILDERNESS = "zone_wilderness";
 
 export const MAX_PLAYERS_PER_ZONE = 20;
 
+/** How close (world pixels) a player must be to trigger a portal tile. */
+export const PORTAL_TRIGGER_RANGE = 48;
+
 export const CHAT_MAX_LENGTH = 200;
 export const CHAT_COOLDOWN_MS = 500;
 

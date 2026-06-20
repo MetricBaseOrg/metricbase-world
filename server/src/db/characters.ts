@@ -1,7 +1,10 @@
 import {
+  EMPTY_INVENTORY,
   EMPTY_QUEST_PROGRESS,
   normalizeCharacterAppearance,
+  normalizeInventory,
   type CharacterAppearance,
+  type InventoryEntry,
   type QuestProgress,
 } from "@metricbase/shared";
 import { getPool } from "./pool.js";
@@ -15,6 +18,7 @@ export interface CharacterRecord {
   xp: number;
   questProgress: QuestProgress;
   appearance: CharacterAppearance;
+  inventory: InventoryEntry[];
 }
 
 export async function loadCharacter(name: string): Promise<CharacterRecord | null> {
@@ -30,8 +34,9 @@ export async function loadCharacter(name: string): Promise<CharacterRecord | nul
     xp: number;
     quest_progress: QuestProgress | null;
     appearance: CharacterAppearance | null;
+    inventory: InventoryEntry[] | null;
   }>(
-    `SELECT name, zone_id, x, y, level, xp, quest_progress, appearance
+    `SELECT name, zone_id, x, y, level, xp, quest_progress, appearance, inventory
      FROM characters
      WHERE name = $1`,
     [name],
@@ -51,6 +56,7 @@ export async function loadCharacter(name: string): Promise<CharacterRecord | nul
     xp: row.xp,
     questProgress: normalizeQuestProgress(row.quest_progress),
     appearance: normalizeCharacterAppearance(row.appearance),
+    inventory: normalizeInventory(row.inventory ?? EMPTY_INVENTORY),
   };
 }
 
@@ -59,8 +65,8 @@ export async function saveCharacter(record: CharacterRecord): Promise<void> {
   if (!db) return;
 
   await db.query(
-    `INSERT INTO characters (name, zone_id, x, y, level, xp, quest_progress, appearance, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb, NOW())
+    `INSERT INTO characters (name, zone_id, x, y, level, xp, quest_progress, appearance, inventory, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb, $9::jsonb, NOW())
      ON CONFLICT (name)
      DO UPDATE SET
        zone_id = EXCLUDED.zone_id,
@@ -70,6 +76,7 @@ export async function saveCharacter(record: CharacterRecord): Promise<void> {
        xp = EXCLUDED.xp,
        quest_progress = EXCLUDED.quest_progress,
        appearance = EXCLUDED.appearance,
+       inventory = EXCLUDED.inventory,
        updated_at = NOW()`,
     [
       record.name,
@@ -80,6 +87,7 @@ export async function saveCharacter(record: CharacterRecord): Promise<void> {
       record.xp,
       JSON.stringify(record.questProgress),
       JSON.stringify(record.appearance),
+      JSON.stringify(record.inventory),
     ],
   );
 }

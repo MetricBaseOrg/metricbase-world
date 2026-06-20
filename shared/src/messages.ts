@@ -43,3 +43,4 @@ export interface ProfilePayload {
 
 export type { QuestStatePayload } from "./quests.js";
 export type { AttackResultPayload, MobHealthPayload } from "./combat.js";
+export type { InventoryStatePayload } from "./items.js";

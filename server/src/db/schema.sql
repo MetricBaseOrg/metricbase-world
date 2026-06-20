@@ -16,3 +16,4 @@ CREATE INDEX IF NOT EXISTS characters_name_idx ON characters (name);
 ALTER TABLE characters ADD COLUMN IF NOT EXISTS xp INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE characters ADD COLUMN IF NOT EXISTS quest_progress JSONB NOT NULL DEFAULT '{"active":[],"objectiveIndex":{},"completed":[]}'::jsonb;
 ALTER TABLE characters ADD COLUMN IF NOT EXISTS appearance JSONB NOT NULL DEFAULT '{"bodyColor":16763095,"hairColor":2960686,"outfitColor":3494000,"hairStyle":"short","outfitStyle":"robe"}'::jsonb;
+ALTER TABLE characters ADD COLUMN IF NOT EXISTS inventory JSONB NOT NULL DEFAULT '[]'::jsonb;
