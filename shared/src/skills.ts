@@ -1,8 +1,26 @@
 export const SKILL_WOODCUTTING = "woodcutting";
 
-export const CHOP_COOLDOWN_MS = 900;
 export const CHOP_RANGE = 80;
-export const WOODCUTTING_XP_PER_CHOP = 12;
+
+/** Base chop time per tree level (level-1 trees take 60 seconds at Woodcutting 1). */
+export const WOODCUTTING_CHOP_BASE_MS = 60_000;
+
+/** Minimum fraction of base chop time (high Woodcutting still takes a while). */
+export const WOODCUTTING_CHOP_MIN_MULTIPLIER = 0.35;
+
+/** Each Woodcutting level above 1 reduces chop time by this fraction. */
+export const WOODCUTTING_CHOP_LEVEL_REDUCTION = 0.06;
+
+export function computeChopDurationMs(treeLevel: number, woodcuttingLevel: number): number {
+  const level = Math.max(1, Math.floor(treeLevel));
+  const skillLevel = Math.max(1, Math.floor(woodcuttingLevel));
+  const baseMs = WOODCUTTING_CHOP_BASE_MS * level;
+  const multiplier = Math.max(
+    WOODCUTTING_CHOP_MIN_MULTIPLIER,
+    1 - (skillLevel - 1) * WOODCUTTING_CHOP_LEVEL_REDUCTION,
+  );
+  return Math.round(baseMs * multiplier);
+}
 
 /** Cumulative woodcutting XP required to reach each level (index = level - 1). */
 export const WOODCUTTING_LEVEL_XP_THRESHOLDS = [

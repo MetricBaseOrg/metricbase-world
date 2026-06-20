@@ -58,7 +58,7 @@ export function ensureAvatarAnimation(
     key: animKey,
     frames,
     frameRate: AVATAR_ACTION_FRAME_RATES[action],
-    repeat: action === "walk" || action === "idle" || action === "fish" ? -1 : 0,
+    repeat: action === "walk" || action === "idle" || action === "fish" || action === "chop" ? -1 : 0,
   });
 
   registeredAnims.add(animKey);
@@ -71,12 +71,12 @@ export function playAvatarAnimation(
   appearance: CharacterAppearance,
   direction: AvatarDirection,
   action: AvatarAction,
-): void {
+): string {
   const animKey = ensureAvatarAnimation(scene, appearance, direction, action);
-  if (sprite.anims.currentAnim?.key === animKey && sprite.anims.isPlaying) {
-    return;
+  if (sprite.anims.currentAnim?.key !== animKey || !sprite.anims.isPlaying) {
+    sprite.play(animKey, true);
   }
-  sprite.play(animKey, true);
+  return animKey;
 }
 
 export function preloadAvatarAnimations(

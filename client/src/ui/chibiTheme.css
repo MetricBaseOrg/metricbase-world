@@ -76,9 +76,9 @@ body {
 }
 
 .chibi-panel--hud {
-  padding: 14px 16px;
+  padding: 12px 14px;
   min-width: 0;
-  max-width: min(320px, calc(100vw - 24px - var(--chibi-safe-left) - var(--chibi-safe-right)));
+  max-width: min(260px, calc(100vw - 24px - var(--chibi-safe-left) - var(--chibi-safe-right)));
   pointer-events: auto;
 }
 
@@ -348,6 +348,62 @@ body {
   height: 100%;
   border-radius: var(--chibi-radius-pill);
   background: linear-gradient(90deg, var(--chibi-mint), var(--chibi-lavender));
+}
+
+.chibi-circle-gauge {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.chibi-circle-gauge__center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  line-height: 1;
+  text-align: center;
+}
+
+.chibi-circle-gauge__label {
+  font-size: 0.62rem;
+  font-weight: 800;
+  color: var(--chibi-ink);
+}
+
+.chibi-circle-gauge__detail {
+  margin-top: 1px;
+  font-size: 0.5rem;
+  font-weight: 700;
+  color: var(--chibi-ink-soft);
+}
+
+.chibi-hud-gauges {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.chibi-hud-gauge-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 42px;
+}
+
+.chibi-hud-gauge-caption {
+  font-size: 0.58rem;
+  font-weight: 700;
+  color: var(--chibi-ink-soft);
+  text-align: center;
+  white-space: nowrap;
 }
 
 .chibi-stat-pill {

@@ -34,8 +34,6 @@ export function reconcilePrediction(
     return { ...authoritative };
   }
 
-  return {
-    x: predicted.x * 0.8 + authoritative.x * 0.2,
-    y: predicted.y * 0.8 + authoritative.y * 0.2,
-  };
+  // Trust client prediction for small drift — constant blending caused visible jitter.
+  return predicted;
 }

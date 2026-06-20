@@ -20,7 +20,7 @@ export const AVATAR_DIRECTIONS: AvatarDirection[] = [
 export const AVATAR_ACTIONS: AvatarAction[] = ["idle", "walk", "chop", "fish"];
 
 export const AVATAR_ACTION_FRAMES: Record<AvatarAction, number> = {
-  idle: 2,
+  idle: 1,
   walk: 4,
   chop: 3,
   fish: 4,

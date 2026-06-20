@@ -5,8 +5,8 @@ import {
   ATTACK_RANGE,
   buildSkillStatePayload,
   buildQuestViews,
-  CHOP_COOLDOWN_MS,
   CHOP_RANGE,
+  computeChopDurationMs,
   CHAT_COOLDOWN_MS,
   CHAT_MAX_LENGTH,
   ChatMessagePayload,
@@ -104,10 +104,13 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   private questProgress = new Map<string, QuestProgress>();
   private mobHp = new Map<string, number>();
   private mobRespawnAt = new Map<string, number>();
-  private resourceChopsRemaining = new Map<string, number>();
   private resourceRespawnAt = new Map<string, number>();
+  private resourceChopper = new Map<string, string>();
+  private activeChopSessions = new Map<
+    string,
+    { resourceId: string; playerName: string; startedAt: number; endsAt: number; durationMs: number }
+  >();
   private playerSkills = new Map<string, ReturnType<typeof normalizeSkills>>();
-  private chopCooldowns = new Map<string, number>();
   private inventories = new Map<string, InventoryEntry[]>();
   private playerGold = new Map<string, number>();
   private playerHp = new Map<string, number>();
@@ -124,10 +127,6 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       if (npc.combat) {
         this.mobHp.set(npc.id, npc.combat.maxHp);
       }
-    }
-
-    for (const resource of this.zoneConfig.resources ?? []) {
-      this.resourceChopsRemaining.set(resource.id, resource.woodcutting.maxChops);
     }
 
     this.setSimulationInterval((deltaTime) => this.tick(deltaTime), 1000 / TICK_RATE);
@@ -370,7 +369,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     this.inputs.delete(client.sessionId);
     this.chatCooldowns.delete(client.sessionId);
     this.attackCooldowns.delete(client.sessionId);
-    this.chopCooldowns.delete(client.sessionId);
+    this.cancelChopSession(client.sessionId, "left");
     this.transferring.delete(client.sessionId);
   }
 
@@ -391,11 +390,12 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     for (const resource of this.zoneConfig.resources ?? []) {
       const respawnAt = this.resourceRespawnAt.get(resource.id);
       if (respawnAt && now >= respawnAt) {
-        this.resourceChopsRemaining.set(resource.id, resource.woodcutting.maxChops);
         this.resourceRespawnAt.delete(resource.id);
         this.broadcastResourceHealth(resource.id);
       }
     }
+
+    this.processChopSessions(now);
 
     for (const client of this.clients) {
       const player = this.state.players.get(client.sessionId);
@@ -428,6 +428,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
     this.state.players.forEach((player, sessionId) => {
       if (this.isKnockedOut(player.name)) return;
+      if (this.activeChopSessions.has(sessionId)) return;
 
       const input = this.inputs.get(sessionId);
       if (!input) return;
@@ -1452,17 +1453,36 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     if (!resource) return;
 
     const now = Date.now();
-    const lastChop = this.chopCooldowns.get(client.sessionId) ?? 0;
-    if (now - lastChop < CHOP_COOLDOWN_MS) return;
-
     if (this.isKnockedOut(player.name)) return;
+
+    const existingSession = this.activeChopSessions.get(client.sessionId);
+    if (existingSession) {
+      if (existingSession.resourceId === resourceId) return;
+      this.cancelChopSession(client.sessionId, "switched");
+    }
 
     const resourcePosition = tileToWorld(resource.tileX, resource.tileY);
     const distance = Math.hypot(player.x - resourcePosition.x, player.y - resourcePosition.y);
     if (distance > CHOP_RANGE) return;
 
-    const remaining = this.resourceChopsRemaining.get(resourceId);
-    if (remaining === undefined || remaining <= 0) return;
+    if (!this.isResourceAvailable(resourceId)) {
+      const chopperSession = this.resourceChopper.get(resourceId);
+      const chopper = chopperSession
+        ? this.state.players.get(chopperSession)?.name
+        : undefined;
+      client.send("chopResult", {
+        resourceId,
+        available: false,
+        depleted: true,
+        skillXpGained: 0,
+        woodcuttingLevel: woodcuttingLevelFromXp(
+          (this.playerSkills.get(player.name) ?? normalizeSkills()).woodcutting,
+        ),
+        ok: false,
+        error: chopper ? `${chopper} is already chopping this tree.` : "This tree is unavailable.",
+      });
+      return;
+    }
 
     const skills = this.playerSkills.get(player.name) ?? normalizeSkills();
     const woodcuttingLevel = woodcuttingLevelFromXp(skills.woodcutting);
@@ -1470,8 +1490,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     if (woodcuttingLevel < requiredLevel) {
       client.send("chopResult", {
         resourceId,
-        currentChops: remaining,
-        maxChops: resource.woodcutting.maxChops,
+        available: true,
         depleted: false,
         skillXpGained: 0,
         woodcuttingLevel,
@@ -1481,25 +1500,115 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       return;
     }
 
-    this.chopCooldowns.set(client.sessionId, now);
-    const nextRemaining = remaining - 1;
-    this.resourceChopsRemaining.set(resourceId, nextRemaining);
+    const durationMs = computeChopDurationMs(resource.woodcutting.treeLevel, woodcuttingLevel);
+    const startedAt = now;
+    const endsAt = now + durationMs;
 
-    const skillXpGained = resource.woodcutting.skillXp;
-    const depleted = nextRemaining === 0;
-    if (depleted) {
-      this.resourceRespawnAt.set(resourceId, now + resource.woodcutting.respawnMs);
+    this.activeChopSessions.set(client.sessionId, {
+      resourceId,
+      playerName: player.name,
+      startedAt,
+      endsAt,
+      durationMs,
+    });
+    this.resourceChopper.set(resourceId, client.sessionId);
+    this.inputs.set(client.sessionId, { dx: 0, dy: 0 });
+
+    const startPayload = {
+      resourceId,
+      playerName: player.name,
+      startedAt,
+      endsAt,
+      durationMs,
+    };
+
+    this.broadcast("chopStart", startPayload);
+    this.broadcastResourceHealth(resourceId);
+  }
+
+  private processChopSessions(now: number) {
+    for (const [sessionId, session] of [...this.activeChopSessions.entries()]) {
+      const player = this.state.players.get(sessionId);
+      if (!player) {
+        this.cancelChopSession(sessionId, "left");
+        continue;
+      }
+
+      if (this.isKnockedOut(player.name)) {
+        this.cancelChopSession(sessionId, "knocked_out");
+        continue;
+      }
+
+      const resource = (this.zoneConfig.resources ?? []).find(
+        (entry) => entry.id === session.resourceId,
+      );
+      if (!resource) {
+        this.cancelChopSession(sessionId, "invalid");
+        continue;
+      }
+
+      const resourcePosition = tileToWorld(resource.tileX, resource.tileY);
+      const distance = Math.hypot(player.x - resourcePosition.x, player.y - resourcePosition.y);
+      if (distance > CHOP_RANGE) {
+        this.cancelChopSession(sessionId, "out_of_range");
+        continue;
+      }
+
+      const input = this.inputs.get(sessionId);
+      if (input && (input.dx !== 0 || input.dy !== 0)) {
+        this.cancelChopSession(sessionId, "moved");
+        continue;
+      }
+
+      if (now >= session.endsAt) {
+        void this.completeChopSession(sessionId, session, resource, player, now);
+      }
+    }
+  }
+
+  private cancelChopSession(sessionId: string, reason: string) {
+    const session = this.activeChopSessions.get(sessionId);
+    if (!session) return;
+
+    this.activeChopSessions.delete(sessionId);
+    if (this.resourceChopper.get(session.resourceId) === sessionId) {
+      this.resourceChopper.delete(session.resourceId);
+    }
+
+    this.broadcast("chopCancel", {
+      resourceId: session.resourceId,
+      playerName: session.playerName,
+      reason,
+    });
+    this.broadcastResourceHealth(session.resourceId);
+  }
+
+  private async completeChopSession(
+    sessionId: string,
+    session: { resourceId: string; playerName: string },
+    resource: NonNullable<ZoneConfig["resources"]>[number],
+    player: InstanceType<typeof PlayerSchema>,
+    now: number,
+  ) {
+    this.activeChopSessions.delete(sessionId);
+    this.resourceChopper.delete(session.resourceId);
+    this.resourceRespawnAt.set(session.resourceId, now + resource.woodcutting.respawnMs);
+
+    const client = this.clients.find((entry) => entry.sessionId === sessionId);
+    if (client) {
       await this.grantLoot(
         client,
         player.name,
         resource.woodcutting.lootItemId,
         resource.woodcutting.lootQuantity,
       );
-      await this.persistPlayer(player);
     }
 
+    const skillXpGained = resource.woodcutting.skillXp;
     const { newLevel, leveledUp } = this.grantWoodcuttingXp(player.name, skillXpGained);
-    this.sendSkillState(client, player.name);
+    if (client) {
+      this.sendSkillState(client, player.name);
+    }
 
     if (leveledUp) {
       this.broadcastChat({
@@ -1518,24 +1627,53 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       channel: "system",
       senderId: "system",
       senderName: "Woodcutting",
-      body: depleted
-        ? `${player.name} felled ${resource.name} (+${skillXpGained} Woodcutting XP).`
-        : `${player.name} chopped ${resource.name} (${nextRemaining} swings left).`,
+      body: `${player.name} felled ${resource.name} (+${skillXpGained} Woodcutting XP).`,
       sentAt: now,
     });
 
-    const payload = {
-      resourceId,
-      currentChops: nextRemaining,
-      maxChops: resource.woodcutting.maxChops,
-      depleted,
+    this.broadcast("chopResult", {
+      resourceId: session.resourceId,
+      available: false,
+      depleted: true,
       skillXpGained,
       woodcuttingLevel: newLevel,
-      playerName: player.name,
+      playerName: session.playerName,
       ok: true,
-    };
+    });
+    this.broadcastResourceHealth(session.resourceId);
 
-    this.broadcast("chopResult", payload);
+    if (client) {
+      await this.persistPlayer(player);
+    }
+  }
+
+  private isResourceAvailable(resourceId: string): boolean {
+    const respawnAt = this.resourceRespawnAt.get(resourceId);
+    if (respawnAt && Date.now() < respawnAt) return false;
+    return !this.resourceChopper.has(resourceId);
+  }
+
+  private buildResourceHealthPayload(resourceId: string) {
+    const resource = (this.zoneConfig.resources ?? []).find((entry) => entry.id === resourceId);
+    if (!resource) return null;
+
+    const available = this.isResourceAvailable(resourceId);
+    const chopperSession = this.resourceChopper.get(resourceId);
+    const chopSession = chopperSession ? this.activeChopSessions.get(chopperSession) : undefined;
+    const chopper = chopSession?.playerName;
+
+    return {
+      resourceId,
+      available,
+      ...(chopper && chopSession
+        ? {
+            chopperName: chopper,
+            chopStartedAt: chopSession.startedAt,
+            chopEndsAt: chopSession.endsAt,
+            chopDurationMs: chopSession.durationMs,
+          }
+        : {}),
+    };
   }
 
   private grantWoodcuttingXp(playerName: string, amount: number) {
@@ -1562,26 +1700,16 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
   private sendResourceHealth(client: Client) {
     for (const resource of this.zoneConfig.resources ?? []) {
-      const currentChops =
-        this.resourceChopsRemaining.get(resource.id) ?? resource.woodcutting.maxChops;
-      client.send("resourceHealth", {
-        resourceId: resource.id,
-        currentChops,
-        maxChops: resource.woodcutting.maxChops,
-      });
+      const payload = this.buildResourceHealthPayload(resource.id);
+      if (payload) {
+        client.send("resourceHealth", payload);
+      }
     }
   }
 
   private broadcastResourceHealth(resourceId: string) {
-    const resource = (this.zoneConfig.resources ?? []).find((entry) => entry.id === resourceId);
-    if (!resource) return;
-
-    const payload = {
-      resourceId,
-      currentChops: this.resourceChopsRemaining.get(resourceId) ?? resource.woodcutting.maxChops,
-      maxChops: resource.woodcutting.maxChops,
-    };
-
+    const payload = this.buildResourceHealthPayload(resourceId);
+    if (!payload) return;
     this.broadcast("resourceHealth", payload);
   }
 

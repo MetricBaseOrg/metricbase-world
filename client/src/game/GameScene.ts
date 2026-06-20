@@ -2,6 +2,7 @@ import Phaser from "phaser";
 import {
   ATTACK_RANGE,
   AVATAR_ACTION_DURATIONS_MS,
+  avatarAnimKey,
   avatarFrameTextureKey,
   appearanceTextureKey,
   CHOP_RANGE,
@@ -17,6 +18,8 @@ import {
   MAP_HEIGHT,
   MAP_WIDTH,
   NPC_INTERACT_RANGE,
+  TILE_HEIGHT,
+  TILE_WIDTH,
   tileToWorld,
 } from "@metricbase/shared";
 import { playAvatarAnimation, preloadAvatarAnimations } from "../character/avatarAnimations";
@@ -45,6 +48,10 @@ interface RenderedPlayer {
   lastTargetX: number;
   lastTargetY: number;
   predicted: PredictedPosition;
+  lastAnimKey: string;
+  remoteMoving: boolean;
+  prevSpriteX: number;
+  prevSpriteY: number;
 }
 
 interface RenderedNpc {
@@ -68,8 +75,11 @@ interface RenderedResource {
   worldY: number;
   chopBarBg: Phaser.GameObjects.Graphics;
   chopBarFill: Phaser.GameObjects.Graphics;
-  maxChops: number;
-  currentChops: number;
+  available: boolean;
+  chopperName?: string;
+  chopStartedAt?: number;
+  chopEndsAt?: number;
+  chopDurationMs?: number;
 }
 
 export class GameScene extends Phaser.Scene {
@@ -91,6 +101,7 @@ export class GameScene extends Phaser.Scene {
   private fishKey: Phaser.Input.Keyboard.Key | null = null;
   private lastSentInput = { dx: 0, dy: 0 };
   private currentZoneId: string | null = null;
+  private localChoppingUntil = 0;
 
   constructor() {
     super("GameScene");
@@ -98,7 +109,8 @@ export class GameScene extends Phaser.Scene {
 
   create() {
     this.cameras.main.setBackgroundColor("#b8e8fc");
-    this.cameras.main.setZoom(1);
+    this.cameras.main.setZoom(2);
+    this.setupCamera();
 
     if (this.input.keyboard) {
       this.cursors = this.input.keyboard.createCursorKeys();
@@ -118,6 +130,7 @@ export class GameScene extends Phaser.Scene {
       this.lastSentInput = { dx: 0, dy: 0 };
       networkManager.sendInput(0, 0);
       this.localSessionId = null;
+      this.localChoppingUntil = 0;
       this.renderedPlayers.forEach((entry) => {
         entry.sprite.destroy();
         entry.label.destroy();
@@ -146,22 +159,62 @@ export class GameScene extends Phaser.Scene {
     });
 
     const unsubscribeResourceHealth = networkManager.onResourceHealth((payload) => {
-      this.updateResourceHealth(payload.resourceId, payload.currentChops, payload.maxChops);
+      this.applyResourceState(payload);
+    });
+
+    const unsubscribeChopStart = networkManager.onChopStart((payload) => {
+      this.applyResourceState({
+        resourceId: payload.resourceId,
+        available: true,
+        chopperName: payload.playerName,
+        chopStartedAt: payload.startedAt,
+        chopEndsAt: payload.endsAt,
+        chopDurationMs: payload.durationMs,
+      });
+      this.startChopAnimation(payload.playerName, payload.resourceId, payload.endsAt);
+      playSfx("chop_swing");
+    });
+
+    const unsubscribeChopCancel = networkManager.onChopCancel((payload) => {
+      const resource = this.renderedResources.find((entry) => entry.id === payload.resourceId);
+      this.applyResourceState({
+        resourceId: payload.resourceId,
+        available: resource?.available ?? true,
+        chopperName: undefined,
+        chopStartedAt: undefined,
+        chopEndsAt: undefined,
+        chopDurationMs: undefined,
+      });
+      if (payload.playerName === useGameStore.getState().playerName) {
+        this.localChoppingUntil = 0;
+        const local = this.localSessionId
+          ? this.renderedPlayers.get(this.localSessionId)
+          : undefined;
+        if (local) {
+          local.actionUntil = 0;
+        }
+        playSfx("shop_fail");
+      }
     });
 
     const unsubscribeChopResult = networkManager.onChopResult((payload) => {
-      this.updateResourceHealth(payload.resourceId, payload.currentChops, payload.maxChops);
+      this.applyResourceState({
+        resourceId: payload.resourceId,
+        available: payload.available,
+        chopperName: undefined,
+        chopStartedAt: undefined,
+        chopEndsAt: undefined,
+        chopDurationMs: undefined,
+      });
       if (payload.ok === false) {
         playSfx("shop_fail");
         return;
       }
-      if (payload.playerName) {
-        this.triggerChopAnimation(payload.playerName, payload.resourceId);
+      if (payload.playerName === useGameStore.getState().playerName) {
+        this.localChoppingUntil = 0;
       }
       if (payload.depleted) {
         playSfx("chop_fell");
-      } else {
-        playSfx("chop_hit");
       }
     });
 
@@ -174,6 +227,8 @@ export class GameScene extends Phaser.Scene {
       unsubscribeAttackResult();
       unsubscribePlayerDamage();
       unsubscribeResourceHealth();
+      unsubscribeChopStart();
+      unsubscribeChopCancel();
       unsubscribeChopResult();
       this.clearMap();
       this.clearNpcs();
@@ -187,36 +242,65 @@ export class GameScene extends Phaser.Scene {
   }
 
   update(_time: number, delta: number) {
-    if (isUiTypingActive() || useGameStore.getState().knockedOut) {
-      if (this.lastSentInput.dx !== 0 || this.lastSentInput.dy !== 0) {
-        networkManager.sendInput(0, 0);
-        this.lastSentInput = { dx: 0, dy: 0 };
+    const chopping = Date.now() < this.localChoppingUntil;
+    const blocked = isUiTypingActive() || useGameStore.getState().knockedOut || chopping;
+
+    if (blocked && (this.lastSentInput.dx !== 0 || this.lastSentInput.dy !== 0)) {
+      networkManager.sendInput(0, 0);
+      this.lastSentInput = { dx: 0, dy: 0 };
+    }
+
+    if (!blocked) {
+      const dx = this.getAxisInput();
+      const dy = this.getAxisInputY();
+
+      if (dx !== this.lastSentInput.dx || dy !== this.lastSentInput.dy) {
+        networkManager.sendInput(dx, dy);
+        this.lastSentInput = { dx, dy };
       }
-      return;
+
+      this.applyLocalPrediction(dx, dy, delta);
+      this.interpolateRemotePlayers();
+      this.tryInteract();
+      this.tryAttack();
+      this.tryChop();
+      this.tryFish();
     }
 
-    const dx = this.getAxisInput();
-    const dy = this.getAxisInputY();
-
-    if (dx !== this.lastSentInput.dx || dy !== this.lastSentInput.dy) {
-      networkManager.sendInput(dx, dy);
-      this.lastSentInput = { dx, dy };
-    }
-
-    this.applyLocalPrediction(dx, dy, delta);
-    this.interpolateRemotePlayers();
-    this.followLocalPlayer();
+    this.updateCamera();
     this.applyKnockedOutVisuals();
-    this.tryInteract();
-    this.tryAttack();
-    this.tryChop();
-    this.tryFish();
+    this.redrawActiveChopBars();
     this.updatePlayerAnimations();
+  }
+
+  private setupCamera() {
+    const corner = tileToWorld(0, 0);
+    const opposite = tileToWorld(MAP_WIDTH - 1, MAP_HEIGHT - 1);
+    const minX = Math.min(corner.x, opposite.x) - TILE_WIDTH;
+    const maxX = Math.max(corner.x, opposite.x) + TILE_WIDTH;
+    const minY = Math.min(corner.y, opposite.y) - TILE_HEIGHT * 2;
+    const maxY = Math.max(corner.y, opposite.y) + TILE_HEIGHT * 2;
+    this.cameras.main.setBounds(minX, minY, maxX - minX, maxY - minY);
+  }
+
+  private updateCamera() {
+    if (!this.localSessionId) return;
+    const local = this.renderedPlayers.get(this.localSessionId);
+    if (!local) return;
+
+    const cam = this.cameras.main;
+    const viewWidth = cam.width / cam.zoom;
+    const viewHeight = cam.height / cam.zoom;
+    const targetScrollX = local.sprite.x - viewWidth / 2;
+    const targetScrollY = local.sprite.y - viewHeight / 2;
+    cam.scrollX = Phaser.Math.Linear(cam.scrollX, targetScrollX, 0.15);
+    cam.scrollY = Phaser.Math.Linear(cam.scrollY, targetScrollY, 0.15);
   }
 
   private renderZone(zoneId: string) {
     if (this.currentZoneId === zoneId) return;
     this.currentZoneId = zoneId;
+    this.setupCamera();
     this.clearMap();
     this.clearNpcs();
     this.clearResources();
@@ -348,12 +432,11 @@ export class GameScene extends Phaser.Scene {
     for (const resource of config.resources ?? []) {
       const { x, y } = tileToWorld(resource.tileX, resource.tileY);
       const saved = networkManager.getResourceHealth(resource.id);
-      const maxChops = resource.woodcutting.maxChops;
-      const currentChops = saved?.currentChops ?? maxChops;
+      const available = saved?.available ?? true;
 
       const sprite = this.add.sprite(x, y, "tree");
       sprite.setDepth(850);
-      sprite.setAlpha(currentChops > 0 ? 1 : 0.35);
+      sprite.setAlpha(available ? 1 : 0.35);
 
       const label = this.add
         .text(x, y - 40, resource.name, {
@@ -380,8 +463,11 @@ export class GameScene extends Phaser.Scene {
         worldY: y,
         chopBarBg,
         chopBarFill,
-        maxChops,
-        currentChops,
+        available,
+        chopperName: saved?.chopperName,
+        chopStartedAt: saved?.chopStartedAt,
+        chopEndsAt: saved?.chopEndsAt,
+        chopDurationMs: saved?.chopDurationMs,
       };
 
       this.renderedResources.push(rendered);
@@ -389,34 +475,67 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  private updateResourceHealth(resourceId: string, currentChops: number, maxChops: number) {
-    const resource = this.renderedResources.find((entry) => entry.id === resourceId);
+  private applyResourceState(payload: {
+    resourceId: string;
+    available: boolean;
+    chopperName?: string;
+    chopStartedAt?: number;
+    chopEndsAt?: number;
+    chopDurationMs?: number;
+  }) {
+    const resource = this.renderedResources.find((entry) => entry.id === payload.resourceId);
     if (!resource) return;
 
-    resource.currentChops = currentChops;
-    resource.maxChops = maxChops;
-    resource.sprite.setAlpha(currentChops > 0 ? 1 : 0.35);
+    resource.available = payload.available;
+    resource.chopperName = payload.chopperName;
+    resource.chopStartedAt = payload.chopStartedAt;
+    resource.chopEndsAt = payload.chopEndsAt;
+    resource.chopDurationMs = payload.chopDurationMs;
+    resource.sprite.setAlpha(payload.available ? 1 : 0.35);
     this.drawResourceChopBar(resource);
+  }
+
+  private redrawActiveChopBars() {
+    const now = Date.now();
+    for (const resource of this.renderedResources) {
+      if (resource.chopEndsAt && resource.chopEndsAt > now) {
+        this.drawResourceChopBar(resource);
+      }
+    }
   }
 
   private drawResourceChopBar(resource: RenderedResource) {
     resource.chopBarBg.clear();
     resource.chopBarFill.clear();
 
-    if (resource.maxChops <= 0) return;
-
-    const width = 36;
+    const width = 40;
     const height = 6;
     const x = resource.worldX - width / 2;
     const y = resource.worldY - 52;
-    const fillWidth = Math.max(0, (resource.currentChops / resource.maxChops) * (width - 4));
 
-    resource.chopBarBg.fillStyle(0xfff9f0, 1);
-    resource.chopBarBg.fillRoundedRect(x, y, width, height, 3);
-    resource.chopBarBg.lineStyle(1.5, 0x4a3728, 1);
-    resource.chopBarBg.strokeRoundedRect(x, y, width, height, 3);
-    resource.chopBarFill.fillStyle(resource.currentChops > 0 ? 0x66bb6a : 0xc9b8a8, 1);
-    resource.chopBarFill.fillRoundedRect(x + 2, y + 2, fillWidth, height - 4, 2);
+    if (resource.chopEndsAt && resource.chopDurationMs) {
+      const now = Date.now();
+      const elapsed = Math.max(0, now - (resource.chopStartedAt ?? now));
+      const progress = Math.min(1, elapsed / resource.chopDurationMs);
+      const fillWidth = Math.max(0, progress * (width - 4));
+
+      resource.chopBarBg.fillStyle(0xfff9f0, 1);
+      resource.chopBarBg.fillRoundedRect(x, y, width, height, 3);
+      resource.chopBarBg.lineStyle(1.5, 0x4a3728, 1);
+      resource.chopBarBg.strokeRoundedRect(x, y, width, height, 3);
+      resource.chopBarFill.fillStyle(0xffa726, 1);
+      resource.chopBarFill.fillRoundedRect(x + 2, y + 2, fillWidth, height - 4, 2);
+      return;
+    }
+
+    if (!resource.available) {
+      resource.chopBarBg.fillStyle(0xfff9f0, 1);
+      resource.chopBarBg.fillRoundedRect(x, y, width, height, 3);
+      resource.chopBarBg.lineStyle(1.5, 0x4a3728, 1);
+      resource.chopBarBg.strokeRoundedRect(x, y, width, height, 3);
+      resource.chopBarFill.fillStyle(0xc9b8a8, 1);
+      resource.chopBarFill.fillRoundedRect(x + 2, y + 2, 0, height - 4, 2);
+    }
   }
 
   private drawNpcHealthBar(npc: RenderedNpc) {
@@ -597,8 +716,10 @@ export class GameScene extends Phaser.Scene {
     let nearest: RenderedResource | null = null;
     let nearestDistance = CHOP_RANGE;
 
+    if (Date.now() < this.localChoppingUntil) return;
+
     for (const resource of this.renderedResources) {
-      if (resource.currentChops <= 0) continue;
+      if (!resource.available || resource.chopperName) continue;
       const distance = Math.hypot(
         local.predicted.x - resource.worldX,
         local.predicted.y - resource.worldY,
@@ -610,18 +731,6 @@ export class GameScene extends Phaser.Scene {
     }
 
     if (nearest) {
-      playSfx("chop_swing");
-      const local = this.renderedPlayers.get(this.localSessionId!);
-      if (local) {
-        const direction = directionTowardTarget(
-          local.predicted.x,
-          local.predicted.y,
-          nearest.worldX,
-          nearest.worldY,
-          local.direction,
-        );
-        this.setPlayerAction(local, "chop", direction, AVATAR_ACTION_DURATIONS_MS.chop);
-      }
       networkManager.sendChop(nearest.id);
     }
   }
@@ -636,11 +745,11 @@ export class GameScene extends Phaser.Scene {
     this.setPlayerAction(local, "fish", local.direction, AVATAR_ACTION_DURATIONS_MS.fish);
   }
 
-  private triggerChopAnimation(playerName: string, resourceId: string) {
+  private startChopAnimation(playerName: string, resourceId: string, endsAt: number) {
     const resource = this.renderedResources.find((entry) => entry.id === resourceId);
+    const durationMs = Math.max(0, endsAt - Date.now());
     for (const [, rendered] of this.renderedPlayers) {
-      const labelText = rendered.label.text;
-      if (labelText !== playerName) continue;
+      if (rendered.label.text !== playerName) continue;
       const direction = resource
         ? directionTowardTarget(
             rendered.sprite.x,
@@ -650,7 +759,10 @@ export class GameScene extends Phaser.Scene {
             rendered.direction,
           )
         : rendered.direction;
-      this.setPlayerAction(rendered, "chop", direction, AVATAR_ACTION_DURATIONS_MS.chop);
+      this.setPlayerAction(rendered, "chop", direction, durationMs);
+      if (playerName === useGameStore.getState().playerName) {
+        this.localChoppingUntil = endsAt;
+      }
       break;
     }
   }
@@ -664,7 +776,8 @@ export class GameScene extends Phaser.Scene {
     player.action = action;
     player.actionDirection = direction;
     player.actionUntil = Date.now() + durationMs;
-    playAvatarAnimation(this, player.sprite, player.appearance, direction, action);
+    const animKey = playAvatarAnimation(this, player.sprite, player.appearance, direction, action);
+    player.lastAnimKey = animKey;
   }
 
   private updatePlayerAnimations() {
@@ -685,15 +798,23 @@ export class GameScene extends Phaser.Scene {
         }
         action = moving ? "walk" : "idle";
       } else {
-        const vx = rendered.targetX - rendered.lastTargetX;
-        const vy = rendered.targetY - rendered.lastTargetY;
-        const moving = Math.hypot(vx, vy) > 0.4;
-        if (moving) {
+        const vx = rendered.sprite.x - rendered.prevSpriteX;
+        const vy = rendered.sprite.y - rendered.prevSpriteY;
+        const speed = Math.hypot(vx, vy);
+        if (speed > 0.8) {
+          rendered.remoteMoving = true;
+        } else if (speed < 0.15) {
+          rendered.remoteMoving = false;
+        }
+
+        if (rendered.remoteMoving) {
           direction = directionFromDelta(vx, vy, rendered.direction);
           action = "walk";
         }
       }
 
+      rendered.prevSpriteX = rendered.sprite.x;
+      rendered.prevSpriteY = rendered.sprite.y;
       rendered.direction = direction;
       if (rendered.actionUntil <= now) {
         rendered.action = action;
@@ -701,7 +822,15 @@ export class GameScene extends Phaser.Scene {
 
       const playDirection = rendered.actionUntil > now ? rendered.actionDirection : direction;
       const playAction = rendered.actionUntil > now ? rendered.action : action;
-      playAvatarAnimation(this, rendered.sprite, rendered.appearance, playDirection, playAction);
+      const animKey = avatarAnimKey(
+        appearanceTextureKey(rendered.appearance),
+        playDirection,
+        playAction,
+      );
+      if (rendered.lastAnimKey !== animKey) {
+        playAvatarAnimation(this, rendered.sprite, rendered.appearance, playDirection, playAction);
+        rendered.lastAnimKey = animKey;
+      }
     }
   }
 
@@ -763,10 +892,6 @@ export class GameScene extends Phaser.Scene {
           .setOrigin(0.5, 1)
           .setDepth(1001);
 
-        if (isLocal) {
-          this.cameras.main.centerOn(player.x, player.y);
-        }
-
         this.renderedPlayers.set(player.sessionId, {
           sprite,
           label,
@@ -780,7 +905,15 @@ export class GameScene extends Phaser.Scene {
           lastTargetX: player.x,
           lastTargetY: player.y,
           predicted: { x: player.x, y: player.y },
+          lastAnimKey: avatarAnimKey(appearanceTextureKey(player.appearance), "front", "idle"),
+          remoteMoving: false,
+          prevSpriteX: player.x,
+          prevSpriteY: player.y,
         });
+
+        if (isLocal) {
+          this.updateCamera();
+        }
       } else {
         existing.lastTargetX = existing.targetX;
         existing.lastTargetY = existing.targetY;
@@ -792,8 +925,6 @@ export class GameScene extends Phaser.Scene {
           existing.predicted = moving
             ? reconcilePrediction(existing.predicted, { x: player.x, y: player.y })
             : { x: player.x, y: player.y };
-          existing.sprite.setPosition(existing.predicted.x, existing.predicted.y);
-          existing.label.setPosition(existing.predicted.x, existing.predicted.y - 42);
         }
 
         existing.label.setText(player.name);
@@ -814,11 +945,14 @@ export class GameScene extends Phaser.Scene {
     const local = this.renderedPlayers.get(this.localSessionId);
     if (!local) return;
 
-    if (dx === 0 && dy === 0) return;
+    if (dx !== 0 || dy !== 0) {
+      local.predicted = stepPrediction(local.predicted, dx, dy, delta);
+    }
 
-    local.predicted = stepPrediction(local.predicted, dx, dy, delta);
-    local.sprite.setPosition(local.predicted.x, local.predicted.y);
-    local.label.setPosition(local.predicted.x, local.predicted.y - 42);
+    const x = Math.round(local.predicted.x);
+    const y = Math.round(local.predicted.y);
+    local.sprite.setPosition(x, y);
+    local.label.setPosition(x, y - 42);
   }
 
   private interpolateRemotePlayers() {
@@ -827,17 +961,11 @@ export class GameScene extends Phaser.Scene {
     for (const [sessionId, rendered] of this.renderedPlayers) {
       if (sessionId === this.localSessionId) continue;
 
-      rendered.sprite.x = Phaser.Math.Linear(rendered.sprite.x, rendered.targetX, alpha);
-      rendered.sprite.y = Phaser.Math.Linear(rendered.sprite.y, rendered.targetY, alpha);
-      rendered.label.setPosition(rendered.sprite.x, rendered.sprite.y - 42);
+      const x = Math.round(Phaser.Math.Linear(rendered.sprite.x, rendered.targetX, alpha));
+      const y = Math.round(Phaser.Math.Linear(rendered.sprite.y, rendered.targetY, alpha));
+      rendered.sprite.setPosition(x, y);
+      rendered.label.setPosition(x, y - 42);
     }
   }
 
-  private followLocalPlayer() {
-    if (!this.localSessionId) return;
-    const local = this.renderedPlayers.get(this.localSessionId);
-    if (!local) return;
-
-    this.cameras.main.centerOn(local.sprite.x, local.sprite.y);
-  }
 }

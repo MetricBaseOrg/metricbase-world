@@ -17,7 +17,7 @@ export const HAIR_COLORS = [0x2d3436, 0x6d4c41, 0xffc857, 0xe17055, 0x74b9ff, 0x
 export const OUTFIT_COLORS = [0x355070, 0x4f8cff, 0x6c5ce7, 0x00b894, 0xe17055, 0xd63031, 0x2d3436];
 
 /** Bump when avatar art changes so Phaser regenerates cached textures. */
-export const CHARACTER_ART_VERSION = 3;
+export const CHARACTER_ART_VERSION = 4;
 
 export const DEFAULT_CHARACTER_APPEARANCE: CharacterAppearance = {
   bodyColor: 0xffc857,

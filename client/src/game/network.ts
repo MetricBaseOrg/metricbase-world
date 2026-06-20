@@ -1,7 +1,9 @@
 import { Client, Room } from "colyseus.js";
 import {
   AttackResultPayload,
+  ChopCancelPayload,
   ChopResultPayload,
+  ChopStartPayload,
   CharacterLookupResponse,
   ChatMessagePayload,
   getZoneConfig,
@@ -58,6 +60,8 @@ type RespawnResultListener = (payload: RespawnResultPayload) => void;
 type PlayerDamageListener = (payload: PlayerDamagePayload) => void;
 type ResourceHealthListener = (payload: ResourceHealthPayload) => void;
 type ChopResultListener = (payload: ChopResultPayload) => void;
+type ChopStartListener = (payload: ChopStartPayload) => void;
+type ChopCancelListener = (payload: ChopCancelPayload) => void;
 type SkillStateListener = (payload: SkillStatePayload) => void;
 
 export class NetworkManager {
@@ -87,6 +91,8 @@ export class NetworkManager {
   private playerDamageListeners = new Set<PlayerDamageListener>();
   private resourceHealthListeners = new Set<ResourceHealthListener>();
   private chopResultListeners = new Set<ChopResultListener>();
+  private chopStartListeners = new Set<ChopStartListener>();
+  private chopCancelListeners = new Set<ChopCancelListener>();
   private skillStateListeners = new Set<SkillStateListener>();
   private latestQuestState: QuestStatePayload = { active: [], completed: [] };
   private latestInventory: InventoryStatePayload = { items: [], capacity: 16 };
@@ -94,6 +100,7 @@ export class NetworkManager {
   private isTransferring = false;
   private mobHealth = new Map<string, MobHealthPayload>();
   private resourceHealth = new Map<string, ResourceHealthPayload>();
+  private lastPlayerSnapshot = "";
 
   get sessionId(): string | null {
     return this.room?.sessionId ?? null;
@@ -306,8 +313,9 @@ export class NetworkManager {
     this.mobHealth.clear();
     this.resourceHealth.clear();
     this.latestSkillState = { woodcutting: { level: 1, xp: 0 } };
+    this.lastPlayerSnapshot = "";
     this.emitConnection(false, 0);
-    this.emitPlayers();
+    this.emitPlayers(true);
   }
 
   onConnectionChange(listener: ConnectionListener) {
@@ -427,6 +435,16 @@ export class NetworkManager {
     return () => this.chopResultListeners.delete(listener);
   }
 
+  onChopStart(listener: ChopStartListener) {
+    this.chopStartListeners.add(listener);
+    return () => this.chopStartListeners.delete(listener);
+  }
+
+  onChopCancel(listener: ChopCancelListener) {
+    this.chopCancelListeners.add(listener);
+    return () => this.chopCancelListeners.delete(listener);
+  }
+
   onSkillState(listener: SkillStateListener) {
     this.skillStateListeners.add(listener);
     listener(this.latestSkillState);
@@ -453,6 +471,7 @@ export class NetworkManager {
     this.currentZoneId = zoneId;
     this.mobHealth.clear();
     this.resourceHealth.clear();
+    this.lastPlayerSnapshot = "";
 
     this.room.onStateChange(() => this.emitPlayers());
     this.room.onMessage("chat", (message: ChatMessagePayload) => {
@@ -496,21 +515,49 @@ export class NetworkManager {
         listener(payload);
       }
     });
+    this.room.onMessage("chopStart", (payload: ChopStartPayload) => {
+      this.resourceHealth.set(payload.resourceId, {
+        resourceId: payload.resourceId,
+        available: true,
+        chopperName: payload.playerName,
+        chopStartedAt: payload.startedAt,
+        chopEndsAt: payload.endsAt,
+        chopDurationMs: payload.durationMs,
+      });
+      for (const listener of this.chopStartListeners) {
+        listener(payload);
+      }
+      for (const listener of this.resourceHealthListeners) {
+        listener(this.resourceHealth.get(payload.resourceId)!);
+      }
+    });
+    this.room.onMessage("chopCancel", (payload: ChopCancelPayload) => {
+      const existing = this.resourceHealth.get(payload.resourceId);
+      this.resourceHealth.set(payload.resourceId, {
+        resourceId: payload.resourceId,
+        available: existing?.available ?? true,
+        chopperName: undefined,
+        chopStartedAt: undefined,
+        chopEndsAt: undefined,
+        chopDurationMs: undefined,
+      });
+      for (const listener of this.chopCancelListeners) {
+        listener(payload);
+      }
+      for (const listener of this.resourceHealthListeners) {
+        listener(this.resourceHealth.get(payload.resourceId)!);
+      }
+    });
     this.room.onMessage("chopResult", (payload: ChopResultPayload) => {
       this.resourceHealth.set(payload.resourceId, {
         resourceId: payload.resourceId,
-        currentChops: payload.currentChops,
-        maxChops: payload.maxChops,
+        available: payload.available,
       });
       for (const listener of this.chopResultListeners) {
         listener(payload);
       }
       for (const listener of this.resourceHealthListeners) {
-        listener({
-          resourceId: payload.resourceId,
-          currentChops: payload.currentChops,
-          maxChops: payload.maxChops,
-        });
+        listener(this.resourceHealth.get(payload.resourceId)!);
       }
     });
     this.room.onMessage("skillState", (payload: SkillStatePayload) => {
@@ -599,7 +646,7 @@ export class NetworkManager {
 
     this.emitZone(zoneId);
     this.emitConnection(true, this.room.state.players?.size ?? 0);
-    this.emitPlayers();
+    this.emitPlayers(true);
     this.emitLocalProfile();
   }
 
@@ -623,8 +670,24 @@ export class NetworkManager {
     }
   }
 
-  private emitPlayers() {
+  private emitPlayers(force = false) {
     const players = this.getPlayers();
+    const snapshot = JSON.stringify(
+      players.map((player) => ({
+        sessionId: player.sessionId,
+        name: player.name,
+        x: Math.round(player.x),
+        y: Math.round(player.y),
+        level: player.level,
+        xp: player.xp,
+        appearance: player.appearance,
+      })),
+    );
+    if (!force && snapshot === this.lastPlayerSnapshot) {
+      return;
+    }
+    this.lastPlayerSnapshot = snapshot;
+
     for (const listener of this.playersListeners) {
       listener(players, this.sessionId);
     }

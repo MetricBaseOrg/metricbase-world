@@ -81,7 +81,7 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
         tileY: 8,
         kind: "tree",
         woodcutting: {
-          maxChops: 3,
+          treeLevel: 1,
           skillXp: 10,
           respawnMs: 25_000,
           lootItemId: "item_wood",
@@ -95,7 +95,7 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
         tileY: 16,
         kind: "tree",
         woodcutting: {
-          maxChops: 3,
+          treeLevel: 1,
           skillXp: 10,
           respawnMs: 25_000,
           lootItemId: "item_wood",
@@ -109,7 +109,7 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
         tileY: 8,
         kind: "tree",
         woodcutting: {
-          maxChops: 2,
+          treeLevel: 1,
           skillXp: 8,
           respawnMs: 20_000,
           lootItemId: "item_wood",
@@ -171,7 +171,7 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
         tileY: 10,
         kind: "tree",
         woodcutting: {
-          maxChops: 4,
+          treeLevel: 2,
           skillXp: 14,
           respawnMs: 30_000,
           lootItemId: "item_wood",
@@ -185,7 +185,7 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
         tileY: 16,
         kind: "tree",
         woodcutting: {
-          maxChops: 4,
+          treeLevel: 2,
           skillXp: 14,
           respawnMs: 30_000,
           lootItemId: "item_wood",
@@ -199,7 +199,7 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
         tileY: 6,
         kind: "tree",
         woodcutting: {
-          maxChops: 5,
+          treeLevel: 2,
           requiredLevel: 2,
           skillXp: 18,
           respawnMs: 35_000,
@@ -214,7 +214,7 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
         tileY: 18,
         kind: "tree",
         woodcutting: {
-          maxChops: 4,
+          treeLevel: 2,
           skillXp: 14,
           respawnMs: 30_000,
           lootItemId: "item_wood",
@@ -228,7 +228,7 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
         tileY: 8,
         kind: "tree",
         woodcutting: {
-          maxChops: 6,
+          treeLevel: 4,
           requiredLevel: 4,
           skillXp: 28,
           respawnMs: 45_000,

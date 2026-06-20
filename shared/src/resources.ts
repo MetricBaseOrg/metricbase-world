@@ -1,5 +1,5 @@
 export interface WoodcuttingConfig {
-  maxChops: number;
+  treeLevel: number;
   requiredLevel?: number;
   skillXp: number;
   respawnMs: number;
@@ -18,14 +18,30 @@ export interface ZoneResourceNode {
 
 export interface ResourceHealthPayload {
   resourceId: string;
-  currentChops: number;
-  maxChops: number;
+  available: boolean;
+  chopperName?: string;
+  chopStartedAt?: number;
+  chopEndsAt?: number;
+  chopDurationMs?: number;
+}
+
+export interface ChopStartPayload {
+  resourceId: string;
+  playerName: string;
+  startedAt: number;
+  endsAt: number;
+  durationMs: number;
+}
+
+export interface ChopCancelPayload {
+  resourceId: string;
+  playerName: string;
+  reason?: string;
 }
 
 export interface ChopResultPayload {
   resourceId: string;
-  currentChops: number;
-  maxChops: number;
+  available: boolean;
   depleted: boolean;
   skillXpGained: number;
   woodcuttingLevel: number;

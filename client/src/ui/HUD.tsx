@@ -3,6 +3,7 @@ import { useState } from "react";
 import { isSoundEnabled, playSfx, setSoundEnabled } from "../audio/soundEffects";
 import { useGameStore } from "../store/gameStore";
 import { shortenWallet } from "../wallet/solanaProvider";
+import { CircleGauge } from "./CircleGauge";
 import { useMobileLayout } from "./useMobileLayout";
 import { WalletConnectBar } from "./WalletConnectBar";
 
@@ -31,12 +32,13 @@ export function HUD({ onLeave }: HUDProps) {
     woodcuttingXp,
   } = useGameStore();
   const progress = xpProgress(playerXp, playerLevel);
-  const percent = Math.min(100, Math.round((progress.current / progress.required) * 100));
+  const xpRatio = progress.required > 0 ? progress.current / progress.required : 0;
   const woodcuttingProgress = woodcuttingXpProgress(woodcuttingXp, woodcuttingLevel);
-  const woodcuttingPercent = Math.min(
-    100,
-    Math.round((woodcuttingProgress.current / woodcuttingProgress.required) * 100),
-  );
+  const woodcuttingRatio =
+    woodcuttingProgress.required > 0
+      ? woodcuttingProgress.current / woodcuttingProgress.required
+      : 0;
+  const hpRatio = playerMaxHp > 0 ? playerHp / playerMaxHp : 0;
   const activeQuest = questState.active[0];
 
   return (
@@ -63,64 +65,63 @@ export function HUD({ onLeave }: HUDProps) {
           <span className="chibi-hud-compact-bar__chevron">{expanded ? "▲" : "▼"}</span>
         </button>
       ) : (
-        <div className="chibi-title chibi-sparkle-title" style={{ fontSize: "1.25rem", marginBottom: 8 }}>
+        <div className="chibi-title chibi-sparkle-title" style={{ fontSize: "1.1rem", marginBottom: 6 }}>
           MetricBase World
         </div>
       )}
 
       {(!mobileLayout || expanded) && (
         <div className="chibi-hud-details">
-          {!mobileLayout && (
-            <div className="chibi-stat-pill" style={{ marginBottom: 6 }}>
-              <span>🗺️</span> {zoneName}
-            </div>
-          )}
-
-          {mobileLayout && (
-            <div className="chibi-stat-pill" style={{ marginBottom: 6 }}>
-              <span>🗺️</span> {zoneName}
-            </div>
-          )}
+          <div className="chibi-stat-pill" style={{ marginBottom: 6 }}>
+            <span>🗺️</span> {zoneName}
+          </div>
 
           {!mobileLayout && (
-            <div style={{ fontSize: "0.88rem", fontWeight: 700, marginTop: 8 }}>
+            <div style={{ fontSize: "0.84rem", fontWeight: 700 }}>
               {playerName} · Lv {playerLevel} ·{" "}
               <span style={{ color: "var(--chibi-gold-deep)" }}>🪙 {playerGold}</span>
             </div>
           )}
 
-          <div style={{ marginTop: mobileLayout ? 8 : 8 }}>
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                fontSize: "0.75rem",
-                fontWeight: 700,
-              }}
-            >
-              <span>❤️ HP</span>
-              <span>
-                {playerHp} / {playerMaxHp}
-              </span>
-            </div>
-            <div className="chibi-progress" style={{ marginTop: 4 }}>
-              <div
-                className="chibi-progress__fill"
-                style={{
-                  width: `${playerMaxHp > 0 ? Math.round((playerHp / playerMaxHp) * 100) : 0}%`,
-                  background: "linear-gradient(90deg, #ff6b6b, #ff8f8f)",
-                }}
+          <div className="chibi-hud-gauges">
+            <div className="chibi-hud-gauge-item">
+              <CircleGauge
+                value={hpRatio}
+                label={`${playerHp}`}
+                detail={`/${playerMaxHp}`}
+                title={`HP ${playerHp} / ${playerMaxHp}`}
+                color="#ff6b6b"
               />
+              <span className="chibi-hud-gauge-caption">HP</span>
             </div>
-            {equippedWeaponId && (
-              <div className="chibi-text-muted" style={{ marginTop: 4 }}>
-                ⚔️ {getItemDefinition(equippedWeaponId).name} equipped
-              </div>
-            )}
+            <div className="chibi-hud-gauge-item">
+              <CircleGauge
+                value={xpRatio}
+                label={`${playerLevel}`}
+                title={`Combat XP ${progress.current} / ${progress.required}`}
+                color="var(--chibi-lavender)"
+              />
+              <span className="chibi-hud-gauge-caption">Level</span>
+            </div>
+            <div className="chibi-hud-gauge-item">
+              <CircleGauge
+                value={woodcuttingRatio}
+                label={`${woodcuttingLevel}`}
+                title={`Woodcutting ${woodcuttingProgress.current} / ${woodcuttingProgress.required} XP`}
+                color="#43a047"
+              />
+              <span className="chibi-hud-gauge-caption">Wood</span>
+            </div>
           </div>
 
+          {equippedWeaponId && (
+            <div className="chibi-text-muted" style={{ marginTop: 6, fontSize: "0.72rem" }}>
+              ⚔️ {getItemDefinition(equippedWeaponId).name}
+            </div>
+          )}
+
           {walletAddress ? (
-            <div className="chibi-text-muted" style={{ marginTop: 6 }}>
+            <div className="chibi-text-muted" style={{ marginTop: 6, fontSize: "0.72rem" }}>
               💳 {shortenWallet(walletAddress)}
             </div>
           ) : (
@@ -130,40 +131,6 @@ export function HUD({ onLeave }: HUDProps) {
               </div>
             )
           )}
-
-          <div style={{ marginTop: 10 }}>
-            <div className="chibi-progress">
-              <div className="chibi-progress__fill" style={{ width: `${percent}%` }} />
-            </div>
-            <div className="chibi-text-muted" style={{ marginTop: 4 }}>
-              XP {progress.current} / {progress.required}
-            </div>
-          </div>
-
-          <div style={{ marginTop: 10 }}>
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                fontSize: "0.75rem",
-                fontWeight: 700,
-              }}
-            >
-              <span>🪓 Woodcutting Lv {woodcuttingLevel}</span>
-              <span>
-                {woodcuttingProgress.current} / {woodcuttingProgress.required}
-              </span>
-            </div>
-            <div className="chibi-progress" style={{ marginTop: 4 }}>
-              <div
-                className="chibi-progress__fill"
-                style={{
-                  width: `${woodcuttingPercent}%`,
-                  background: "linear-gradient(90deg, #43a047, #81c784)",
-                }}
-              />
-            </div>
-          </div>
 
           <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap", alignItems: "center" }}>
             <span className={`chibi-badge ${connected ? "chibi-badge--online" : "chibi-badge--offline"}`}>
@@ -187,7 +154,7 @@ export function HUD({ onLeave }: HUDProps) {
           </div>
 
           {activeQuest && (
-            <div className="chibi-card chibi-card--info" style={{ marginTop: 10, padding: "8px 10px" }}>
+            <div className="chibi-card chibi-card--info" style={{ marginTop: 8, padding: "8px 10px" }}>
               <div className="chibi-quest-title">{activeQuest.title}</div>
               {activeQuest.objectives.map((objective) => (
                 <div key={objective.label} className="chibi-text-muted" style={{ fontSize: "0.78rem", marginTop: 4 }}>
@@ -208,7 +175,7 @@ export function HUD({ onLeave }: HUDProps) {
             type="button"
             className="chibi-btn chibi-btn--secondary"
             onClick={onLeave}
-            style={{ marginTop: 12, width: "100%", padding: "8px 10px", fontSize: "0.82rem" }}
+            style={{ marginTop: 10, width: "100%", padding: "8px 10px", fontSize: "0.82rem" }}
           >
             Leave World
           </button>
