@@ -311,9 +311,9 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
         </div>
 
         <div className="chibi-login-grid">
-          <div>
+          <div className="chibi-login-preview">
             <div className="chibi-label">Preview</div>
-            <CharacterPreview appearance={appearance} />
+            <CharacterPreview appearance={appearance} width={168} height={200} />
             <div className="chibi-text-muted" style={{ marginTop: 12, textAlign: "center" }}>
               {loadingCharacter ? "Loading saved character..." : "Your chibi adventurer"}
             </div>

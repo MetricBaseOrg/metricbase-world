@@ -43,15 +43,14 @@ export function CharacterPreview({ appearance, width = 200, height = 240 }: Char
   return (
     <canvas
       ref={canvasRef}
+      className="chibi-character-preview"
       width={width}
       height={height}
       style={{
-        width: "100%",
+        width,
+        maxWidth: "100%",
         height: "auto",
-        borderRadius: 16,
-        border: "3px solid var(--chibi-outline)",
-        boxShadow: "0 5px 0 var(--chibi-shadow)",
-        background: "#fff",
+        display: "block",
       }}
     />
   );
