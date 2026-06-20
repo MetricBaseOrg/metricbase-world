@@ -24,14 +24,12 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     if (this.state.error) {
       return (
         <div
-          className="chibi-card chibi-card--danger"
+          className="chibi-card chibi-card--danger chibi-anchor"
           style={{
-            position: "absolute",
-            top: 16,
-            left: "50%",
-            transform: "translateX(-50%)",
+            top: "max(16px, var(--chibi-safe-top))",
+            left: "max(16px, var(--chibi-safe-left))",
+            right: "max(16px, var(--chibi-safe-right))",
             zIndex: 30,
-            maxWidth: 420,
             padding: 14,
             pointerEvents: "auto",
           }}

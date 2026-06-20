@@ -11,7 +11,7 @@ import { useState } from "react";
 import { networkManager } from "../game/network";
 import { useGameStore } from "../store/gameStore";
 import { sendMetricbaseTokenPayment } from "../wallet/tokenPayment";
-import { panelPosition } from "./chibiTheme";
+
 import { GoldMarketChart } from "./GoldMarketChart";
 import { WalletConnectBar } from "./WalletConnectBar";
 
@@ -308,7 +308,7 @@ export function ShopPanel() {
   };
 
   return (
-    <div className="chibi-panel chibi-panel--shop" style={{ ...panelPosition("center"), pointerEvents: "auto" }}>
+    <div className="chibi-panel chibi-panel--shop chibi-anchor chibi-anchor--center" style={{ pointerEvents: "auto" }}>
       <div className="chibi-close-row">
         <div>
           <div className="chibi-title chibi-title--sm chibi-sparkle-title">{shop.merchantName}'s Shop</div>
@@ -373,7 +373,7 @@ export function ShopPanel() {
             <div style={{ marginTop: 16, fontSize: 13, opacity: 0.7 }}>Gold market requires wallet login and database persistence.</div>
           ) : (
             <>
-              <div style={{ marginTop: 16, display: "grid", gap: 12, gridTemplateColumns: "1fr 1fr" }}>
+              <div className="chibi-grid-2" style={{ marginTop: 16 }}>
                 <div className="chibi-card chibi-card--info">
                   <div className="chibi-label" style={{ color: "var(--chibi-sky-deep)", textTransform: "none", letterSpacing: 0 }}>Place Bid (buy gold)</div>
                   <input className="chibi-input" value={bidGold} onChange={(e) => setBidGold(e.target.value)} placeholder="Gold amount" style={{ marginBottom: 6, fontSize: "0.82rem", padding: "8px 10px" }} />

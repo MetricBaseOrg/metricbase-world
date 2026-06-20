@@ -8,6 +8,11 @@ import {
   tileToWorld,
 } from "@metricbase/shared";
 import { ensurePhaserCharacterTexture } from "../character/characterArt";
+import {
+  consumeMobileAttack,
+  consumeMobileInteract,
+  getMobileAxis,
+} from "./inputControl";
 import { networkManager, RemotePlayer } from "./network";
 import { buildZoneMap } from "./mapData";
 import { PredictedPosition, reconcilePrediction, stepPrediction } from "./prediction";
@@ -241,7 +246,10 @@ export class GameScene extends Phaser.Scene {
   }
 
   private tryInteract() {
-    if (!this.interactKey || !Phaser.Input.Keyboard.JustDown(this.interactKey)) return;
+    const mobileInteract = consumeMobileInteract();
+    const keyboardInteract =
+      this.interactKey !== null && Phaser.Input.Keyboard.JustDown(this.interactKey);
+    if (!mobileInteract && !keyboardInteract) return;
     if (!this.localSessionId) return;
 
     const local = this.renderedPlayers.get(this.localSessionId);
@@ -264,7 +272,10 @@ export class GameScene extends Phaser.Scene {
   }
 
   private tryAttack() {
-    if (!this.attackKey || !Phaser.Input.Keyboard.JustDown(this.attackKey)) return;
+    const mobileAttack = consumeMobileAttack();
+    const keyboardAttack =
+      this.attackKey !== null && Phaser.Input.Keyboard.JustDown(this.attackKey);
+    if (!mobileAttack && !keyboardAttack) return;
     if (!this.localSessionId) return;
 
     const local = this.renderedPlayers.get(this.localSessionId);
@@ -288,6 +299,9 @@ export class GameScene extends Phaser.Scene {
   }
 
   private getAxisInput(): number {
+    const mobile = getMobileAxis();
+    if (mobile.dx !== 0) return mobile.dx;
+
     const left = this.cursors?.left.isDown || this.wasd?.A.isDown;
     const right = this.cursors?.right.isDown || this.wasd?.D.isDown;
     if (left && right) return 0;
@@ -297,6 +311,9 @@ export class GameScene extends Phaser.Scene {
   }
 
   private getAxisInputY(): number {
+    const mobile = getMobileAxis();
+    if (mobile.dy !== 0) return mobile.dy;
+
     const up = this.cursors?.up.isDown || this.wasd?.W.isDown;
     const down = this.cursors?.down.isDown || this.wasd?.S.isDown;
     if (up && down) return 0;

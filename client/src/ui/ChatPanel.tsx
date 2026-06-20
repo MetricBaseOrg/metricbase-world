@@ -3,18 +3,24 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 import { setUiTypingActive } from "../game/inputControl";
 import { networkManager } from "../game/network";
 import { useGameStore } from "../store/gameStore";
-import { panelPosition } from "./chibiTheme";
+import { useMobileLayout } from "./useMobileLayout";
 
 export function ChatPanel() {
   const [draft, setDraft] = useState("");
+  const mobileLayout = useMobileLayout();
+  const [expanded, setExpanded] = useState(() => !mobileLayout);
   const messages = useGameStore((state) => state.chatMessages);
   const listRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!mobileLayout) setExpanded(true);
+  }, [mobileLayout]);
 
   useEffect(() => {
     if (listRef.current) {
       listRef.current.scrollTop = listRef.current.scrollHeight;
     }
-  }, [messages]);
+  }, [messages, expanded]);
 
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault();
@@ -25,19 +31,22 @@ export function ChatPanel() {
   };
 
   return (
-    <div
-      className="chibi-panel chibi-panel--floating"
-      style={{
-        ...panelPosition("bottom-left"),
-        width: 360,
-        display: "flex",
-        flexDirection: "column",
-        gap: 8,
-        padding: 10,
-        zIndex: 17,
-      }}
-    >
-      <div ref={listRef} className="chibi-chat-log chibi-card" style={{ background: "#fff" }}>
+    <div className="chibi-panel chibi-panel--floating chibi-panel--chat chibi-anchor chibi-anchor--bottom-left">
+      {mobileLayout && (
+        <button
+          type="button"
+          className="chibi-btn chibi-btn--secondary chibi-chat-toggle"
+          onClick={() => setExpanded((open) => !open)}
+        >
+          {expanded ? "Hide chat" : `Chat (${messages.length})`}
+        </button>
+      )}
+
+      <div
+        ref={listRef}
+        className={`chibi-chat-log chibi-card${expanded ? "" : " chibi-chat-log--collapsed"}`}
+        style={{ background: "#fff" }}
+      >
         {messages.length === 0 ? (
           <div className="chibi-text-muted">💬 Zone chat is live. Say hello!</div>
         ) : (
@@ -64,10 +73,11 @@ export function ChatPanel() {
           onFocus={() => {
             setUiTypingActive(true);
             networkManager.sendInput(0, 0);
+            if (mobileLayout) setExpanded(true);
           }}
           onBlur={() => setUiTypingActive(false)}
           placeholder="Press Enter to chat..."
-          style={{ flex: 1 }}
+          style={{ flex: 1, minHeight: 44 }}
         />
         <button
           type="submit"

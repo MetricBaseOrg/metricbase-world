@@ -1,19 +1,18 @@
 import { useGameStore } from "../store/gameStore";
-import { panelPosition } from "./chibiTheme";
+import { useMobileLayout } from "./useMobileLayout";
 
 export function QuestPanel() {
   const questState = useGameStore((state) => state.questState);
+  const inventoryOpen = useGameStore((state) => state.inventoryOpen);
+  const mobileLayout = useMobileLayout();
   const hasContent = questState.active.length > 0 || questState.completed.length > 0;
 
-  if (!hasContent) {
+  if (!hasContent || (mobileLayout && inventoryOpen)) {
     return null;
   }
 
   return (
-    <div
-      className="chibi-panel chibi-panel--floating"
-      style={{ ...panelPosition("top-right"), width: 280, padding: "12px 14px", pointerEvents: "none" }}
-    >
+    <div className="chibi-panel chibi-panel--floating chibi-panel--side chibi-panel--quest chibi-anchor chibi-anchor--top-right">
       <div className="chibi-title chibi-title--sm chibi-sparkle-title" style={{ marginBottom: 8 }}>
         Quest Log
       </div>

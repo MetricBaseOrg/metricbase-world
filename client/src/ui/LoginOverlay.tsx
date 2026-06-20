@@ -310,13 +310,7 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
           </p>
         </div>
 
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-            gap: 28,
-          }}
-        >
+        <div className="chibi-login-grid">
           <div>
             <div className="chibi-label">Preview</div>
             <CharacterPreview appearance={appearance} />

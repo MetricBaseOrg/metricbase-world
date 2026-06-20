@@ -1,6 +1,6 @@
 import { getItemDefinition } from "@metricbase/shared";
 import { useGameStore } from "../store/gameStore";
-import { panelPosition } from "./chibiTheme";
+
 
 export function InventoryPanel() {
   const inventory = useGameStore((state) => state.inventory);
@@ -10,10 +10,7 @@ export function InventoryPanel() {
   if (!open) return null;
 
   return (
-    <div
-      className="chibi-panel chibi-panel--floating"
-      style={{ ...panelPosition("top-right"), width: 280, padding: "14px 16px", zIndex: 19 }}
-    >
+    <div className="chibi-panel chibi-panel--floating chibi-panel--side chibi-anchor chibi-anchor--top-right chibi-panel--inventory">
       <div className="chibi-close-row">
         <div className="chibi-title chibi-title--sm chibi-sparkle-title">Inventory</div>
         <button

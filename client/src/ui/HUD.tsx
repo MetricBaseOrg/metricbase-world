@@ -1,7 +1,6 @@
 import { xpProgress } from "@metricbase/shared";
 import { useGameStore } from "../store/gameStore";
 import { shortenWallet } from "../wallet/solanaProvider";
-import { panelPosition } from "./chibiTheme";
 import { WalletConnectBar } from "./WalletConnectBar";
 
 interface HUDProps {
@@ -23,7 +22,7 @@ export function HUD({ onLeave }: HUDProps) {
   const percent = Math.min(100, Math.round((progress.current / progress.required) * 100));
 
   return (
-    <div className="chibi-panel chibi-panel--hud" style={panelPosition("top-left")}>
+    <div className="chibi-panel chibi-panel--hud chibi-anchor chibi-anchor--top-left">
       <div className="chibi-title chibi-sparkle-title" style={{ fontSize: "1.25rem", marginBottom: 8 }}>
         MetricBase World
       </div>
@@ -62,8 +61,11 @@ export function HUD({ onLeave }: HUDProps) {
         <span className="chibi-stat-pill">👥 {playerCount}</span>
       </div>
 
-      <div className="chibi-key-hint">
+      <div className="chibi-key-hint chibi-key-hint--desktop">
         WASD move · E shop · Space attack · I inventory · Purple tiles = portals
+      </div>
+      <div className="chibi-key-hint chibi-key-hint--mobile">
+        Use the on-screen pad to move · Interact for shops · Attack for combat
       </div>
 
       <button

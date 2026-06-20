@@ -1,5 +1,6 @@
 import { type CharacterAppearance } from "@metricbase/shared";
 import { useEffect, useState } from "react";
+import { resetMobileInput } from "./game/inputControl";
 import { PhaserGame } from "./game/PhaserGame";
 import { networkManager } from "./game/network";
 import { clearStoredAccessToken, getValidWalletSession } from "./wallet/tokenGate";
@@ -12,6 +13,7 @@ import { InventoryPanel } from "./ui/InventoryPanel";
 import { QuestPanel } from "./ui/QuestPanel";
 import { ErrorBoundary } from "./ui/ErrorBoundary";
 import { ShopPanel } from "./ui/ShopPanel";
+import { TouchControls } from "./ui/TouchControls";
 
 export function App() {
   const [joined, setJoined] = useState(false);
@@ -154,6 +156,7 @@ export function App() {
   };
 
   const handleLeave = async () => {
+    resetMobileInput();
     await networkManager.disconnect();
     clearChat();
     clearStoredAccessToken();
@@ -181,6 +184,7 @@ export function App() {
         </ErrorBoundary>
       )}
       {joined && <ChatPanel />}
+      {joined && <TouchControls />}
       {!joined && <LoginOverlay onJoin={handleJoin} />}
     </div>
   );
