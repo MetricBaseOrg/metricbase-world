@@ -1,5 +1,5 @@
 import type { MarketChartPayload } from "./marketChart.js";
-import { buildEmptyMarketChart } from "./marketChart.js";
+import { buildEmptyMarketChart, normalizeMarketChart } from "./marketChart.js";
 import { METRICBASE_TOKEN_MINT } from "./tokenGate.js";
 import { TOKEN_DECIMALS } from "./tokenShop.js";
 
@@ -11,6 +11,7 @@ export {
   MARKET_CHART_CANDLE_COUNT,
   MARKET_CHART_INTERVAL_MS,
   midMarketPrice,
+  normalizeMarketChart,
   tradePricePerGold,
 } from "./marketChart.js";
 
@@ -86,5 +87,28 @@ export function buildEmptyMarketState(
     chart: buildEmptyMarketChart(),
     minGold: MIN_MARKET_GOLD,
     maxGold: MAX_MARKET_GOLD,
+  };
+}
+
+export function normalizeMarketState(
+  market: Partial<MarketStatePayload>,
+): MarketStatePayload {
+  const enabled = market.enabled ?? false;
+  const base = buildEmptyMarketState(
+    market.rpcUrl ?? "https://api.mainnet-beta.solana.com",
+    enabled,
+  );
+  return {
+    ...base,
+    ...market,
+    asks: market.asks ?? [],
+    bids: market.bids ?? [],
+    myOrders: market.myOrders ?? [],
+    chart: normalizeMarketChart(market.chart),
+    mint: market.mint ?? base.mint,
+    rpcUrl: market.rpcUrl ?? base.rpcUrl,
+    decimals: market.decimals ?? base.decimals,
+    minGold: market.minGold ?? base.minGold,
+    maxGold: market.maxGold ?? base.maxGold,
   };
 }

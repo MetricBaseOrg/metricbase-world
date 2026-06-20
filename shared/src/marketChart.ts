@@ -150,3 +150,26 @@ export function buildEmptyMarketChart(): MarketChartPayload {
     changePercent: null,
   };
 }
+
+export function normalizeMarketChart(
+  chart?: Partial<MarketChartPayload> | null,
+): MarketChartPayload {
+  const empty = buildEmptyMarketChart();
+  if (!chart) return empty;
+
+  const candles = Array.isArray(chart.candles) ? chart.candles : [];
+  const traded = candles.filter((candle) => candle.volume > 0);
+  const hasTrades = traded.length > 0;
+
+  return {
+    ...empty,
+    ...chart,
+    candles,
+    hasTrades,
+    indicativePrice: chart.indicativePrice ?? empty.indicativePrice,
+    lastPrice: chart.lastPrice ?? empty.lastPrice,
+    changePercent: chart.changePercent ?? null,
+    intervalLabel: chart.intervalLabel ?? empty.intervalLabel,
+    intervalMs: chart.intervalMs ?? empty.intervalMs,
+  };
+}

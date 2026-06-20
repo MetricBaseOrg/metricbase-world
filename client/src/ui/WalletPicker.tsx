@@ -10,7 +10,7 @@ export function WalletPicker({ wallets, onSelect, onClose }: WalletPickerProps) 
   return (
     <div
       className="chibi-overlay"
-      style={{ zIndex: 40, background: "rgba(61, 43, 31, 0.45)" }}
+      style={{ position: "fixed", zIndex: 40, background: "rgba(61, 43, 31, 0.45)" }}
       onClick={onClose}
     >
       <div

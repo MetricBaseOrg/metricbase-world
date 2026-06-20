@@ -10,6 +10,7 @@ import { LoginOverlay } from "./ui/LoginOverlay";
 import { InventoryHotkey } from "./ui/InventoryHotkey";
 import { InventoryPanel } from "./ui/InventoryPanel";
 import { QuestPanel } from "./ui/QuestPanel";
+import { ErrorBoundary } from "./ui/ErrorBoundary";
 import { ShopPanel } from "./ui/ShopPanel";
 
 export function App() {
@@ -174,7 +175,11 @@ export function App() {
       {joined && <QuestPanel />}
       {joined && <InventoryPanel />}
       {joined && <InventoryHotkey />}
-      {joined && <ShopPanel />}
+      {joined && (
+        <ErrorBoundary label="Shop">
+          <ShopPanel />
+        </ErrorBoundary>
+      )}
       {joined && <ChatPanel />}
       {!joined && <LoginOverlay onJoin={handleJoin} />}
     </div>

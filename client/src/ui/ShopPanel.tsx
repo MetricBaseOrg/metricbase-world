@@ -2,6 +2,7 @@ import {
   buildShopOpenPayload,
   getShopDefinition,
   METRICBASE_TOKEN_MINT,
+  normalizeMarketState,
   type MarketOrderView,
   type MarketStatePayload,
   type ShopOpenPayload,
@@ -29,7 +30,7 @@ function refreshShopCatalog(
     shop.greeting,
     gold,
     inventory.items,
-    market ?? shop.market,
+    market ? normalizeMarketState(market) : shop.market,
   );
 }
 
@@ -79,7 +80,7 @@ export function ShopPanel() {
 
   if (!open || !shop) return null;
 
-  const market = shop.market;
+  const market = shop.market ? normalizeMarketState(shop.market) : undefined;
   const tokenMint = market?.mint ?? METRICBASE_TOKEN_MINT;
 
   const applyMarketResult = (result: Awaited<ReturnType<typeof waitForMarketResult>>) => {

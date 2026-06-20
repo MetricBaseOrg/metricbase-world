@@ -1,4 +1,8 @@
-import { buildEmptyMarketChart, type MarketChartPayload, type MarketCandle } from "@metricbase/shared";
+import {
+  normalizeMarketChart,
+  type MarketChartPayload,
+  type MarketCandle,
+} from "@metricbase/shared";
 
 interface GoldMarketChartProps {
   chart?: MarketChartPayload;
@@ -26,7 +30,7 @@ function chartPanelStyle(): React.CSSProperties {
 }
 
 export function GoldMarketChart({ chart }: GoldMarketChartProps) {
-  const payload = chart ?? buildEmptyMarketChart();
+  const payload = normalizeMarketChart(chart);
 
   if (!payload.hasTrades) {
     return (
@@ -56,6 +60,17 @@ export function GoldMarketChart({ chart }: GoldMarketChartProps) {
   }
 
   const candles = tradedCandles(payload.candles);
+  if (candles.length === 0) {
+    return (
+      <div className="chibi-card chibi-card--info" style={chartPanelStyle()}>
+        <div className="chibi-title chibi-title--sm" style={{ marginBottom: 8 }}>Gold / Token Price</div>
+        <div className="chibi-text-muted" style={{ textAlign: "center", padding: "12px 0" }}>
+          No trade data to chart yet.
+        </div>
+      </div>
+    );
+  }
+
   const plotWidth = VIEW_WIDTH - PADDING.left - PADDING.right;
   const plotHeight = VIEW_HEIGHT - PADDING.top - PADDING.bottom;
 
