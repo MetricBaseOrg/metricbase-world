@@ -39,6 +39,7 @@ export class GameScene extends Phaser.Scene {
   private mapTiles: Phaser.GameObjects.Image[] = [];
   private renderedNpcs: RenderedNpc[] = [];
   private interactKey: Phaser.Input.Keyboard.Key | null = null;
+  private lastSentInput = { dx: 0, dy: 0 };
   private currentZoneId: string | null = null;
 
   constructor() {
@@ -83,8 +84,9 @@ export class GameScene extends Phaser.Scene {
     const dx = this.getAxisInput();
     const dy = this.getAxisInputY();
 
-    if (dx !== 0 || dy !== 0) {
+    if (dx !== this.lastSentInput.dx || dy !== this.lastSentInput.dy) {
       networkManager.sendInput(dx, dy);
+      this.lastSentInput = { dx, dy };
     }
 
     this.applyLocalPrediction(dx, dy, delta);
@@ -236,11 +238,12 @@ export class GameScene extends Phaser.Scene {
         existing.targetY = player.y;
 
         if (isLocal) {
-          existing.predicted = reconcilePrediction(existing.predicted, {
-            x: player.x,
-            y: player.y,
-          });
+          const moving = this.lastSentInput.dx !== 0 || this.lastSentInput.dy !== 0;
+          existing.predicted = moving
+            ? reconcilePrediction(existing.predicted, { x: player.x, y: player.y })
+            : { x: player.x, y: player.y };
           existing.sprite.setPosition(existing.predicted.x, existing.predicted.y);
+          existing.label.setPosition(existing.predicted.x, existing.predicted.y - 28);
         }
 
         existing.label.setText(player.name);

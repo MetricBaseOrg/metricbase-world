@@ -11,8 +11,13 @@ export function unregisterPhaserGame() {
 }
 
 export function setUiTypingActive(active: boolean) {
-  const keyboard = game?.input.keyboard;
-  if (!keyboard) return;
+  if (!game) return;
 
-  keyboard.enabled = !active;
+  const sceneKeyboard = game.scene.getScene("GameScene")?.input.keyboard;
+  if (sceneKeyboard) {
+    if (!active) {
+      sceneKeyboard.resetKeys();
+    }
+    sceneKeyboard.enabled = !active;
+  }
 }

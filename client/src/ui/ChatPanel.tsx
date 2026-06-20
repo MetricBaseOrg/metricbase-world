@@ -78,7 +78,10 @@ export function ChatPanel() {
         <input
           value={draft}
           onChange={(event) => setDraft(event.target.value.slice(0, CHAT_MAX_LENGTH))}
-          onFocus={() => setUiTypingActive(true)}
+          onFocus={() => {
+            setUiTypingActive(true);
+            networkManager.sendInput(0, 0);
+          }}
           onBlur={() => setUiTypingActive(false)}
           placeholder="Press Enter to chat..."
           style={{

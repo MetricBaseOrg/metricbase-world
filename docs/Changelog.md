@@ -9,6 +9,10 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **Character keeps moving after releasing WASD** — Client only sent input while keys were held, so the server never received a stop signal. Input is now sent on every change, including `{ dx: 0, dy: 0 }`. Local position snaps to the server when idle, and keyboard state resets after chat focus.
+
 ### Added
 
 - **Zone NPCs** — Hub guide (Aria), merchant (Pip), and wilderness scout (Rook). Walk nearby and press **E** to talk; dialogue appears in chat.
