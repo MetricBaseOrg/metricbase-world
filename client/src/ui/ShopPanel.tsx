@@ -271,35 +271,37 @@ export function ShopPanel() {
     }
   };
 
+  const compactBtnStyle: React.CSSProperties = { padding: "6px 10px", fontSize: "0.72rem" };
+
   const renderOrderActions = (order: MarketOrderView, mode: "book" | "mine") => {
     if (mode === "mine") {
       if (order.status === "open") {
         return (
-          <button type="button" disabled={pending} onClick={() => void handleCancelOrder(order.id)} style={{ padding: "6px 10px", borderRadius: 6, border: "1px solid rgba(255,255,255,0.15)", background: "rgba(255,255,255,0.06)", color: "#fff", fontSize: 11, cursor: "pointer" }}>
+          <button type="button" className="chibi-btn chibi-btn--secondary" disabled={pending} onClick={() => void handleCancelOrder(order.id)} style={compactBtnStyle}>
             Cancel
           </button>
         );
       }
       if (order.status === "pending" && order.side === "bid" && order.wallet === walletAddress) {
         return (
-          <button type="button" disabled={pending} onClick={() => void handlePayBid(order)} style={{ padding: "6px 10px", borderRadius: 6, border: "none", background: "linear-gradient(135deg, #2ecc71, #27ae60)", color: "#fff", fontSize: 11, cursor: "pointer" }}>
+          <button type="button" className="chibi-btn chibi-btn--mint" disabled={pending} onClick={() => void handlePayBid(order)} style={compactBtnStyle}>
             Pay Now
           </button>
         );
       }
-      return <span style={{ fontSize: 11, opacity: 0.6 }}>{order.status}</span>;
+      return <span className="chibi-text-muted">{order.status}</span>;
     }
 
     if (order.side === "ask") {
       return (
-        <button type="button" disabled={pending || !walletAddress || order.wallet === walletAddress} onClick={() => void handleBuyOffer(order)} style={{ padding: "6px 10px", borderRadius: 6, border: "none", background: "linear-gradient(135deg, #2ecc71, #27ae60)", color: "#fff", fontSize: 11, cursor: "pointer" }}>
+        <button type="button" className="chibi-btn chibi-btn--mint" disabled={pending || !walletAddress || order.wallet === walletAddress} onClick={() => void handleBuyOffer(order)} style={compactBtnStyle}>
           Buy
         </button>
       );
     }
 
     return (
-      <button type="button" disabled={pending || !walletAddress || order.wallet === walletAddress} onClick={() => void handleSellToBid(order)} style={{ padding: "6px 10px", borderRadius: 6, border: "1px solid rgba(255,255,255,0.15)", background: "rgba(255,255,255,0.06)", color: "#fff", fontSize: 11, cursor: "pointer" }}>
+      <button type="button" className="chibi-btn chibi-btn--secondary" disabled={pending || !walletAddress || order.wallet === walletAddress} onClick={() => void handleSellToBid(order)} style={compactBtnStyle}>
         Sell
       </button>
     );
@@ -372,30 +374,30 @@ export function ShopPanel() {
           ) : (
             <>
               <div style={{ marginTop: 16, display: "grid", gap: 12, gridTemplateColumns: "1fr 1fr" }}>
-                <div style={{ padding: 12, borderRadius: 8, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 8, color: "#9ad7ff" }}>Place Bid (buy gold)</div>
-                  <input value={bidGold} onChange={(e) => setBidGold(e.target.value)} placeholder="Gold amount" style={{ width: "100%", marginBottom: 6, padding: "8px 10px", borderRadius: 6, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(255,255,255,0.05)", color: "#fff" }} />
-                  <input value={bidTokens} onChange={(e) => setBidTokens(e.target.value)} placeholder="Max tokens" style={{ width: "100%", marginBottom: 8, padding: "8px 10px", borderRadius: 6, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(255,255,255,0.05)", color: "#fff" }} />
-                  <button type="button" disabled={pending || !walletAddress} onClick={() => void handlePlaceOrder("bid")} style={{ width: "100%", padding: "8px", borderRadius: 6, border: "none", background: "linear-gradient(135deg, #4f8cff, #6c5ce7)", color: "#fff", fontWeight: 600, fontSize: 12, cursor: "pointer" }}>Post Bid</button>
+                <div className="chibi-card chibi-card--info">
+                  <div className="chibi-label" style={{ color: "var(--chibi-sky-deep)", textTransform: "none", letterSpacing: 0 }}>Place Bid (buy gold)</div>
+                  <input className="chibi-input" value={bidGold} onChange={(e) => setBidGold(e.target.value)} placeholder="Gold amount" style={{ marginBottom: 6, fontSize: "0.82rem", padding: "8px 10px" }} />
+                  <input className="chibi-input" value={bidTokens} onChange={(e) => setBidTokens(e.target.value)} placeholder="Max tokens" style={{ marginBottom: 10, fontSize: "0.82rem", padding: "8px 10px" }} />
+                  <button type="button" className="chibi-btn chibi-btn--primary" disabled={pending || !walletAddress} onClick={() => void handlePlaceOrder("bid")} style={{ width: "100%", padding: "8px 10px", fontSize: "0.8rem" }}>Post Bid</button>
                 </div>
-                <div style={{ padding: 12, borderRadius: 8, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 8, color: "#ffd27a" }}>Place Offer (sell gold)</div>
-                  <input value={askGold} onChange={(e) => setAskGold(e.target.value)} placeholder="Gold amount" style={{ width: "100%", marginBottom: 6, padding: "8px 10px", borderRadius: 6, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(255,255,255,0.05)", color: "#fff" }} />
-                  <input value={askTokens} onChange={(e) => setAskTokens(e.target.value)} placeholder="Ask tokens" style={{ width: "100%", marginBottom: 8, padding: "8px 10px", borderRadius: 6, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(255,255,255,0.05)", color: "#fff" }} />
-                  <button type="button" disabled={pending || !walletAddress} onClick={() => void handlePlaceOrder("ask")} style={{ width: "100%", padding: "8px", borderRadius: 6, border: "none", background: "linear-gradient(135deg, #f39c12, #e67e22)", color: "#fff", fontWeight: 600, fontSize: 12, cursor: "pointer" }}>Post Offer</button>
+                <div className="chibi-card chibi-card--gold">
+                  <div className="chibi-label" style={{ color: "var(--chibi-gold-deep)", textTransform: "none", letterSpacing: 0 }}>Place Offer (sell gold)</div>
+                  <input className="chibi-input" value={askGold} onChange={(e) => setAskGold(e.target.value)} placeholder="Gold amount" style={{ marginBottom: 6, fontSize: "0.82rem", padding: "8px 10px" }} />
+                  <input className="chibi-input" value={askTokens} onChange={(e) => setAskTokens(e.target.value)} placeholder="Ask tokens" style={{ marginBottom: 10, fontSize: "0.82rem", padding: "8px 10px" }} />
+                  <button type="button" className="chibi-btn chibi-btn--gold" disabled={pending || !walletAddress} onClick={() => void handlePlaceOrder("ask")} style={{ width: "100%", padding: "8px 10px", fontSize: "0.8rem" }}>Post Offer</button>
                 </div>
               </div>
 
               <div style={{ marginTop: 16 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>Offers (sellers)</div>
-                {market.asks.length === 0 ? <div style={{ fontSize: 12, opacity: 0.6 }}>No offers yet.</div> : (
+                <div className="chibi-label" style={{ textTransform: "none", letterSpacing: 0, fontSize: "0.9rem" }}>Offers (sellers)</div>
+                {market.asks.length === 0 ? <div className="chibi-text-muted">No offers yet.</div> : (
                   <div style={{ display: "grid", gap: 8 }}>
                     {market.asks.map((order) => (
-                      <div key={order.id} style={orderRowStyle()}>
+                      <div key={order.id} className="chibi-card" style={orderRowStyle()}>
                         <div>
                           <div style={{ fontWeight: 600, fontSize: 13 }}>{order.playerName}</div>
                           <div style={{ fontSize: 12, marginTop: 4 }}>{order.goldAmount} gold for {order.tokenPrice} tokens</div>
-                          <div style={{ fontSize: 11, opacity: 0.6 }}>{order.tokenPerGold} tokens/gold</div>
+                          <div className="chibi-text-muted">{order.tokenPerGold} tokens/gold</div>
                         </div>
                         {renderOrderActions(order, "book")}
                       </div>
@@ -405,15 +407,15 @@ export function ShopPanel() {
               </div>
 
               <div style={{ marginTop: 16 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>Bids (buyers)</div>
-                {market.bids.length === 0 ? <div style={{ fontSize: 12, opacity: 0.6 }}>No bids yet.</div> : (
+                <div className="chibi-label" style={{ textTransform: "none", letterSpacing: 0, fontSize: "0.9rem" }}>Bids (buyers)</div>
+                {market.bids.length === 0 ? <div className="chibi-text-muted">No bids yet.</div> : (
                   <div style={{ display: "grid", gap: 8 }}>
                     {market.bids.map((order) => (
-                      <div key={order.id} style={orderRowStyle()}>
+                      <div key={order.id} className="chibi-card" style={orderRowStyle()}>
                         <div>
                           <div style={{ fontWeight: 600, fontSize: 13 }}>{order.playerName}</div>
                           <div style={{ fontSize: 12, marginTop: 4 }}>Wants {order.goldAmount} gold for {order.tokenPrice} tokens</div>
-                          <div style={{ fontSize: 11, opacity: 0.6 }}>{order.tokenPerGold} tokens/gold</div>
+                          <div className="chibi-text-muted">{order.tokenPerGold} tokens/gold</div>
                         </div>
                         {renderOrderActions(order, "book")}
                       </div>
@@ -424,13 +426,13 @@ export function ShopPanel() {
 
               {market.myOrders.length > 0 && (
                 <div style={{ marginTop: 16 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>Your orders</div>
+                  <div className="chibi-label" style={{ textTransform: "none", letterSpacing: 0, fontSize: "0.9rem" }}>Your orders</div>
                   <div style={{ display: "grid", gap: 8 }}>
                     {market.myOrders.map((order) => (
-                      <div key={order.id} style={orderRowStyle()}>
+                      <div key={order.id} className="chibi-card" style={orderRowStyle()}>
                         <div>
                           <div style={{ fontWeight: 600, fontSize: 13 }}>{order.side === "ask" ? "Offer" : "Bid"} · {order.goldAmount} gold @ {order.tokenPrice} tokens</div>
-                          <div style={{ fontSize: 11, opacity: 0.6, marginTop: 4 }}>{order.status}</div>
+                          <div className="chibi-text-muted" style={{ marginTop: 4 }}>{order.status}</div>
                         </div>
                         {renderOrderActions(order, "mine")}
                       </div>

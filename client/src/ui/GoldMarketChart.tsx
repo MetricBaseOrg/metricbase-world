@@ -100,10 +100,10 @@ export function GoldMarketChart({ chart }: GoldMarketChartProps) {
 
   const changeColor =
     payload.changePercent === null
-      ? "rgba(255,255,255,0.7)"
+      ? "var(--chibi-ink-soft)"
       : payload.changePercent >= 0
-        ? "#5dffb1"
-        : "#ff8f8f";
+        ? "var(--chibi-mint-deep)"
+        : "var(--chibi-danger)";
 
   return (
     <div className="chibi-card" style={{ ...chartPanelStyle(), paddingBottom: 10, background: "#fff" }}>
@@ -144,13 +144,13 @@ export function GoldMarketChart({ chart }: GoldMarketChartProps) {
                 y1={y}
                 x2={VIEW_WIDTH - PADDING.right}
                 y2={y}
-                stroke="rgba(255,255,255,0.06)"
+                stroke="rgba(74, 55, 40, 0.12)"
                 strokeWidth={1}
               />
               <text
                 x={VIEW_WIDTH - PADDING.right + 6}
                 y={y + 4}
-                fill="rgba(255,255,255,0.45)"
+                fill="var(--chibi-ink-soft)"
                 fontSize="10"
               >
                 {formatPrice(tick)}
@@ -203,7 +203,7 @@ export function GoldMarketChart({ chart }: GoldMarketChartProps) {
               x={x}
               y={VIEW_HEIGHT - 8}
               textAnchor="middle"
-              fill="rgba(255,255,255,0.42)"
+              fill="var(--chibi-ink-soft)"
               fontSize="10"
             >
               {formatTimeLabel(candle.time)}
