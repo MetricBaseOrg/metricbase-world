@@ -905,8 +905,6 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     const next = Math.max(0, current - amount);
     this.playerHp.set(player.name, next);
     this.playerLastCombatAt.set(player.name, Date.now());
-    client.send("playerDamage", { amount, currentHp: next, maxHp });
-    this.sendProfile(client, player);
 
     if (next === 0) {
       const spawn = tileToWorld(this.zoneConfig.spawnTile.x, this.zoneConfig.spawnTile.y);
@@ -914,7 +912,14 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       player.y = spawn.y;
       this.playerKnockedOutUntil.set(player.name, Date.now() + RESPAWN_WAIT_MS);
       this.inputs.set(client.sessionId, { dx: 0, dy: 0 });
-      this.sendProfile(client, player);
+    }
+
+    const knockedOut = next === 0;
+    const freeRespawnAt = knockedOut ? (this.playerKnockedOutUntil.get(player.name) ?? null) : null;
+    client.send("playerDamage", { amount, currentHp: next, maxHp, knockedOut, freeRespawnAt });
+    this.sendProfile(client, player);
+
+    if (knockedOut) {
       this.broadcastChat({
         id: crypto.randomUUID(),
         channel: "system",

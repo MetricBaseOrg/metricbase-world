@@ -15,6 +15,8 @@ export interface PlayerDamagePayload {
   amount: number;
   currentHp: number;
   maxHp: number;
+  knockedOut?: boolean;
+  freeRespawnAt?: number | null;
 }
 
 export const TRAINING_DUMMY_NPC_ID = "training_dummy";

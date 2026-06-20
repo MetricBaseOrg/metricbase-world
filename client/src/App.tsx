@@ -22,7 +22,6 @@ export function App() {
   const {
     setPlayerName,
     setCharacterAppearance,
-    setProfile,
     setWalletAddress,
     setConnected,
     setPlayerCount,
@@ -61,25 +60,31 @@ export function App() {
       setZoneName(zoneName);
     });
 
+    const applyProfilePatch = useGameStore.getState().applyProfilePatch;
+
     const unsubscribeProfile = networkManager.onProfile((profile) => {
-      if (profile.level > previousLevelRef.current) {
+      if ((profile.level ?? 0) > previousLevelRef.current) {
         playSfx("level_up");
       }
-      previousLevelRef.current = profile.level;
+      if (profile.level !== undefined) {
+        previousLevelRef.current = profile.level;
+      }
       const wasKnockedOut = useGameStore.getState().knockedOut;
       if (profile.knockedOut && !wasKnockedOut) {
         playSfx("shop_fail");
       }
-      setProfile(
-        profile.level,
-        profile.xp,
-        profile.gold,
-        profile.hp,
-        profile.maxHp,
-        profile.equippedWeaponId,
-        profile.knockedOut ?? false,
-        profile.freeRespawnAt ?? null,
-      );
+      applyProfilePatch(profile);
+    });
+
+    const unsubscribePlayerDamage = networkManager.onPlayerDamage((payload) => {
+      applyProfilePatch({
+        level: useGameStore.getState().playerLevel,
+        xp: useGameStore.getState().playerXp,
+        hp: payload.currentHp,
+        maxHp: payload.maxHp,
+        knockedOut: payload.knockedOut,
+        freeRespawnAt: payload.freeRespawnAt,
+      });
     });
 
     const unsubscribeQuestState = networkManager.onQuestState((state) => {
@@ -129,6 +134,7 @@ export function App() {
       unsubscribeChat();
       unsubscribeZone();
       unsubscribeProfile();
+      unsubscribePlayerDamage();
       unsubscribeQuestState();
       unsubscribeTransfer();
       unsubscribeInventory();
@@ -145,7 +151,6 @@ export function App() {
     setPlayerCount,
     setShop,
     setShopOpen,
-    setProfile,
     setQuestState,
     setZoneName,
   ]);

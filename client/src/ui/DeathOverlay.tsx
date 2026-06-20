@@ -22,9 +22,10 @@ export function DeathOverlay() {
 
   useEffect(() => {
     if (!knockedOut) return;
+    setNow(Date.now());
     const interval = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(interval);
-  }, [knockedOut]);
+  }, [knockedOut, freeRespawnAt]);
 
   if (!knockedOut) return null;
 

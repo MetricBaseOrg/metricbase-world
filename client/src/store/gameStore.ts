@@ -1,5 +1,6 @@
 import {
   ChatMessagePayload,
+  ProfilePayload,
   QuestStatePayload,
   type CharacterAppearance,
   type InventoryStatePayload,
@@ -42,6 +43,7 @@ interface GameStore {
     knockedOut?: boolean,
     freeRespawnAt?: number | null,
   ) => void;
+  applyProfilePatch: (profile: Partial<ProfilePayload>) => void;
   setPlayerGold: (gold: number) => void;
   setPlayerVitals: (hp: number, maxHp: number) => void;
   setWalletAddress: (wallet: string | null) => void;
@@ -92,10 +94,24 @@ export const useGameStore = create<GameStore>((set) => ({
       playerGold: gold ?? state.playerGold,
       playerHp: hp ?? state.playerHp,
       playerMaxHp: maxHp ?? state.playerMaxHp,
-      knockedOut: knockedOut ?? state.knockedOut,
+      knockedOut: knockedOut !== undefined ? knockedOut : state.knockedOut,
       freeRespawnAt: freeRespawnAt !== undefined ? freeRespawnAt : state.freeRespawnAt,
       equippedWeaponId:
         equippedWeaponId !== undefined ? equippedWeaponId : state.equippedWeaponId,
+    })),
+  applyProfilePatch: (profile) =>
+    set((state) => ({
+      playerLevel: profile.level ?? state.playerLevel,
+      playerXp: profile.xp ?? state.playerXp,
+      playerGold: profile.gold ?? state.playerGold,
+      playerHp: profile.hp ?? state.playerHp,
+      playerMaxHp: profile.maxHp ?? state.playerMaxHp,
+      knockedOut:
+        profile.knockedOut !== undefined ? profile.knockedOut : state.knockedOut,
+      freeRespawnAt:
+        profile.freeRespawnAt !== undefined ? profile.freeRespawnAt : state.freeRespawnAt,
+      equippedWeaponId:
+        profile.equippedWeaponId !== undefined ? profile.equippedWeaponId : state.equippedWeaponId,
     })),
   setPlayerGold: (playerGold) => set({ playerGold }),
   setPlayerVitals: (playerHp, playerMaxHp) => set({ playerHp, playerMaxHp }),
