@@ -166,6 +166,15 @@ export function ShopPanel() {
     const tokenPrice = Number(side === "bid" ? bidTokens : askTokens);
     setPending(true);
     setError(null);
+    const linked = await networkManager.ensureWalletLinked();
+    if (!linked.ok) {
+      setPending(false);
+      setError(linked.error ?? "Connect your wallet to use the gold market.");
+      return;
+    }
+    if (linked.wallet) {
+      useGameStore.getState().setWalletAddress(linked.wallet);
+    }
     networkManager.sendMarketPlace(side, goldAmount, tokenPrice);
     const result = await waitForMarketResult();
     setPending(false);
@@ -368,7 +377,7 @@ export function ShopPanel() {
           </div>
 
           <div style={{ marginTop: 14 }}>
-            <WalletConnectBar compact={!!walletAddress} />
+            <WalletConnectBar />
           </div>
 
           {!market?.enabled ? (

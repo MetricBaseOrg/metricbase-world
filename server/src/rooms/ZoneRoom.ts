@@ -73,6 +73,8 @@ interface ZoneRoomOptions {
   zoneId: string;
 }
 
+type JoinAuthData = JoinOptions & { wallet?: string };
+
 export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   private inputs = new Map<string, PendingInput>();
   private chatCooldowns = new Map<string, number>();
@@ -188,8 +190,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     return { ...options, wallet: payload.wallet };
   }
 
-  async onJoin(client: Client, options: JoinOptions & { wallet?: string }) {
-    const wallet = options.wallet ?? null;
+  async onJoin(client: Client, options: JoinOptions, auth?: JoinAuthData) {
+    const wallet = this.resolveJoinWallet(options, auth);
     let name = sanitizeName(options?.name);
 
     if (wallet) {
@@ -210,7 +212,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     }
 
     if (wallet) {
-      this.playerWallets.set(name, wallet);
+      this.playerWallets.set(client.sessionId, wallet);
       if (saved && !saved.walletAddress) {
         saved = { ...saved, walletAddress: wallet };
         await saveCharacter(saved);
@@ -281,7 +283,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     if (player) {
       this.questProgress.delete(player.name);
       this.inventories.delete(player.name);
-      this.playerWallets.delete(player.name);
+      this.playerWallets.delete(client.sessionId);
     }
 
     this.state.players.delete(client.sessionId);
@@ -605,7 +607,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
     const inventory = this.inventories.get(player.name) ?? [];
     const gold = this.playerGold.get(player.name) ?? STARTING_GOLD;
-    const wallet = this.playerWallets.get(player.name) ?? null;
+    const wallet = this.getClientWallet(client) ?? null;
     const market = await buildMarketState(wallet);
 
     client.send(
@@ -657,15 +659,25 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       return;
     }
 
-    this.playerWallets.set(player.name, payload.wallet);
+    this.playerWallets.set(client.sessionId, payload.wallet);
     client.send("walletLinked", { ok: true, wallet: payload.wallet });
+  }
+
+  private resolveJoinWallet(options: JoinOptions, auth?: JoinAuthData): string | null {
+    if (auth?.wallet) return auth.wallet;
+    if (!options.accessToken) return null;
+    return verifyAccessToken(options.accessToken)?.wallet ?? null;
+  }
+
+  private getClientWallet(client: Client): string | undefined {
+    return this.playerWallets.get(client.sessionId);
   }
 
   private async handleMarketRefresh(client: Client) {
     const player = this.state.players.get(client.sessionId);
     if (!player) return;
 
-    const wallet = this.playerWallets.get(player.name) ?? null;
+    const wallet = this.getClientWallet(client) ?? null;
     client.send("marketResult", { ok: true, market: await buildMarketState(wallet) });
   }
 
@@ -678,7 +690,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     const player = this.state.players.get(client.sessionId);
     if (!player) return;
 
-    const wallet = this.playerWallets.get(player.name);
+    const wallet = this.getClientWallet(client);
     if (!wallet) {
       client.send("marketResult", { ok: false, error: "Connect your wallet to use the gold market." });
       return;
@@ -706,7 +718,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     const player = this.state.players.get(client.sessionId);
     if (!player || !orderId) return;
 
-    const wallet = this.playerWallets.get(player.name);
+    const wallet = this.getClientWallet(client);
     if (!wallet) return;
 
     const { result, playerGold } = await cancelPlayerMarketOrder({
@@ -725,7 +737,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     const player = this.state.players.get(client.sessionId);
     if (!player || !orderId || !signature) return;
 
-    const wallet = this.playerWallets.get(player.name);
+    const wallet = this.getClientWallet(client);
     if (!wallet) {
       client.send("marketResult", { ok: false, error: "Connect your wallet to buy gold." });
       return;
@@ -752,7 +764,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     const player = this.state.players.get(client.sessionId);
     if (!player || !orderId) return;
 
-    const wallet = this.playerWallets.get(player.name);
+    const wallet = this.getClientWallet(client);
     if (!wallet) {
       client.send("marketResult", { ok: false, error: "Connect your wallet to sell gold." });
       return;
@@ -778,7 +790,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     const player = this.state.players.get(client.sessionId);
     if (!player || !orderId || !signature) return;
 
-    const wallet = this.playerWallets.get(player.name);
+    const wallet = this.getClientWallet(client);
     if (!wallet) {
       client.send("marketResult", { ok: false, error: "Connect your wallet to pay for gold." });
       return;
@@ -984,7 +996,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   ) {
     await saveCharacter({
       name: player.name,
-      walletAddress: this.playerWallets.get(player.name) ?? null,
+      walletAddress: this.playerWallets.get(player.sessionId) ?? null,
       zoneId,
       x,
       y,

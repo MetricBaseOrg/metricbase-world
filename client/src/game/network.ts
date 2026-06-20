@@ -19,6 +19,7 @@ import {
   type CharacterAppearance,
   type Player,
 } from "@metricbase/shared";
+import { getValidWalletSession } from "../wallet/tokenGate";
 import { getHttpServerUrl, getWebSocketUrl } from "./serverUrl";
 
 export interface RemotePlayer {
@@ -211,24 +212,44 @@ export class NetworkManager {
   }
 
   async linkWallet(): Promise<boolean> {
+    const result = await this.linkWalletDetailed();
+    return result.ok;
+  }
+
+  async linkWalletDetailed(): Promise<{ ok: boolean; wallet?: string; error?: string }> {
     if (!this.accessToken || !this.room) {
-      return false;
+      return { ok: false, error: "Not connected to a game zone." };
     }
 
     return new Promise((resolve) => {
       const timeout = window.setTimeout(() => {
         unsubscribe();
-        resolve(false);
+        resolve({ ok: false, error: "Wallet sync timed out. Click Reconnect Wallet." });
       }, 8000);
 
       const unsubscribe = this.onWalletLinked((payload) => {
         window.clearTimeout(timeout);
         unsubscribe();
-        resolve(payload.ok);
+        resolve(payload);
       });
 
       this.room?.send("linkWallet", { accessToken: this.accessToken });
     });
+  }
+
+  async ensureWalletLinked(): Promise<{ ok: boolean; wallet?: string; error?: string }> {
+    if (!this.accessToken) {
+      const session = await getValidWalletSession();
+      if (session) {
+        this.accessToken = session.accessToken;
+      }
+    }
+
+    if (!this.accessToken) {
+      return { ok: false, error: "Connect your wallet to use the gold market." };
+    }
+
+    return this.linkWalletDetailed();
   }
 
   getMobHealth(npcId: string): MobHealthPayload | undefined {
