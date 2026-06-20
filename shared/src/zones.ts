@@ -2,6 +2,7 @@ import type { NpcCombatConfig } from "./combat.js";
 
 export const ZONE_HUB = "zone_hub";
 export const ZONE_WILDERNESS = "zone_wilderness";
+export const ZONE_GROTTO = "zone_grotto";
 
 export const MAX_PLAYERS_PER_ZONE = 20;
 
@@ -83,6 +84,12 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
         targetZone: ZONE_HUB,
         label: "Return Gate",
       },
+      {
+        tileX: 22,
+        tileY: 14,
+        targetZone: ZONE_GROTTO,
+        label: "Slime Grotto",
+      },
     ],
     npcs: [
       {
@@ -108,6 +115,38 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
         tileY: 14,
         dialogue: "Gloop! A squishy slime. Easier than the dummy, but still fights back.",
         combat: { maxHp: 45, rewardXp: 20, respawnMs: 8_000 },
+      },
+    ],
+  },
+  [ZONE_GROTTO]: {
+    id: ZONE_GROTTO,
+    roomName: ZONE_GROTTO,
+    displayName: "Slime Grotto",
+    spawnTile: { x: 20, y: 12 },
+    portals: [
+      {
+        tileX: 2,
+        tileY: 12,
+        targetZone: ZONE_WILDERNESS,
+        label: "Grotto Exit",
+      },
+    ],
+    npcs: [
+      {
+        id: "grotto_warden",
+        name: "Moss",
+        tileX: 10,
+        tileY: 10,
+        dialogue:
+          "Drip… drip… The Slime Brute guards the deepest pool. Defeat it if you dare — its core fetches a fine price at Pip's.",
+      },
+      {
+        id: "slime_brute",
+        name: "Slime Brute",
+        tileX: 16,
+        tileY: 16,
+        dialogue: "GLORP! A massive slime blocks the cavern.",
+        combat: { maxHp: 150, rewardXp: 55, respawnMs: 20_000 },
       },
     ],
   },

@@ -23,7 +23,9 @@ npx pnpm dev
 - Client: http://localhost:5173
 - Server: ws://localhost:2567
 
-Move with **WASD**, chat in the zone panel, walk onto **purple portal tiles** to change zones.
+Move with **WASD**, chat in the zone panel, walk onto **purple portal tiles** to change zones, press **Space** to attack hostile NPCs, and press **E** near merchants and quest givers.
+
+**Production:** [world.metricbase.org](https://world.metricbase.org) (client) · `metricbaseserver-production.up.railway.app` (game server)
 
 ## Deploy client to Vercel
 
@@ -107,7 +109,7 @@ shared/   Zone maps, protocol types
 
 - [x] Isometric multiplayer movement
 - [x] Zone chat
-- [x] Two zones with portals
+- [x] Three zones with portals (Hub, Wilderness, Slime Grotto)
 - [x] PostgreSQL persistence (Neon)
 - [x] Vercel client deployment config
 - [x] Railway game server deploy config
@@ -116,8 +118,17 @@ shared/   Zone maps, protocol types
 - [x] Zone NPCs with E to interact
 - [x] XP progression and level-up
 - [x] Leave World button (save on disconnect)
-- [x] Starter quest line (Aria → Wilderness)
-- [x] Training dummy combat (Space to attack)
+- [x] Quest system with persisted progress (10 quests, 3 chains)
+- [x] Combat (dummy, wild slime, slime brute) with loot and gold
+- [x] Inventory, weapons, consumables
+- [x] Merchant shop (Pip) and soft currency (gold)
+- [x] Peer-to-peer gold market (MetricBase SPL)
+- [x] Knockout respawn (100g or 30 min wait)
+- [x] Sound effects with HUD mute toggle
+- [x] Mobile touch controls + quest log FAB
+- [x] Solana wallet auth + token gate
 - [ ] Redis session layer
-- [ ] Full combat system and abilities
-- [ ] Inventory and loot
+- [ ] Full ability system and class roles
+- [ ] Guilds and parties
+
+See `docs/Game.md` for full gameplay details and `docs/Changelog.md` for release history.

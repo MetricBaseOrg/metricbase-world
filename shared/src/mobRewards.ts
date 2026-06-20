@@ -2,6 +2,8 @@ import { TRAINING_DUMMY_GOLD_REWARD, TRAINING_DUMMY_NPC_ID } from "./combat.js";
 
 export const WILD_SLIME_NPC_ID = "wild_slime";
 export const WILD_SLIME_GOLD_REWARD = 3;
+export const SLIME_BRUTE_NPC_ID = "slime_brute";
+export const SLIME_BRUTE_GOLD_REWARD = 8;
 
 export interface MobRewardConfig {
   lootItemId: string | null;
@@ -21,6 +23,12 @@ export const MOB_REWARDS: Record<string, MobRewardConfig> = {
     lootItemId: "item_slime_gel",
     lootQuantity: 1,
     goldReward: WILD_SLIME_GOLD_REWARD,
+    goldOnceOnly: false,
+  },
+  [SLIME_BRUTE_NPC_ID]: {
+    lootItemId: "item_slime_core",
+    lootQuantity: 1,
+    goldReward: SLIME_BRUTE_GOLD_REWARD,
     goldOnceOnly: false,
   },
 };

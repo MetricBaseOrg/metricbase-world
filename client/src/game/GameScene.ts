@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import {
   ATTACK_RANGE,
+  SLIME_BRUTE_NPC_ID,
   WILD_SLIME_NPC_ID,
   getZoneConfig,
   MAP_HEIGHT,
@@ -199,8 +200,17 @@ export class GameScene extends Phaser.Scene {
       const { x, y } = tileToWorld(npc.tileX, npc.tileY);
       const isCombat = Boolean(npc.combat);
       const mobTexture =
-        npc.id === WILD_SLIME_NPC_ID ? "slime" : isCombat ? "dummy" : "npc";
+        npc.id === WILD_SLIME_NPC_ID
+          ? "slime"
+          : npc.id === SLIME_BRUTE_NPC_ID
+            ? "brute"
+            : isCombat
+              ? "dummy"
+              : "npc";
       const sprite = this.add.sprite(x, y, mobTexture);
+      if (npc.id === SLIME_BRUTE_NPC_ID) {
+        sprite.setScale(1.15);
+      }
       sprite.setDepth(900);
       if (isCombat && npc.combat) {
         const saved = networkManager.getMobHealth(npc.id);
@@ -214,11 +224,23 @@ export class GameScene extends Phaser.Scene {
           fontSize: "12px",
           fontStyle: "bold",
           color:
-            npc.id === WILD_SLIME_NPC_ID ? "#16a34a" : isCombat ? "#e67e22" : "#7c3aed",
+            npc.id === SLIME_BRUTE_NPC_ID
+              ? "#15803d"
+              : npc.id === WILD_SLIME_NPC_ID
+                ? "#16a34a"
+                : isCombat
+                  ? "#e67e22"
+                  : "#7c3aed",
           stroke: "#fff9f0",
           strokeThickness: 4,
           backgroundColor:
-            npc.id === WILD_SLIME_NPC_ID ? "#dcfce7" : isCombat ? "#fff3d6" : "#f3ebff",
+            npc.id === SLIME_BRUTE_NPC_ID
+              ? "#bbf7d0"
+              : npc.id === WILD_SLIME_NPC_ID
+                ? "#dcfce7"
+                : isCombat
+                  ? "#fff3d6"
+                  : "#f3ebff",
           padding: { x: 6, y: 3 },
         })
         .setOrigin(0.5, 1)

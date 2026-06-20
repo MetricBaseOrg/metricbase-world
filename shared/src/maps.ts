@@ -66,6 +66,31 @@ export function buildWildernessMap(): GroundLayer {
   stampObstacle(layer, 10, 8, 14, 16);
   stampObstacle(layer, 16, 4, 18, 8);
   stampPortal(layer, 2, 12);
+  stampPortal(layer, 22, 14);
+
+  return layer;
+}
+
+export function buildGrottoMap(): GroundLayer {
+  const layer = createEmptyLayer();
+
+  for (let y = 0; y < MAP_HEIGHT; y++) {
+    for (let x = 0; x < MAP_WIDTH; x++) {
+      const isBorder = x === 0 || y === 0 || x === MAP_WIDTH - 1 || y === MAP_HEIGHT - 1;
+      if (isBorder) {
+        layer[y][x] = TILE_WALL;
+        continue;
+      }
+
+      const isPool = (x + y) % 6 === 0;
+      layer[y][x] = isPool ? TILE_WATER : (x * y) % 7 === 0 ? TILE_STONE : TILE_GRASS;
+    }
+  }
+
+  stampObstacle(layer, 6, 4, 8, 18);
+  stampObstacle(layer, 12, 6, 14, 14);
+  stampObstacle(layer, 4, 14, 10, 18);
+  stampPortal(layer, 2, 12);
 
   return layer;
 }
@@ -73,6 +98,7 @@ export function buildWildernessMap(): GroundLayer {
 export const ZONE_MAP_BUILDERS: Record<string, () => GroundLayer> = {
   zone_hub: buildHubMap,
   zone_wilderness: buildWildernessMap,
+  zone_grotto: buildGrottoMap,
 };
 
 export function buildZoneMap(zoneId: string): GroundLayer {

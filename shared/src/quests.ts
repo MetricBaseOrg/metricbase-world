@@ -1,5 +1,5 @@
 import { getItemQuantity, type InventoryEntry } from "./items.js";
-import { ZONE_WILDERNESS } from "./zones.js";
+import { ZONE_GROTTO, ZONE_WILDERNESS } from "./zones.js";
 
 export const QUEST_GREET_ARIA = "quest_greet_aria";
 export const QUEST_EXPLORE_WILDERNESS = "quest_explore_wilderness";
@@ -9,6 +9,8 @@ export const QUEST_VETERAN = "quest_veteran";
 export const QUEST_SLIME_HUNTER = "quest_slime_hunter";
 export const QUEST_SLIME_SAMPLES = "quest_slime_samples";
 export const QUEST_ARIA_COMMENDATION = "quest_aria_commendation";
+export const QUEST_EXPLORE_GROTTO = "quest_explore_grotto";
+export const QUEST_DEFEAT_BRUTE = "quest_defeat_brute";
 
 export type QuestObjectiveType = "talk_npc" | "visit_zone" | "defeat_npc" | "collect_item";
 
@@ -155,6 +157,26 @@ export const QUESTS: Record<string, QuestDefinition> = {
     rewardItemQuantity: 1,
     startNpcId: "wilderness_scout",
     requiresCompleted: [QUEST_SLIME_SAMPLES],
+  },
+  [QUEST_EXPLORE_GROTTO]: {
+    id: QUEST_EXPLORE_GROTTO,
+    title: "Into the Grotto",
+    description: "Rook heard rumors of a deeper cave past the Wilderness slimes.",
+    objectives: [{ type: "visit_zone", target: ZONE_GROTTO, label: "Enter the Slime Grotto" }],
+    rewardXp: 90,
+    rewardGold: 40,
+    startNpcId: "wilderness_scout",
+    requiresCompleted: [QUEST_ARIA_COMMENDATION],
+  },
+  [QUEST_DEFEAT_BRUTE]: {
+    id: QUEST_DEFEAT_BRUTE,
+    title: "Brute Force",
+    description: "Moss says the Slime Brute guards the cavern's heart.",
+    objectives: [{ type: "defeat_npc", target: "slime_brute", label: "Defeat the Slime Brute" }],
+    rewardXp: 150,
+    rewardGold: 75,
+    startNpcId: "grotto_warden",
+    requiresCompleted: [QUEST_EXPLORE_GROTTO],
   },
 };
 

@@ -550,7 +550,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     this.mobHp.set(npcId, nextHp);
 
     if (npc.combat) {
-      const counterDamage = npcId === "wild_slime" ? 5 : TRAINING_DUMMY_COUNTER_DAMAGE;
+      const counterDamage =
+        npcId === "wild_slime" ? 5 : npcId === "slime_brute" ? 12 : TRAINING_DUMMY_COUNTER_DAMAGE;
       this.damagePlayer(client, player, counterDamage, `${npc.name} counter-attack`);
     }
 
@@ -686,6 +687,18 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         senderId: "system",
         senderName: "Quest",
         body: "Talk to Rook in the Wilderness for patrol work.",
+        sentAt: Date.now(),
+      });
+    }
+
+    const mossQuests = getQuestsOfferedByNpc("grotto_warden", progress);
+    if (mossQuests.length > 0) {
+      this.broadcastChat({
+        id: crypto.randomUUID(),
+        channel: "system",
+        senderId: "system",
+        senderName: "Quest",
+        body: "Talk to Moss in the Slime Grotto for a dangerous hunt.",
         sentAt: Date.now(),
       });
     }

@@ -2,7 +2,7 @@
 
 ## Vision
 
-**MetricBase World** is a browser-native isometric MMO: a persistent online world where players explore zones together in real time, chat, progress their characters, and eventually participate in a live economy.
+**MetricBase World** is a browser-native isometric MMO: a persistent online world where players explore zones together in real time, chat, progress their characters, and participate in an in-game economy with optional Solana token integration.
 
 The long-term goal (see `PLAN.md`) is a zero-install MMO with:
 
@@ -12,46 +12,88 @@ The long-term goal (see `PLAN.md`) is a zero-install MMO with:
 - Optional Solana token integration for in-game economy
 - Horizontally scalable infrastructure
 
-The current build is **Milestone 1** — a playable multiplayer prototype that proves the core loop: move, chat, travel between zones, and return to a saved position.
+The current build is **Milestone 2** — a playable multiplayer prototype with combat, inventory, quests, shop, peer-to-peer gold market, knockout respawn, and three explorable zones.
 
 ---
 
-## Current Gameplay (Milestone 1)
+## Current Gameplay (Milestone 2)
 
 ### What players can do today
 
-1. **Enter the world** — Choose a character name (up to 16 characters) on the login screen.
-2. **Move** — Use **WASD** or arrow keys to walk the isometric map. Movement is server-authoritative with client-side prediction for responsiveness.
+1. **Enter the world** — Choose a character name (up to 16 characters) on the login screen. Optional Solana wallet auth gates entry in production (bypass with `TOKEN_GATE_DISABLED=true` in dev).
+2. **Move** — Use **WASD** or arrow keys to walk the isometric map. On mobile, use the on-screen D-pad. Movement is server-authoritative with client-side prediction.
 3. **See other players** — Other connected players appear as sprites with name labels. Your own character is highlighted in gold.
-4. **Zone chat** — Type messages in the chat panel. System messages announce when players join or leave.
-5. **Travel between zones** — Walk onto **purple portal tiles** to transfer between:
-   - **MetricBase Hub** — central spawn area
-   - **Wilderness** — outer zone with a return portal
-6. **Talk to NPCs** — Purple NPCs in each zone. Walk close and press **E** to hear dialogue and earn XP.
-7. **Complete quests** — Aria offers starter quests. Track objectives in the **Quest Log** (top-right). Progress saves to the database.
-8. **Combat practice** — Attack the **Training Dummy** in the Wilderness with **Space** when in range.
-9. **Earn XP and level up** — Quests, combat, portal travel, and NPC chat grant experience. Progress is shown in the HUD XP bar.
-10. **Persist progress** — Character name, zone, position, level, XP, and quests are saved to PostgreSQL (Neon). Rejoining with the same name restores your last location.
-11. **Leave World** — Use the HUD button to disconnect and return to the login screen.
+4. **Zone chat** — Type messages in the chat panel. System messages announce joins, leaves, combat, and quest events.
+5. **Travel between zones** — Walk onto **purple portal tiles** to transfer between three zones (see table below).
+6. **Talk to NPCs** — Walk close and press **E** (or tap Interact on mobile). Dialogue appears in chat. NPC chat XP is granted **once per 24 hours** per player per NPC.
+7. **Complete quests** — Starter chain from Aria, slime patrol from Rook, grotto hunt from Moss. Track objectives in the **Quest Log** (desktop HUD or mobile FAB sheet). Progress saves to PostgreSQL.
+8. **Combat** — Press **Space** or tap **Attack** when in range of hostile NPCs. Server-authoritative damage, HP bars, floating damage numbers, counter-attacks, and mob respawn timers.
+9. **Player knockout** — If your HP reaches 0, you are knocked out. Pay **100 gold** to respawn immediately, or wait **30 minutes** for a free respawn. A death overlay shows the countdown.
+10. **Loot and inventory** — Defeated mobs drop items and gold. Open inventory from the HUD (**I**). Equip weapons, use health potions, sell materials at Pip's shop.
+11. **Shop and economy** — Pip's Provisions in the Hub: buy potions and weapons with gold, sell loot. **Gold Market** tab lists peer-to-peer bids and offers for trading in-game gold against MetricBase SPL tokens (on-chain verified).
+12. **Earn XP and level up** — Quests, combat, portal travel, and NPC chat grant experience. Out-of-combat HP regen. Level-ups broadcast to the zone with sound.
+13. **Sound effects** — Procedural Web Audio SFX for combat, shop, market, inventory, chat, quests, and level-up. Mute toggle in the HUD.
+14. **Persist progress** — Character name, zone, position, level, XP, gold, inventory, equipped weapon, quests, knockout timer, and NPC interact cooldowns save to PostgreSQL (Neon).
+15. **Leave World** — Use the HUD button to disconnect and return to the login screen.
 
 ### Zones
 
 | Zone ID | Display Name | Notes |
 |---------|--------------|-------|
-| `zone_hub` | MetricBase Hub | Default spawn; portal to Wilderness at tile (20, 12) |
-| `zone_wilderness` | Wilderness | Portal back to Hub at tile (2, 12) |
+| `zone_hub` | MetricBase Hub | Default spawn; Aria (quests), Pip (shop + market); portal to Wilderness at (20, 12) |
+| `zone_wilderness` | Wilderness | Rook (slime quests), Training Dummy, Wild Slime; portals to Hub (2, 12) and Slime Grotto (22, 14) |
+| `zone_grotto` | Slime Grotto | Moss (brute quest), Slime Brute boss; portal back to Wilderness at (2, 12) |
+
+### Combat targets
+
+| NPC | Zone | HP | Notes |
+|-----|------|-----|-------|
+| Training Dummy | Wilderness | 90 | Drops Training Scrap; **gold reward only on first kill** per character |
+| Wild Slime | Wilderness | 45 | Drops Slime Gel, 3g per kill |
+| Slime Brute | Slime Grotto | 150 | Drops Slime Core, 8g per kill; 12 counter damage |
+
+### Quest chains
+
+**Hub starter (Aria)**
+
+1. Meet the Guide → Into the Wilderness → Practice Makes Perfect → Salvage the Scrap → Veteran Adventurer
+
+**Wilderness slime line (Rook)**
+
+6. Slime Patrol → Gel Collection → Commendation (rewards Gel-Edged Knife, +8 damage)
+
+**Grotto line (Rook → Moss)**
+
+8. Into the Grotto → Brute Force
 
 ### Controls
 
 | Input | Action |
 |-------|--------|
 | WASD / Arrow keys | Move (when chat is not focused) |
-| E | Talk to nearest NPC |
-| Space | Attack nearest training dummy |
+| E / Interact button | Talk to nearest NPC; open shop if merchant |
+| Space / Attack button | Attack nearest hostile NPC |
+| I | Toggle inventory |
 | Chat input | Type messages; movement pauses while typing |
 | Enter | Send chat message |
 | Purple tiles | Zone portal transfer |
+| 🔊 / 🔇 (HUD) | Toggle sound effects |
 | Leave World (HUD) | Disconnect and return to login |
+
+On mobile, the D-pad, Attack, Interact, inventory, and quest log FAB replace keyboard shortcuts where applicable.
+
+### Economy
+
+| Item | Source | Sell price (Pip) |
+|------|--------|------------------|
+| Training Scrap | Training Dummy | 8g |
+| Slime Gel | Wild Slime | 12g |
+| Slime Core | Slime Brute | 25g |
+| Health Potion | Pip's shop | — (buy 15g) |
+| Rusty Blade | Pip's shop | — (buy 40g, +12 damage) |
+| Gel-Edged Knife | Commendation quest | — (+8 damage) |
+
+Starting gold: **25g**. Knockout respawn costs **100g**.
 
 ---
 
@@ -71,13 +113,14 @@ The current build is **Milestone 1** — a playable multiplayer prototype that p
 ┌─────────────────────────────────────────────────────────────┐
 │  Railway — Game Server                                      │
 │  Express (REST) + Colyseus (WebSocket rooms)                │
-│  One room per zone · authoritative movement & chat          │
+│  One room per zone · authoritative movement, combat, economy  │
 └─────────────────────────────┬───────────────────────────────┘
                               │ SQL
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
 │  Neon — PostgreSQL                                          │
-│  Character persistence (name, zone, x, y, level)            │
+│  Character persistence (position, XP, gold, inventory,      │
+│  quests, knockout timer, NPC interact cooldowns, market)    │
 └─────────────────────────────────────────────────────────────┘
 
 Client static assets are hosted separately on Vercel.
@@ -95,7 +138,7 @@ Colyseus requires a **persistent WebSocket server**. Vercel serverless functions
 
 | Service | URL |
 |---------|-----|
-| Client | https://metricbase-world.vercel.app |
+| Client | https://world.metricbase.org |
 | Game server | https://metricbaseserver-production.up.railway.app |
 
 ---
@@ -113,6 +156,7 @@ Colyseus requires a **persistent WebSocket server**. Vercel serverless functions
 | Monorepo | pnpm workspaces |
 | Client hosting | Vercel |
 | Server hosting | Railway |
+| Blockchain | Solana (wallet auth, SPL token gate, peer market) |
 
 ---
 
@@ -121,55 +165,31 @@ Colyseus requires a **persistent WebSocket server**. Vercel serverless functions
 ```
 metricbase-world/
 ├── client/                    # Browser game client → Vercel
-│   ├── index.html
-│   ├── vite.config.ts
 │   └── src/
-│       ├── main.tsx           # React entry point
-│       ├── App.tsx            # Root layout; login → game transition
-│       ├── store/
-│       │   └── gameStore.ts   # Zustand store (player, chat, HUD state)
-│       ├── ui/
-│       │   ├── LoginOverlay.tsx   # Character name entry
-│       │   ├── HUD.tsx            # Zone, status, player info overlay
-│       │   └── ChatPanel.tsx      # Zone chat log + input
-│       └── game/
-│           ├── PhaserGame.tsx     # Phaser.Game lifecycle wrapper
-│           ├── BootScene.ts       # Procedural tileset + player textures
-│           ├── GameScene.ts       # Tilemap render, movement, player sync
-│           ├── network.ts         # Colyseus client; room join/leave/chat
-│           ├── serverUrl.ts       # VITE_SERVER_URL env resolution
-│           ├── inputControl.ts    # Pause Phaser keyboard when UI is typing
-│           ├── prediction.ts      # Client-side movement prediction
-│           └── mapData.ts         # Client-side zone tile data
+│       ├── App.tsx            # Root layout; wires NetworkManager → store
+│       ├── store/gameStore.ts # Zustand (player, combat, inventory, quests)
+│       ├── ui/                # HUD, chat, shop, market, inventory, death overlay
+│       ├── audio/             # Procedural Web Audio SFX
+│       └── game/              # Phaser scenes, network, prediction
 │
 ├── server/                    # Authoritative game server → Railway
-│   ├── railway.toml           # (referenced by root railway.toml)
 │   └── src/
 │       ├── index.ts           # Express + Colyseus bootstrap, zone room defs
-│       ├── rooms/
-│       │   └── ZoneRoom.ts    # Movement tick, chat, portals, persistence
-│       ├── api/
-│       │   └── characters.ts  # GET /api/character?name=…
-│       ├── db/
-│       │   ├── pool.ts        # Neon Postgres connection pool
-│       │   ├── characters.ts  # load/save character queries
-│       │   └── schema.sql     # characters table DDL
-│       └── map/
-│           └── collision.ts   # Server-side walkability checks
+│       ├── rooms/ZoneRoom.ts  # Movement, combat, shop, market, quests, persistence
+│       ├── api/               # Character lookup, wallet auth, token shop
+│       ├── db/                # Neon Postgres pool + character queries
+│       └── market/            # Peer-to-peer gold order book
 │
 ├── shared/                    # Code shared by client and server
 │   └── src/
-│       ├── index.ts           # Constants, tile math, re-exports
-│       ├── zones.ts           # Zone configs, portals, NPCs, spawn points
-│       ├── progression.ts     # XP thresholds, level helpers
+│       ├── zones.ts           # Zone configs, portals, NPCs, combat stats
+│       ├── quests.ts          # Quest definitions and progress helpers
+│       ├── items.ts           # Item catalog and inventory types
+│       ├── shop.ts            # Merchant buy/sell tables
+│       ├── mobRewards.ts      # Per-mob loot and gold
+│       ├── combat.ts          # Player/mob combat constants, respawn costs
 │       ├── maps.ts            # Tile layer data per zone
-│       ├── messages.ts        # Protocol types (chat, join, transfer)
-│       └── schema/
-│           ├── PlayerSchema.ts  # Colyseus player state schema
-│           └── ZoneState.ts     # Colyseus room state schema
-│
-├── scripts/
-│   └── verify-deploy.mjs      # Smoke-test Vercel + Railway endpoints
+│       └── schema/            # Colyseus PlayerSchema + ZoneState
 │
 ├── docs/
 │   ├── Game.md                # This file
@@ -177,58 +197,36 @@ metricbase-world/
 │
 ├── vercel.json                # Vercel build + SPA rewrite config
 ├── railway.toml               # Railway build + start commands
-├── pnpm-workspace.yaml        # Workspace packages + build allowlist
-├── PLAN.md                    # Full long-term design document
 └── README.md                  # Setup and deploy instructions
 ```
 
-### Package responsibilities
-
-| Package | NPM name | Role |
-|---------|----------|------|
-| `client/` | `@metricbase/client` | Renders the game, handles input, connects to server |
-| `server/` | `@metricbase/server` | Simulates zones, validates movement, persists characters |
-| `shared/` | `@metricbase/shared` | Zone data, protocol types, Colyseus schemas, tile helpers |
-
 ### Key data flows
 
-**Join flow**
+**Combat flow**
 
-1. Player submits name on login overlay.
-2. Client calls `GET /api/character?name=…` to look up saved zone/position.
-3. Client calls `joinOrCreate(zone_room, { name, zoneId }, ZoneState)` over WebSocket.
-4. Server `ZoneRoom.onJoin` spawns player at saved position or zone spawn tile.
-5. Phaser `GameScene` renders the map and syncs remote player sprites from room state.
+1. Client sends `attack` with target NPC id when in range.
+2. Server validates cooldown, range, and knockout state; applies damage to mob or player.
+3. On mob defeat: grant XP, gold (respecting once-only rules), loot to inventory, advance quest objectives.
+4. On player knockout: set `knockedOutUntil`, block movement/combat, show death overlay with pay-or-wait options.
 
-**Movement flow**
+**Shop / market flow**
 
-1. Client reads WASD input each frame (unless chat is focused).
-2. Client sends `{ dx, dy }` input messages to server.
-3. Server tick (20 Hz) applies movement with collision checks.
-4. Server state patches broadcast to all clients.
-5. Client predicts local movement and reconciles against server position.
-
-**Zone transfer flow**
-
-1. Player walks onto a portal tile.
-2. Server saves character to new zone, sends `transfer` message to client.
-3. Client leaves current room and joins the target zone room.
+1. Client sends `interact` near Pip; server opens shop catalog with current gold and inventory.
+2. `shopBuy` / `shopSell` validated server-side; gold and inventory persisted.
+3. Gold Market orders escrow gold server-side; fills verified against on-chain SPL transfers.
 
 ---
 
 ## Roadmap (not yet implemented)
 
-From `PLAN.md` and `README.md`:
+From `PLAN.md`:
 
 - [ ] Redis session layer
-- [ ] Combat and abilities
-- [ ] Inventory and items
-- [ ] Quest system
+- [ ] Full ability system and class roles
 - [ ] Guilds and parties
-- [ ] Solana token economy integration
+- [ ] More zones and bosses
 - [ ] Tiled/LDtk map pipeline (currently procedural placeholder tiles)
-- [ ] Mobile touch controls
-- [ ] Authentication (OAuth/JWT)
+- [ ] Deeper mobile UX polish
 
 ---
 

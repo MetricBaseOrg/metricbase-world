@@ -64,6 +64,14 @@ export const ITEMS: Record<string, ItemDefinition> = {
     maxStack: 99,
     kind: "material",
   },
+  item_slime_core: {
+    id: "item_slime_core",
+    name: "Slime Core",
+    description: "A dense nucleus from a Slime Brute. Pip pays top gold for these.",
+    stackable: true,
+    maxStack: 20,
+    kind: "material",
+  },
   item_gel_knife: {
     id: "item_gel_knife",
     name: "Gel-Edged Knife",

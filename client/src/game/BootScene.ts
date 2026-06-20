@@ -21,6 +21,7 @@ export class BootScene extends Phaser.Scene {
     this.createNpcTexture();
     this.createDummyTexture();
     this.createSlimeTexture();
+    this.createBruteTexture();
   }
 
   create() {
@@ -125,6 +126,30 @@ export class BootScene extends Phaser.Scene {
     graphics.fillCircle(cx + 5, cy - 8, 1.2);
 
     graphics.generateTexture("slime", 36, 44);
+    graphics.destroy();
+  }
+
+  private createBruteTexture() {
+    const graphics = this.make.graphics({ x: 0, y: 0 });
+    const cx = 18;
+    const cy = 34;
+
+    graphics.fillStyle(0x14532d, 0.3);
+    graphics.fillEllipse(cx, cy + 2, 26, 10);
+    graphics.fillStyle(0x166534, 1);
+    graphics.fillEllipse(cx, cy - 10, 28, 32);
+    graphics.fillStyle(0x15803d, 1);
+    graphics.fillEllipse(cx - 2, cy - 6, 22, 24);
+    graphics.fillStyle(0x4ade80, 0.5);
+    graphics.fillEllipse(cx + 4, cy - 2, 10, 14);
+    graphics.fillStyle(0xffffff, 0.9);
+    graphics.fillCircle(cx - 5, cy - 14, 4);
+    graphics.fillCircle(cx + 6, cy - 12, 3.5);
+    graphics.fillStyle(0x052e16, 1);
+    graphics.fillCircle(cx - 5, cy - 14, 2);
+    graphics.fillCircle(cx + 6, cy - 12, 1.8);
+
+    graphics.generateTexture("brute", 40, 50);
     graphics.destroy();
   }
 

@@ -11,28 +11,43 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- **Open gold market (MetricBase SPL)** — Pip's **Gold Market** tab is a public order book. Players post bids (buy gold) and offers (sell gold); tokens settle peer-to-peer between wallets — no treasury wallet. Server verifies on-chain transfers and moves escrowed gold.
-- **Merchant shop (Pip)** — Press **E** near Pip in the Hub to open his shop. Buy health potions and a rusty blade with gold; sell training scrap looted from the Wilderness dummy. Gold persists in Postgres and shows in the HUD.
-- **Soft currency (gold)** — New players start with 25 gold. Earn more from quests, combat, and selling items.
-
-- **Starter quests** — "Meet the Guide" and "Into the Wilderness" with quest log UI, persisted in Postgres (`quest_progress` JSONB). Talk to Aria to begin; complete objectives for XP rewards.
-- **Training dummy combat** — Attack the Wilderness training dummy with **Space**. Server-authoritative damage, HP bars, respawn timer, and XP on defeat.
+- **Slime Grotto (`zone_grotto`)** — Third zone reachable from Wilderness portal (22, 14). Moss NPC offers grotto quests; **Slime Brute** boss (150 HP, 12 counter damage) drops **Slime Core** (sell at Pip for 25g).
+- **Grotto quest chain** — "Into the Grotto" (visit zone) and "Brute Force" (defeat Slime Brute), continuing after the slime commendation line.
+- **Slime Core item** — New material loot from the Slime Brute.
+- **Mobile quest log** — Floating action button opens a bottom sheet quest panel on small screens; desktop keeps the HUD quest card.
 
 ### Fixed
 
-- **Character missing after Leave World and rejoin** — Player state was emitted before Phaser mounted on the second join. Listeners now receive the current room snapshot immediately on subscribe, the game view mounts before connecting, and the camera centers on spawn.
-- **Character keeps moving after releasing WASD** — Client only sent input while keys were held, so the server never received a stop signal. Input is now sent on every change, including `{ dx: 0, dy: 0 }`. Local position snaps to the server when idle, and keyboard state resets after chat focus.
+- **Death overlay countdown** — Knockout timer now appears immediately on defeat without a browser refresh. Server sets `knockedOutUntil` before profile/damage messages; `playerDamage` includes `knockedOut` + `freeRespawnAt`; client `applyProfilePatch()` preserves knockout state on partial updates.
 
-### Added
+### Added (prior unreleased)
 
-- **Zone NPCs** — Hub guide (Aria), merchant (Pip), and wilderness scout (Rook). Walk nearby and press **E** to talk; dialogue appears in chat.
-- **XP progression** — Earn XP from NPC conversations and portal travel. Level-ups broadcast to the zone. XP bar shown in HUD.
+- **Knockout respawn** — Player HP reaching 0 triggers knockout. Pay **100 gold** to respawn now or wait **30 minutes**. Death overlay with live countdown; movement and combat blocked while knocked out. `knocked_out_until` persisted on characters.
+- **Sound effects** — Procedural Web Audio SFX for combat hits, shop, market, inventory, chat, quests, and level-up. HUD mute toggle (🔊/🔇).
+- **Slime hunting content** — Wild Slime mob in Wilderness; Slime Gel loot; quest chain from Rook (Slime Patrol → Gel Collection → Commendation). Commendation rewards **Gel-Edged Knife** (+8 damage).
+- **Combat polish** — Slime sprite, floating damage numbers, out-of-combat HP regen, player hurt SFX.
+- **Training dummy gold once** — Dummy gold reward granted only on **first kill per character** (`mob_gold_claimed` JSONB on characters).
+- **NPC interact XP cooldown** — Shop/merchant XP from talking to NPCs limited to **once per 24 hours** per player+NPC (`npc_interact_at` on characters).
+- **Open gold market (MetricBase SPL)** — Pip's **Gold Market** tab is a public order book. Players post bids (buy gold) and offers (sell gold); tokens settle peer-to-peer between wallets. Server verifies on-chain transfers and moves escrowed gold.
+- **Merchant shop (Pip)** — Press **E** near Pip in the Hub to open his shop. Buy health potions and a rusty blade with gold; sell training scrap, slime gel, and slime core. Gold persists in Postgres and shows in the HUD.
+- **Soft currency (gold)** — New players start with 25 gold. Earn more from quests, combat, and selling items.
+- **Starter quests** — Quest log UI with persisted `quest_progress` JSONB. Full Aria starter chain through Veteran Adventurer.
+- **Training dummy combat** — Attack hostile NPCs with **Space**. Server-authoritative damage, HP bars, respawn timer, and XP on defeat.
+- **Inventory and loot** — 16-slot inventory, weapon equip, health potion use. Mob loot tables in `mobRewards.ts`.
+- **Zone NPCs** — Hub guide (Aria), merchant (Pip), wilderness scout (Rook), grotto warden (Moss).
+- **XP progression** — Earn XP from NPC conversations (cooldown), portal travel, quests, and combat. Level-ups broadcast to the zone.
 - **Leave World** button — disconnects cleanly and returns to the login screen (character saved on leave).
+
+### Fixed (prior unreleased)
+
+- **Market cancel loses gold** — SQL CTE now returns pre-cancel `escrow_gold`; service refunds correctly.
+- **Character missing after Leave World and rejoin** — Listeners receive current room snapshot on subscribe; game view mounts before connecting.
+- **Character keeps moving after releasing WASD** — Client sends `{ dx: 0, dy: 0 }` on key release; local position snaps when idle.
 
 ### Changed
 
-- `characters` table and Colyseus `PlayerSchema` now include an `xp` field.
-- Shared package adds `progression.ts` with level thresholds and XP helpers.
+- Production client URL updated to **https://world.metricbase.org**.
+- Three zone rooms registered: `zone_hub`, `zone_wilderness`, `zone_grotto`.
 
 ---
 
@@ -66,7 +81,7 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   - `VITE_SERVER_URL=wss://metricbaseserver-production.up.railway.app`
   - `VITE_SERVER_HTTP_URL=https://metricbaseserver-production.up.railway.app`
 - Railway game server public domain: `metricbaseserver-production.up.railway.app`
-- Client live at: https://metricbase-world.vercel.app
+- Client live at: https://world.metricbase.org
 
 ---
 
@@ -88,7 +103,7 @@ Initial playable prototype (Milestone 1 / Phase 0–1 foundation).
 #### Client (`@metricbase/client`)
 
 - Phaser 3 isometric renderer with procedurally generated tileset and player sprites
-- `BootScene` — texture generation; `GameScene` — tilemap, camera follow, player rendering
+- `BootScene` — texture generation; `GameScene` — tilemap render, camera follow, player rendering
 - WASD + arrow key movement with camera tracking
 - React UI layer: login overlay, HUD (zone, status, player count), zone chat panel
 - Zustand store for player name, level, connection state, and chat messages
