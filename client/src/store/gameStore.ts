@@ -15,6 +15,8 @@ interface GameStore {
   playerGold: number;
   playerHp: number;
   playerMaxHp: number;
+  knockedOut: boolean;
+  freeRespawnAt: number | null;
   equippedWeaponId: string | null;
   walletAddress: string | null;
   connected: boolean;
@@ -37,6 +39,8 @@ interface GameStore {
     hp?: number,
     maxHp?: number,
     equippedWeaponId?: string | null,
+    knockedOut?: boolean,
+    freeRespawnAt?: number | null,
   ) => void;
   setPlayerGold: (gold: number) => void;
   setPlayerVitals: (hp: number, maxHp: number) => void;
@@ -64,6 +68,8 @@ export const useGameStore = create<GameStore>((set) => ({
   playerGold: 0,
   playerHp: 40,
   playerMaxHp: 40,
+  knockedOut: false,
+  freeRespawnAt: null,
   equippedWeaponId: null,
   walletAddress: null,
   connected: false,
@@ -79,13 +85,15 @@ export const useGameStore = create<GameStore>((set) => ({
   setCharacterAppearance: (characterAppearance) => set({ characterAppearance }),
   setPlayerLevel: (level) => set({ playerLevel: level }),
   setPlayerXp: (xp) => set({ playerXp: xp }),
-  setProfile: (level, xp, gold, hp, maxHp, equippedWeaponId) =>
+  setProfile: (level, xp, gold, hp, maxHp, equippedWeaponId, knockedOut, freeRespawnAt) =>
     set((state) => ({
       playerLevel: level,
       playerXp: xp,
       playerGold: gold ?? state.playerGold,
       playerHp: hp ?? state.playerHp,
       playerMaxHp: maxHp ?? state.playerMaxHp,
+      knockedOut: knockedOut ?? state.knockedOut,
+      freeRespawnAt: freeRespawnAt !== undefined ? freeRespawnAt : state.freeRespawnAt,
       equippedWeaponId:
         equippedWeaponId !== undefined ? equippedWeaponId : state.equippedWeaponId,
     })),

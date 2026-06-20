@@ -45,6 +45,18 @@ export interface ProfilePayload {
   hp?: number;
   maxHp?: number;
   equippedWeaponId?: string | null;
+  knockedOut?: boolean;
+  freeRespawnAt?: number | null;
+}
+
+export interface RespawnResultPayload {
+  ok: boolean;
+  error?: string;
+  gold?: number;
+  hp?: number;
+  maxHp?: number;
+  knockedOut?: boolean;
+  freeRespawnAt?: number | null;
 }
 
 export type { QuestStatePayload } from "./quests.js";

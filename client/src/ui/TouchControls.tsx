@@ -24,6 +24,7 @@ export function TouchControls() {
   const mobileLayout = useMobileLayout();
   const shopOpen = useGameStore((state) => state.shopOpen);
   const inventoryOpen = useGameStore((state) => state.inventoryOpen);
+  const knockedOut = useGameStore((state) => state.knockedOut);
   const toggleInventoryOpen = useGameStore((state) => state.toggleInventoryOpen);
   const activeDirections = useRef(new Set<Direction>());
 
@@ -68,7 +69,7 @@ export function TouchControls() {
     };
   }, [releaseAll]);
 
-  if (!mobileLayout || shopOpen) return null;
+  if (!mobileLayout || shopOpen || inventoryOpen || knockedOut) return null;
 
   const bindDirection = (direction: Direction) => ({
     onPointerDown: (event: React.PointerEvent<HTMLButtonElement>) => {

@@ -5,6 +5,9 @@ export const ATTACK_COOLDOWN_MS = 450;
 export const PLAYER_ATTACK_DAMAGE = 18;
 export const PLAYER_MAX_HP_BASE = 40;
 export const PLAYER_MAX_HP_PER_LEVEL = 8;
+export const RESPAWN_GOLD_COST = 100;
+export const RESPAWN_WAIT_MS = 30 * 60 * 1000;
+
 export const TRAINING_DUMMY_NPC_ID = "training_dummy";
 export const TRAINING_DUMMY_GOLD_REWARD = 5;
 export const TRAINING_DUMMY_COUNTER_DAMAGE = 8;

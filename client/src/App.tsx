@@ -7,6 +7,7 @@ import { networkManager } from "./game/network";
 import { clearStoredAccessToken, getValidWalletSession } from "./wallet/tokenGate";
 import { useGameStore } from "./store/gameStore";
 import { ChatPanel } from "./ui/ChatPanel";
+import { DeathOverlay } from "./ui/DeathOverlay";
 import { HUD } from "./ui/HUD";
 import { LoginOverlay } from "./ui/LoginOverlay";
 import { InventoryHotkey } from "./ui/InventoryHotkey";
@@ -65,6 +66,10 @@ export function App() {
         playSfx("level_up");
       }
       previousLevelRef.current = profile.level;
+      const wasKnockedOut = useGameStore.getState().knockedOut;
+      if (profile.knockedOut && !wasKnockedOut) {
+        playSfx("shop_fail");
+      }
       setProfile(
         profile.level,
         profile.xp,
@@ -72,6 +77,8 @@ export function App() {
         profile.hp,
         profile.maxHp,
         profile.equippedWeaponId,
+        profile.knockedOut ?? false,
+        profile.freeRespawnAt ?? null,
       );
     });
 
@@ -196,7 +203,7 @@ export function App() {
     setPlayerGold(0);
     const store = useGameStore.getState();
     store.setPlayerVitals(40, 40);
-    store.setProfile(store.playerLevel, store.playerXp, 0, 40, 40, null);
+    store.setProfile(store.playerLevel, store.playerXp, 0, 40, 40, null, false, null);
     setJoined(false);
   };
 
@@ -214,6 +221,7 @@ export function App() {
       )}
       {joined && <ChatPanel />}
       {joined && <TouchControls />}
+      {joined && <DeathOverlay />}
       {!joined && <LoginOverlay onJoin={handleJoin} />}
     </div>
   );

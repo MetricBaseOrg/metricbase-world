@@ -30,6 +30,7 @@ export interface CharacterRecord {
   equipment: PlayerEquipment;
   npcInteractAt: Record<string, number>;
   mobGoldClaimed: Record<string, boolean>;
+  knockedOutUntil: number | null;
 }
 
 type CharacterRow = {
@@ -48,6 +49,7 @@ type CharacterRow = {
   equipment: PlayerEquipment | null;
   npc_interact_at: Record<string, number> | null;
   mob_gold_claimed: Record<string, boolean> | null;
+  knocked_out_until: string | number | null;
 };
 
 export async function loadCharacterByName(name: string): Promise<CharacterRecord | null> {
@@ -55,7 +57,7 @@ export async function loadCharacterByName(name: string): Promise<CharacterRecord
   if (!db) return null;
 
   const result = await db.query<CharacterRow>(
-    `SELECT name, wallet_address, zone_id, x, y, level, xp, gold, quest_progress, appearance, inventory, hp, equipment, npc_interact_at, mob_gold_claimed
+    `SELECT name, wallet_address, zone_id, x, y, level, xp, gold, quest_progress, appearance, inventory, hp, equipment, npc_interact_at, mob_gold_claimed, knocked_out_until
      FROM characters
      WHERE name = $1`,
     [name],
@@ -70,7 +72,7 @@ export async function loadCharacterByWallet(wallet: string): Promise<CharacterRe
   if (!db) return null;
 
   const result = await db.query<CharacterRow>(
-    `SELECT name, wallet_address, zone_id, x, y, level, xp, gold, quest_progress, appearance, inventory, hp, equipment, npc_interact_at, mob_gold_claimed
+    `SELECT name, wallet_address, zone_id, x, y, level, xp, gold, quest_progress, appearance, inventory, hp, equipment, npc_interact_at, mob_gold_claimed, knocked_out_until
      FROM characters
      WHERE wallet_address = $1`,
     [wallet],
@@ -90,8 +92,8 @@ export async function saveCharacter(record: CharacterRecord): Promise<void> {
   if (!db) return;
 
   await db.query(
-    `INSERT INTO characters (name, wallet_address, zone_id, x, y, level, xp, gold, quest_progress, appearance, inventory, hp, equipment, npc_interact_at, mob_gold_claimed, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10::jsonb, $11::jsonb, $12, $13::jsonb, $14::jsonb, $15::jsonb, NOW())
+    `INSERT INTO characters (name, wallet_address, zone_id, x, y, level, xp, gold, quest_progress, appearance, inventory, hp, equipment, npc_interact_at, mob_gold_claimed, knocked_out_until, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10::jsonb, $11::jsonb, $12, $13::jsonb, $14::jsonb, $15::jsonb, $16, NOW())
      ON CONFLICT (name)
      DO UPDATE SET
        wallet_address = COALESCE(EXCLUDED.wallet_address, characters.wallet_address),
@@ -108,6 +110,7 @@ export async function saveCharacter(record: CharacterRecord): Promise<void> {
        equipment = EXCLUDED.equipment,
        npc_interact_at = EXCLUDED.npc_interact_at,
        mob_gold_claimed = EXCLUDED.mob_gold_claimed,
+       knocked_out_until = EXCLUDED.knocked_out_until,
        updated_at = NOW()`,
     [
       record.name,
@@ -125,6 +128,7 @@ export async function saveCharacter(record: CharacterRecord): Promise<void> {
       JSON.stringify(record.equipment),
       JSON.stringify(record.npcInteractAt),
       JSON.stringify(record.mobGoldClaimed),
+      record.knockedOutUntil,
     ],
   );
 }
@@ -192,6 +196,8 @@ export async function bindCharacterToWallet(
       existingByWallet?.npcInteractAt ?? existingByName?.npcInteractAt ?? {},
     mobGoldClaimed:
       existingByWallet?.mobGoldClaimed ?? existingByName?.mobGoldClaimed ?? {},
+    knockedOutUntil:
+      existingByWallet?.knockedOutUntil ?? existingByName?.knockedOutUntil ?? null,
   };
 
   await saveCharacter(record);
@@ -251,7 +257,14 @@ function mapRow(row: CharacterRow): CharacterRecord {
     equipment: normalizeEquipment(row.equipment ?? EMPTY_EQUIPMENT),
     npcInteractAt: normalizeNpcInteractAt(row.npc_interact_at),
     mobGoldClaimed: normalizeMobGoldClaimed(row.mob_gold_claimed),
+    knockedOutUntil: normalizeKnockedOutUntil(row.knocked_out_until),
   };
+}
+
+function normalizeKnockedOutUntil(raw: string | number | null): number | null {
+  if (raw === null || raw === undefined) return null;
+  const value = typeof raw === "string" ? Number(raw) : raw;
+  return Number.isFinite(value) && value > 0 ? value : null;
 }
 
 function normalizeMobGoldClaimed(raw: Record<string, boolean> | null): Record<string, boolean> {

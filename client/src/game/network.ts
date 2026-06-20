@@ -10,6 +10,7 @@ import {
   MobHealthPayload,
   normalizeCharacterAppearance,
   ProfilePayload,
+  RespawnResultPayload,
   QuestStatePayload,
   ShopOpenPayload,
   ShopResultPayload,
@@ -49,6 +50,7 @@ type ShopOpenListener = (payload: ShopOpenPayload) => void;
 type ShopResultListener = (payload: ShopResultPayload) => void;
 type MarketResultListener = (payload: MarketResultPayload) => void;
 type WalletLinkedListener = (payload: { ok: boolean; wallet?: string; error?: string }) => void;
+type RespawnResultListener = (payload: RespawnResultPayload) => void;
 
 export class NetworkManager {
   private client: Client | null = null;
@@ -73,6 +75,7 @@ export class NetworkManager {
   private shopResultListeners = new Set<ShopResultListener>();
   private marketResultListeners = new Set<MarketResultListener>();
   private walletLinkedListeners = new Set<WalletLinkedListener>();
+  private respawnResultListeners = new Set<RespawnResultListener>();
   private latestQuestState: QuestStatePayload = { active: [], completed: [] };
   private latestInventory: InventoryStatePayload = { items: [], capacity: 16 };
   private isTransferring = false;
@@ -216,6 +219,10 @@ export class NetworkManager {
 
   sendEquipItem(itemId: string | null) {
     this.room?.send("equipItem", { itemId });
+  }
+
+  sendRequestRespawn(payGold: boolean) {
+    this.room?.send("requestRespawn", { payGold });
   }
 
   setAccessToken(accessToken: string | null) {
@@ -373,6 +380,11 @@ export class NetworkManager {
     return () => this.walletLinkedListeners.delete(listener);
   }
 
+  onRespawnResult(listener: RespawnResultListener) {
+    this.respawnResultListeners.add(listener);
+    return () => this.respawnResultListeners.delete(listener);
+  }
+
   private async joinZone(zoneId: string) {
     if (!this.client) {
       this.client = new Client(getWebSocketUrl());
@@ -453,6 +465,11 @@ export class NetworkManager {
     });
     this.room.onMessage("walletLinked", (payload: { ok: boolean; wallet?: string; error?: string }) => {
       for (const listener of this.walletLinkedListeners) {
+        listener(payload);
+      }
+    });
+    this.room.onMessage("respawnResult", (payload: RespawnResultPayload) => {
+      for (const listener of this.respawnResultListeners) {
         listener(payload);
       }
     });

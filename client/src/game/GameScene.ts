@@ -15,6 +15,7 @@ import {
   isUiTypingActive,
 } from "./inputControl";
 import { playSfx } from "../audio/soundEffects";
+import { useGameStore } from "../store/gameStore";
 import { networkManager, RemotePlayer } from "./network";
 import { buildZoneMap } from "./mapData";
 import { PredictedPosition, reconcilePrediction, stepPrediction } from "./prediction";
@@ -122,7 +123,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   update(_time: number, delta: number) {
-    if (isUiTypingActive()) {
+    if (isUiTypingActive() || useGameStore.getState().knockedOut) {
       if (this.lastSentInput.dx !== 0 || this.lastSentInput.dy !== 0) {
         networkManager.sendInput(0, 0);
         this.lastSentInput = { dx: 0, dy: 0 };

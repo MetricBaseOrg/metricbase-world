@@ -147,6 +147,25 @@ body {
   z-index: 22;
 }
 
+.chibi-death-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: max(16px, var(--chibi-safe-top)) max(16px, var(--chibi-safe-right))
+    max(16px, var(--chibi-safe-bottom)) max(16px, var(--chibi-safe-left));
+  background: rgba(20, 12, 32, 0.72);
+  backdrop-filter: blur(4px);
+}
+
+.chibi-panel--death {
+  width: min(420px, 100%);
+  padding: 20px 22px;
+  text-align: left;
+}
+
 .chibi-title {
   margin: 0;
   font-family: var(--chibi-font-display);

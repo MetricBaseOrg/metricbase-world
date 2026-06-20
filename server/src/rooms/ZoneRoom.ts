@@ -37,6 +37,8 @@ import {
   PLAYER_SPEED,
   POTION_HEAL_AMOUNT,
   getMobRewardConfig,
+  RESPAWN_GOLD_COST,
+  RESPAWN_WAIT_MS,
   TRAINING_DUMMY_COUNTER_DAMAGE,
   PlayerSchema,
   startQuest,
@@ -86,6 +88,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   private chatCooldowns = new Map<string, number>();
   private npcInteractAt = new Map<string, Record<string, number>>();
   private mobGoldClaimed = new Map<string, Record<string, boolean>>();
+  private playerKnockedOutUntil = new Map<string, number>();
   private attackCooldowns = new Map<string, number>();
   private transferring = new Set<string>();
   private questProgress = new Map<string, QuestProgress>();
@@ -183,6 +186,10 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     this.onMessage("equipItem", (client, message: { itemId?: string | null }) => {
       void this.handleEquipItem(client, message.itemId ?? null);
     });
+
+    this.onMessage("requestRespawn", (client, message: { payGold?: boolean }) => {
+      void this.handleRequestRespawn(client, Boolean(message.payGold));
+    });
   }
 
   async onAuth(_client: Client, options: JoinOptions) {
@@ -249,13 +256,29 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     player.hairStyle = appearance.hairStyle;
     player.outfitStyle = appearance.outfitStyle;
 
-    if (saved && saved.zoneId === this.zoneConfig.id) {
-      player.x = saved.x;
-      player.y = saved.y;
-    } else {
-      const spawn = tileToWorld(this.zoneConfig.spawnTile.x, this.zoneConfig.spawnTile.y);
+    const maxHp = getPlayerMaxHp(player.level);
+    const spawn = tileToWorld(this.zoneConfig.spawnTile.x, this.zoneConfig.spawnTile.y);
+    const savedHp = saved?.hp ?? maxHp;
+    const knockedUntil = saved?.knockedOutUntil ?? null;
+    const freeRespawnReady = savedHp <= 0 && (!knockedUntil || Date.now() >= knockedUntil);
+
+    if (freeRespawnReady) {
       player.x = spawn.x;
       player.y = spawn.y;
+      this.playerHp.set(player.name, maxHp);
+    } else if (savedHp <= 0 && knockedUntil && Date.now() < knockedUntil) {
+      player.x = spawn.x;
+      player.y = spawn.y;
+      this.playerHp.set(player.name, 0);
+      this.playerKnockedOutUntil.set(player.name, knockedUntil);
+    } else if (saved && saved.zoneId === this.zoneConfig.id) {
+      player.x = saved.x;
+      player.y = saved.y;
+      this.playerHp.set(player.name, Math.min(savedHp, maxHp));
+    } else {
+      player.x = spawn.x;
+      player.y = spawn.y;
+      this.playerHp.set(player.name, Math.min(savedHp, maxHp));
     }
 
     this.state.players.set(client.sessionId, player);
@@ -267,8 +290,6 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       player.name,
       normalizeEquipment(saved?.equipment),
     );
-    const maxHp = getPlayerMaxHp(player.level);
-    this.playerHp.set(player.name, Math.min(saved?.hp ?? maxHp, maxHp));
     this.npcInteractAt.set(player.name, saved?.npcInteractAt ?? {});
     this.mobGoldClaimed.set(player.name, saved?.mobGoldClaimed ?? {});
 
@@ -313,6 +334,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       this.playerEquipment.delete(player.name);
       this.npcInteractAt.delete(player.name);
       this.mobGoldClaimed.delete(player.name);
+      this.playerKnockedOutUntil.delete(player.name);
       this.playerWallets.delete(client.sessionId);
     }
 
@@ -337,7 +359,19 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       }
     }
 
+    for (const client of this.clients) {
+      const player = this.state.players.get(client.sessionId);
+      if (!player || !this.isKnockedOut(player.name)) continue;
+
+      const until = this.playerKnockedOutUntil.get(player.name);
+      if (until && now >= until) {
+        void this.respawnPlayer(client, player, false);
+      }
+    }
+
     this.state.players.forEach((player, sessionId) => {
+      if (this.isKnockedOut(player.name)) return;
+
       const input = this.inputs.get(sessionId);
       if (!input) return;
 
@@ -365,13 +399,15 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   private checkPortals(sessionId: string, worldX: number, worldY: number) {
     if (this.transferring.has(sessionId)) return;
 
+    const player = this.state.players.get(sessionId);
+    if (player && this.isKnockedOut(player.name)) return;
+
     const portal = this.zoneConfig.portals.find((entry) =>
       this.isNearPortal(worldX, worldY, entry.tileX, entry.tileY),
     );
     if (!portal) return;
 
     const client = this.clients.find((entry) => entry.sessionId === sessionId);
-    const player = this.state.players.get(sessionId);
     if (!client || !player) return;
 
     this.transferring.add(sessionId);
@@ -417,6 +453,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   private async handleInteract(client: Client, npcId: string) {
     const player = this.state.players.get(client.sessionId);
     if (!player || !npcId) return;
+    if (this.isKnockedOut(player.name)) return;
 
     const npc = this.zoneConfig.npcs.find((entry) => entry.id === npcId);
     if (!npc) return;
@@ -736,6 +773,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   private sendProfile(client: Client, player: InstanceType<typeof PlayerSchema>) {
     const maxHp = getPlayerMaxHp(player.level);
     const equipment = this.playerEquipment.get(player.name);
+    const knockedOut = this.isKnockedOut(player.name);
     client.send("profile", {
       level: player.level,
       xp: player.xp,
@@ -743,6 +781,81 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       hp: this.playerHp.get(player.name) ?? maxHp,
       maxHp,
       equippedWeaponId: equipment?.weaponId ?? null,
+      knockedOut,
+      freeRespawnAt: knockedOut ? (this.playerKnockedOutUntil.get(player.name) ?? null) : null,
+    });
+  }
+
+  private isKnockedOut(playerName: string): boolean {
+    const hp = this.playerHp.get(playerName);
+    return hp !== undefined && hp <= 0;
+  }
+
+  private async respawnPlayer(
+    client: Client,
+    player: InstanceType<typeof PlayerSchema>,
+    payGold: boolean,
+  ): Promise<{ ok: boolean; error?: string }> {
+    if (!this.isKnockedOut(player.name)) {
+      return { ok: false, error: "You are not knocked out." };
+    }
+
+    const now = Date.now();
+    const freeRespawnAt = this.playerKnockedOutUntil.get(player.name) ?? 0;
+
+    if (payGold) {
+      const gold = this.playerGold.get(player.name) ?? STARTING_GOLD;
+      if (gold < RESPAWN_GOLD_COST) {
+        return { ok: false, error: `You need ${RESPAWN_GOLD_COST} gold to respawn now.` };
+      }
+      this.playerGold.set(player.name, gold - RESPAWN_GOLD_COST);
+    } else if (now < freeRespawnAt) {
+      return { ok: false, error: "Free respawn is not ready yet." };
+    }
+
+    const maxHp = getPlayerMaxHp(player.level);
+    const spawn = tileToWorld(this.zoneConfig.spawnTile.x, this.zoneConfig.spawnTile.y);
+    player.x = spawn.x;
+    player.y = spawn.y;
+    this.playerHp.set(player.name, maxHp);
+    this.playerKnockedOutUntil.delete(player.name);
+    this.inputs.set(client.sessionId, { dx: 0, dy: 0 });
+    this.sendProfile(client, player);
+
+    const message = payGold
+      ? `${player.name} paid ${RESPAWN_GOLD_COST} gold to respawn.`
+      : `${player.name} respawned after waiting out the knockout.`;
+
+    this.broadcastChat({
+      id: crypto.randomUUID(),
+      channel: "system",
+      senderId: "system",
+      senderName: "System",
+      body: message,
+      sentAt: Date.now(),
+    });
+
+    await this.persistPlayer(player);
+    return { ok: true };
+  }
+
+  private async handleRequestRespawn(client: Client, payGold: boolean) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+
+    const result = await this.respawnPlayer(client, player, payGold);
+    const maxHp = getPlayerMaxHp(player.level);
+
+    client.send("respawnResult", {
+      ok: result.ok,
+      error: result.error,
+      gold: this.playerGold.get(player.name) ?? STARTING_GOLD,
+      hp: this.playerHp.get(player.name) ?? maxHp,
+      maxHp,
+      knockedOut: this.isKnockedOut(player.name),
+      freeRespawnAt: this.isKnockedOut(player.name)
+        ? (this.playerKnockedOutUntil.get(player.name) ?? null)
+        : null,
     });
   }
 
@@ -752,6 +865,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     amount: number,
     reason: string,
   ) {
+    if (this.isKnockedOut(player.name)) return;
+
     const maxHp = getPlayerMaxHp(player.level);
     const current = this.playerHp.get(player.name) ?? maxHp;
     const next = Math.max(0, current - amount);
@@ -762,16 +877,18 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       const spawn = tileToWorld(this.zoneConfig.spawnTile.x, this.zoneConfig.spawnTile.y);
       player.x = spawn.x;
       player.y = spawn.y;
-      this.playerHp.set(player.name, maxHp);
+      this.playerKnockedOutUntil.set(player.name, Date.now() + RESPAWN_WAIT_MS);
+      this.inputs.set(client.sessionId, { dx: 0, dy: 0 });
       this.sendProfile(client, player);
       this.broadcastChat({
         id: crypto.randomUUID(),
         channel: "system",
         senderId: "system",
         senderName: "System",
-        body: `${player.name} was knocked out (${reason}) and respawned.`,
+        body: `${player.name} was knocked out (${reason}). Pay ${RESPAWN_GOLD_COST} gold or wait 30 minutes to respawn.`,
         sentAt: Date.now(),
       });
+      void this.persistPlayer(player);
     }
   }
 
@@ -1128,6 +1245,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   private async handleUseItem(client: Client, itemId: string) {
     const player = this.state.players.get(client.sessionId);
     if (!player || !itemId) return;
+    if (this.isKnockedOut(player.name)) return;
 
     let item;
     try {
@@ -1184,6 +1302,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   private async handleEquipItem(client: Client, itemId: string | null) {
     const player = this.state.players.get(client.sessionId);
     if (!player) return;
+    if (this.isKnockedOut(player.name)) return;
 
     if (itemId === null) {
       this.playerEquipment.set(player.name, normalizeEquipment({ weaponId: null }));
@@ -1294,6 +1413,9 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       equipment: normalizeEquipment(this.playerEquipment.get(player.name)),
       npcInteractAt: this.npcInteractAt.get(player.name) ?? {},
       mobGoldClaimed: this.mobGoldClaimed.get(player.name) ?? {},
+      knockedOutUntil: this.isKnockedOut(player.name)
+        ? (this.playerKnockedOutUntil.get(player.name) ?? null)
+        : null,
     });
   }
 
