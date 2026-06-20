@@ -8,7 +8,7 @@ import {
   type CharacterAppearance,
 } from "@metricbase/shared";
 import Phaser from "phaser";
-import { renderAvatarPoseCanvas } from "./avatarPose";
+import { AVATAR_LOGICAL_HEIGHT, AVATAR_LOGICAL_WIDTH, renderAvatarPoseCanvas } from "./avatarPose";
 
 const FALLBACK_PLAYER_TEXTURE = "player";
 
@@ -61,6 +61,7 @@ export function setAvatarPose(
     sprite.setTexture(resolvedKey);
     sprite.setOrigin(0.5, 0.93);
   }
+  sprite.setDisplaySize(AVATAR_LOGICAL_WIDTH, AVATAR_LOGICAL_HEIGHT);
   return resolvedKey;
 }
 

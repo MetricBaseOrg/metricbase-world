@@ -732,8 +732,21 @@ export class NetworkManager {
     }
   }
 
-  private toRemotePlayer(sessionId: string, player: Player): RemotePlayer {
-    const id = sessionId || player.sessionId || this.sessionId || player.name;
+  private resolvePlayerSessionId(sessionId: string, player: Player): string | null {
+    const candidates = [sessionId, player.sessionId, this.sessionId].filter(
+      (value): value is string => typeof value === "string" && value.length > 0,
+    );
+    for (const id of candidates) {
+      if (/^[A-Za-z0-9_-]{8,}$/.test(id)) {
+        return id;
+      }
+    }
+    return candidates[0] ?? null;
+  }
+
+  private toRemotePlayer(sessionId: string, player: Player): RemotePlayer | null {
+    const id = this.resolvePlayerSessionId(sessionId, player);
+    if (!id) return null;
     return {
       sessionId: id,
       name: player.name,
@@ -761,39 +774,36 @@ export class NetworkManager {
     const pushPlayer = (sessionId: string, player: Player | undefined) => {
       if (!player) return;
       const remote = this.toRemotePlayer(sessionId, player);
-      if (seen.has(remote.sessionId)) return;
+      if (!remote || seen.has(remote.sessionId)) return;
       seen.add(remote.sessionId);
       players.push(remote);
     };
+
+    const items = (map as { $items?: Map<string, Player> }).$items;
+    if (items && items.size > 0) {
+      for (const [sessionId, player] of items) {
+        pushPlayer(sessionId, player);
+      }
+      if (players.length > 0) {
+        return players;
+      }
+    }
 
     if (this.sessionId) {
       pushPlayer(this.sessionId, map.get(this.sessionId));
     }
 
     try {
-      map.forEach((player: Player, sessionId: string) => {
+      for (const [sessionId, player] of map.entries()) {
         pushPlayer(sessionId, player);
-      });
-    } catch {
-      // Some schema builds expose size without a working forEach.
-    }
-
-    if (players.length === 0) {
-      try {
-        for (const [sessionId, player] of map.entries()) {
-          pushPlayer(sessionId, player);
-        }
-      } catch {
-        // Fall through to $items lookup.
       }
-    }
-
-    if (players.length === 0 && map.size > 0) {
-      const items = (map as { $items?: Map<string, Player> }).$items;
-      if (items) {
-        for (const [sessionId, player] of items) {
+    } catch {
+      try {
+        map.forEach((player: Player, sessionId: string) => {
           pushPlayer(sessionId, player);
-        }
+        });
+      } catch {
+        // No iterable map entries available.
       }
     }
 

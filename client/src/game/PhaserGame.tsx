@@ -14,16 +14,18 @@ export function PhaserGame() {
 
     resetGameSceneReady();
 
+    const { clientWidth, clientHeight } = containerRef.current;
+
     const instance = new Phaser.Game({
       type: Phaser.AUTO,
       parent: containerRef.current,
-      width: window.innerWidth,
-      height: window.innerHeight,
+      width: clientWidth,
+      height: clientHeight,
       backgroundColor: "#0b1020",
       scene: [BootScene, GameScene],
       scale: {
         mode: Phaser.Scale.RESIZE,
-        autoCenter: Phaser.Scale.NO_CENTER,
+        autoCenter: Phaser.Scale.CENTER_BOTH,
       },
       render: {
         pixelArt: true,
@@ -34,7 +36,19 @@ export function PhaserGame() {
     gameRef.current = instance;
     registerPhaserGame(instance);
 
+    const resizeGame = () => {
+      if (!containerRef.current || !gameRef.current) return;
+      gameRef.current.scale.resize(
+        containerRef.current.clientWidth,
+        containerRef.current.clientHeight,
+      );
+    };
+
+    resizeGame();
+    window.addEventListener("resize", resizeGame);
+
     return () => {
+      window.removeEventListener("resize", resizeGame);
       unregisterPhaserGame();
       gameRef.current?.destroy(true);
       gameRef.current = null;
