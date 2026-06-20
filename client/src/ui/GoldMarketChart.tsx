@@ -1,7 +1,7 @@
-import type { MarketChartPayload, MarketCandle } from "@metricbase/shared";
+import { buildEmptyMarketChart, type MarketChartPayload, type MarketCandle } from "@metricbase/shared";
 
 interface GoldMarketChartProps {
-  chart: MarketChartPayload | undefined;
+  chart?: MarketChartPayload;
 }
 
 const VIEW_WIDTH = 480;
@@ -17,35 +17,53 @@ function formatTimeLabel(timestamp: number): string {
   return `${date.getMonth() + 1}/${date.getDate()} ${date.getHours().toString().padStart(2, "0")}:00`;
 }
 
-function visibleCandles(candles: MarketCandle[]): MarketCandle[] {
-  return candles.filter((candle) => candle.close > 0);
+function tradedCandles(candles: MarketCandle[]): MarketCandle[] {
+  return candles.filter((candle) => candle.volume > 0);
+}
+
+function chartPanelStyle(): React.CSSProperties {
+  return {
+    marginTop: 16,
+    padding: "14px 16px",
+    borderRadius: 10,
+    background: "rgba(255,255,255,0.03)",
+    border: "1px solid rgba(255,255,255,0.08)",
+  };
 }
 
 export function GoldMarketChart({ chart }: GoldMarketChartProps) {
-  if (!chart) return null;
+  const payload = chart ?? buildEmptyMarketChart();
 
-  const candles = visibleCandles(chart.candles);
-  const plotWidth = VIEW_WIDTH - PADDING.left - PADDING.right;
-  const plotHeight = VIEW_HEIGHT - PADDING.top - PADDING.bottom;
-
-  if (candles.length === 0) {
+  if (!payload.hasTrades) {
     return (
-      <div
-        style={{
-          marginTop: 16,
-          padding: "14px 16px",
-          borderRadius: 10,
-          background: "rgba(255,255,255,0.03)",
-          border: "1px solid rgba(255,255,255,0.08)",
-        }}
-      >
+      <div style={chartPanelStyle()}>
         <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6 }}>Gold / Token Price</div>
-        <div style={{ fontSize: 12, opacity: 0.65 }}>
-          No trades yet. Candlesticks appear after the first market fills.
+        <div
+          style={{
+            padding: "18px 14px",
+            borderRadius: 8,
+            background: "rgba(79, 140, 255, 0.08)",
+            border: "1px dashed rgba(79, 140, 255, 0.28)",
+            textAlign: "center",
+          }}
+        >
+          <div style={{ fontSize: 13, fontWeight: 600, color: "#d6e4ff" }}>No trades yet</div>
+          <div style={{ fontSize: 12, opacity: 0.72, marginTop: 6, lineHeight: 1.45 }}>
+            Candlesticks appear after the first gold market trade fills on-chain.
+          </div>
+          {payload.indicativePrice !== null && (
+            <div style={{ fontSize: 12, marginTop: 10, color: "#ffd27a" }}>
+              Order book mid: {formatPrice(payload.indicativePrice)} tokens/gold
+            </div>
+          )}
         </div>
       </div>
     );
   }
+
+  const candles = tradedCandles(payload.candles);
+  const plotWidth = VIEW_WIDTH - PADDING.left - PADDING.right;
+  const plotHeight = VIEW_HEIGHT - PADDING.top - PADDING.bottom;
 
   const pricePoints = candles.flatMap((candle) => [candle.high, candle.low]);
   const rawMin = Math.min(...pricePoints);
@@ -72,35 +90,29 @@ export function GoldMarketChart({ chart }: GoldMarketChartProps) {
   ];
 
   const changeColor =
-    chart.changePercent === null
+    payload.changePercent === null
       ? "rgba(255,255,255,0.7)"
-      : chart.changePercent >= 0
+      : payload.changePercent >= 0
         ? "#5dffb1"
         : "#ff8f8f";
 
   return (
-    <div
-      style={{
-        marginTop: 16,
-        padding: "14px 16px 10px",
-        borderRadius: 10,
-        background: "rgba(255,255,255,0.03)",
-        border: "1px solid rgba(255,255,255,0.08)",
-      }}
-    >
+    <div style={{ ...chartPanelStyle(), paddingBottom: 10 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
         <div>
           <div style={{ fontSize: 13, fontWeight: 700 }}>Gold / Token Price</div>
-          <div style={{ fontSize: 11, opacity: 0.6, marginTop: 4 }}>Tokens per 1 gold · {chart.intervalLabel} candles</div>
+          <div style={{ fontSize: 11, opacity: 0.6, marginTop: 4 }}>
+            Tokens per 1 gold · {payload.intervalLabel} candles
+          </div>
         </div>
         <div style={{ textAlign: "right" }}>
           <div style={{ fontSize: 18, fontWeight: 700, color: "#ffd27a" }}>
-            {chart.lastPrice !== null ? formatPrice(chart.lastPrice) : "—"}
+            {payload.lastPrice !== null ? formatPrice(payload.lastPrice) : "—"}
           </div>
-          {chart.changePercent !== null && (
+          {payload.changePercent !== null && (
             <div style={{ fontSize: 11, color: changeColor, marginTop: 2 }}>
-              {chart.changePercent >= 0 ? "+" : ""}
-              {chart.changePercent.toFixed(2)}% (24h)
+              {payload.changePercent >= 0 ? "+" : ""}
+              {payload.changePercent.toFixed(2)}% (24h)
             </div>
           )}
         </div>
@@ -164,10 +176,9 @@ export function GoldMarketChart({ chart }: GoldMarketChartProps) {
                 y={bodyTop}
                 width={bodyWidth}
                 height={bodyHeight}
-                fill={bullish ? color : color}
+                fill={color}
                 stroke={color}
                 strokeWidth={1}
-                opacity={candle.volume > 0 ? 1 : 0.35}
               />
             </g>
           );

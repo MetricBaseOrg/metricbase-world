@@ -22,6 +22,9 @@ export interface MarketChartPayload {
   intervalMs: number;
   intervalLabel: string;
   candles: MarketCandle[];
+  hasTrades: boolean;
+  /** Best-effort mid price from open bids/asks when no trades exist yet. */
+  indicativePrice: number | null;
   lastPrice: number | null;
   changePercent: number | null;
 }
@@ -44,7 +47,6 @@ export function buildMarketCandles(
   trades: MarketTradePoint[],
   intervalMs: number,
   candleCount: number,
-  seedPrice: number | null = null,
 ): MarketCandle[] {
   const now = Date.now();
   const rangeStart = now - candleCount * intervalMs;
@@ -78,19 +80,19 @@ export function buildMarketCandles(
     candle.volume += trade.goldVolume;
   }
 
-  let lastPrice = seedPrice;
+  let lastTradedPrice: number | null = null;
   const candles: MarketCandle[] = [];
   for (let index = 0; index < candleCount; index += 1) {
     const time = rangeStart + index * intervalMs;
     const candle = buckets.get(time)!;
-    if (candle.volume === 0 && lastPrice !== null) {
-      candle.open = lastPrice;
-      candle.high = lastPrice;
-      candle.low = lastPrice;
-      candle.close = lastPrice;
+    if (candle.volume === 0 && lastTradedPrice !== null) {
+      candle.open = lastTradedPrice;
+      candle.high = lastTradedPrice;
+      candle.low = lastTradedPrice;
+      candle.close = lastTradedPrice;
     }
-    if (candle.close > 0) {
-      lastPrice = candle.close;
+    if (candle.volume > 0) {
+      lastTradedPrice = candle.close;
     }
     candles.push(candle);
   }
@@ -108,17 +110,17 @@ export function buildMarketChartPayload(input: {
 }): MarketChartPayload {
   const intervalMs = input.intervalMs ?? MARKET_CHART_INTERVAL_MS;
   const candleCount = input.candleCount ?? MARKET_CHART_CANDLE_COUNT;
-  const seedPrice = midMarketPrice(input.asks, input.bids);
-  const candles = buildMarketCandles(input.trades, intervalMs, candleCount, seedPrice);
+  const indicativePrice = midMarketPrice(input.asks, input.bids);
+  const hasTrades = input.trades.length > 0;
+  const candles = hasTrades ? buildMarketCandles(input.trades, intervalMs, candleCount) : [];
 
   const tradedCandles = candles.filter((candle) => candle.volume > 0);
-  const lastPrice =
-    tradedCandles.length > 0
-      ? tradedCandles[tradedCandles.length - 1].close
-      : seedPrice;
+  const lastPrice = hasTrades
+    ? tradedCandles[tradedCandles.length - 1]?.close ?? null
+    : indicativePrice;
 
   let changePercent: number | null = null;
-  if (lastPrice !== null && candles.length >= 2) {
+  if (hasTrades && lastPrice !== null && candles.length >= 2) {
     const dayIndex = Math.max(0, candles.length - 25);
     const base = candles[dayIndex].open > 0 ? candles[dayIndex].open : candles[dayIndex].close;
     if (base > 0) {
@@ -130,6 +132,8 @@ export function buildMarketChartPayload(input: {
     intervalMs,
     intervalLabel: input.intervalLabel ?? "1H",
     candles,
+    hasTrades,
+    indicativePrice,
     lastPrice,
     changePercent,
   };
@@ -140,6 +144,8 @@ export function buildEmptyMarketChart(): MarketChartPayload {
     intervalMs: MARKET_CHART_INTERVAL_MS,
     intervalLabel: "1H",
     candles: [],
+    hasTrades: false,
+    indicativePrice: null,
     lastPrice: null,
     changePercent: null,
   };

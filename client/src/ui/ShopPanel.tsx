@@ -381,7 +381,7 @@ export function ShopPanel() {
             <WalletConnectBar />
           </div>
 
-          <GoldMarketChart chart={market?.chart} />
+          {market?.enabled && <GoldMarketChart chart={market.chart} />}
 
           {!market?.enabled ? (
             <div style={{ marginTop: 16, fontSize: 13, opacity: 0.7 }}>Gold market requires wallet login and database persistence.</div>
