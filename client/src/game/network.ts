@@ -9,6 +9,7 @@ import {
   InventoryStatePayload,
   MobHealthPayload,
   normalizeCharacterAppearance,
+  PlayerDamagePayload,
   ProfilePayload,
   RespawnResultPayload,
   QuestStatePayload,
@@ -51,6 +52,7 @@ type ShopResultListener = (payload: ShopResultPayload) => void;
 type MarketResultListener = (payload: MarketResultPayload) => void;
 type WalletLinkedListener = (payload: { ok: boolean; wallet?: string; error?: string }) => void;
 type RespawnResultListener = (payload: RespawnResultPayload) => void;
+type PlayerDamageListener = (payload: PlayerDamagePayload) => void;
 
 export class NetworkManager {
   private client: Client | null = null;
@@ -76,6 +78,7 @@ export class NetworkManager {
   private marketResultListeners = new Set<MarketResultListener>();
   private walletLinkedListeners = new Set<WalletLinkedListener>();
   private respawnResultListeners = new Set<RespawnResultListener>();
+  private playerDamageListeners = new Set<PlayerDamageListener>();
   private latestQuestState: QuestStatePayload = { active: [], completed: [] };
   private latestInventory: InventoryStatePayload = { items: [], capacity: 16 };
   private isTransferring = false;
@@ -385,6 +388,11 @@ export class NetworkManager {
     return () => this.respawnResultListeners.delete(listener);
   }
 
+  onPlayerDamage(listener: PlayerDamageListener) {
+    this.playerDamageListeners.add(listener);
+    return () => this.playerDamageListeners.delete(listener);
+  }
+
   private async joinZone(zoneId: string) {
     if (!this.client) {
       this.client = new Client(getWebSocketUrl());
@@ -470,6 +478,11 @@ export class NetworkManager {
     });
     this.room.onMessage("respawnResult", (payload: RespawnResultPayload) => {
       for (const listener of this.respawnResultListeners) {
+        listener(payload);
+      }
+    });
+    this.room.onMessage("playerDamage", (payload: PlayerDamagePayload) => {
+      for (const listener of this.playerDamageListeners) {
         listener(payload);
       }
     });

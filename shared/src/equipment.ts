@@ -1,7 +1,9 @@
 export const ITEM_RUSTY_BLADE = "item_rusty_blade";
+export const ITEM_GEL_KNIFE = "item_gel_knife";
 
 export const WEAPON_BONUS_DAMAGE: Record<string, number> = {
   [ITEM_RUSTY_BLADE]: 12,
+  [ITEM_GEL_KNIFE]: 8,
 };
 
 export function getWeaponBonusDamage(weaponId: string | null | undefined): number {

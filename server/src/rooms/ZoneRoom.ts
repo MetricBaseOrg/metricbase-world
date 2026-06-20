@@ -37,6 +37,9 @@ import {
   PLAYER_SPEED,
   POTION_HEAL_AMOUNT,
   getMobRewardConfig,
+  COMBAT_RECENT_MS,
+  HP_REGEN_AMOUNT,
+  HP_REGEN_INTERVAL_MS,
   RESPAWN_GOLD_COST,
   RESPAWN_WAIT_MS,
   TRAINING_DUMMY_COUNTER_DAMAGE,
@@ -89,6 +92,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   private npcInteractAt = new Map<string, Record<string, number>>();
   private mobGoldClaimed = new Map<string, Record<string, boolean>>();
   private playerKnockedOutUntil = new Map<string, number>();
+  private playerLastCombatAt = new Map<string, number>();
+  private playerLastRegenAt = new Map<string, number>();
   private attackCooldowns = new Map<string, number>();
   private transferring = new Set<string>();
   private questProgress = new Map<string, QuestProgress>();
@@ -335,6 +340,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       this.npcInteractAt.delete(player.name);
       this.mobGoldClaimed.delete(player.name);
       this.playerKnockedOutUntil.delete(player.name);
+      this.playerLastCombatAt.delete(player.name);
+      this.playerLastRegenAt.delete(player.name);
       this.playerWallets.delete(client.sessionId);
     }
 
@@ -367,6 +374,25 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       if (until && now >= until) {
         void this.respawnPlayer(client, player, false);
       }
+    }
+
+    for (const client of this.clients) {
+      const player = this.state.players.get(client.sessionId);
+      if (!player || this.isKnockedOut(player.name)) continue;
+
+      const maxHp = getPlayerMaxHp(player.level);
+      const currentHp = this.playerHp.get(player.name) ?? maxHp;
+      if (currentHp >= maxHp) continue;
+
+      const lastCombat = this.playerLastCombatAt.get(player.name) ?? 0;
+      if (now - lastCombat < COMBAT_RECENT_MS) continue;
+
+      const lastRegen = this.playerLastRegenAt.get(player.name) ?? 0;
+      if (now - lastRegen < HP_REGEN_INTERVAL_MS) continue;
+
+      this.playerLastRegenAt.set(player.name, now);
+      this.playerHp.set(player.name, Math.min(maxHp, currentHp + HP_REGEN_AMOUNT));
+      this.sendProfile(client, player);
     }
 
     this.state.players.forEach((player, sessionId) => {
@@ -517,6 +543,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     if (playerHp <= 0) return;
 
     this.attackCooldowns.set(client.sessionId, now);
+    this.playerLastCombatAt.set(player.name, now);
     const equipment = this.playerEquipment.get(player.name);
     const damage = getPlayerAttackDamage(equipment?.weaponId);
     const nextHp = Math.max(0, currentHp - damage);
@@ -624,6 +651,10 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     this.grantXp(client, player, quest.rewardXp, `completed ${quest.title}`);
     if (quest.rewardGold) {
       this.grantGold(client, player, quest.rewardGold, `completed ${quest.title}`);
+    }
+
+    if (quest.rewardItemId) {
+      await this.grantLoot(client, player.name, quest.rewardItemId, quest.rewardItemQuantity ?? 1);
     }
 
     this.broadcastChat({
@@ -819,6 +850,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     player.y = spawn.y;
     this.playerHp.set(player.name, maxHp);
     this.playerKnockedOutUntil.delete(player.name);
+    this.playerLastCombatAt.delete(player.name);
+    this.playerLastRegenAt.delete(player.name);
     this.inputs.set(client.sessionId, { dx: 0, dy: 0 });
     this.sendProfile(client, player);
 
@@ -871,6 +904,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     const current = this.playerHp.get(player.name) ?? maxHp;
     const next = Math.max(0, current - amount);
     this.playerHp.set(player.name, next);
+    this.playerLastCombatAt.set(player.name, Date.now());
+    client.send("playerDamage", { amount, currentHp: next, maxHp });
     this.sendProfile(client, player);
 
     if (next === 0) {

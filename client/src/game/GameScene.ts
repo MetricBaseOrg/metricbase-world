@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import {
   ATTACK_RANGE,
+  WILD_SLIME_NPC_ID,
   getZoneConfig,
   MAP_HEIGHT,
   MAP_WIDTH,
@@ -97,12 +98,17 @@ export class GameScene extends Phaser.Scene {
     });
 
     const unsubscribeAttackResult = networkManager.onAttackResult((payload) => {
-      this.showDamageNumber(payload.npcId, payload.damage);
+      this.showMobDamageNumber(payload.npcId, payload.damage);
       if (payload.defeated) {
         playSfx("attack_defeat");
       } else {
         playSfx("attack_hit");
       }
+    });
+
+    const unsubscribePlayerDamage = networkManager.onPlayerDamage((payload) => {
+      this.showPlayerDamageNumber(payload.amount);
+      playSfx("player_hurt");
     });
 
     this.renderZone(networkManager.zoneId);
@@ -112,6 +118,7 @@ export class GameScene extends Phaser.Scene {
       unsubscribeZone();
       unsubscribeMobHealth();
       unsubscribeAttackResult();
+      unsubscribePlayerDamage();
       this.clearMap();
       this.clearNpcs();
       this.renderedPlayers.forEach((entry) => {
@@ -142,6 +149,7 @@ export class GameScene extends Phaser.Scene {
     this.applyLocalPrediction(dx, dy, delta);
     this.interpolateRemotePlayers();
     this.followLocalPlayer();
+    this.applyKnockedOutVisuals();
     this.tryInteract();
     this.tryAttack();
   }
@@ -190,7 +198,9 @@ export class GameScene extends Phaser.Scene {
     for (const npc of config.npcs) {
       const { x, y } = tileToWorld(npc.tileX, npc.tileY);
       const isCombat = Boolean(npc.combat);
-      const sprite = this.add.sprite(x, y, isCombat ? "dummy" : "npc");
+      const mobTexture =
+        npc.id === WILD_SLIME_NPC_ID ? "slime" : isCombat ? "dummy" : "npc";
+      const sprite = this.add.sprite(x, y, mobTexture);
       sprite.setDepth(900);
       if (isCombat && npc.combat) {
         const saved = networkManager.getMobHealth(npc.id);
@@ -203,10 +213,12 @@ export class GameScene extends Phaser.Scene {
           fontFamily: '"Fredoka", "Nunito", sans-serif',
           fontSize: "12px",
           fontStyle: "bold",
-          color: isCombat ? "#e67e22" : "#7c3aed",
+          color:
+            npc.id === WILD_SLIME_NPC_ID ? "#16a34a" : isCombat ? "#e67e22" : "#7c3aed",
           stroke: "#fff9f0",
           strokeThickness: 4,
-          backgroundColor: isCombat ? "#fff3d6" : "#f3ebff",
+          backgroundColor:
+            npc.id === WILD_SLIME_NPC_ID ? "#dcfce7" : isCombat ? "#fff3d6" : "#f3ebff",
           padding: { x: 6, y: 3 },
         })
         .setOrigin(0.5, 1)
@@ -257,7 +269,54 @@ export class GameScene extends Phaser.Scene {
     npc.hpBarFill.fillRoundedRect(x + 2, y + 2, fillWidth, height - 4, 3);
   }
 
-  private showDamageNumber(npcId: string, damage: number) {
+  private applyKnockedOutVisuals() {
+    if (!this.localSessionId) return;
+
+    const local = this.renderedPlayers.get(this.localSessionId);
+    if (!local) return;
+
+    const knockedOut = useGameStore.getState().knockedOut;
+    if (knockedOut) {
+      local.sprite.setAlpha(0.42);
+      local.sprite.setTint(0x9ca3af);
+      local.label.setAlpha(0.55);
+      return;
+    }
+
+    local.sprite.setAlpha(1);
+    local.sprite.clearTint();
+    local.label.setAlpha(1);
+  }
+
+  private showPlayerDamageNumber(damage: number) {
+    if (!this.localSessionId || damage <= 0) return;
+
+    const local = this.renderedPlayers.get(this.localSessionId);
+    if (!local) return;
+
+    const text = this.add
+      .text(local.predicted.x, local.predicted.y - 50, `-${damage}`, {
+        fontFamily: "Segoe UI, sans-serif",
+        fontSize: "16px",
+        color: "#ff2244",
+        fontStyle: "bold",
+        stroke: "#2d1b2e",
+        strokeThickness: 3,
+      })
+      .setOrigin(0.5)
+      .setDepth(210);
+
+    this.tweens.add({
+      targets: text,
+      y: text.y - 32,
+      alpha: 0,
+      duration: 800,
+      ease: "Cubic.easeOut",
+      onComplete: () => text.destroy(),
+    });
+  }
+
+  private showMobDamageNumber(npcId: string, damage: number) {
     const npc = this.renderedNpcs.find((entry) => entry.id === npcId);
     if (!npc || damage <= 0) return;
 

@@ -7,6 +7,15 @@ export const PLAYER_MAX_HP_BASE = 40;
 export const PLAYER_MAX_HP_PER_LEVEL = 8;
 export const RESPAWN_GOLD_COST = 100;
 export const RESPAWN_WAIT_MS = 30 * 60 * 1000;
+export const HP_REGEN_AMOUNT = 1;
+export const HP_REGEN_INTERVAL_MS = 3000;
+export const COMBAT_RECENT_MS = 5000;
+
+export interface PlayerDamagePayload {
+  amount: number;
+  currentHp: number;
+  maxHp: number;
+}
 
 export const TRAINING_DUMMY_NPC_ID = "training_dummy";
 export const TRAINING_DUMMY_GOLD_REWARD = 5;

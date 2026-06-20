@@ -16,7 +16,8 @@ export type SfxType =
   | "market_success"
   | "market_fail"
   | "item_use"
-  | "level_up";
+  | "level_up"
+  | "player_hurt";
 
 const MASTER_VOLUME = 0.32;
 const MUTE_STORAGE_KEY = "metricbase-sfx-muted";
@@ -157,6 +158,10 @@ export function playSfx(type: SfxType): void {
       playTone(ctx, masterGain, now + 0.09, 440, "square", 0.08, 0.2);
       playTone(ctx, masterGain, now + 0.18, 554, "square", 0.08, 0.2);
       playTone(ctx, masterGain, now + 0.27, 660, "square", 0.14, 0.24);
+      break;
+    case "player_hurt":
+      playTone(ctx, masterGain, now, 180, "sawtooth", 0.06, 0.16);
+      playTone(ctx, masterGain, now + 0.05, 120, "sawtooth", 0.08, 0.14);
       break;
   }
 }

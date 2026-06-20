@@ -26,6 +26,8 @@ export interface QuestDefinition {
   objectives: QuestObjective[];
   rewardXp: number;
   rewardGold?: number;
+  rewardItemId?: string;
+  rewardItemQuantity?: number;
   startNpcId?: string;
   requiresCompleted?: string[];
 }
@@ -149,6 +151,8 @@ export const QUESTS: Record<string, QuestDefinition> = {
     objectives: [{ type: "talk_npc", target: "hub_guide", label: "Report to Aria in the Hub" }],
     rewardXp: 120,
     rewardGold: 60,
+    rewardItemId: "item_gel_knife",
+    rewardItemQuantity: 1,
     startNpcId: "wilderness_scout",
     requiresCompleted: [QUEST_SLIME_SAMPLES],
   },

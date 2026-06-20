@@ -107,7 +107,12 @@ export function HUD({ onLeave }: HUDProps) {
             </div>
             {equippedWeaponId && (
               <div className="chibi-text-muted" style={{ marginTop: 4 }}>
-                ⚔️ {equippedWeaponId === "item_rusty_blade" ? "Rusty Blade equipped" : "Weapon equipped"}
+                ⚔️{" "}
+                {equippedWeaponId === "item_rusty_blade"
+                  ? "Rusty Blade equipped"
+                  : equippedWeaponId === "item_gel_knife"
+                    ? "Gel-Edged Knife equipped"
+                    : "Weapon equipped"}
               </div>
             )}
           </div>
@@ -168,7 +173,7 @@ export function HUD({ onLeave }: HUDProps) {
 
           {!mobileLayout && (
             <div className="chibi-key-hint chibi-key-hint--desktop">
-              WASD move · E shop · Space attack · I inventory · Purple tiles = portals
+              WASD move · E shop · Space attack · I inventory · HP regens out of combat
             </div>
           )}
 

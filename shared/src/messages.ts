@@ -60,6 +60,6 @@ export interface RespawnResultPayload {
 }
 
 export type { QuestStatePayload } from "./quests.js";
-export type { AttackResultPayload, MobHealthPayload } from "./combat.js";
+export type { AttackResultPayload, MobHealthPayload, PlayerDamagePayload } from "./combat.js";
 export type { InventoryResultPayload, InventoryStatePayload } from "./items.js";
 export type { ShopOpenPayload, ShopResultPayload } from "./shop.js";

@@ -64,6 +64,14 @@ export const ITEMS: Record<string, ItemDefinition> = {
     maxStack: 99,
     kind: "material",
   },
+  item_gel_knife: {
+    id: "item_gel_knife",
+    name: "Gel-Edged Knife",
+    description: "A blade coated in hardened slime gel. +8 attack damage when equipped.",
+    stackable: false,
+    maxStack: 1,
+    kind: "weapon",
+  },
 };
 
 export const EMPTY_INVENTORY: InventoryEntry[] = [];
