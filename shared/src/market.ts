@@ -1,5 +1,18 @@
+import type { MarketChartPayload } from "./marketChart.js";
+import { buildEmptyMarketChart } from "./marketChart.js";
 import { METRICBASE_TOKEN_MINT } from "./tokenGate.js";
 import { TOKEN_DECIMALS } from "./tokenShop.js";
+
+export type { MarketCandle, MarketChartPayload, MarketTradePoint } from "./marketChart.js";
+export {
+  buildEmptyMarketChart,
+  buildMarketCandles,
+  buildMarketChartPayload,
+  MARKET_CHART_CANDLE_COUNT,
+  MARKET_CHART_INTERVAL_MS,
+  midMarketPrice,
+  tradePricePerGold,
+} from "./marketChart.js";
 
 export type MarketSide = "bid" | "ask";
 export type MarketOrderStatus = "open" | "pending" | "filled" | "cancelled";
@@ -33,6 +46,7 @@ export interface MarketStatePayload {
   asks: MarketOrderView[];
   bids: MarketOrderView[];
   myOrders: MarketOrderView[];
+  chart: MarketChartPayload;
   minGold: number;
   maxGold: number;
 }
@@ -69,6 +83,7 @@ export function buildEmptyMarketState(
     asks: [],
     bids: [],
     myOrders: [],
+    chart: buildEmptyMarketChart(),
     minGold: MIN_MARKET_GOLD,
     maxGold: MAX_MARKET_GOLD,
   };

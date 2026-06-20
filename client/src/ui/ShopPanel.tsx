@@ -10,6 +10,7 @@ import { useState } from "react";
 import { networkManager } from "../game/network";
 import { useGameStore } from "../store/gameStore";
 import { sendMetricbaseTokenPayment } from "../wallet/tokenPayment";
+import { GoldMarketChart } from "./GoldMarketChart";
 import { WalletConnectBar } from "./WalletConnectBar";
 
 type ShopTab = "gold" | "market";
@@ -321,7 +322,7 @@ export function ShopPanel() {
   };
 
   return (
-    <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", width: "min(520px, calc(100% - 32px))", maxHeight: "min(85vh, 760px)", overflowY: "auto", padding: "18px 20px", borderRadius: 14, background: "rgba(8, 12, 24, 0.94)", border: "1px solid rgba(255, 255, 255, 0.12)", color: "#f4f7ff", backdropFilter: "blur(10px)", pointerEvents: "auto", zIndex: 22, boxShadow: "0 24px 80px rgba(0, 0, 0, 0.55)" }}>
+    <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", width: "min(560px, calc(100% - 32px))", maxHeight: "min(88vh, 820px)", overflowY: "auto", padding: "18px 20px", borderRadius: 14, background: "rgba(8, 12, 24, 0.94)", border: "1px solid rgba(255, 255, 255, 0.12)", color: "#f4f7ff", backdropFilter: "blur(10px)", pointerEvents: "auto", zIndex: 22, boxShadow: "0 24px 80px rgba(0, 0, 0, 0.55)" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div>
           <div style={{ fontSize: 18, fontWeight: 700 }}>{shop.merchantName}'s Shop</div>
@@ -379,6 +380,8 @@ export function ShopPanel() {
           <div style={{ marginTop: 14 }}>
             <WalletConnectBar />
           </div>
+
+          <GoldMarketChart chart={market?.chart} />
 
           {!market?.enabled ? (
             <div style={{ marginTop: 16, fontSize: 13, opacity: 0.7 }}>Gold market requires wallet login and database persistence.</div>

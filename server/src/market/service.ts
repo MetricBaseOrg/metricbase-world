@@ -1,10 +1,14 @@
 import {
   buildEmptyMarketState,
+  buildMarketChartPayload,
+  MARKET_CHART_CANDLE_COUNT,
+  MARKET_CHART_INTERVAL_MS,
   MAX_MARKET_GOLD,
   METRICBASE_TOKEN_MINT,
   MIN_MARKET_GOLD,
   MIN_MARKET_TOKEN_PRICE,
   TOKEN_DECIMALS,
+  tradePricePerGold,
   type MarketResultPayload,
   type MarketSide,
   type MarketStatePayload,
@@ -18,6 +22,7 @@ import {
   isTradeSignatureUsed,
   listMarketOrdersForWallet,
   listOpenMarketOrders,
+  listRecentMarketTrades,
   recordMarketTrade,
   setMarketOrderPending,
   toMarketOrderView,
@@ -50,7 +55,15 @@ export async function buildMarketState(wallet: string | null): Promise<MarketSta
 
   const myOrders = wallet ? (await listMarketOrdersForWallet(wallet)).map(toMarketOrderView) : [];
 
-  return { ...base, asks, bids, myOrders };
+  const sinceMs = Date.now() - MARKET_CHART_CANDLE_COUNT * MARKET_CHART_INTERVAL_MS;
+  const trades = (await listRecentMarketTrades(sinceMs)).map((trade) => ({
+    time: trade.createdAt,
+    price: tradePricePerGold(trade.tokenAmount, trade.goldAmount),
+    goldVolume: trade.goldAmount,
+  }));
+  const chart = buildMarketChartPayload({ trades, asks, bids });
+
+  return { ...base, asks, bids, myOrders, chart };
 }
 
 export async function placeMarketOrder(input: {

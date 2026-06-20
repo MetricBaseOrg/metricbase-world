@@ -59,3 +59,5 @@ CREATE TABLE IF NOT EXISTS market_trades (
   tx_signature VARCHAR(88) NOT NULL UNIQUE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE INDEX IF NOT EXISTS market_trades_created_at_idx ON market_trades (created_at);

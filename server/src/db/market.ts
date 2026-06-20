@@ -203,6 +203,35 @@ export async function recordMarketTrade(input: {
   }
 }
 
+export interface MarketTradeRecord {
+  goldAmount: number;
+  tokenAmount: number;
+  createdAt: number;
+}
+
+export async function listRecentMarketTrades(sinceMs: number): Promise<MarketTradeRecord[]> {
+  const db = getPool();
+  if (!db) return [];
+
+  const result = await db.query<{
+    gold_amount: number;
+    token_amount: number;
+    created_at: Date;
+  }>(
+    `SELECT gold_amount, token_amount, created_at
+     FROM market_trades
+     WHERE created_at >= $1
+     ORDER BY created_at ASC`,
+    [new Date(sinceMs)],
+  );
+
+  return result.rows.map((row) => ({
+    goldAmount: row.gold_amount,
+    tokenAmount: row.token_amount,
+    createdAt: row.created_at.getTime(),
+  }));
+}
+
 export async function isTradeSignatureUsed(signature: string): Promise<boolean> {
   const db = getPool();
   if (!db) return false;
