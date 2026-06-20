@@ -2,6 +2,7 @@ import { type CharacterAppearance } from "@metricbase/shared";
 import { useEffect, useRef, useState } from "react";
 import { initSoundEffects, playSfx } from "./audio/soundEffects";
 import { bindUiTypingFocusGuard, resetMobileInput } from "./game/inputControl";
+import { waitForGameSceneReady } from "./game/gameSceneReady";
 import { PhaserGame } from "./game/PhaserGame";
 import { networkManager } from "./game/network";
 import { clearStoredAccessToken, getValidWalletSession } from "./wallet/tokenGate";
@@ -193,10 +194,12 @@ export function App() {
       networkManager.setAccessToken(token);
     }
 
+    setJoined(true);
+
     try {
+      await waitForGameSceneReady();
       await networkManager.connect(name, token, appearance);
       setZoneName(networkManager.zoneName);
-      setJoined(true);
     } catch (error) {
       setJoined(false);
       throw error;

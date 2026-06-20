@@ -710,12 +710,16 @@ export class NetworkManager {
   }
 
   private getPlayers(): RemotePlayer[] {
-    if (!this.room) return [];
+    if (!this.room?.state?.players) return [];
 
+    const map = this.room.state.players;
     const players: RemotePlayer[] = [];
-    this.room.state.players.forEach((player: Player, sessionId: string) => {
+
+    const pushPlayer = (sessionId: string, player: Player) => {
+      const id = sessionId || player.sessionId;
+      if (!id) return;
       players.push({
-        sessionId: sessionId || player.sessionId,
+        sessionId: id,
         name: player.name,
         x: player.x,
         y: player.y,
@@ -729,7 +733,20 @@ export class NetworkManager {
           outfitStyle: player.outfitStyle as CharacterAppearance["outfitStyle"],
         }),
       });
+    };
+
+    map.forEach((player: Player, sessionId: string) => {
+      pushPlayer(sessionId, player);
     });
+
+    if (players.length === 0 && map.size > 0) {
+      for (const sessionId of map.keys()) {
+        const player = map.get(sessionId);
+        if (player) {
+          pushPlayer(sessionId, player);
+        }
+      }
+    }
 
     return players;
   }

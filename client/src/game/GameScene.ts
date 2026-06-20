@@ -21,9 +21,9 @@ import {
 } from "@metricbase/shared";
 import {
   getAnimFrame,
-  preloadAvatarTextures,
   setAvatarPose,
 } from "../character/avatarAnimations";
+import { notifyGameSceneReady } from "./gameSceneReady";
 import {
   consumeMobileAttack,
   consumeMobileInteract,
@@ -229,6 +229,7 @@ export class GameScene extends Phaser.Scene {
 
     this.renderZone(networkManager.zoneId);
     this.bootstrapFromNetwork();
+    notifyGameSceneReady();
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.scale.off(Phaser.Scale.Events.RESIZE, this.bindCameraToLocalPlayer, this);
@@ -281,6 +282,11 @@ export class GameScene extends Phaser.Scene {
     if (!this.localSessionId && networkManager.sessionId) {
       this.localSessionId = networkManager.sessionId;
     }
+
+    if (this.renderedPlayers.size === 0 && networkManager.isConnected) {
+      this.syncPlayers(networkManager.getRemotePlayers());
+    }
+
     this.bindCameraToLocalPlayer();
     this.applyKnockedOutVisuals();
     this.redrawActiveChopBars();
@@ -318,19 +324,30 @@ export class GameScene extends Phaser.Scene {
   }
 
   private bindCameraToLocalPlayer() {
+    const cam = this.cameras.main;
     const local = this.findLocalPlayer();
-    if (!local) return;
 
-    for (const [sessionId, rendered] of this.renderedPlayers.entries()) {
-      if (rendered === local) {
-        this.localSessionId = sessionId;
-        break;
+    if (local) {
+      for (const [sessionId, rendered] of this.renderedPlayers.entries()) {
+        if (rendered === local) {
+          this.localSessionId = sessionId;
+          break;
+        }
       }
+
+      const x = local.sprite.x;
+      const y = local.sprite.y;
+      cam.stopFollow();
+      cam.centerOn(x, y);
+      return;
     }
 
-    const cam = this.cameras.main;
+    if (!this.currentZoneId) return;
+
+    const config = getZoneConfig(this.currentZoneId);
+    const spawn = tileToWorld(config.spawnTile.x, config.spawnTile.y);
     cam.stopFollow();
-    cam.setScroll(local.sprite.x - cam.width * 0.5, local.sprite.y - cam.height * 0.5);
+    cam.centerOn(spawn.x, spawn.y);
   }
 
   private renderZone(zoneId: string) {
@@ -907,6 +924,10 @@ export class GameScene extends Phaser.Scene {
   }
 
   private syncPlayers(players: RemotePlayer[]) {
+    if (players.length === 0) {
+      return;
+    }
+
     const seen = new Set<string>();
 
     for (const player of players) {
@@ -918,7 +939,6 @@ export class GameScene extends Phaser.Scene {
         player.name === useGameStore.getState().playerName;
 
       if (!existing) {
-        preloadAvatarTextures(this, player.appearance);
         const frameKey = avatarFrameTextureKey(
           appearanceTextureKey(player.appearance),
           "front",
