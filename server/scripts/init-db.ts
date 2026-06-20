@@ -12,6 +12,13 @@ await saveCharacter({
   level: 1,
   xp: 0,
   questProgress: { active: [], objectiveIndex: {}, completed: [] },
+  appearance: {
+    bodyColor: 0xffc857,
+    hairColor: 0x2d3436,
+    outfitColor: 0x355070,
+    hairStyle: "short",
+    outfitStyle: "robe",
+  },
 });
 
 const loaded = await loadCharacter("__healthcheck__");

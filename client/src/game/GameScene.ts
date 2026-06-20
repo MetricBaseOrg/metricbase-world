@@ -7,6 +7,7 @@ import {
   NPC_INTERACT_RANGE,
   tileToWorld,
 } from "@metricbase/shared";
+import { ensurePhaserCharacterTexture } from "../character/characterArt";
 import { networkManager, RemotePlayer } from "./network";
 import { buildZoneMap } from "./mapData";
 import { PredictedPosition, reconcilePrediction, stepPrediction } from "./prediction";
@@ -14,6 +15,7 @@ import { PredictedPosition, reconcilePrediction, stepPrediction } from "./predic
 interface RenderedPlayer {
   sprite: Phaser.GameObjects.Sprite;
   label: Phaser.GameObjects.Text;
+  textureKey: string;
   targetX: number;
   targetY: number;
   predicted: PredictedPosition;
@@ -299,13 +301,14 @@ export class GameScene extends Phaser.Scene {
       const isLocal = player.sessionId === this.localSessionId;
 
       if (!existing) {
-        const sprite = this.add.sprite(player.x, player.y, "player");
+        const textureKey = ensurePhaserCharacterTexture(this, player.appearance);
+        const sprite = this.add.sprite(player.x, player.y, textureKey);
         sprite.setDepth(1000);
         const label = this.add
           .text(player.x, player.y - 28, player.name, {
             fontFamily: "system-ui, sans-serif",
             fontSize: "11px",
-            color: "#ffffff",
+            color: isLocal ? "#ffd27f" : "#ffffff",
             stroke: "#000000",
             strokeThickness: 2,
           })
@@ -313,18 +316,23 @@ export class GameScene extends Phaser.Scene {
           .setDepth(1001);
 
         if (isLocal) {
-          sprite.setTint(0xffd27f);
           this.cameras.main.centerOn(player.x, player.y);
         }
 
         this.renderedPlayers.set(player.sessionId, {
           sprite,
           label,
+          textureKey,
           targetX: player.x,
           targetY: player.y,
           predicted: { x: player.x, y: player.y },
         });
       } else {
+        const textureKey = ensurePhaserCharacterTexture(this, player.appearance);
+        if (existing.textureKey !== textureKey) {
+          existing.sprite.setTexture(textureKey);
+          existing.textureKey = textureKey;
+        }
         existing.targetX = player.x;
         existing.targetY = player.y;
 

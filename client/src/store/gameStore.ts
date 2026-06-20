@@ -1,8 +1,9 @@
-import { ChatMessagePayload, QuestStatePayload } from "@metricbase/shared";
+import { ChatMessagePayload, QuestStatePayload, type CharacterAppearance } from "@metricbase/shared";
 import { create } from "zustand";
 
 interface GameStore {
   playerName: string;
+  characterAppearance: CharacterAppearance | null;
   playerLevel: number;
   playerXp: number;
   walletAddress: string | null;
@@ -12,6 +13,7 @@ interface GameStore {
   chatMessages: ChatMessagePayload[];
   questState: QuestStatePayload;
   setPlayerName: (name: string) => void;
+  setCharacterAppearance: (appearance: CharacterAppearance | null) => void;
   setPlayerLevel: (level: number) => void;
   setPlayerXp: (xp: number) => void;
   setProfile: (level: number, xp: number) => void;
@@ -28,6 +30,7 @@ const MAX_CHAT_MESSAGES = 100;
 
 export const useGameStore = create<GameStore>((set) => ({
   playerName: "Traveler",
+  characterAppearance: null,
   playerLevel: 1,
   playerXp: 0,
   walletAddress: null,
@@ -37,6 +40,7 @@ export const useGameStore = create<GameStore>((set) => ({
   chatMessages: [],
   questState: { active: [], completed: [] },
   setPlayerName: (name) => set({ playerName: name }),
+  setCharacterAppearance: (characterAppearance) => set({ characterAppearance }),
   setPlayerLevel: (level) => set({ playerLevel: level }),
   setPlayerXp: (xp) => set({ playerXp: xp }),
   setProfile: (level, xp) => set({ playerLevel: level, playerXp: xp }),

@@ -6,11 +6,14 @@ import {
   getZoneConfig,
   JoinOptions,
   MobHealthPayload,
+  normalizeCharacterAppearance,
   ProfilePayload,
   QuestStatePayload,
   ZONE_HUB,
   ZoneState,
   ZoneTransferPayload,
+  type CharacterAppearance,
+  type Player,
 } from "@metricbase/shared";
 import { getHttpServerUrl, getWebSocketUrl } from "./serverUrl";
 
@@ -21,6 +24,7 @@ export interface RemotePlayer {
   y: number;
   level: number;
   xp: number;
+  appearance: CharacterAppearance;
 }
 
 type ConnectionListener = (connected: boolean, playerCount: number) => void;
@@ -39,6 +43,7 @@ export class NetworkManager {
   private room: Room | null = null;
   private playerName = "Traveler";
   private accessToken: string | null = null;
+  private appearance: CharacterAppearance | null = null;
   private currentZoneId = ZONE_HUB;
   private connectionListeners = new Set<ConnectionListener>();
   private playersListeners = new Set<PlayersListener>();
@@ -81,9 +86,14 @@ export class NetworkManager {
     return response.json() as Promise<CharacterLookupResponse>;
   }
 
-  async connect(playerName: string, accessToken?: string | null): Promise<void> {
+  async connect(
+    playerName: string,
+    accessToken?: string | null,
+    appearance?: CharacterAppearance | null,
+  ): Promise<void> {
     this.playerName = playerName;
     this.accessToken = accessToken ?? null;
+    this.appearance = appearance ? normalizeCharacterAppearance(appearance) : null;
 
     let zoneId = ZONE_HUB;
     try {
@@ -133,6 +143,7 @@ export class NetworkManager {
     await this.leaveCurrentRoom();
     this.client = null;
     this.accessToken = null;
+    this.appearance = null;
     this.latestQuestState = { active: [], completed: [] };
     this.mobHealth.clear();
     this.emitConnection(false, 0);
@@ -212,6 +223,7 @@ export class NetworkManager {
       name: this.playerName,
       zoneId,
       ...(this.accessToken ? { accessToken: this.accessToken } : {}),
+      ...(this.appearance ? { appearance: this.appearance } : {}),
     };
     this.room = await this.client.joinOrCreate(config.roomName, options, ZoneState);
     this.currentZoneId = zoneId;
@@ -319,7 +331,7 @@ export class NetworkManager {
     if (!this.room) return [];
 
     const players: RemotePlayer[] = [];
-    this.room.state.players.forEach((player: RemotePlayer) => {
+    this.room.state.players.forEach((player: Player) => {
       players.push({
         sessionId: player.sessionId,
         name: player.name,
@@ -327,6 +339,13 @@ export class NetworkManager {
         y: player.y,
         level: player.level,
         xp: player.xp ?? 0,
+        appearance: normalizeCharacterAppearance({
+          bodyColor: player.bodyColor,
+          hairColor: player.hairColor,
+          outfitColor: player.outfitColor,
+          hairStyle: player.hairStyle as CharacterAppearance["hairStyle"],
+          outfitStyle: player.outfitStyle as CharacterAppearance["outfitStyle"],
+        }),
       });
     });
 

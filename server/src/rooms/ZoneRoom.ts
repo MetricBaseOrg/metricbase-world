@@ -12,6 +12,7 @@ import {
   getQuestsOfferedByNpc,
   getZoneConfig,
   JoinOptions,
+  normalizeCharacterAppearance,
   levelFromXp,
   MAX_PLAYERS_PER_ZONE,
   NPC_INTERACT_COOLDOWN_MS,
@@ -112,12 +113,18 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   async onJoin(client: Client, options: JoinOptions) {
     const name = sanitizeName(options?.name);
     const saved = await loadCharacter(name);
+    const appearance = saved?.appearance ?? normalizeCharacterAppearance(options?.appearance);
 
     const player = new PlayerSchema();
     player.sessionId = client.sessionId;
     player.name = name;
     player.xp = saved?.xp ?? 0;
     player.level = saved?.level ?? levelFromXp(player.xp);
+    player.bodyColor = appearance.bodyColor;
+    player.hairColor = appearance.hairColor;
+    player.outfitColor = appearance.outfitColor;
+    player.hairStyle = appearance.hairStyle;
+    player.outfitStyle = appearance.outfitStyle;
 
     if (saved && saved.zoneId === this.zoneConfig.id) {
       player.x = saved.x;
@@ -498,6 +505,13 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       level: player.level,
       xp: player.xp,
       questProgress: this.getQuestProgress(player.name),
+      appearance: {
+        bodyColor: player.bodyColor,
+        hairColor: player.hairColor,
+        outfitColor: player.outfitColor,
+        hairStyle: player.hairStyle as "short" | "long" | "spiky",
+        outfitStyle: player.outfitStyle as "robe" | "armor" | "casual",
+      },
     });
   }
 

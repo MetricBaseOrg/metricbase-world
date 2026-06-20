@@ -7,6 +7,11 @@ export const PlayerSchema = schema({
   y: "number",
   level: "number",
   xp: "number",
+  bodyColor: "number",
+  hairColor: "number",
+  outfitColor: "number",
+  hairStyle: "string",
+  outfitStyle: "string",
 });
 
 export type Player = InstanceType<typeof PlayerSchema>;

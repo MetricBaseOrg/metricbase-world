@@ -1,3 +1,4 @@
+import { type CharacterAppearance } from "@metricbase/shared";
 import { useEffect, useState } from "react";
 import { PhaserGame } from "./game/PhaserGame";
 import { networkManager } from "./game/network";
@@ -12,6 +13,7 @@ export function App() {
   const [joined, setJoined] = useState(false);
   const {
     setPlayerName,
+    setCharacterAppearance,
     setProfile,
     setWalletAddress,
     setConnected,
@@ -72,11 +74,16 @@ export function App() {
     };
   }, [addChatMessage, clearChat, setConnected, setPlayerCount, setProfile, setQuestState, setZoneName]);
 
-  const handleJoin = async (name: string, accessToken?: string | null) => {
+  const handleJoin = async (
+    name: string,
+    accessToken: string | null | undefined,
+    appearance: CharacterAppearance,
+  ) => {
     setPlayerName(name);
+    setCharacterAppearance(appearance);
     setJoined(true);
     try {
-      await networkManager.connect(name, accessToken);
+      await networkManager.connect(name, accessToken, appearance);
       setZoneName(networkManager.zoneName);
     } catch (error) {
       setJoined(false);
@@ -89,6 +96,7 @@ export function App() {
     clearChat();
     clearStoredAccessToken();
     setWalletAddress(null);
+    setCharacterAppearance(null);
     setQuestState({ active: [], completed: [] });
     setJoined(false);
   };

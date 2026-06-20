@@ -12,10 +12,13 @@ export interface ZoneTransferPayload {
   label: string;
 }
 
+import type { CharacterAppearance } from "./character.js";
+
 export interface JoinOptions {
   name: string;
   zoneId?: string;
   accessToken?: string;
+  appearance?: CharacterAppearance;
 }
 
 export interface CharacterLookupResponse {
@@ -26,6 +29,7 @@ export interface CharacterLookupResponse {
   level: number;
   xp: number;
   found: boolean;
+  appearance: CharacterAppearance;
 }
 
 export interface InteractPayload {
