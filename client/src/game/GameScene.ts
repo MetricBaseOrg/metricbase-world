@@ -14,6 +14,7 @@ import {
   getMobileAxis,
   isUiTypingActive,
 } from "./inputControl";
+import { playSfx } from "../audio/soundEffects";
 import { networkManager, RemotePlayer } from "./network";
 import { buildZoneMap } from "./mapData";
 import { PredictedPosition, reconcilePrediction, stepPrediction } from "./prediction";
@@ -87,10 +88,19 @@ export class GameScene extends Phaser.Scene {
       });
       this.renderedPlayers.clear();
       this.renderZone(zoneId);
+      playSfx("zone_enter");
     });
 
     const unsubscribeMobHealth = networkManager.onMobHealth((payload) => {
       this.updateNpcHealth(payload.npcId, payload.currentHp, payload.maxHp);
+    });
+
+    const unsubscribeAttackResult = networkManager.onAttackResult((payload) => {
+      if (payload.defeated) {
+        playSfx("attack_defeat");
+      } else {
+        playSfx("attack_hit");
+      }
     });
 
     this.renderZone(networkManager.zoneId);
@@ -99,6 +109,7 @@ export class GameScene extends Phaser.Scene {
       unsubscribePlayers();
       unsubscribeZone();
       unsubscribeMobHealth();
+      unsubscribeAttackResult();
       this.clearMap();
       this.clearNpcs();
       this.renderedPlayers.forEach((entry) => {
@@ -276,6 +287,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     if (nearest) {
+      playSfx("interact");
       networkManager.sendInteract(nearest.id);
     }
   }
@@ -303,6 +315,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     if (nearest) {
+      playSfx("attack_swing");
       networkManager.sendAttack(nearest.id);
     }
   }

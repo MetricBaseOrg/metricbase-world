@@ -1,5 +1,6 @@
 import { getItemDefinition } from "@metricbase/shared";
 import { useState } from "react";
+import { playSfx } from "../audio/soundEffects";
 import { networkManager } from "../game/network";
 import { useGameStore } from "../store/gameStore";
 
@@ -29,9 +30,11 @@ export function InventoryPanel() {
     });
     setPending(false);
     if (!result.ok) {
+      playSfx("shop_fail");
       setError(result.error ?? "Could not use item.");
       return;
     }
+    playSfx("item_use");
     if (result.inventory) setInventory(result.inventory);
     if (result.hp !== undefined && result.maxHp !== undefined) {
       setPlayerVitals(result.hp, result.maxHp);
@@ -52,9 +55,11 @@ export function InventoryPanel() {
     });
     setPending(false);
     if (!result.ok) {
+      playSfx("shop_fail");
       setError(result.error ?? "Could not equip item.");
       return;
     }
+    playSfx("ui_click");
     if (result.inventory) setInventory(result.inventory);
   };
 
@@ -65,7 +70,10 @@ export function InventoryPanel() {
         <button
           type="button"
           className="chibi-btn chibi-btn--ghost"
-          onClick={() => setInventoryOpen(false)}
+          onClick={() => {
+            playSfx("ui_close");
+            setInventoryOpen(false);
+          }}
           aria-label="Close inventory"
         >
           ×

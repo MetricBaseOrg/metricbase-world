@@ -1,5 +1,6 @@
 import { CHAT_MAX_LENGTH } from "@metricbase/shared";
 import { FormEvent, useEffect, useRef, useState } from "react";
+import { playSfx } from "../audio/soundEffects";
 import { setUiTypingActive } from "../game/inputControl";
 import { networkManager } from "../game/network";
 import { useGameStore } from "../store/gameStore";
@@ -26,6 +27,7 @@ export function ChatPanel() {
     event.preventDefault();
     const body = draft.trim();
     if (!body) return;
+    playSfx("chat_send");
     networkManager.sendChat(body);
     setDraft("");
   };
@@ -35,7 +37,10 @@ export function ChatPanel() {
       <button
         type="button"
         className="chibi-chat-fab"
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          playSfx("ui_open");
+          setOpen(true);
+        }}
         aria-label="Open chat"
       >
         💬

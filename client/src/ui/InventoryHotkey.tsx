@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { playSfx } from "../audio/soundEffects";
 import { useGameStore } from "../store/gameStore";
 
 export function InventoryHotkey() {
@@ -11,6 +12,8 @@ export function InventoryHotkey() {
         return;
       }
       event.preventDefault();
+      const opening = !useGameStore.getState().inventoryOpen;
+      playSfx(opening ? "ui_open" : "ui_close");
       toggleInventoryOpen();
     };
 

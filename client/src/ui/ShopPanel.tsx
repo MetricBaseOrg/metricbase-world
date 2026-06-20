@@ -8,6 +8,7 @@ import {
   type ShopOpenPayload,
 } from "@metricbase/shared";
 import { useState } from "react";
+import { playSfx } from "../audio/soundEffects";
 import { networkManager } from "../game/network";
 import { useGameStore } from "../store/gameStore";
 import { sendMetricbaseTokenPayment } from "../wallet/tokenPayment";
@@ -91,6 +92,7 @@ export function ShopPanel() {
   };
 
   const handleClose = () => {
+    playSfx("ui_close");
     setShopOpen(false);
     setShop(null);
     setError(null);
@@ -116,9 +118,11 @@ export function ShopPanel() {
     });
     setPending(false);
     if (!result.ok) {
+      playSfx("shop_fail");
       setError(result.error ?? "Purchase failed.");
       return;
     }
+    playSfx("shop_buy");
     const nextGold = result.gold ?? playerGold;
     setPlayerGold(nextGold);
     setShop(refreshShopCatalog(shop, nextGold, inventory, market));
@@ -138,9 +142,11 @@ export function ShopPanel() {
     });
     setPending(false);
     if (!result.ok) {
+      playSfx("shop_fail");
       setError(result.error ?? "Sale failed.");
       return;
     }
+    playSfx("shop_sell");
     const nextGold = result.gold ?? playerGold;
     setPlayerGold(nextGold);
     setShop(refreshShopCatalog(shop, nextGold, useGameStore.getState().inventory, market));
@@ -164,6 +170,7 @@ export function ShopPanel() {
     const result = await waitForMarketResult();
     setPending(false);
     if (!result.ok) {
+      playSfx("market_fail");
       const message = result.error ?? "Could not place order.";
       setError(
         /connect your wallet/i.test(message)
@@ -172,6 +179,7 @@ export function ShopPanel() {
       );
       return;
     }
+    playSfx("market_success");
     applyMarketResult(result);
     setError(null);
   };
@@ -183,9 +191,11 @@ export function ShopPanel() {
     const result = await waitForMarketResult();
     setPending(false);
     if (!result.ok) {
+      playSfx("market_fail");
       setError(result.error ?? "Could not cancel order.");
       return;
     }
+    playSfx("ui_click");
     applyMarketResult(result);
   };
 
@@ -219,13 +229,16 @@ export function ShopPanel() {
       setPending(false);
       setStatus(null);
       if (!result.ok) {
+        playSfx("market_fail");
         setError(result.error ?? "Purchase failed.");
         return;
       }
+      playSfx("market_success");
       applyMarketResult(result);
     } catch (paymentError) {
       setPending(false);
       setStatus(null);
+      playSfx("market_fail");
       setError(paymentError instanceof Error ? paymentError.message : "Payment failed.");
     }
   };
@@ -237,9 +250,11 @@ export function ShopPanel() {
     const result = await waitForMarketResult();
     setPending(false);
     if (!result.ok) {
+      playSfx("market_fail");
       setError(result.error ?? "Could not accept bid.");
       return;
     }
+    playSfx("market_success");
     applyMarketResult(result);
     setStatus(`${order.playerName} must pay you ${order.tokenPrice} tokens to complete the trade.`);
   };
@@ -260,13 +275,16 @@ export function ShopPanel() {
       setPending(false);
       setStatus(null);
       if (!result.ok) {
+        playSfx("market_fail");
         setError(result.error ?? "Payment failed.");
         return;
       }
+      playSfx("market_success");
       applyMarketResult(result);
     } catch (paymentError) {
       setPending(false);
       setStatus(null);
+      playSfx("market_fail");
       setError(paymentError instanceof Error ? paymentError.message : "Payment failed.");
     }
   };
@@ -318,8 +336,8 @@ export function ShopPanel() {
       </div>
 
       <div className="chibi-tabs">
-        <button type="button" className={`chibi-btn chibi-btn--tab${tab === "gold" ? " active" : ""}`} onClick={() => setTab("gold")}>🪙 Gold Shop</button>
-        <button type="button" className={`chibi-btn chibi-btn--tab${tab === "market" ? " active" : ""}`} onClick={() => setTab("market")}>📈 Gold Market</button>
+        <button type="button" className={`chibi-btn chibi-btn--tab${tab === "gold" ? " active" : ""}`} onClick={() => { playSfx("ui_click"); setTab("gold"); }}>🪙 Gold Shop</button>
+        <button type="button" className={`chibi-btn chibi-btn--tab${tab === "market" ? " active" : ""}`} onClick={() => { playSfx("ui_click"); setTab("market"); }}>📈 Gold Market</button>
       </div>
 
       {tab === "gold" ? (

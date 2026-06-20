@@ -1,5 +1,6 @@
 import { type CharacterAppearance } from "@metricbase/shared";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { initSoundEffects, playSfx } from "./audio/soundEffects";
 import { bindUiTypingFocusGuard, resetMobileInput } from "./game/inputControl";
 import { PhaserGame } from "./game/PhaserGame";
 import { networkManager } from "./game/network";
@@ -35,7 +36,11 @@ export function App() {
     setPlayerGold,
   } = useGameStore();
 
+  const previousLevelRef = useRef(1);
+  const previousCompletedQuestsRef = useRef(0);
+
   useEffect(() => bindUiTypingFocusGuard(), []);
+  useEffect(() => initSoundEffects(), []);
 
   useEffect(() => {
     const unsubscribeConnection = networkManager.onConnectionChange((connected, count) => {
@@ -56,6 +61,10 @@ export function App() {
     });
 
     const unsubscribeProfile = networkManager.onProfile((profile) => {
+      if (profile.level > previousLevelRef.current) {
+        playSfx("level_up");
+      }
+      previousLevelRef.current = profile.level;
       setProfile(
         profile.level,
         profile.xp,
@@ -67,10 +76,15 @@ export function App() {
     });
 
     const unsubscribeQuestState = networkManager.onQuestState((state) => {
+      if (state.completed.length > previousCompletedQuestsRef.current) {
+        playSfx("quest_complete");
+      }
+      previousCompletedQuestsRef.current = state.completed.length;
       setQuestState(state);
     });
 
     const unsubscribeTransfer = networkManager.onTransfer((payload) => {
+      playSfx("portal");
       addChatMessage({
         id: crypto.randomUUID(),
         channel: "system",
@@ -86,6 +100,7 @@ export function App() {
     });
 
     const unsubscribeShopOpen = networkManager.onShopOpen((payload) => {
+      playSfx("ui_open");
       setShop(payload);
       setShopOpen(true);
     });
@@ -166,6 +181,8 @@ export function App() {
 
   const handleLeave = async () => {
     resetMobileInput();
+    previousLevelRef.current = 1;
+    previousCompletedQuestsRef.current = 0;
     await networkManager.disconnect();
     clearChat();
     clearStoredAccessToken();
