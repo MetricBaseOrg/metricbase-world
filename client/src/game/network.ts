@@ -254,7 +254,11 @@ export class NetworkManager {
       ...(this.accessToken ? { accessToken: this.accessToken } : {}),
       ...(this.appearance ? { appearance: this.appearance } : {}),
     };
-    this.room = await this.client.joinOrCreate(config.roomName, options, ZoneState);
+    try {
+      this.room = await this.client.joinOrCreate(config.roomName, options, ZoneState);
+    } catch (error) {
+      throw new Error(formatJoinError(error));
+    }
     this.currentZoneId = zoneId;
     this.mobHealth.clear();
 
@@ -390,6 +394,23 @@ export class NetworkManager {
 
     return players;
   }
+}
+
+function formatJoinError(error: unknown): string {
+  if (error instanceof Error) {
+    const message = error.message.trim();
+    if (message) {
+      if (/403|forbidden|token|wallet/i.test(message)) {
+        return message;
+      }
+      if (/insufficient/i.test(message)) {
+        return message;
+      }
+      return `Could not enter the zone: ${message}`;
+    }
+  }
+
+  return "Could not connect to the game server. Check your wallet session and try again.";
 }
 
 export const networkManager = new NetworkManager();

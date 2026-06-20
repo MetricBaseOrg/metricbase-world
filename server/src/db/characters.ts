@@ -76,7 +76,7 @@ export async function saveCharacter(record: CharacterRecord): Promise<void> {
 
   await db.query(
     `INSERT INTO characters (name, wallet_address, zone_id, x, y, level, xp, quest_progress, appearance, inventory, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb, $9::jsonb, NOW())
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9::jsonb, $10::jsonb, NOW())
      ON CONFLICT (name)
      DO UPDATE SET
        wallet_address = COALESCE(EXCLUDED.wallet_address, characters.wallet_address),

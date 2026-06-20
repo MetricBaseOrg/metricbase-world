@@ -19,9 +19,8 @@ import { shortenWallet } from "../wallet/solanaProvider";
 import {
   clearStoredAccessToken,
   connectAndVerifyWallet,
-  ensureWalletAccess,
   fetchTokenGateInfo,
-  getStoredAccessToken,
+  getValidWalletSession,
   listAvailableWallets,
   resolveWalletConnector,
 } from "../wallet/tokenGate";
@@ -155,9 +154,7 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
         setTokenMint(info.mint);
         setMinTokenAmount(info.minUiAmount);
 
-        if (!getStoredAccessToken()) return;
-
-        const session = await ensureWalletAccess();
+        const session = await getValidWalletSession();
         if (session) {
           setWalletAddressLocal(session.wallet);
           setWalletAddress(session.wallet);
@@ -278,22 +275,35 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
     setError(null);
 
     try {
-      const session = getStoredAccessToken()
-        ? await ensureWalletAccess()
-        : await requestWalletConnection();
-      if (!session) {
-        throw new Error("Connect your wallet to bond and save your character.");
-      }
-
-      const accessToken = session.accessToken;
-      setWalletAddressLocal(session.wallet);
-      setWalletAddress(session.wallet);
-      setTokenBalance(session.tokenBalance);
-
       const normalized = normalizeCharacterAppearance(appearance);
-      await saveCharacterAppearance(trimmed, normalized, accessToken);
-      setNameBonded(true);
-      await onJoin(trimmed, accessToken, normalized);
+      let accessToken: string | null = null;
+
+      if (gateEnabled) {
+        const session = (await getValidWalletSession()) ?? (await requestWalletConnection());
+        if (!session) {
+          throw new Error("Connect your wallet to bond and save your character.");
+        }
+
+        accessToken = session.accessToken;
+        setWalletAddressLocal(session.wallet);
+        setWalletAddress(session.wallet);
+        setTokenBalance(session.tokenBalance);
+
+        const bonded = await lookupBondedCharacter(accessToken);
+        const finalName =
+          bonded.found && bonded.bonded && bonded.name ? bonded.name : trimmed;
+
+        if (bonded.found && bonded.bonded && bonded.name) {
+          setName(bonded.name);
+          setNameBonded(true);
+        }
+
+        await saveCharacterAppearance(finalName, normalized, accessToken);
+        setNameBonded(true);
+        await onJoin(finalName, accessToken, normalized);
+      } else {
+        await onJoin(trimmed, accessToken, normalized);
+      }
     } catch (joinError) {
       const message =
         joinError instanceof Error ? joinError.message : "Could not connect to the game server.";
@@ -303,8 +313,8 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
     }
   };
 
-  const walletReady = Boolean(walletAddress && getStoredAccessToken());
   const nameReady = name.trim().length >= 2;
+  const enterDisabled = joining || loadingCharacter || !nameReady;
 
   return (
     <div
@@ -519,24 +529,27 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
 
         <button
           type="submit"
-          disabled={joining || !walletReady || !nameReady}
+          disabled={enterDisabled}
           style={{
             width: "100%",
             marginTop: 20,
             padding: "13px 12px",
             border: "none",
             borderRadius: 10,
-            background:
-              joining || !walletReady || !nameReady
-                ? "rgba(79, 140, 255, 0.45)"
-                : "linear-gradient(135deg, #4f8cff, #6c5ce7)",
+            background: enterDisabled
+              ? "rgba(79, 140, 255, 0.45)"
+              : "linear-gradient(135deg, #4f8cff, #6c5ce7)",
             color: "#fff",
             fontWeight: 700,
             fontSize: 15,
-            cursor: joining || !walletReady || !nameReady ? "not-allowed" : "pointer",
+            cursor: enterDisabled ? "not-allowed" : "pointer",
           }}
         >
-          {joining ? "Entering world..." : "Enter Zone"}
+          {joining
+            ? "Entering world..."
+            : gateEnabled && !walletAddress
+              ? "Connect Wallet & Enter"
+              : "Enter Zone"}
         </button>
       </form>
 

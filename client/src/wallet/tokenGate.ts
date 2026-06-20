@@ -87,22 +87,33 @@ export async function connectAndVerifyWallet(
   return body;
 }
 
-export async function ensureWalletAccess(): Promise<AuthVerifyResponse | null> {
+export async function getValidWalletSession(): Promise<AuthVerifyResponse | null> {
   const existing = getStoredAccessToken();
-  if (existing) {
-    const sessionResponse = await fetch(`${getHttpServerUrl()}/api/auth/session`, {
-      headers: { Authorization: `Bearer ${existing}` },
-    });
-    if (sessionResponse.ok) {
-      const session = (await sessionResponse.json()) as { wallet: string; expiresAt: number };
-      return {
-        accessToken: existing,
-        wallet: session.wallet,
-        tokenBalance: 0,
-        expiresAt: session.expiresAt,
-      };
-    }
+  if (!existing) {
+    return null;
+  }
+
+  const sessionResponse = await fetch(`${getHttpServerUrl()}/api/auth/session`, {
+    headers: { Authorization: `Bearer ${existing}` },
+  });
+  if (!sessionResponse.ok) {
     clearStoredAccessToken();
+    return null;
+  }
+
+  const session = (await sessionResponse.json()) as { wallet: string; expiresAt: number };
+  return {
+    accessToken: existing,
+    wallet: session.wallet,
+    tokenBalance: 0,
+    expiresAt: session.expiresAt,
+  };
+}
+
+export async function ensureWalletAccess(): Promise<AuthVerifyResponse | null> {
+  const session = await getValidWalletSession();
+  if (session) {
+    return session;
   }
 
   const gate = await fetchTokenGateInfo();
@@ -112,7 +123,7 @@ export async function ensureWalletAccess(): Promise<AuthVerifyResponse | null> {
 
   const wallet = pickWalletConnector();
   if (!wallet) {
-    throw new Error("Choose a wallet to continue.");
+    return null;
   }
 
   return connectAndVerifyWallet(wallet);

@@ -44,6 +44,7 @@ import { verifyAccessToken } from "../auth/accessToken.js";
 import { isTokenGateEnabled } from "../auth/tokenGate.js";
 import {
   CharacterBindingError,
+  loadCharacterByWallet,
   resolveCharacterForJoin,
   saveCharacter,
 } from "../db/characters.js";
@@ -128,8 +129,15 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   }
 
   async onJoin(client: Client, options: JoinOptions & { wallet?: string }) {
-    const name = sanitizeName(options?.name);
     const wallet = options.wallet ?? null;
+    let name = sanitizeName(options?.name);
+
+    if (wallet) {
+      const bonded = await loadCharacterByWallet(wallet);
+      if (bonded) {
+        name = bonded.name;
+      }
+    }
 
     let saved: Awaited<ReturnType<typeof resolveCharacterForJoin>> = null;
     try {
