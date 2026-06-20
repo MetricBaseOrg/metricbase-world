@@ -106,6 +106,14 @@ export class NetworkManager {
     return this.room?.sessionId ?? null;
   }
 
+  get isConnected(): boolean {
+    return this.room !== null;
+  }
+
+  getRemotePlayers(): RemotePlayer[] {
+    return this.getPlayers();
+  }
+
   get playerCount(): number {
     return this.room?.state.players.size ?? 0;
   }
@@ -705,9 +713,9 @@ export class NetworkManager {
     if (!this.room) return [];
 
     const players: RemotePlayer[] = [];
-    this.room.state.players.forEach((player: Player) => {
+    this.room.state.players.forEach((player: Player, sessionId: string) => {
       players.push({
-        sessionId: player.sessionId,
+        sessionId: sessionId || player.sessionId,
         name: player.name,
         x: player.x,
         y: player.y,

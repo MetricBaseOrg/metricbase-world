@@ -193,10 +193,10 @@ export function App() {
       networkManager.setAccessToken(token);
     }
 
-    setJoined(true);
     try {
       await networkManager.connect(name, token, appearance);
       setZoneName(networkManager.zoneName);
+      setJoined(true);
     } catch (error) {
       setJoined(false);
       throw error;

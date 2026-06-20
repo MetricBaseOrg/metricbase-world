@@ -106,7 +106,6 @@ export class GameScene extends Phaser.Scene {
   private lastSentInput = { dx: 0, dy: 0 };
   private currentZoneId: string | null = null;
   private localChoppingUntil = 0;
-  private cameraTarget: Phaser.GameObjects.Sprite | null = null;
 
   constructor() {
     super("GameScene");
@@ -114,9 +113,10 @@ export class GameScene extends Phaser.Scene {
 
   create() {
     this.cameras.main.setBackgroundColor("#b8e8fc");
-    this.cameras.main.setZoom(2);
+    this.cameras.main.setZoom(1.75);
     this.cameras.main.roundPixels = true;
     this.cameras.main.useBounds = false;
+    this.scale.on(Phaser.Scale.Events.RESIZE, this.bindCameraToLocalPlayer, this);
 
     if (this.input.keyboard) {
       this.cursors = this.input.keyboard.createCursorKeys();
@@ -138,8 +138,6 @@ export class GameScene extends Phaser.Scene {
       networkManager.sendInput(0, 0);
       this.localSessionId = null;
       this.localChoppingUntil = 0;
-      this.cameraTarget = null;
-      this.cameras.main.stopFollow();
       this.renderedPlayers.forEach((entry) => {
         entry.sprite.destroy();
         entry.label.destroy();
@@ -230,8 +228,10 @@ export class GameScene extends Phaser.Scene {
     });
 
     this.renderZone(networkManager.zoneId);
+    this.bootstrapFromNetwork();
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.scale.off(Phaser.Scale.Events.RESIZE, this.bindCameraToLocalPlayer, this);
       unsubscribePlayers();
       unsubscribeZone();
       unsubscribeMobHealth();
@@ -309,6 +309,14 @@ export class GameScene extends Phaser.Scene {
     return null;
   }
 
+  private bootstrapFromNetwork() {
+    if (!networkManager.isConnected) return;
+
+    this.localSessionId = networkManager.sessionId;
+    this.syncPlayers(networkManager.getRemotePlayers());
+    this.bindCameraToLocalPlayer();
+  }
+
   private bindCameraToLocalPlayer() {
     const local = this.findLocalPlayer();
     if (!local) return;
@@ -321,12 +329,8 @@ export class GameScene extends Phaser.Scene {
     }
 
     const cam = this.cameras.main;
-    if (this.cameraTarget === local.sprite) return;
-
     cam.stopFollow();
-    cam.startFollow(local.sprite, true, 1, 1);
-    cam.centerOn(local.sprite.x, local.sprite.y);
-    this.cameraTarget = local.sprite;
+    cam.setScroll(local.sprite.x - cam.width * 0.5, local.sprite.y - cam.height * 0.5);
   }
 
   private renderZone(zoneId: string) {
