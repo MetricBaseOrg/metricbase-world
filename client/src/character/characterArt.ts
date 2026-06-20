@@ -4,7 +4,7 @@ import {
   type CharacterAppearance,
 } from "@metricbase/shared";
 import Phaser from "phaser";
-import { ensureAvatarAnimation } from "./avatarAnimations";
+import { preloadAvatarTextures } from "./avatarAnimations";
 import { drawAvatarPose } from "./avatarPose";
 
 export function drawCharacter(
@@ -68,6 +68,6 @@ export function ensurePhaserCharacterTexture(
   scene: Phaser.Scene,
   appearance: CharacterAppearance,
 ): string {
-  ensureAvatarAnimation(scene, appearance, "front", "idle");
+  preloadAvatarTextures(scene, appearance);
   return avatarFrameTextureKey(appearanceTextureKey(appearance), "front", "idle", 0);
 }

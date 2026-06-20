@@ -2,7 +2,6 @@ import Phaser from "phaser";
 import {
   ATTACK_RANGE,
   AVATAR_ACTION_DURATIONS_MS,
-  avatarAnimKey,
   avatarFrameTextureKey,
   appearanceTextureKey,
   CHOP_RANGE,
@@ -22,7 +21,11 @@ import {
   TILE_WIDTH,
   tileToWorld,
 } from "@metricbase/shared";
-import { playAvatarAnimation, preloadAvatarAnimations } from "../character/avatarAnimations";
+import {
+  getAnimFrame,
+  preloadAvatarTextures,
+  setAvatarPose,
+} from "../character/avatarAnimations";
 import {
   consumeMobileAttack,
   consumeMobileInteract,
@@ -48,7 +51,10 @@ interface RenderedPlayer {
   lastTargetX: number;
   lastTargetY: number;
   predicted: PredictedPosition;
-  lastAnimKey: string;
+  displayDirection: AvatarDirection;
+  displayAction: AvatarAction;
+  poseStartedAt: number;
+  lastTextureKey: string;
   remoteMoving: boolean;
   prevSpriteX: number;
   prevSpriteY: number;
@@ -110,7 +116,9 @@ export class GameScene extends Phaser.Scene {
   create() {
     this.cameras.main.setBackgroundColor("#b8e8fc");
     this.cameras.main.setZoom(2);
+    this.cameras.main.roundPixels = true;
     this.setupCamera();
+    this.scale.on(Phaser.Scale.Events.RESIZE, this.setupCamera, this);
 
     if (this.input.keyboard) {
       this.cursors = this.input.keyboard.createCursorKeys();
@@ -192,6 +200,8 @@ export class GameScene extends Phaser.Scene {
           : undefined;
         if (local) {
           local.actionUntil = 0;
+          local.displayAction = "idle";
+          local.poseStartedAt = Date.now();
         }
         playSfx("shop_fail");
       }
@@ -221,6 +231,7 @@ export class GameScene extends Phaser.Scene {
     this.renderZone(networkManager.zoneId);
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.scale.off(Phaser.Scale.Events.RESIZE, this.setupCamera, this);
       unsubscribePlayers();
       unsubscribeZone();
       unsubscribeMobHealth();
@@ -276,10 +287,10 @@ export class GameScene extends Phaser.Scene {
   private setupCamera() {
     const corner = tileToWorld(0, 0);
     const opposite = tileToWorld(MAP_WIDTH - 1, MAP_HEIGHT - 1);
-    const minX = Math.min(corner.x, opposite.x) - TILE_WIDTH;
-    const maxX = Math.max(corner.x, opposite.x) + TILE_WIDTH;
-    const minY = Math.min(corner.y, opposite.y) - TILE_HEIGHT * 2;
-    const maxY = Math.max(corner.y, opposite.y) + TILE_HEIGHT * 2;
+    const minX = Math.min(corner.x, opposite.x) - TILE_WIDTH * 4;
+    const maxX = Math.max(corner.x, opposite.x) + TILE_WIDTH * 4;
+    const minY = Math.min(corner.y, opposite.y) - TILE_HEIGHT * 6;
+    const maxY = Math.max(corner.y, opposite.y) + TILE_HEIGHT * 6;
     this.cameras.main.setBounds(minX, minY, maxX - minX, maxY - minY);
   }
 
@@ -288,13 +299,7 @@ export class GameScene extends Phaser.Scene {
     const local = this.renderedPlayers.get(this.localSessionId);
     if (!local) return;
 
-    const cam = this.cameras.main;
-    const viewWidth = cam.width / cam.zoom;
-    const viewHeight = cam.height / cam.zoom;
-    const targetScrollX = local.sprite.x - viewWidth / 2;
-    const targetScrollY = local.sprite.y - viewHeight / 2;
-    cam.scrollX = Phaser.Math.Linear(cam.scrollX, targetScrollX, 0.15);
-    cam.scrollY = Phaser.Math.Linear(cam.scrollY, targetScrollY, 0.15);
+    this.cameras.main.centerOn(local.sprite.x, local.sprite.y);
   }
 
   private renderZone(zoneId: string) {
@@ -776,8 +781,11 @@ export class GameScene extends Phaser.Scene {
     player.action = action;
     player.actionDirection = direction;
     player.actionUntil = Date.now() + durationMs;
-    const animKey = playAvatarAnimation(this, player.sprite, player.appearance, direction, action);
-    player.lastAnimKey = animKey;
+    player.displayDirection = direction;
+    player.displayAction = action;
+    player.poseStartedAt = Date.now();
+    const textureKey = setAvatarPose(this, player.sprite, player.appearance, direction, action, 0);
+    player.lastTextureKey = textureKey;
   }
 
   private updatePlayerAnimations() {
@@ -822,15 +830,25 @@ export class GameScene extends Phaser.Scene {
 
       const playDirection = rendered.actionUntil > now ? rendered.actionDirection : direction;
       const playAction = rendered.actionUntil > now ? rendered.action : action;
-      const animKey = avatarAnimKey(
-        appearanceTextureKey(rendered.appearance),
+      if (
+        playDirection !== rendered.displayDirection ||
+        playAction !== rendered.displayAction
+      ) {
+        rendered.displayDirection = playDirection;
+        rendered.displayAction = playAction;
+        rendered.poseStartedAt = now;
+      }
+
+      const frame = getAnimFrame(playAction, now - rendered.poseStartedAt);
+      const textureKey = setAvatarPose(
+        this,
+        rendered.sprite,
+        rendered.appearance,
         playDirection,
         playAction,
+        frame,
       );
-      if (rendered.lastAnimKey !== animKey) {
-        playAvatarAnimation(this, rendered.sprite, rendered.appearance, playDirection, playAction);
-        rendered.lastAnimKey = animKey;
-      }
+      rendered.lastTextureKey = textureKey;
     }
   }
 
@@ -867,7 +885,7 @@ export class GameScene extends Phaser.Scene {
       const isLocal = player.sessionId === this.localSessionId;
 
       if (!existing) {
-        preloadAvatarAnimations(this, player.appearance);
+        preloadAvatarTextures(this, player.appearance);
         const frameKey = avatarFrameTextureKey(
           appearanceTextureKey(player.appearance),
           "front",
@@ -877,7 +895,7 @@ export class GameScene extends Phaser.Scene {
         const sprite = this.add.sprite(player.x, player.y, frameKey);
         sprite.setOrigin(0.5, 0.93);
         sprite.setDepth(1000);
-        playAvatarAnimation(this, sprite, player.appearance, "front", "idle");
+        setAvatarPose(this, sprite, player.appearance, "front", "idle", 0);
         const label = this.add
           .text(player.x, player.y - 42, player.name, {
             fontFamily: '"Fredoka", "Nunito", sans-serif',
@@ -905,7 +923,10 @@ export class GameScene extends Phaser.Scene {
           lastTargetX: player.x,
           lastTargetY: player.y,
           predicted: { x: player.x, y: player.y },
-          lastAnimKey: avatarAnimKey(appearanceTextureKey(player.appearance), "front", "idle"),
+          displayDirection: "front",
+          displayAction: "idle",
+          poseStartedAt: Date.now(),
+          lastTextureKey: frameKey,
           remoteMoving: false,
           prevSpriteX: player.x,
           prevSpriteY: player.y,

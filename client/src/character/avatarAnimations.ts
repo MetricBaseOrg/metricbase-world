@@ -2,7 +2,6 @@ import {
   appearanceTextureKey,
   AVATAR_ACTION_FRAMES,
   AVATAR_ACTION_FRAME_RATES,
-  avatarAnimKey,
   avatarFrameTextureKey,
   type AvatarAction,
   type AvatarDirection,
@@ -10,8 +9,6 @@ import {
 } from "@metricbase/shared";
 import Phaser from "phaser";
 import { renderAvatarPoseCanvas } from "./avatarPose";
-
-const registeredAnims = new Set<string>();
 
 function ensureFrameTexture(
   scene: Phaser.Scene,
@@ -32,57 +29,34 @@ function ensureFrameTexture(
   return key;
 }
 
-export function ensureAvatarAnimation(
-  scene: Phaser.Scene,
-  appearance: CharacterAppearance,
-  direction: AvatarDirection,
-  action: AvatarAction,
-): string {
-  const appearanceKey = appearanceTextureKey(appearance);
-  const animKey = avatarAnimKey(appearanceKey, direction, action);
-  if (registeredAnims.has(animKey) && scene.anims.exists(animKey)) {
-    return animKey;
-  }
-
+export function getAnimFrame(action: AvatarAction, elapsedMs: number): number {
   const frameCount = AVATAR_ACTION_FRAMES[action];
-  const frames = Array.from({ length: frameCount }, (_, frame) => ({
-    key: ensureFrameTexture(scene, appearance, direction, action, frame),
-    frame: 0,
-  }));
-
-  if (scene.anims.exists(animKey)) {
-    scene.anims.remove(animKey);
-  }
-
-  scene.anims.create({
-    key: animKey,
-    frames,
-    frameRate: AVATAR_ACTION_FRAME_RATES[action],
-    repeat: action === "walk" || action === "idle" || action === "fish" || action === "chop" ? -1 : 0,
-  });
-
-  registeredAnims.add(animKey);
-  return animKey;
+  if (frameCount <= 1) return 0;
+  const frameRate = AVATAR_ACTION_FRAME_RATES[action];
+  const msPerFrame = 1000 / frameRate;
+  return Math.floor(elapsedMs / msPerFrame) % frameCount;
 }
 
-export function playAvatarAnimation(
+export function setAvatarPose(
   scene: Phaser.Scene,
   sprite: Phaser.GameObjects.Sprite,
   appearance: CharacterAppearance,
   direction: AvatarDirection,
   action: AvatarAction,
+  frame: number,
 ): string {
-  const animKey = ensureAvatarAnimation(scene, appearance, direction, action);
-  if (sprite.anims.currentAnim?.key !== animKey || !sprite.anims.isPlaying) {
-    sprite.play(animKey, true);
+  const textureKey = ensureFrameTexture(scene, appearance, direction, action, frame);
+  if (sprite.anims.isPlaying) {
+    sprite.anims.stop();
   }
-  return animKey;
+  if (sprite.texture.key !== textureKey) {
+    sprite.setTexture(textureKey);
+    sprite.setOrigin(0.5, 0.93);
+  }
+  return textureKey;
 }
 
-export function preloadAvatarAnimations(
-  scene: Phaser.Scene,
-  appearance: CharacterAppearance,
-): void {
+export function preloadAvatarTextures(scene: Phaser.Scene, appearance: CharacterAppearance): void {
   const directions: AvatarDirection[] = [
     "front",
     "back",
@@ -91,11 +65,33 @@ export function preloadAvatarAnimations(
     "threeQuarterLeft",
     "threeQuarterRight",
   ];
-  const actions: AvatarAction[] = ["idle", "walk"];
+  const actions: AvatarAction[] = ["idle", "walk", "chop", "fish"];
 
   for (const direction of directions) {
     for (const action of actions) {
-      ensureAvatarAnimation(scene, appearance, direction, action);
+      const frameCount = AVATAR_ACTION_FRAMES[action];
+      for (let frame = 0; frame < frameCount; frame++) {
+        ensureFrameTexture(scene, appearance, direction, action, frame);
+      }
     }
   }
+}
+
+/** @deprecated Use setAvatarPose — Phaser anims caused visible texture flicker. */
+export function playAvatarAnimation(
+  scene: Phaser.Scene,
+  sprite: Phaser.GameObjects.Sprite,
+  appearance: CharacterAppearance,
+  direction: AvatarDirection,
+  action: AvatarAction,
+): string {
+  return setAvatarPose(scene, sprite, appearance, direction, action, 0);
+}
+
+/** @deprecated Use preloadAvatarTextures */
+export function preloadAvatarAnimations(
+  scene: Phaser.Scene,
+  appearance: CharacterAppearance,
+): void {
+  preloadAvatarTextures(scene, appearance);
 }
