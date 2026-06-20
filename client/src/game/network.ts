@@ -738,9 +738,6 @@ export class NetworkManager {
     this.playerListenCleanup.get(sessionId)?.();
     const $ = getStateCallbacks(this.room);
     const cleanups = [
-      $(player).listen("x", () => this.refreshCachedPlayer(sessionId, player)),
-      $(player).listen("y", () => this.refreshCachedPlayer(sessionId, player)),
-      $(player).listen("name", () => this.refreshCachedPlayer(sessionId, player)),
       $(player).onChange(() => this.refreshCachedPlayer(sessionId, player)),
     ];
     this.playerListenCleanup.set(sessionId, () => {
@@ -759,6 +756,14 @@ export class NetworkManager {
   private refreshCachedPlayer(sessionId: string, player: Player) {
     const remote = this.toRemotePlayer(sessionId, player);
     if (!remote) return;
+
+    for (const [cachedId, cached] of this.playerCache.entries()) {
+      if (cachedId === remote.sessionId) continue;
+      if (cached.name === remote.name && cached.name === this.playerName) {
+        this.playerCache.delete(cachedId);
+      }
+    }
+
     this.playerCache.set(remote.sessionId, remote);
     this.emitPlayers();
   }

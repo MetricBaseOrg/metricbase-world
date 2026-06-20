@@ -20,6 +20,7 @@ import {
 } from "@metricbase/shared";
 import {
   getAnimFrame,
+  getAvatarTextureKey,
   setAvatarPose,
 } from "../character/avatarAnimations";
 import { AVATAR_LOGICAL_HEIGHT, AVATAR_LOGICAL_WIDTH } from "../character/avatarPose";
@@ -284,8 +285,11 @@ export class GameScene extends Phaser.Scene {
       this.localSessionId = networkManager.sessionId;
     }
 
-    if (networkManager.isConnected && !this.findLocalPlayer()) {
-      this.ensureLocalAvatar();
+    if (networkManager.isConnected) {
+      this.purgeDuplicateLocalSprites();
+      if (!this.findLocalPlayer()) {
+        this.ensureLocalAvatar();
+      }
     }
 
     this.bindCameraToLocalPlayer();
@@ -368,6 +372,10 @@ export class GameScene extends Phaser.Scene {
   private ensureLocalAvatar() {
     if (!networkManager.isConnected) return;
 
+    const playerName = useGameStore.getState().playerName;
+    if (this.findRenderedByName(playerName)) return;
+    if (this.findLocalPlayer()) return;
+
     const sessionId = networkManager.sessionId;
     if (sessionId && this.renderedPlayers.has(sessionId)) return;
 
@@ -379,10 +387,8 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    const playerName = useGameStore.getState().playerName;
     const appearance = useGameStore.getState().characterAppearance;
     if (!sessionId || !playerName || !appearance) return;
-    if (this.findRenderedByName(playerName)) return;
 
     const zoneId = this.currentZoneId ?? networkManager.zoneId;
     const config = getZoneConfig(zoneId);
@@ -422,7 +428,7 @@ export class GameScene extends Phaser.Scene {
   private removeDuplicateLocalPlayers(keepSessionId: string, playerName: string) {
     for (const [sessionId, rendered] of [...this.renderedPlayers.entries()]) {
       if (sessionId === keepSessionId) continue;
-      if (rendered.label.text !== playerName) continue;
+      if (!this.isLocalRenderedPlayer(sessionId, rendered, playerName)) continue;
       rendered.sprite.destroy();
       rendered.label.destroy();
       this.renderedPlayers.delete(sessionId);
@@ -434,11 +440,65 @@ export class GameScene extends Phaser.Scene {
 
     for (const [sessionId, rendered] of [...this.renderedPlayers.entries()]) {
       if (sessionId === keepSessionId) continue;
-      if (rendered.label.text !== playerName) continue;
+      if (!this.isLocalRenderedPlayer(sessionId, rendered, playerName)) continue;
       rendered.sprite.destroy();
       rendered.label.destroy();
       this.renderedPlayers.delete(sessionId);
     }
+  }
+
+  private isLocalRenderedPlayer(
+    sessionId: string,
+    rendered: RenderedPlayer,
+    playerName: string,
+  ): boolean {
+    return (
+      rendered.label.text === playerName ||
+      sessionId === networkManager.sessionId ||
+      sessionId === this.localSessionId
+    );
+  }
+
+  private purgeDuplicateLocalSprites() {
+    const playerName = useGameStore.getState().playerName;
+    const keepSessionId = networkManager.sessionId ?? this.localSessionId;
+    if (!keepSessionId) return;
+
+    for (const [sessionId, rendered] of [...this.renderedPlayers.entries()]) {
+      if (sessionId === keepSessionId) continue;
+      if (!this.isLocalRenderedPlayer(sessionId, rendered, playerName)) continue;
+      rendered.sprite.destroy();
+      rendered.label.destroy();
+      this.renderedPlayers.delete(sessionId);
+    }
+  }
+
+  private resolveRenderedPlayer(player: RemotePlayer): RenderedPlayer | undefined {
+    let existing = this.renderedPlayers.get(player.sessionId);
+    if (existing) return existing;
+
+    const localName = useGameStore.getState().playerName;
+    const isLocal =
+      player.sessionId === this.localSessionId ||
+      player.sessionId === networkManager.sessionId ||
+      player.name === localName;
+
+    if (isLocal) {
+      const byName = this.findRenderedByName(player.name);
+      if (byName) {
+        const [oldSessionId, rendered] = byName;
+        this.adoptRenderedSessionId(oldSessionId, player.sessionId, rendered);
+        return rendered;
+      }
+    }
+
+    if (networkManager.playerCount === 1 && this.renderedPlayers.size === 1) {
+      const [oldSessionId, rendered] = [...this.renderedPlayers.entries()][0];
+      this.adoptRenderedSessionId(oldSessionId, player.sessionId, rendered);
+      return rendered;
+    }
+
+    return undefined;
   }
 
   private renderZone(zoneId: string) {
@@ -978,15 +1038,22 @@ export class GameScene extends Phaser.Scene {
       }
 
       const frame = getAnimFrame(playAction, now - rendered.poseStartedAt);
-      const textureKey = setAvatarPose(
-        this,
-        rendered.sprite,
+      const textureKey = getAvatarTextureKey(
         rendered.appearance,
         playDirection,
         playAction,
         frame,
       );
-      rendered.lastTextureKey = textureKey;
+      if (textureKey !== rendered.lastTextureKey) {
+        rendered.lastTextureKey = setAvatarPose(
+          this,
+          rendered.sprite,
+          rendered.appearance,
+          playDirection,
+          playAction,
+          frame,
+        );
+      }
     }
   }
 
@@ -1021,30 +1088,22 @@ export class GameScene extends Phaser.Scene {
 
     const localName = useGameStore.getState().playerName;
     const canonicalSessionId = networkManager.sessionId;
-    this.pruneExtraLocalSprites(localName, canonicalSessionId);
+    this.purgeDuplicateLocalSprites();
 
     const seen = new Set<string>();
 
     for (const player of players) {
       seen.add(player.sessionId);
-      let existing = this.renderedPlayers.get(player.sessionId);
       const isLocal =
         player.sessionId === this.localSessionId ||
         player.sessionId === networkManager.sessionId ||
-        player.name === useGameStore.getState().playerName;
+        player.name === localName;
 
       if (isLocal) {
         this.removeDuplicateLocalPlayers(player.sessionId, player.name);
       }
 
-      if (!existing && isLocal) {
-        const byName = this.findRenderedByName(player.name);
-        if (byName) {
-          const [oldSessionId, rendered] = byName;
-          this.adoptRenderedSessionId(oldSessionId, player.sessionId, rendered);
-          existing = rendered;
-        }
-      }
+      let existing = this.resolveRenderedPlayer(player);
 
       if (!existing) {
         const sprite = this.add.sprite(player.x, player.y, "player");

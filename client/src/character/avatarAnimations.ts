@@ -7,6 +7,15 @@ import {
   type AvatarDirection,
   type CharacterAppearance,
 } from "@metricbase/shared";
+
+export function getAvatarTextureKey(
+  appearance: CharacterAppearance,
+  direction: AvatarDirection,
+  action: AvatarAction,
+  frame: number,
+): string {
+  return avatarFrameTextureKey(appearanceTextureKey(appearance), direction, action, frame);
+}
 import Phaser from "phaser";
 import { AVATAR_LOGICAL_HEIGHT, AVATAR_LOGICAL_WIDTH, renderAvatarPoseCanvas } from "./avatarPose";
 
@@ -19,8 +28,7 @@ function ensureFrameTexture(
   action: AvatarAction,
   frame: number,
 ): string {
-  const appearanceKey = appearanceTextureKey(appearance);
-  const key = avatarFrameTextureKey(appearanceKey, direction, action, frame);
+  const key = getAvatarTextureKey(appearance, direction, action, frame);
   if (scene.textures.exists(key)) {
     return key;
   }
@@ -57,11 +65,12 @@ export function setAvatarPose(
     sprite.anims.stop();
   }
   const resolvedKey = scene.textures.exists(textureKey) ? textureKey : FALLBACK_PLAYER_TEXTURE;
-  if (sprite.texture.key !== resolvedKey) {
+  const textureChanged = sprite.texture.key !== resolvedKey;
+  if (textureChanged) {
     sprite.setTexture(resolvedKey);
     sprite.setOrigin(0.5, 0.93);
+    sprite.setDisplaySize(AVATAR_LOGICAL_WIDTH, AVATAR_LOGICAL_HEIGHT);
   }
-  sprite.setDisplaySize(AVATAR_LOGICAL_WIDTH, AVATAR_LOGICAL_HEIGHT);
   return resolvedKey;
 }
 
