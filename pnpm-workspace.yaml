@@ -4,5 +4,7 @@ packages:
   - "shared"
 
 allowBuilds:
+  bufferutil: true
   esbuild: true
   msgpackr-extract: true
+  utf-8-validate: true

@@ -4,6 +4,7 @@ import { ZONE_HUB, ZONE_WILDERNESS } from "@metricbase/shared";
 import cors from "cors";
 import express from "express";
 import { createServer } from "node:http";
+import { authRouter } from "./api/auth.js";
 import { characterRouter } from "./api/characters.js";
 import { initDatabase } from "./db/pool.js";
 import { ZoneRoom } from "./rooms/ZoneRoom.js";
@@ -19,6 +20,7 @@ app.get("/health", (_req, res) => {
   res.json({ status: "ok", version: "0.1.0" });
 });
 
+app.use("/api", authRouter);
 app.use("/api", characterRouter);
 
 const httpServer = createServer(app);

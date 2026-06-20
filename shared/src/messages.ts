@@ -15,6 +15,7 @@ export interface ZoneTransferPayload {
 export interface JoinOptions {
   name: string;
   zoneId?: string;
+  accessToken?: string;
 }
 
 export interface CharacterLookupResponse {

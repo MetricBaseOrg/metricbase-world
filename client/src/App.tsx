@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { PhaserGame } from "./game/PhaserGame";
 import { networkManager } from "./game/network";
+import { clearStoredAccessToken } from "./wallet/tokenGate";
 import { useGameStore } from "./store/gameStore";
 import { ChatPanel } from "./ui/ChatPanel";
 import { HUD } from "./ui/HUD";
@@ -12,6 +13,7 @@ export function App() {
   const {
     setPlayerName,
     setProfile,
+    setWalletAddress,
     setConnected,
     setPlayerCount,
     setZoneName,
@@ -70,11 +72,11 @@ export function App() {
     };
   }, [addChatMessage, clearChat, setConnected, setPlayerCount, setProfile, setQuestState, setZoneName]);
 
-  const handleJoin = async (name: string) => {
+  const handleJoin = async (name: string, accessToken?: string | null) => {
     setPlayerName(name);
     setJoined(true);
     try {
-      await networkManager.connect(name);
+      await networkManager.connect(name, accessToken);
       setZoneName(networkManager.zoneName);
     } catch (error) {
       setJoined(false);
@@ -85,6 +87,8 @@ export function App() {
   const handleLeave = async () => {
     await networkManager.disconnect();
     clearChat();
+    clearStoredAccessToken();
+    setWalletAddress(null);
     setQuestState({ active: [], completed: [] });
     setJoined(false);
   };

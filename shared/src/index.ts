@@ -37,6 +37,7 @@ export * from "./messages.js";
 export * from "./progression.js";
 export * from "./quests.js";
 export * from "./combat.js";
+export * from "./tokenGate.js";
 export * from "./schema/PlayerSchema.js";
 export * from "./schema/ZoneState.js";
 

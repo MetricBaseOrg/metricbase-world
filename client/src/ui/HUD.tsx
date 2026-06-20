@@ -1,12 +1,14 @@
 import { xpProgress } from "@metricbase/shared";
 import { useGameStore } from "../store/gameStore";
+import { shortenWallet } from "../wallet/solanaProvider";
 
 interface HUDProps {
   onLeave: () => void;
 }
 
 export function HUD({ onLeave }: HUDProps) {
-  const { playerName, playerLevel, playerXp, connected, playerCount, zoneName } = useGameStore();
+  const { playerName, playerLevel, playerXp, walletAddress, connected, playerCount, zoneName } =
+    useGameStore();
   const progress = xpProgress(playerXp, playerLevel);
   const percent = Math.min(100, Math.round((progress.current / progress.required) * 100));
 
@@ -31,6 +33,11 @@ export function HUD({ onLeave }: HUDProps) {
       <div style={{ fontSize: 13, opacity: 0.85, marginTop: 4 }}>
         {playerName} · Lv {playerLevel}
       </div>
+      {walletAddress && (
+        <div style={{ fontSize: 12, opacity: 0.65, marginTop: 4 }}>
+          Wallet: {shortenWallet(walletAddress)}
+        </div>
+      )}
       <div style={{ marginTop: 8 }}>
         <div
           style={{

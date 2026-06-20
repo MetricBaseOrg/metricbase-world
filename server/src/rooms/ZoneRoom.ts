@@ -1,4 +1,4 @@
-import { Client, Room } from "@colyseus/core";
+import { Client, Room, ServerError } from "@colyseus/core";
 import {
   advanceQuestObjective,
   ATTACK_COOLDOWN_MS,
@@ -32,8 +32,11 @@ import {
   type ZoneConfig,
   type ZoneStateInstance,
 } from "@metricbase/shared";
+import { verifyAccessToken } from "../auth/accessToken.js";
+import { isTokenGateEnabled } from "../auth/tokenGate.js";
 import { loadCharacter, saveCharacter } from "../db/characters.js";
 import { isWalkable } from "../map/collision.js";
+import { walletMeetsTokenGate } from "../solana/tokenBalance.js";
 
 interface PendingInput {
   dx: number;
@@ -86,6 +89,24 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     this.onMessage("attack", (client, message: { npcId?: string }) => {
       void this.handleAttack(client, message.npcId ?? "");
     });
+  }
+
+  async onAuth(_client: Client, options: JoinOptions) {
+    if (!isTokenGateEnabled()) {
+      return options;
+    }
+
+    const payload = options.accessToken ? verifyAccessToken(options.accessToken) : null;
+    if (!payload) {
+      throw new ServerError(403, "Connect your wallet and verify token holdings to play.");
+    }
+
+    const meetsGate = await walletMeetsTokenGate(payload.wallet);
+    if (!meetsGate) {
+      throw new ServerError(403, "You need MetricBase token in your wallet to enter.");
+    }
+
+    return { ...options, wallet: payload.wallet };
   }
 
   async onJoin(client: Client, options: JoinOptions) {

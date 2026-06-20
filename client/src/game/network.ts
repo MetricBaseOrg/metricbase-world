@@ -38,6 +38,7 @@ export class NetworkManager {
   private client: Client | null = null;
   private room: Room | null = null;
   private playerName = "Traveler";
+  private accessToken: string | null = null;
   private currentZoneId = ZONE_HUB;
   private connectionListeners = new Set<ConnectionListener>();
   private playersListeners = new Set<PlayersListener>();
@@ -80,8 +81,9 @@ export class NetworkManager {
     return response.json() as Promise<CharacterLookupResponse>;
   }
 
-  async connect(playerName: string): Promise<void> {
+  async connect(playerName: string, accessToken?: string | null): Promise<void> {
     this.playerName = playerName;
+    this.accessToken = accessToken ?? null;
 
     let zoneId = ZONE_HUB;
     try {
@@ -130,6 +132,7 @@ export class NetworkManager {
   async disconnect() {
     await this.leaveCurrentRoom();
     this.client = null;
+    this.accessToken = null;
     this.latestQuestState = { active: [], completed: [] };
     this.mobHealth.clear();
     this.emitConnection(false, 0);
@@ -205,7 +208,11 @@ export class NetworkManager {
     }
 
     const config = getZoneConfig(zoneId);
-    const options: JoinOptions = { name: this.playerName, zoneId };
+    const options: JoinOptions = {
+      name: this.playerName,
+      zoneId,
+      ...(this.accessToken ? { accessToken: this.accessToken } : {}),
+    };
     this.room = await this.client.joinOrCreate(config.roomName, options, ZoneState);
     this.currentZoneId = zoneId;
     this.mobHealth.clear();
