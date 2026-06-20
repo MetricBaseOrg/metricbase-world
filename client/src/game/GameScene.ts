@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import {
+  ATTACK_RANGE,
   getZoneConfig,
   MAP_HEIGHT,
   MAP_WIDTH,
@@ -24,6 +25,11 @@ interface RenderedNpc {
   label: Phaser.GameObjects.Text;
   worldX: number;
   worldY: number;
+  combat: boolean;
+  hpBarBg: Phaser.GameObjects.Graphics;
+  hpBarFill: Phaser.GameObjects.Graphics;
+  maxHp: number;
+  currentHp: number;
 }
 
 export class GameScene extends Phaser.Scene {
@@ -39,6 +45,7 @@ export class GameScene extends Phaser.Scene {
   private mapTiles: Phaser.GameObjects.Image[] = [];
   private renderedNpcs: RenderedNpc[] = [];
   private interactKey: Phaser.Input.Keyboard.Key | null = null;
+  private attackKey: Phaser.Input.Keyboard.Key | null = null;
   private lastSentInput = { dx: 0, dy: 0 };
   private currentZoneId: string | null = null;
 
@@ -54,6 +61,7 @@ export class GameScene extends Phaser.Scene {
       this.cursors = this.input.keyboard.createCursorKeys();
       this.wasd = this.input.keyboard.addKeys("W,A,S,D") as GameScene["wasd"];
       this.interactKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
+      this.attackKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
     }
 
     const unsubscribePlayers = networkManager.onPlayersChange((players, sessionId) => {
@@ -65,11 +73,16 @@ export class GameScene extends Phaser.Scene {
       this.renderZone(zoneId);
     });
 
+    const unsubscribeMobHealth = networkManager.onMobHealth((payload) => {
+      this.updateNpcHealth(payload.npcId, payload.currentHp, payload.maxHp);
+    });
+
     this.renderZone(networkManager.zoneId);
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       unsubscribePlayers();
       unsubscribeZone();
+      unsubscribeMobHealth();
       this.clearMap();
       this.clearNpcs();
       this.renderedPlayers.forEach((entry) => {
@@ -93,6 +106,7 @@ export class GameScene extends Phaser.Scene {
     this.interpolateRemotePlayers();
     this.followLocalPlayer();
     this.tryInteract();
+    this.tryAttack();
   }
 
   private renderZone(zoneId: string) {
@@ -127,6 +141,8 @@ export class GameScene extends Phaser.Scene {
     this.renderedNpcs.forEach((npc) => {
       npc.sprite.destroy();
       npc.label.destroy();
+      npc.hpBarBg.destroy();
+      npc.hpBarFill.destroy();
     });
     this.renderedNpcs = [];
   }
@@ -136,27 +152,77 @@ export class GameScene extends Phaser.Scene {
 
     for (const npc of config.npcs) {
       const { x, y } = tileToWorld(npc.tileX, npc.tileY);
-      const sprite = this.add.sprite(x, y, "npc");
+      const isCombat = Boolean(npc.combat);
+      const sprite = this.add.sprite(x, y, isCombat ? "dummy" : "npc");
       sprite.setDepth(900);
+      if (isCombat && npc.combat) {
+        const saved = networkManager.getMobHealth(npc.id);
+        const currentHp = saved?.currentHp ?? npc.combat.maxHp;
+        sprite.setAlpha(currentHp > 0 ? 1 : 0.35);
+      }
+
       const label = this.add
         .text(x, y - 28, npc.name, {
           fontFamily: "system-ui, sans-serif",
           fontSize: "11px",
-          color: "#e1bee7",
+          color: isCombat ? "#ffcc80" : "#e1bee7",
           stroke: "#000000",
           strokeThickness: 2,
         })
         .setOrigin(0.5, 1)
         .setDepth(901);
 
-      this.renderedNpcs.push({
+      const hpBarBg = this.add.graphics().setDepth(902);
+      const hpBarFill = this.add.graphics().setDepth(903);
+      const maxHp = npc.combat?.maxHp ?? 0;
+      const currentHp = networkManager.getMobHealth(npc.id)?.currentHp ?? maxHp;
+
+      const rendered: RenderedNpc = {
         id: npc.id,
         sprite,
         label,
         worldX: x,
         worldY: y,
-      });
+        combat: isCombat,
+        hpBarBg,
+        hpBarFill,
+        maxHp,
+        currentHp,
+      };
+
+      this.renderedNpcs.push(rendered);
+      if (isCombat) {
+        this.drawNpcHealthBar(rendered);
+      }
     }
+  }
+
+  private drawNpcHealthBar(npc: RenderedNpc) {
+    npc.hpBarBg.clear();
+    npc.hpBarFill.clear();
+
+    if (!npc.combat || npc.maxHp <= 0) return;
+
+    const width = 36;
+    const height = 5;
+    const x = npc.worldX - width / 2;
+    const y = npc.worldY - 42;
+    const fillWidth = Math.max(0, (npc.currentHp / npc.maxHp) * width);
+
+    npc.hpBarBg.fillStyle(0x000000, 0.55);
+    npc.hpBarBg.fillRect(x, y, width, height);
+    npc.hpBarFill.fillStyle(npc.currentHp > 0 ? 0xff5252 : 0x666666, 1);
+    npc.hpBarFill.fillRect(x, y, fillWidth, height);
+  }
+
+  private updateNpcHealth(npcId: string, currentHp: number, maxHp: number) {
+    const npc = this.renderedNpcs.find((entry) => entry.id === npcId);
+    if (!npc) return;
+
+    npc.currentHp = currentHp;
+    npc.maxHp = maxHp;
+    npc.sprite.setAlpha(currentHp > 0 ? 1 : 0.35);
+    this.drawNpcHealthBar(npc);
   }
 
   private tryInteract() {
@@ -179,6 +245,30 @@ export class GameScene extends Phaser.Scene {
 
     if (nearest) {
       networkManager.sendInteract(nearest.id);
+    }
+  }
+
+  private tryAttack() {
+    if (!this.attackKey || !Phaser.Input.Keyboard.JustDown(this.attackKey)) return;
+    if (!this.localSessionId) return;
+
+    const local = this.renderedPlayers.get(this.localSessionId);
+    if (!local) return;
+
+    let nearest: RenderedNpc | null = null;
+    let nearestDistance = ATTACK_RANGE;
+
+    for (const npc of this.renderedNpcs) {
+      if (!npc.combat || npc.currentHp <= 0) continue;
+      const distance = Math.hypot(local.predicted.x - npc.worldX, local.predicted.y - npc.worldY);
+      if (distance <= nearestDistance) {
+        nearest = npc;
+        nearestDistance = distance;
+      }
+    }
+
+    if (nearest) {
+      networkManager.sendAttack(nearest.id);
     }
   }
 

@@ -5,6 +5,7 @@ import { useGameStore } from "./store/gameStore";
 import { ChatPanel } from "./ui/ChatPanel";
 import { HUD } from "./ui/HUD";
 import { LoginOverlay } from "./ui/LoginOverlay";
+import { QuestPanel } from "./ui/QuestPanel";
 
 export function App() {
   const [joined, setJoined] = useState(false);
@@ -16,6 +17,7 @@ export function App() {
     setZoneName,
     addChatMessage,
     clearChat,
+    setQuestState,
   } = useGameStore();
 
   useEffect(() => {
@@ -41,6 +43,10 @@ export function App() {
       setProfile(profile.level, profile.xp);
     });
 
+    const unsubscribeQuestState = networkManager.onQuestState((state) => {
+      setQuestState(state);
+    });
+
     const unsubscribeNpcDialogue = networkManager.onNpcDialogue((npcName, dialogue) => {
       addChatMessage({
         id: crypto.randomUUID(),
@@ -58,10 +64,11 @@ export function App() {
       unsubscribeChat();
       unsubscribeZone();
       unsubscribeProfile();
+      unsubscribeQuestState();
       unsubscribeNpcDialogue();
       void networkManager.disconnect();
     };
-  }, [addChatMessage, clearChat, setConnected, setPlayerCount, setProfile, setZoneName]);
+  }, [addChatMessage, clearChat, setConnected, setPlayerCount, setProfile, setQuestState, setZoneName]);
 
   const handleJoin = async (name: string) => {
     setPlayerName(name);
@@ -78,6 +85,7 @@ export function App() {
   const handleLeave = async () => {
     await networkManager.disconnect();
     clearChat();
+    setQuestState({ active: [], completed: [] });
     setJoined(false);
   };
 
@@ -85,6 +93,7 @@ export function App() {
     <div style={{ position: "relative", width: "100%", height: "100%" }}>
       {joined && <PhaserGame />}
       {joined && <HUD onLeave={() => void handleLeave()} />}
+      {joined && <QuestPanel />}
       {joined && <ChatPanel />}
       {!joined && <LoginOverlay onJoin={handleJoin} />}
     </div>

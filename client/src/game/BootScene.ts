@@ -19,6 +19,7 @@ export class BootScene extends Phaser.Scene {
     this.createTilesetTexture();
     this.createPlayerTexture();
     this.createNpcTexture();
+    this.createDummyTexture();
   }
 
   create() {
@@ -69,6 +70,22 @@ export class BootScene extends Phaser.Scene {
     graphics.fillRoundedRect(cx - 8, cy - 8, 16, 14, 3);
 
     graphics.generateTexture("npc", 32, 40);
+    graphics.destroy();
+  }
+
+  private createDummyTexture() {
+    const graphics = this.make.graphics({ x: 0, y: 0 });
+    const cx = 16;
+    const cy = 28;
+
+    graphics.fillStyle(0x2d3436, 1);
+    graphics.fillEllipse(cx, cy, 22, 11);
+    graphics.fillStyle(0xd4a574, 1);
+    graphics.fillRoundedRect(cx - 10, cy - 24, 20, 28, 4);
+    graphics.fillStyle(0x8d6e63, 1);
+    graphics.fillRect(cx - 8, cy - 20, 16, 8);
+
+    graphics.generateTexture("dummy", 32, 40);
     graphics.destroy();
   }
 

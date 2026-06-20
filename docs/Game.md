@@ -28,9 +28,11 @@ The current build is **Milestone 1** — a playable multiplayer prototype that p
    - **MetricBase Hub** — central spawn area
    - **Wilderness** — outer zone with a return portal
 6. **Talk to NPCs** — Purple NPCs in each zone. Walk close and press **E** to hear dialogue and earn XP.
-7. **Earn XP and level up** — Portal travel and NPC conversations grant experience. Progress is shown in the HUD XP bar.
-8. **Persist progress** — Character name, zone, position, level, and XP are saved to PostgreSQL (Neon). Rejoining with the same name restores your last location.
-9. **Leave World** — Use the HUD button to disconnect and return to the login screen.
+7. **Complete quests** — Aria offers starter quests. Track objectives in the **Quest Log** (top-right). Progress saves to the database.
+8. **Combat practice** — Attack the **Training Dummy** in the Wilderness with **Space** when in range.
+9. **Earn XP and level up** — Quests, combat, portal travel, and NPC chat grant experience. Progress is shown in the HUD XP bar.
+10. **Persist progress** — Character name, zone, position, level, XP, and quests are saved to PostgreSQL (Neon). Rejoining with the same name restores your last location.
+11. **Leave World** — Use the HUD button to disconnect and return to the login screen.
 
 ### Zones
 
@@ -45,6 +47,7 @@ The current build is **Milestone 1** — a playable multiplayer prototype that p
 |-------|--------|
 | WASD / Arrow keys | Move (when chat is not focused) |
 | E | Talk to nearest NPC |
+| Space | Attack nearest training dummy |
 | Chat input | Type messages; movement pauses while typing |
 | Enter | Send chat message |
 | Purple tiles | Zone portal transfer |

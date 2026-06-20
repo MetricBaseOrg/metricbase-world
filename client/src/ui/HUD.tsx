@@ -58,7 +58,7 @@ export function HUD({ onLeave }: HUDProps) {
       </div>
       <div style={{ fontSize: 13, opacity: 0.85, marginTop: 4 }}>Online: {playerCount}</div>
       <div style={{ fontSize: 12, opacity: 0.6, marginTop: 10 }}>
-        WASD to move. Walk to NPCs and press E. Purple tiles are portals.
+        WASD move · E talk · Space attack · Purple tiles = portals
       </div>
       <button
         type="button"

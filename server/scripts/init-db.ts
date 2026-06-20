@@ -11,6 +11,7 @@ await saveCharacter({
   y: 0,
   level: 1,
   xp: 0,
+  questProgress: { active: [], objectiveIndex: {}, completed: [] },
 });
 
 const loaded = await loadCharacter("__healthcheck__");

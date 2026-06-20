@@ -116,5 +116,8 @@ shared/   Zone maps, protocol types
 - [x] Zone NPCs with E to interact
 - [x] XP progression and level-up
 - [x] Leave World button (save on disconnect)
+- [x] Starter quest line (Aria → Wilderness)
+- [x] Training dummy combat (Space to attack)
 - [ ] Redis session layer
-- [ ] Combat and abilities
+- [ ] Full combat system and abilities
+- [ ] Inventory and loot

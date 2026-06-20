@@ -1,3 +1,5 @@
+import type { NpcCombatConfig } from "./combat.js";
+
 export const ZONE_HUB = "zone_hub";
 export const ZONE_WILDERNESS = "zone_wilderness";
 
@@ -19,6 +21,7 @@ export interface ZoneNpc {
   tileX: number;
   tileY: number;
   dialogue: string;
+  combat?: NpcCombatConfig;
 }
 
 export interface ZoneConfig {
@@ -50,7 +53,8 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
         name: "Aria",
         tileX: 12,
         tileY: 10,
-        dialogue: "Welcome to MetricBase Hub. Purple tiles are portals — the wilderness awaits!",
+        dialogue:
+          "Welcome to MetricBase Hub. Talk to me anytime — I have quests. Purple tiles are portals!",
       },
       {
         id: "hub_merchant",
@@ -81,6 +85,14 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
         tileX: 8,
         tileY: 8,
         dialogue: "The wilderness is dangerous — for now. Walk the purple gate to return to the hub.",
+      },
+      {
+        id: "training_dummy",
+        name: "Training Dummy",
+        tileX: 14,
+        tileY: 10,
+        dialogue: "A sturdy straw dummy. Press Space to practice your attacks.",
+        combat: { maxHp: 90, rewardXp: 35, respawnMs: 12_000 },
       },
     ],
   },

@@ -1,3 +1,4 @@
+import { EMPTY_QUEST_PROGRESS, type QuestProgress } from "@metricbase/shared";
 import { getPool } from "./pool.js";
 
 export interface CharacterRecord {
@@ -7,6 +8,7 @@ export interface CharacterRecord {
   y: number;
   level: number;
   xp: number;
+  questProgress: QuestProgress;
 }
 
 export async function loadCharacter(name: string): Promise<CharacterRecord | null> {
@@ -20,8 +22,9 @@ export async function loadCharacter(name: string): Promise<CharacterRecord | nul
     y: number;
     level: number;
     xp: number;
+    quest_progress: QuestProgress | null;
   }>(
-    `SELECT name, zone_id, x, y, level, xp
+    `SELECT name, zone_id, x, y, level, xp, quest_progress
      FROM characters
      WHERE name = $1`,
     [name],
@@ -39,6 +42,7 @@ export async function loadCharacter(name: string): Promise<CharacterRecord | nul
     y: row.y,
     level: row.level,
     xp: row.xp,
+    questProgress: normalizeQuestProgress(row.quest_progress),
   };
 }
 
@@ -47,8 +51,8 @@ export async function saveCharacter(record: CharacterRecord): Promise<void> {
   if (!db) return;
 
   await db.query(
-    `INSERT INTO characters (name, zone_id, x, y, level, xp, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $6, NOW())
+    `INSERT INTO characters (name, zone_id, x, y, level, xp, quest_progress, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, NOW())
      ON CONFLICT (name)
      DO UPDATE SET
        zone_id = EXCLUDED.zone_id,
@@ -56,7 +60,31 @@ export async function saveCharacter(record: CharacterRecord): Promise<void> {
        y = EXCLUDED.y,
        level = EXCLUDED.level,
        xp = EXCLUDED.xp,
+       quest_progress = EXCLUDED.quest_progress,
        updated_at = NOW()`,
-    [record.name, record.zoneId, record.x, record.y, record.level, record.xp],
+    [
+      record.name,
+      record.zoneId,
+      record.x,
+      record.y,
+      record.level,
+      record.xp,
+      JSON.stringify(record.questProgress),
+    ],
   );
+}
+
+function normalizeQuestProgress(raw: QuestProgress | null): QuestProgress {
+  if (!raw || typeof raw !== "object") {
+    return { ...EMPTY_QUEST_PROGRESS };
+  }
+
+  return {
+    active: Array.isArray(raw.active) ? raw.active.filter((id) => typeof id === "string") : [],
+    objectiveIndex:
+      raw.objectiveIndex && typeof raw.objectiveIndex === "object" ? { ...raw.objectiveIndex } : {},
+    completed: Array.isArray(raw.completed)
+      ? raw.completed.filter((id) => typeof id === "string")
+      : [],
+  };
 }

@@ -9,6 +9,11 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **Starter quests** — "Meet the Guide" and "Into the Wilderness" with quest log UI, persisted in Postgres (`quest_progress` JSONB). Talk to Aria to begin; complete objectives for XP rewards.
+- **Training dummy combat** — Attack the Wilderness training dummy with **Space**. Server-authoritative damage, HP bars, respawn timer, and XP on defeat.
+
 ### Fixed
 
 - **Character missing after Leave World and rejoin** — Player state was emitted before Phaser mounted on the second join. Listeners now receive the current room snapshot immediately on subscribe, the game view mounts before connecting, and the camera centers on spawn.

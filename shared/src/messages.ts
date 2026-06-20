@@ -35,3 +35,6 @@ export interface ProfilePayload {
   level: number;
   xp: number;
 }
+
+export type { QuestStatePayload } from "./quests.js";
+export type { AttackResultPayload, MobHealthPayload } from "./combat.js";

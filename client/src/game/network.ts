@@ -1,10 +1,13 @@
 import { Client, Room } from "colyseus.js";
 import {
+  AttackResultPayload,
   CharacterLookupResponse,
   ChatMessagePayload,
   getZoneConfig,
   JoinOptions,
+  MobHealthPayload,
   ProfilePayload,
+  QuestStatePayload,
   ZONE_HUB,
   ZoneState,
   ZoneTransferPayload,
@@ -27,6 +30,9 @@ type ZoneListener = (zoneId: string, zoneName: string) => void;
 type TransferListener = (payload: ZoneTransferPayload) => void;
 type ProfileListener = (profile: ProfilePayload) => void;
 type NpcDialogueListener = (npcName: string, dialogue: string) => void;
+type QuestStateListener = (state: QuestStatePayload) => void;
+type MobHealthListener = (payload: MobHealthPayload) => void;
+type AttackResultListener = (payload: AttackResultPayload) => void;
 
 export class NetworkManager {
   private client: Client | null = null;
@@ -40,6 +46,11 @@ export class NetworkManager {
   private transferListeners = new Set<TransferListener>();
   private profileListeners = new Set<ProfileListener>();
   private npcDialogueListeners = new Set<NpcDialogueListener>();
+  private questStateListeners = new Set<QuestStateListener>();
+  private mobHealthListeners = new Set<MobHealthListener>();
+  private attackResultListeners = new Set<AttackResultListener>();
+  private latestQuestState: QuestStatePayload = { active: [], completed: [] };
+  private mobHealth = new Map<string, MobHealthPayload>();
 
   get sessionId(): string | null {
     return this.room?.sessionId ?? null;
@@ -108,9 +119,19 @@ export class NetworkManager {
     this.room?.send("interact", { npcId });
   }
 
+  sendAttack(npcId: string) {
+    this.room?.send("attack", { npcId });
+  }
+
+  getMobHealth(npcId: string): MobHealthPayload | undefined {
+    return this.mobHealth.get(npcId);
+  }
+
   async disconnect() {
     await this.leaveCurrentRoom();
     this.client = null;
+    this.latestQuestState = { active: [], completed: [] };
+    this.mobHealth.clear();
     this.emitConnection(false, 0);
     this.emitPlayers();
   }
@@ -159,6 +180,25 @@ export class NetworkManager {
     return () => this.npcDialogueListeners.delete(listener);
   }
 
+  onQuestState(listener: QuestStateListener) {
+    this.questStateListeners.add(listener);
+    listener(this.latestQuestState);
+    return () => this.questStateListeners.delete(listener);
+  }
+
+  onMobHealth(listener: MobHealthListener) {
+    this.mobHealthListeners.add(listener);
+    for (const payload of this.mobHealth.values()) {
+      listener(payload);
+    }
+    return () => this.mobHealthListeners.delete(listener);
+  }
+
+  onAttackResult(listener: AttackResultListener) {
+    this.attackResultListeners.add(listener);
+    return () => this.attackResultListeners.delete(listener);
+  }
+
   private async joinZone(zoneId: string) {
     if (!this.client) {
       this.client = new Client(getWebSocketUrl());
@@ -168,6 +208,7 @@ export class NetworkManager {
     const options: JoinOptions = { name: this.playerName, zoneId };
     this.room = await this.client.joinOrCreate(config.roomName, options, ZoneState);
     this.currentZoneId = zoneId;
+    this.mobHealth.clear();
 
     this.room.onStateChange(() => this.emitPlayers());
     this.room.onMessage("chat", (message: ChatMessagePayload) => {
@@ -189,6 +230,35 @@ export class NetworkManager {
     this.room.onMessage("npcDialogue", (payload: { npcName: string; dialogue: string }) => {
       for (const listener of this.npcDialogueListeners) {
         listener(payload.npcName, payload.dialogue);
+      }
+    });
+    this.room.onMessage("questState", (payload: QuestStatePayload) => {
+      this.latestQuestState = payload;
+      for (const listener of this.questStateListeners) {
+        listener(payload);
+      }
+    });
+    this.room.onMessage("mobHealth", (payload: MobHealthPayload) => {
+      this.mobHealth.set(payload.npcId, payload);
+      for (const listener of this.mobHealthListeners) {
+        listener(payload);
+      }
+    });
+    this.room.onMessage("attackResult", (payload: AttackResultPayload) => {
+      this.mobHealth.set(payload.npcId, {
+        npcId: payload.npcId,
+        currentHp: payload.currentHp,
+        maxHp: payload.maxHp,
+      });
+      for (const listener of this.attackResultListeners) {
+        listener(payload);
+      }
+      for (const listener of this.mobHealthListeners) {
+        listener({
+          npcId: payload.npcId,
+          currentHp: payload.currentHp,
+          maxHp: payload.maxHp,
+        });
       }
     });
     this.room.onLeave(() => {
