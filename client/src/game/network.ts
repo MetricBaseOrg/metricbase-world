@@ -80,6 +80,18 @@ export class NetworkManager {
   }
 
   async lookupCharacter(name: string): Promise<CharacterLookupResponse> {
+    if (this.accessToken) {
+      const response = await fetch(`${getHttpServerUrl()}/api/character/me`, {
+        headers: { Authorization: `Bearer ${this.accessToken}` },
+      });
+      if (response.ok) {
+        const bonded = (await response.json()) as CharacterLookupResponse;
+        if (bonded.found) {
+          return bonded;
+        }
+      }
+    }
+
     const response = await fetch(
       `${getHttpServerUrl()}/api/character?name=${encodeURIComponent(name)}`,
     );

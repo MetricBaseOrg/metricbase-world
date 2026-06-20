@@ -88,11 +88,6 @@ export async function connectAndVerifyWallet(
 }
 
 export async function ensureWalletAccess(): Promise<AuthVerifyResponse | null> {
-  const gate = await fetchTokenGateInfo();
-  if (!gate.enabled) {
-    return null;
-  }
-
   const existing = getStoredAccessToken();
   if (existing) {
     const sessionResponse = await fetch(`${getHttpServerUrl()}/api/auth/session`, {
@@ -108,6 +103,11 @@ export async function ensureWalletAccess(): Promise<AuthVerifyResponse | null> {
       };
     }
     clearStoredAccessToken();
+  }
+
+  const gate = await fetchTokenGateInfo();
+  if (!gate.enabled) {
+    return null;
   }
 
   const wallet = pickWalletConnector();

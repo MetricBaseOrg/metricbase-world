@@ -6,6 +6,7 @@ console.log("Database ready:", ready);
 
 await saveCharacter({
   name: "__healthcheck__",
+  walletAddress: null,
   zoneId: "zone_hub",
   x: 0,
   y: 0,

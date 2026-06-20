@@ -12,7 +12,7 @@ import {
   type OutfitStyle,
 } from "@metricbase/shared";
 import { FormEvent, useEffect, useRef, useState } from "react";
-import { lookupCharacter, saveCharacterAppearance } from "../character/characterApi";
+import { lookupBondedCharacter, saveCharacterAppearance } from "../character/characterApi";
 import { useGameStore } from "../store/gameStore";
 import type { WalletConnector } from "../wallet/discovery";
 import { shortenWallet } from "../wallet/solanaProvider";
@@ -139,6 +139,7 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
   const [minTokenAmount, setMinTokenAmount] = useState(1000);
   const [walletAddress, setWalletAddressLocal] = useState<string | null>(null);
   const [tokenBalance, setTokenBalance] = useState<number | null>(null);
+  const [nameBonded, setNameBonded] = useState(false);
   const [walletPickerOpen, setWalletPickerOpen] = useState(false);
   const [detectedWallets, setDetectedWallets] = useState<WalletConnector[]>([]);
   const walletConnectResolver = useRef<{
@@ -154,13 +155,14 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
         setTokenMint(info.mint);
         setMinTokenAmount(info.minUiAmount);
 
-        if (!info.enabled || !getStoredAccessToken()) return;
+        if (!getStoredAccessToken()) return;
 
         const session = await ensureWalletAccess();
         if (session) {
           setWalletAddressLocal(session.wallet);
           setWalletAddress(session.wallet);
           setTokenBalance(session.tokenBalance);
+          await loadBondedCharacter(session.accessToken);
         }
       } catch {
         clearStoredAccessToken();
@@ -168,28 +170,23 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
     })();
   }, [setWalletAddress]);
 
-  useEffect(() => {
-    const trimmed = name.trim();
-    if (trimmed.length < 2) return;
-
-    const timer = window.setTimeout(() => {
-      void (async () => {
-        setLoadingCharacter(true);
-        try {
-          const saved = await lookupCharacter(trimmed);
-          if (saved.found) {
-            setAppearance(normalizeCharacterAppearance(saved.appearance));
-          }
-        } catch {
-          // Keep current draft appearance for new characters.
-        } finally {
-          setLoadingCharacter(false);
-        }
-      })();
-    }, 350);
-
-    return () => window.clearTimeout(timer);
-  }, [name]);
+  const loadBondedCharacter = async (accessToken: string) => {
+    setLoadingCharacter(true);
+    try {
+      const saved = await lookupBondedCharacter(accessToken);
+      if (saved.found && saved.bonded && saved.name) {
+        setName(saved.name);
+        setAppearance(normalizeCharacterAppearance(saved.appearance));
+        setNameBonded(true);
+        return;
+      }
+      setNameBonded(false);
+    } catch {
+      setNameBonded(false);
+    } finally {
+      setLoadingCharacter(false);
+    }
+  };
 
   const updateAppearance = (patch: Partial<CharacterAppearance>) => {
     setAppearance((current) => ({ ...current, ...patch }));
@@ -200,6 +197,7 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
     setWalletAddressLocal(verified.wallet);
     setWalletAddress(verified.wallet);
     setTokenBalance(verified.tokenBalance);
+    await loadBondedCharacter(verified.accessToken);
     return verified;
   };
 
@@ -280,23 +278,21 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
     setError(null);
 
     try {
-      let accessToken: string | null = null;
-
-      if (gateEnabled) {
-        const session = getStoredAccessToken()
-          ? await ensureWalletAccess()
-          : await requestWalletConnection();
-        if (!session) {
-          throw new Error("Wallet verification is required.");
-        }
-        accessToken = session.accessToken;
-        setWalletAddressLocal(session.wallet);
-        setWalletAddress(session.wallet);
-        setTokenBalance(session.tokenBalance);
+      const session = getStoredAccessToken()
+        ? await ensureWalletAccess()
+        : await requestWalletConnection();
+      if (!session) {
+        throw new Error("Connect your wallet to bond and save your character.");
       }
 
+      const accessToken = session.accessToken;
+      setWalletAddressLocal(session.wallet);
+      setWalletAddress(session.wallet);
+      setTokenBalance(session.tokenBalance);
+
       const normalized = normalizeCharacterAppearance(appearance);
-      await saveCharacterAppearance(trimmed, normalized);
+      await saveCharacterAppearance(trimmed, normalized, accessToken);
+      setNameBonded(true);
       await onJoin(trimmed, accessToken, normalized);
     } catch (joinError) {
       const message =
@@ -307,7 +303,7 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
     }
   };
 
-  const walletReady = !gateEnabled || Boolean(walletAddress && getStoredAccessToken());
+  const walletReady = Boolean(walletAddress && getStoredAccessToken());
   const nameReady = name.trim().length >= 2;
 
   return (
@@ -340,8 +336,8 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
         <div style={{ marginBottom: 24 }}>
           <h1 style={{ margin: 0, fontSize: 28 }}>Create Your Character</h1>
           <p style={{ margin: "8px 0 0", opacity: 0.75, fontSize: 14, maxWidth: 560 }}>
-            Customize your hero, connect your wallet, then enter the zone. Your look is saved and
-            visible to other players.
+            Connect your wallet to bond your character. Name, avatar, and progress stay linked to
+            your wallet across sessions.
           </p>
         </div>
 
@@ -370,15 +366,22 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
                 onChange={(event) => setName(event.target.value)}
                 maxLength={16}
                 placeholder="At least 2 characters"
+                readOnly={nameBonded}
                 style={{
                   width: "100%",
                   padding: "10px 12px",
                   borderRadius: 8,
                   border: "1px solid rgba(255, 255, 255, 0.15)",
-                  background: "rgba(255, 255, 255, 0.05)",
+                  background: nameBonded ? "rgba(255, 255, 255, 0.02)" : "rgba(255, 255, 255, 0.05)",
                   color: "#fff",
+                  cursor: nameBonded ? "not-allowed" : "text",
                 }}
               />
+              {nameBonded && (
+                <div style={{ fontSize: 11, opacity: 0.6, marginTop: 6 }}>
+                  Name is bonded to your wallet and cannot be changed.
+                </div>
+              )}
             </div>
 
             <div>
@@ -428,8 +431,7 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
               />
             </div>
 
-            {gateEnabled && (
-              <div
+            <div
                 style={{
                   padding: "14px 16px",
                   borderRadius: 10,
@@ -437,25 +439,29 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
                   border: "1px solid rgba(255, 255, 255, 0.08)",
                 }}
               >
-                <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 8 }}>Required token</div>
-                <div style={{ fontSize: 13, marginBottom: 8 }}>
-                  Hold at least{" "}
-                  <span style={{ color: "#9ad7ff", fontWeight: 700 }}>
-                    {minTokenAmount.toLocaleString()}
-                  </span>{" "}
-                  tokens to enter
-                </div>
-                <div
-                  style={{
-                    fontSize: 11,
-                    fontFamily: "monospace",
-                    wordBreak: "break-all",
-                    opacity: 0.9,
-                    marginBottom: 10,
-                  }}
-                >
-                  {tokenMint}
-                </div>
+                <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 8 }}>Wallet</div>
+                {gateEnabled && (
+                  <>
+                    <div style={{ fontSize: 13, marginBottom: 8 }}>
+                      Hold at least{" "}
+                      <span style={{ color: "#9ad7ff", fontWeight: 700 }}>
+                        {minTokenAmount.toLocaleString()}
+                      </span>{" "}
+                      tokens to enter
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 11,
+                        fontFamily: "monospace",
+                        wordBreak: "break-all",
+                        opacity: 0.9,
+                        marginBottom: 10,
+                      }}
+                    >
+                      {tokenMint}
+                    </div>
+                  </>
+                )}
 
                 {walletAddress ? (
                   <div style={{ fontSize: 13, marginBottom: 10 }}>
@@ -492,7 +498,6 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
                       : "Connect Wallet"}
                 </button>
               </div>
-            )}
           </div>
         </div>
 

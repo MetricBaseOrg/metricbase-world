@@ -42,7 +42,11 @@ import {
 } from "@metricbase/shared";
 import { verifyAccessToken } from "../auth/accessToken.js";
 import { isTokenGateEnabled } from "../auth/tokenGate.js";
-import { loadCharacter, saveCharacter } from "../db/characters.js";
+import {
+  CharacterBindingError,
+  resolveCharacterForJoin,
+  saveCharacter,
+} from "../db/characters.js";
 import { isWalkable } from "../map/collision.js";
 import { walletMeetsTokenGate } from "../solana/tokenBalance.js";
 
@@ -65,6 +69,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   private mobHp = new Map<string, number>();
   private mobRespawnAt = new Map<string, number>();
   private inventories = new Map<string, InventoryEntry[]>();
+  private playerWallets = new Map<string, string>();
   private zoneConfig!: ZoneConfig;
 
   onCreate(options: ZoneRoomOptions) {
@@ -101,11 +106,12 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   }
 
   async onAuth(_client: Client, options: JoinOptions) {
+    const payload = options.accessToken ? verifyAccessToken(options.accessToken) : null;
+
     if (!isTokenGateEnabled()) {
-      return options;
+      return payload ? { ...options, wallet: payload.wallet } : options;
     }
 
-    const payload = options.accessToken ? verifyAccessToken(options.accessToken) : null;
     if (!payload) {
       throw new ServerError(403, "Connect your wallet and verify token holdings to play.");
     }
@@ -121,9 +127,28 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     return { ...options, wallet: payload.wallet };
   }
 
-  async onJoin(client: Client, options: JoinOptions) {
+  async onJoin(client: Client, options: JoinOptions & { wallet?: string }) {
     const name = sanitizeName(options?.name);
-    const saved = await loadCharacter(name);
+    const wallet = options.wallet ?? null;
+
+    let saved: Awaited<ReturnType<typeof resolveCharacterForJoin>> = null;
+    try {
+      saved = await resolveCharacterForJoin(wallet, name);
+    } catch (error) {
+      if (error instanceof CharacterBindingError) {
+        throw new ServerError(403, error.message);
+      }
+      throw error;
+    }
+
+    if (wallet) {
+      this.playerWallets.set(name, wallet);
+      if (saved && !saved.walletAddress) {
+        saved = { ...saved, walletAddress: wallet };
+        await saveCharacter(saved);
+      }
+    }
+
     const appearance = saved?.appearance ?? normalizeCharacterAppearance(options?.appearance);
 
     const player = new PlayerSchema();
@@ -187,6 +212,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     if (player) {
       this.questProgress.delete(player.name);
       this.inventories.delete(player.name);
+      this.playerWallets.delete(player.name);
     }
 
     this.state.players.delete(client.sessionId);
@@ -555,6 +581,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   ) {
     await saveCharacter({
       name: player.name,
+      walletAddress: this.playerWallets.get(player.name) ?? null,
       zoneId,
       x,
       y,

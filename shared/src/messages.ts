@@ -23,12 +23,14 @@ export interface JoinOptions {
 
 export interface CharacterLookupResponse {
   name: string;
+  walletAddress: string | null;
   zoneId: string;
   x: number;
   y: number;
   level: number;
   xp: number;
   found: boolean;
+  bonded: boolean;
   appearance: CharacterAppearance;
 }
 
