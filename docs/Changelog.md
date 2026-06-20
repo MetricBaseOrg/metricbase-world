@@ -11,6 +11,7 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **Character missing after Leave World and rejoin** — Player state was emitted before Phaser mounted on the second join. Listeners now receive the current room snapshot immediately on subscribe, the game view mounts before connecting, and the camera centers on spawn.
 - **Character keeps moving after releasing WASD** — Client only sent input while keys were held, so the server never received a stop signal. Input is now sent on every change, including `{ dx: 0, dy: 0 }`. Local position snaps to the server when idle, and keyboard state resets after chat focus.
 
 ### Added

@@ -224,6 +224,7 @@ export class GameScene extends Phaser.Scene {
 
         if (isLocal) {
           sprite.setTint(0xffd27f);
+          this.cameras.main.centerOn(player.x, player.y);
         }
 
         this.renderedPlayers.set(player.sessionId, {

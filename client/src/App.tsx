@@ -65,9 +65,14 @@ export function App() {
 
   const handleJoin = async (name: string) => {
     setPlayerName(name);
-    await networkManager.connect(name);
-    setZoneName(networkManager.zoneName);
     setJoined(true);
+    try {
+      await networkManager.connect(name);
+      setZoneName(networkManager.zoneName);
+    } catch (error) {
+      setJoined(false);
+      throw error;
+    }
   };
 
   const handleLeave = async () => {

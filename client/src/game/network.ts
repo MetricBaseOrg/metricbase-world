@@ -117,11 +117,17 @@ export class NetworkManager {
 
   onConnectionChange(listener: ConnectionListener) {
     this.connectionListeners.add(listener);
+    if (this.room) {
+      listener(true, this.room.state.players?.size ?? 0);
+    }
     return () => this.connectionListeners.delete(listener);
   }
 
   onPlayersChange(listener: PlayersListener) {
     this.playersListeners.add(listener);
+    if (this.room) {
+      listener(this.getPlayers(), this.sessionId);
+    }
     return () => this.playersListeners.delete(listener);
   }
 
@@ -132,6 +138,9 @@ export class NetworkManager {
 
   onZoneChange(listener: ZoneListener) {
     this.zoneListeners.add(listener);
+    if (this.room) {
+      listener(this.currentZoneId, this.zoneName);
+    }
     return () => this.zoneListeners.delete(listener);
   }
 
