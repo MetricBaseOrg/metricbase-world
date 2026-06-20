@@ -48,7 +48,7 @@ function roundRect(
   ctx.closePath();
 }
 
-function strokePart(ctx: CanvasRenderingContext2D, color = "#4a3728", width = 1.4) {
+function strokePart(ctx: CanvasRenderingContext2D, color = "#4a3728", width = 1.8) {
   ctx.strokeStyle = color;
   ctx.lineWidth = width;
   ctx.stroke();
@@ -69,8 +69,8 @@ function drawLegs(
   outfitColor: number,
   outfitStyle: OutfitStyle,
 ) {
-  const legW = 5;
-  const legH = outfitStyle === "robe" ? 8 : 10;
+  const legW = 6;
+  const legH = outfitStyle === "robe" ? 9 : 11;
   const gap = 2;
   const leftX = cx - gap / 2 - legW;
   const rightX = cx + gap / 2;
@@ -477,7 +477,7 @@ export function ensurePhaserCharacterTexture(
   }
 
   const canvas = renderCharacterCanvas(appearance, 80, 100, { background: false });
-  scene.textures.addCanvas(key, canvas);
+  scene.textures.addBase64(key, canvas.toDataURL("image/png"));
   scene.textures.get(key).setFilter(Phaser.Textures.FilterMode.NEAREST);
   return key;
 }
