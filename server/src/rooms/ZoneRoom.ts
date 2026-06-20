@@ -16,6 +16,7 @@ import {
   getItemDefinition,
   getShopByNpcId,
   getShopDefinition,
+  getTokenShopProduct,
   getZoneConfig,
   removeItemFromInventory,
   STARTING_GOLD,
@@ -55,6 +56,8 @@ import {
 } from "../db/characters.js";
 import { isWalkable } from "../map/collision.js";
 import { walletMeetsTokenGate } from "../solana/tokenBalance.js";
+import { buildTokenShopInfo } from "../tokenShop/catalog.js";
+import { redeemTokenShopPurchase } from "../tokenShop/redeem.js";
 
 interface PendingInput {
   dx: number;
@@ -122,6 +125,10 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         message.itemId ?? "",
         message.quantity ?? 1,
       );
+    });
+
+    this.onMessage("tokenShopBuy", (client, message: { productId?: string; signature?: string }) => {
+      void this.handleTokenShopBuy(client, message.productId ?? "", message.signature ?? "");
     });
   }
 
@@ -371,14 +378,14 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     const lastInteract = this.npcCooldowns.get(cooldownKey) ?? 0;
     if (Date.now() - lastInteract < NPC_INTERACT_COOLDOWN_MS) {
       client.send("npcDialogue", { npcName: npc.name, dialogue: npc.dialogue });
-      this.openShopForNpc(client, player, npc);
+      void this.openShopForNpc(client, player, npc);
       return;
     }
 
     this.npcCooldowns.set(cooldownKey, Date.now());
     client.send("npcDialogue", { npcName: npc.name, dialogue: npc.dialogue });
 
-    this.openShopForNpc(client, player, npc);
+    void this.openShopForNpc(client, player, npc);
 
     this.grantXp(client, player, XP_NPC_INTERACT, `spoke with ${npc.name}`);
     await this.checkTalkObjectives(client, player.name, npcId);
@@ -554,7 +561,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     );
   }
 
-  private openShopForNpc(
+  private async openShopForNpc(
     client: Client,
     player: InstanceType<typeof PlayerSchema>,
     npc: ZoneConfig["npcs"][number],
@@ -564,7 +571,13 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
     const inventory = this.inventories.get(player.name) ?? [];
     const gold = this.playerGold.get(player.name) ?? STARTING_GOLD;
-    client.send("shopOpen", buildShopOpenPayload(shop, npc.name, npc.dialogue, gold, inventory));
+    const wallet = this.playerWallets.get(player.name) ?? null;
+    const tokenShop = await buildTokenShopInfo(wallet);
+
+    client.send(
+      "shopOpen",
+      buildShopOpenPayload(shop, npc.name, npc.dialogue, gold, inventory, tokenShop),
+    );
   }
 
   private sendProfile(client: Client, player: InstanceType<typeof PlayerSchema>) {
@@ -595,6 +608,55 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       body: `${player.name} earned ${amount} gold (${reason}).`,
       sentAt: Date.now(),
     });
+  }
+
+  private async handleTokenShopBuy(client: Client, productId: string, signature: string) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !productId || !signature) return;
+
+    const wallet = this.playerWallets.get(player.name);
+    if (!wallet) {
+      client.send("tokenShopResult", { ok: false, error: "Connect your wallet to buy with tokens." });
+      return;
+    }
+
+    const result = await redeemTokenShopPurchase(
+      wallet,
+      productId,
+      signature,
+      {
+        gold: this.playerGold.get(player.name) ?? STARTING_GOLD,
+        inventory: this.inventories.get(player.name) ?? [],
+      },
+    );
+
+    if (!result.ok) {
+      client.send("tokenShopResult", result);
+      return;
+    }
+
+    if (result.gold !== undefined) {
+      this.playerGold.set(player.name, result.gold);
+    }
+    if (result.inventory) {
+      this.inventories.set(player.name, result.inventory.items);
+    }
+
+    this.sendProfile(client, player);
+    this.sendInventory(client, player.name);
+
+    const product = getTokenShopProduct(productId);
+    this.broadcastChat({
+      id: crypto.randomUUID(),
+      channel: "system",
+      senderId: "system",
+      senderName: "Token Shop",
+      body: `${player.name} purchased ${product.name} with MetricBase tokens.`,
+      sentAt: Date.now(),
+    });
+
+    client.send("tokenShopResult", result);
+    await this.persistPlayer(player);
   }
 
   private async handleShopBuy(client: Client, shopId: string, itemId: string) {

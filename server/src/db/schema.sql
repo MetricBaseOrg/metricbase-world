@@ -20,3 +20,13 @@ ALTER TABLE characters ADD COLUMN IF NOT EXISTS inventory JSONB NOT NULL DEFAULT
 ALTER TABLE characters ADD COLUMN IF NOT EXISTS wallet_address VARCHAR(44);
 CREATE UNIQUE INDEX IF NOT EXISTS characters_wallet_address_idx ON characters (wallet_address) WHERE wallet_address IS NOT NULL;
 ALTER TABLE characters ADD COLUMN IF NOT EXISTS gold INTEGER NOT NULL DEFAULT 25;
+
+CREATE TABLE IF NOT EXISTS token_purchases (
+  signature VARCHAR(88) PRIMARY KEY,
+  wallet VARCHAR(44) NOT NULL,
+  product_id VARCHAR(64) NOT NULL,
+  token_amount DOUBLE PRECISION NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS token_purchases_wallet_idx ON token_purchases (wallet);

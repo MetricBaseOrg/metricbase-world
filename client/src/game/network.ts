@@ -12,6 +12,7 @@ import {
   QuestStatePayload,
   ShopOpenPayload,
   ShopResultPayload,
+  TokenShopResultPayload,
   ZONE_HUB,
   ZoneState,
   ZoneTransferPayload,
@@ -43,6 +44,7 @@ type AttackResultListener = (payload: AttackResultPayload) => void;
 type InventoryListener = (state: InventoryStatePayload) => void;
 type ShopOpenListener = (payload: ShopOpenPayload) => void;
 type ShopResultListener = (payload: ShopResultPayload) => void;
+type TokenShopResultListener = (payload: TokenShopResultPayload) => void;
 
 export class NetworkManager {
   private client: Client | null = null;
@@ -64,6 +66,7 @@ export class NetworkManager {
   private inventoryListeners = new Set<InventoryListener>();
   private shopOpenListeners = new Set<ShopOpenListener>();
   private shopResultListeners = new Set<ShopResultListener>();
+  private tokenShopResultListeners = new Set<TokenShopResultListener>();
   private latestQuestState: QuestStatePayload = { active: [], completed: [] };
   private latestInventory: InventoryStatePayload = { items: [], capacity: 16 };
   private isTransferring = false;
@@ -171,6 +174,10 @@ export class NetworkManager {
     this.room?.send("shopSell", { shopId, itemId, quantity });
   }
 
+  sendTokenShopBuy(productId: string, signature: string) {
+    this.room?.send("tokenShopBuy", { productId, signature });
+  }
+
   getMobHealth(npcId: string): MobHealthPayload | undefined {
     return this.mobHealth.get(npcId);
   }
@@ -266,6 +273,11 @@ export class NetworkManager {
     return () => this.shopResultListeners.delete(listener);
   }
 
+  onTokenShopResult(listener: TokenShopResultListener) {
+    this.tokenShopResultListeners.add(listener);
+    return () => this.tokenShopResultListeners.delete(listener);
+  }
+
   private async joinZone(zoneId: string) {
     if (!this.client) {
       this.client = new Client(getWebSocketUrl());
@@ -330,6 +342,17 @@ export class NetworkManager {
     });
     this.room.onMessage("shopOpen", (payload: ShopOpenPayload) => {
       for (const listener of this.shopOpenListeners) {
+        listener(payload);
+      }
+    });
+    this.room.onMessage("tokenShopResult", (payload: TokenShopResultPayload) => {
+      if (payload.inventory) {
+        this.latestInventory = payload.inventory;
+        for (const listener of this.inventoryListeners) {
+          listener(payload.inventory);
+        }
+      }
+      for (const listener of this.tokenShopResultListeners) {
         listener(payload);
       }
     });

@@ -6,6 +6,7 @@ import express from "express";
 import { createServer } from "node:http";
 import { authRouter } from "./api/auth.js";
 import { characterRouter } from "./api/characters.js";
+import { tokenShopRouter } from "./api/tokenShop.js";
 import { initDatabase } from "./db/pool.js";
 import { ZoneRoom } from "./rooms/ZoneRoom.js";
 
@@ -22,6 +23,7 @@ app.get("/health", (_req, res) => {
 
 app.use("/api", authRouter);
 app.use("/api", characterRouter);
+app.use("/api", tokenShopRouter);
 
 const httpServer = createServer(app);
 

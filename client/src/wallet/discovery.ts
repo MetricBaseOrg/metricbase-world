@@ -1,7 +1,15 @@
-import { SolanaSignMessage } from "@solana/wallet-standard-features";
+import {
+  SolanaSignAndSendTransaction,
+  SolanaSignMessage,
+  SolanaSignTransaction,
+} from "@solana/wallet-standard-features";
+import { Transaction, type VersionedTransaction } from "@solana/web3.js";
+import bs58 from "bs58";
 import { getWallets } from "@wallet-standard/app";
 import type { Wallet, WalletAccount } from "@wallet-standard/base";
 import { StandardConnect } from "@wallet-standard/features";
+
+export type SignableTransaction = Transaction | VersionedTransaction;
 
 export interface WalletConnector {
   id: string;
@@ -9,6 +17,10 @@ export interface WalletConnector {
   icon?: string;
   connect: () => Promise<string>;
   signMessage: (message: Uint8Array) => Promise<Uint8Array>;
+  signAndSendTransaction: (
+    transaction: SignableTransaction,
+    connection: import("@solana/web3.js").Connection,
+  ) => Promise<string>;
 }
 
 interface LegacyProvider {
@@ -22,6 +34,11 @@ interface LegacyProvider {
     message: Uint8Array,
     display?: string,
   ) => Promise<{ signature: Uint8Array }>;
+  signTransaction?: (transaction: Transaction) => Promise<Transaction>;
+  signAndSendTransaction?: (
+    transaction: Transaction,
+    options?: { skipPreflight?: boolean },
+  ) => Promise<{ signature: string }>;
 }
 
 type WindowWithWallets = Window & {
@@ -88,13 +105,30 @@ type WalletStandardFeatures = {
       input: { account: WalletAccount; message: Uint8Array },
     ) => Promise<readonly { signature: Uint8Array }[]>;
   };
+  [SolanaSignTransaction]?: {
+    signTransaction: (input: {
+      account: WalletAccount;
+      transaction: Uint8Array;
+      chain: string;
+    }) => Promise<readonly { signedTransaction: Uint8Array }[]>;
+  };
+  [SolanaSignAndSendTransaction]?: {
+    signAndSendTransaction: (input: {
+      account: WalletAccount;
+      transaction: Uint8Array;
+      chain: string;
+    }) => Promise<readonly { signature: Uint8Array }[]>;
+  };
 };
 
 function fromWalletStandard(wallet: Wallet): WalletConnector | null {
   const features = wallet.features as WalletStandardFeatures;
   const connectFeature = features[StandardConnect];
   const signMessageFeature = features[SolanaSignMessage];
+  const signTransactionFeature = features[SolanaSignTransaction];
+  const signAndSendFeature = features[SolanaSignAndSendTransaction];
   if (!connectFeature || !signMessageFeature) return null;
+  if (!signTransactionFeature && !signAndSendFeature) return null;
 
   let connectedAccount: WalletAccount | null = null;
 
@@ -125,6 +159,42 @@ function fromWalletStandard(wallet: Wallet): WalletConnector | null {
         message,
       });
       return new Uint8Array(signed.signature);
+    },
+    async signAndSendTransaction(transaction, connection) {
+      if (!connectedAccount) {
+        const { accounts } = await connectFeature.connect({ silent: true });
+        connectedAccount = accounts[0] ?? null;
+      }
+      if (!connectedAccount) {
+        throw new Error("No wallet account available.");
+      }
+
+      const serialized = serializeTransaction(transaction);
+      const chain = "solana:mainnet";
+
+      if (signAndSendFeature) {
+        const [sent] = await signAndSendFeature.signAndSendTransaction({
+          account: connectedAccount,
+          transaction: serialized,
+          chain,
+        });
+        return bs58.encode(sent.signature);
+      }
+
+      if (!signTransactionFeature) {
+        throw new Error("Wallet cannot sign token transfers.");
+      }
+
+      const [signed] = await signTransactionFeature.signTransaction({
+        account: connectedAccount,
+        transaction: serialized,
+        chain,
+      });
+      const signature = await connection.sendRawTransaction(signed.signedTransaction, {
+        skipPreflight: false,
+      });
+      await connection.confirmTransaction(signature, "confirmed");
+      return signature;
     },
   };
 }
@@ -176,6 +246,23 @@ function fromLegacyProvider(
       const signed = await provider.signMessage(message, "utf8");
       return signed.signature;
     },
+    async signAndSendTransaction(transaction, connection) {
+      if (provider.signAndSendTransaction && transaction instanceof Transaction) {
+        const sent = await provider.signAndSendTransaction(transaction);
+        return sent.signature;
+      }
+
+      if (!provider.signTransaction || !(transaction instanceof Transaction)) {
+        throw new Error("Wallet cannot sign token transfers.");
+      }
+
+      const signed = await provider.signTransaction(transaction);
+      const signature = await connection.sendRawTransaction(signed.serialize(), {
+        skipPreflight: false,
+      });
+      await connection.confirmTransaction(signature, "confirmed");
+      return signature;
+    },
   };
 }
 
@@ -185,6 +272,16 @@ function legacyProviderName(provider: LegacyProvider): string {
   if (provider.isSolflare) return "Solflare";
   if (provider.isBackpack) return "Backpack";
   return "Solana Wallet";
+}
+
+function serializeTransaction(transaction: SignableTransaction): Uint8Array {
+  if ("version" in transaction) {
+    return transaction.serialize();
+  }
+  return transaction.serialize({
+    requireAllSignatures: false,
+    verifySignatures: false,
+  });
 }
 
 function legacyProviderKey(provider: LegacyProvider): string {

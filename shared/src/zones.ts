@@ -67,7 +67,7 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
         tileY: 14,
         shopId: "pip_general",
         dialogue:
-          "Welcome to Pip's Provisions! Buy potions and gear, or sell training scrap you've looted.",
+          "Welcome to Pip's Provisions! Spend gold or pay with MetricBase tokens for gold and gear.",
       },
     ],
   },

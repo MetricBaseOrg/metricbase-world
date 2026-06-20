@@ -4,6 +4,7 @@ packages:
   - "shared"
 
 allowBuilds:
+  bigint-buffer: true
   bufferutil: true
   esbuild: true
   msgpackr-extract: true
