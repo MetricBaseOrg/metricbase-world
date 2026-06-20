@@ -1,10 +1,24 @@
 import { METRICBASE_TOKEN_MINT, MIN_TOKEN_UI_AMOUNT } from "@metricbase/shared";
-import { getAssociatedTokenAddressSync } from "@solana/spl-token";
 import { PublicKey } from "@solana/web3.js";
-import { withRpcFallback } from "./rpc.js";
+import { jsonRpcCall, withRpcFallback } from "./rpc.js";
+
+const ASSOCIATED_TOKEN_PROGRAM_ID = new PublicKey("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL");
+const TOKEN_PROGRAM_ID = new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+const TOKEN_2022_PROGRAM_ID = new PublicKey("TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb");
 
 function getTokenMint(): string {
   return process.env.TOKEN_MINT ?? METRICBASE_TOKEN_MINT;
+}
+
+function getAssociatedTokenAddress(
+  mint: PublicKey,
+  owner: PublicKey,
+  tokenProgramId: PublicKey,
+): PublicKey {
+  return PublicKey.findProgramAddressSync(
+    [owner.toBuffer(), tokenProgramId.toBuffer(), mint.toBuffer()],
+    ASSOCIATED_TOKEN_PROGRAM_ID,
+  )[0];
 }
 
 function isMissingTokenAccount(error: unknown): boolean {
@@ -18,21 +32,38 @@ function isMissingTokenAccount(error: unknown): boolean {
   );
 }
 
+async function readAtaBalance(
+  rpcUrl: string,
+  tokenAccount: PublicKey,
+): Promise<number | null> {
+  try {
+    const result = await jsonRpcCall<{
+      value: { uiAmount: number | null };
+    }>(rpcUrl, "getTokenAccountBalance", [tokenAccount.toBase58()], "Token balance lookup");
+
+    return result.value.uiAmount ?? 0;
+  } catch (error) {
+    if (isMissingTokenAccount(error)) {
+      return null;
+    }
+    throw error;
+  }
+}
+
 export async function getWalletTokenBalance(wallet: string): Promise<number> {
   const owner = new PublicKey(wallet);
   const mint = new PublicKey(getTokenMint());
-  const tokenAccount = getAssociatedTokenAddressSync(mint, owner);
 
-  return withRpcFallback(async (connection) => {
-    try {
-      const result = await connection.getTokenAccountBalance(tokenAccount);
-      return result.value.uiAmount ?? 0;
-    } catch (error) {
-      if (isMissingTokenAccount(error)) {
-        return 0;
+  return withRpcFallback(async (rpcUrl) => {
+    for (const programId of [TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID]) {
+      const tokenAccount = getAssociatedTokenAddress(mint, owner, programId);
+      const balance = await readAtaBalance(rpcUrl, tokenAccount);
+      if (balance !== null) {
+        return balance;
       }
-      throw error;
     }
+
+    return 0;
   }, "Token balance lookup");
 }
 
