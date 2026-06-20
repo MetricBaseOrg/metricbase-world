@@ -2,9 +2,8 @@ import Phaser from "phaser";
 import {
   ATTACK_RANGE,
   AVATAR_ACTION_DURATIONS_MS,
-  avatarFrameTextureKey,
-  appearanceTextureKey,
   CHOP_RANGE,
+  DEFAULT_CHARACTER_APPEARANCE,
   directionFromDelta,
   directionFromInput,
   directionTowardTarget,
@@ -284,7 +283,12 @@ export class GameScene extends Phaser.Scene {
     }
 
     if (this.renderedPlayers.size === 0 && networkManager.isConnected) {
-      this.syncPlayers(networkManager.getRemotePlayers());
+      const remotePlayers = networkManager.getRemotePlayers();
+      if (remotePlayers.length > 0) {
+        this.syncPlayers(remotePlayers);
+      } else {
+        this.ensureLocalPlayerPlaceholder();
+      }
     }
 
     this.bindCameraToLocalPlayer();
@@ -319,8 +323,36 @@ export class GameScene extends Phaser.Scene {
     if (!networkManager.isConnected) return;
 
     this.localSessionId = networkManager.sessionId;
-    this.syncPlayers(networkManager.getRemotePlayers());
+    const remotePlayers = networkManager.getRemotePlayers();
+    if (remotePlayers.length > 0) {
+      this.syncPlayers(remotePlayers);
+    } else {
+      this.ensureLocalPlayerPlaceholder();
+    }
     this.bindCameraToLocalPlayer();
+  }
+
+  private ensureLocalPlayerPlaceholder() {
+    const sessionId = networkManager.sessionId;
+    if (!sessionId || this.renderedPlayers.has(sessionId)) return;
+
+    const store = useGameStore.getState();
+    const zoneId = this.currentZoneId ?? networkManager.zoneId;
+    const config = getZoneConfig(zoneId);
+    const spawn = tileToWorld(config.spawnTile.x, config.spawnTile.y);
+
+    this.localSessionId = sessionId;
+    this.syncPlayers([
+      {
+        sessionId,
+        name: store.playerName,
+        x: spawn.x,
+        y: spawn.y,
+        level: store.playerLevel,
+        xp: store.playerXp,
+        appearance: store.characterAppearance ?? DEFAULT_CHARACTER_APPEARANCE,
+      },
+    ]);
   }
 
   private bindCameraToLocalPlayer() {
@@ -335,8 +367,8 @@ export class GameScene extends Phaser.Scene {
         }
       }
 
-      const x = local.sprite.x;
-      const y = local.sprite.y;
+      const x = local.predicted.x;
+      const y = local.predicted.y;
       cam.stopFollow();
       cam.centerOn(x, y);
       return;
@@ -939,16 +971,10 @@ export class GameScene extends Phaser.Scene {
         player.name === useGameStore.getState().playerName;
 
       if (!existing) {
-        const frameKey = avatarFrameTextureKey(
-          appearanceTextureKey(player.appearance),
-          "front",
-          "idle",
-          0,
-        );
-        const sprite = this.add.sprite(player.x, player.y, frameKey);
+        const sprite = this.add.sprite(player.x, player.y, "player");
         sprite.setOrigin(0.5, 0.93);
         sprite.setDepth(1000);
-        setAvatarPose(this, sprite, player.appearance, "front", "idle", 0);
+
         const label = this.add
           .text(player.x, player.y - 42, player.name, {
             fontFamily: '"Fredoka", "Nunito", sans-serif',
@@ -962,6 +988,14 @@ export class GameScene extends Phaser.Scene {
           })
           .setOrigin(0.5, 1)
           .setDepth(1001);
+
+        let lastTextureKey = "player";
+        try {
+          lastTextureKey = setAvatarPose(this, sprite, player.appearance, "front", "idle", 0);
+        } catch (error) {
+          console.warn("Failed to apply avatar pose, using fallback sprite.", error);
+          sprite.setTexture("player");
+        }
 
         this.renderedPlayers.set(player.sessionId, {
           sprite,
@@ -979,13 +1013,14 @@ export class GameScene extends Phaser.Scene {
           displayDirection: "front",
           displayAction: "idle",
           poseStartedAt: Date.now(),
-          lastTextureKey: frameKey,
+          lastTextureKey,
           remoteMoving: false,
           prevSpriteX: player.x,
           prevSpriteY: player.y,
         });
 
         if (isLocal) {
+          this.localSessionId = player.sessionId;
           this.bindCameraToLocalPlayer();
         }
       } else {

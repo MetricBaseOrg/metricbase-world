@@ -10,6 +10,8 @@ import {
 import Phaser from "phaser";
 import { renderAvatarPoseCanvas } from "./avatarPose";
 
+const FALLBACK_PLAYER_TEXTURE = "player";
+
 function ensureFrameTexture(
   scene: Phaser.Scene,
   appearance: CharacterAppearance,
@@ -23,10 +25,15 @@ function ensureFrameTexture(
     return key;
   }
 
-  const canvas = renderAvatarPoseCanvas(appearance, { direction, action, frame });
-  scene.textures.addBase64(key, canvas.toDataURL("image/png"));
-  scene.textures.get(key).setFilter(Phaser.Textures.FilterMode.NEAREST);
-  return key;
+  try {
+    const canvas = renderAvatarPoseCanvas(appearance, { direction, action, frame });
+    scene.textures.addBase64(key, canvas.toDataURL("image/png"));
+    scene.textures.get(key).setFilter(Phaser.Textures.FilterMode.NEAREST);
+    return key;
+  } catch (error) {
+    console.warn("Avatar texture generation failed, using fallback sprite.", error);
+    return FALLBACK_PLAYER_TEXTURE;
+  }
 }
 
 export function getAnimFrame(action: AvatarAction, elapsedMs: number): number {
@@ -49,11 +56,12 @@ export function setAvatarPose(
   if (sprite.anims.isPlaying) {
     sprite.anims.stop();
   }
-  if (sprite.texture.key !== textureKey) {
-    sprite.setTexture(textureKey);
+  const resolvedKey = scene.textures.exists(textureKey) ? textureKey : FALLBACK_PLAYER_TEXTURE;
+  if (sprite.texture.key !== resolvedKey) {
+    sprite.setTexture(resolvedKey);
     sprite.setOrigin(0.5, 0.93);
   }
-  return textureKey;
+  return resolvedKey;
 }
 
 export function preloadAvatarTextures(scene: Phaser.Scene, appearance: CharacterAppearance): void {

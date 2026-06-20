@@ -1,4 +1,4 @@
-import { Client, Room } from "colyseus.js";
+import { Client, getStateCallbacks, Room } from "colyseus.js";
 import {
   AttackResultPayload,
   ChopCancelPayload,
@@ -101,6 +101,7 @@ export class NetworkManager {
   private mobHealth = new Map<string, MobHealthPayload>();
   private resourceHealth = new Map<string, ResourceHealthPayload>();
   private lastPlayerSnapshot = "";
+  private playerCallbacksCleanup: (() => void) | null = null;
 
   get sessionId(): string | null {
     return this.room?.sessionId ?? null;
@@ -480,6 +481,7 @@ export class NetworkManager {
     this.mobHealth.clear();
     this.resourceHealth.clear();
     this.lastPlayerSnapshot = "";
+    this.bindPlayerStateCallbacks();
 
     this.room.onStateChange(() => this.emitPlayers());
     this.room.onMessage("chat", (message: ChatMessagePayload) => {
@@ -659,9 +661,30 @@ export class NetworkManager {
   }
 
   private async leaveCurrentRoom() {
+    this.playerCallbacksCleanup?.();
+    this.playerCallbacksCleanup = null;
     if (!this.room) return;
     await this.room.leave();
     this.room = null;
+  }
+
+  private bindPlayerStateCallbacks() {
+    if (!this.room) return;
+
+    this.playerCallbacksCleanup?.();
+
+    const $ = getStateCallbacks(this.room);
+    const unbindAdd = $(this.room.state).players.onAdd(() => {
+      this.emitPlayers(true);
+    }, true);
+    const unbindRemove = $(this.room.state).players.onRemove(() => {
+      this.emitPlayers(true);
+    });
+
+    this.playerCallbacksCleanup = () => {
+      unbindAdd();
+      unbindRemove();
+    };
   }
 
   private emitLocalProfile() {
@@ -709,40 +732,66 @@ export class NetworkManager {
     }
   }
 
+  private toRemotePlayer(sessionId: string, player: Player): RemotePlayer {
+    const id = sessionId || player.sessionId || this.sessionId || player.name;
+    return {
+      sessionId: id,
+      name: player.name,
+      x: player.x,
+      y: player.y,
+      level: player.level,
+      xp: player.xp ?? 0,
+      appearance: normalizeCharacterAppearance({
+        bodyColor: player.bodyColor,
+        hairColor: player.hairColor,
+        outfitColor: player.outfitColor,
+        hairStyle: player.hairStyle as CharacterAppearance["hairStyle"],
+        outfitStyle: player.outfitStyle as CharacterAppearance["outfitStyle"],
+      }),
+    };
+  }
+
   private getPlayers(): RemotePlayer[] {
     if (!this.room?.state?.players) return [];
 
     const map = this.room.state.players;
     const players: RemotePlayer[] = [];
+    const seen = new Set<string>();
 
-    const pushPlayer = (sessionId: string, player: Player) => {
-      const id = sessionId || player.sessionId;
-      if (!id) return;
-      players.push({
-        sessionId: id,
-        name: player.name,
-        x: player.x,
-        y: player.y,
-        level: player.level,
-        xp: player.xp ?? 0,
-        appearance: normalizeCharacterAppearance({
-          bodyColor: player.bodyColor,
-          hairColor: player.hairColor,
-          outfitColor: player.outfitColor,
-          hairStyle: player.hairStyle as CharacterAppearance["hairStyle"],
-          outfitStyle: player.outfitStyle as CharacterAppearance["outfitStyle"],
-        }),
-      });
+    const pushPlayer = (sessionId: string, player: Player | undefined) => {
+      if (!player) return;
+      const remote = this.toRemotePlayer(sessionId, player);
+      if (seen.has(remote.sessionId)) return;
+      seen.add(remote.sessionId);
+      players.push(remote);
     };
 
-    map.forEach((player: Player, sessionId: string) => {
-      pushPlayer(sessionId, player);
-    });
+    if (this.sessionId) {
+      pushPlayer(this.sessionId, map.get(this.sessionId));
+    }
+
+    try {
+      map.forEach((player: Player, sessionId: string) => {
+        pushPlayer(sessionId, player);
+      });
+    } catch {
+      // Some schema builds expose size without a working forEach.
+    }
+
+    if (players.length === 0) {
+      try {
+        for (const [sessionId, player] of map.entries()) {
+          pushPlayer(sessionId, player);
+        }
+      } catch {
+        // Fall through to $items lookup.
+      }
+    }
 
     if (players.length === 0 && map.size > 0) {
-      for (const sessionId of map.keys()) {
-        const player = map.get(sessionId);
-        if (player) {
+      const items = (map as { $items?: Map<string, Player> }).$items;
+      if (items) {
+        for (const [sessionId, player] of items) {
           pushPlayer(sessionId, player);
         }
       }
