@@ -1,4 +1,4 @@
-import { xpProgress } from "@metricbase/shared";
+import { getItemDefinition, xpProgress } from "@metricbase/shared";
 import { useState } from "react";
 import { isSoundEnabled, playSfx, setSoundEnabled } from "../audio/soundEffects";
 import { useGameStore } from "../store/gameStore";
@@ -107,12 +107,7 @@ export function HUD({ onLeave }: HUDProps) {
             </div>
             {equippedWeaponId && (
               <div className="chibi-text-muted" style={{ marginTop: 4 }}>
-                ⚔️{" "}
-                {equippedWeaponId === "item_rusty_blade"
-                  ? "Rusty Blade equipped"
-                  : equippedWeaponId === "item_gel_knife"
-                    ? "Gel-Edged Knife equipped"
-                    : "Weapon equipped"}
+                ⚔️ {getItemDefinition(equippedWeaponId).name} equipped
               </div>
             )}
           </div>

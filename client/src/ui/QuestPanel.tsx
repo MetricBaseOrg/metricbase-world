@@ -36,7 +36,7 @@ function QuestLogContent() {
             <div className="chibi-text-muted" style={{ marginTop: 4 }}>
               Reward: {quest.rewardXp} XP
               {quest.rewardGold ? ` · 🪙 ${quest.rewardGold} gold` : ""}
-              {quest.id === "quest_aria_commendation" ? " · ⚔️ Gel-Edged Knife" : ""}
+              {quest.rewardItemName ? ` · ⚔️ ${quest.rewardItemName}` : ""}
             </div>
           </div>
         ))

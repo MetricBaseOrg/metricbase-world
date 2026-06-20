@@ -1,4 +1,4 @@
-import { getItemQuantity, type InventoryEntry } from "./items.js";
+import { getItemDefinition, getItemQuantity, type InventoryEntry } from "./items.js";
 import { ZONE_GROTTO, ZONE_WILDERNESS } from "./zones.js";
 
 export const QUEST_GREET_ARIA = "quest_greet_aria";
@@ -52,6 +52,7 @@ export interface QuestView {
   objectives: Array<{ label: string; done: boolean; progress?: string }>;
   rewardXp: number;
   rewardGold?: number;
+  rewardItemName?: string;
 }
 
 export const EMPTY_QUEST_PROGRESS: QuestProgress = {
@@ -277,6 +278,9 @@ export function buildQuestViews(
       description: quest.description,
       rewardXp: quest.rewardXp,
       rewardGold: quest.rewardGold,
+      rewardItemName: quest.rewardItemId
+        ? getItemDefinition(quest.rewardItemId).name
+        : undefined,
       objectives: quest.objectives.map((objective, index) => ({
         label: objective.label,
         done: index < doneCount,
