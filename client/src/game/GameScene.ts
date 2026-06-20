@@ -196,9 +196,7 @@ export class GameScene extends Phaser.Scene {
       });
       if (payload.playerName === useGameStore.getState().playerName) {
         this.localChoppingUntil = 0;
-        const local = this.localSessionId
-          ? this.renderedPlayers.get(this.localSessionId)
-          : undefined;
+        const local = this.findLocalPlayer();
         if (local) {
           local.actionUntil = 0;
           local.displayAction = "idle";
@@ -286,10 +284,8 @@ export class GameScene extends Phaser.Scene {
     }
 
     if (networkManager.isConnected) {
-      this.purgeDuplicateLocalSprites();
-      if (!this.findLocalPlayer()) {
-        this.ensureLocalAvatar();
-      }
+      this.syncLocalPlayerFromNetwork();
+      this.sweepStrayAvatarSprites();
     }
 
     this.bindCameraToLocalPlayer();
@@ -369,51 +365,166 @@ export class GameScene extends Phaser.Scene {
     cam.setScroll(Math.round(worldX - halfW), Math.round(worldY - halfH));
   }
 
-  private ensureLocalAvatar() {
-    if (!networkManager.isConnected) return;
-
-    const playerName = useGameStore.getState().playerName;
-    if (this.findRenderedByName(playerName)) return;
-    if (this.findLocalPlayer()) return;
-
-    const sessionId = networkManager.sessionId;
-    if (sessionId && this.renderedPlayers.has(sessionId)) return;
-
+  private syncLocalPlayerFromNetwork() {
     const localFromState = networkManager.getLocalPlayerFromState();
     if (localFromState) {
-      this.localSessionId = localFromState.sessionId;
-      const players = networkManager.getRemotePlayers();
-      this.syncPlayers(players.length > 0 ? players : [localFromState]);
+      this.upsertLocalPlayer(localFromState);
       return;
     }
 
+    const sessionId = networkManager.sessionId;
+    const playerName = useGameStore.getState().playerName;
     const appearance = useGameStore.getState().characterAppearance;
-    if (!sessionId || !playerName || !appearance) return;
+    if (!sessionId || !playerName || !appearance || this.findLocalPlayer()) return;
 
     const zoneId = this.currentZoneId ?? networkManager.zoneId;
     const config = getZoneConfig(zoneId);
     const spawn = tileToWorld(config.spawnTile.x, config.spawnTile.y);
 
-    this.syncPlayers([
-      {
-        sessionId,
-        name: playerName,
-        x: spawn.x,
-        y: spawn.y,
-        level: useGameStore.getState().playerLevel,
-        xp: useGameStore.getState().playerXp,
-        appearance: normalizeCharacterAppearance(appearance),
-      },
-    ]);
+    this.upsertLocalPlayer({
+      sessionId,
+      name: playerName,
+      x: spawn.x,
+      y: spawn.y,
+      level: useGameStore.getState().playerLevel,
+      xp: useGameStore.getState().playerXp,
+      appearance: normalizeCharacterAppearance(appearance),
+    });
   }
 
-  private findRenderedByName(name: string): [string, RenderedPlayer] | null {
-    for (const [sessionId, rendered] of this.renderedPlayers.entries()) {
-      if (rendered.label.text === name) {
-        return [sessionId, rendered];
+  private upsertLocalPlayer(player: RemotePlayer) {
+    const sessionId = networkManager.sessionId ?? player.sessionId;
+    this.localSessionId = sessionId;
+
+    const existing = this.findLocalPlayer();
+    if (existing) {
+      const currentKey = this.findRenderedSessionId(existing);
+      if (currentKey && currentKey !== sessionId) {
+        this.adoptRenderedSessionId(currentKey, sessionId, existing);
       }
+
+      existing.lastTargetX = existing.targetX;
+      existing.lastTargetY = existing.targetY;
+      existing.targetX = player.x;
+      existing.targetY = player.y;
+      existing.appearance = player.appearance;
+      existing.label.setText(player.name);
+
+      const moving = this.lastSentInput.dx !== 0 || this.lastSentInput.dy !== 0;
+      existing.predicted = moving
+        ? reconcilePrediction(existing.predicted, { x: player.x, y: player.y })
+        : { x: player.x, y: player.y };
+      return;
+    }
+
+    this.destroyAllLocalPlayerEntries(sessionId);
+    const entry = this.createRenderedPlayerEntry(player, true);
+    this.renderedPlayers.set(sessionId, entry);
+  }
+
+  private findRenderedSessionId(rendered: RenderedPlayer): string | null {
+    for (const [sessionId, entry] of this.renderedPlayers.entries()) {
+      if (entry === rendered) return sessionId;
     }
     return null;
+  }
+
+  private destroyRenderedPlayer(sessionId: string, rendered: RenderedPlayer) {
+    rendered.sprite.destroy();
+    rendered.label.destroy();
+    this.renderedPlayers.delete(sessionId);
+  }
+
+  private destroyAllLocalPlayerEntries(keepSessionId: string) {
+    const playerName = useGameStore.getState().playerName;
+    for (const [sessionId, rendered] of [...this.renderedPlayers.entries()]) {
+      if (sessionId === keepSessionId) continue;
+      if (rendered.label.text === playerName || sessionId === networkManager.sessionId) {
+        this.destroyRenderedPlayer(sessionId, rendered);
+      }
+    }
+  }
+
+  private isPlayerAvatarSprite(sprite: Phaser.GameObjects.Sprite): boolean {
+    const key = sprite.texture.key;
+    return key === "player" || key.startsWith("player-v");
+  }
+
+  private sweepStrayAvatarSprites() {
+    const trackedSprites = new Set<Phaser.GameObjects.Sprite>();
+    const trackedLabels = new Set<Phaser.GameObjects.Text>();
+
+    for (const rendered of this.renderedPlayers.values()) {
+      if (!rendered.sprite.active) continue;
+      trackedSprites.add(rendered.sprite);
+      trackedLabels.add(rendered.label);
+    }
+
+    for (const child of this.children.list) {
+      if (
+        child instanceof Phaser.GameObjects.Sprite &&
+        child.depth === 1000 &&
+        !trackedSprites.has(child) &&
+        this.isPlayerAvatarSprite(child)
+      ) {
+        child.destroy();
+      }
+
+      if (child instanceof Phaser.GameObjects.Text && child.depth === 1001 && !trackedLabels.has(child)) {
+        child.destroy();
+      }
+    }
+  }
+
+  private createRenderedPlayerEntry(player: RemotePlayer, isLocal: boolean): RenderedPlayer {
+    const sprite = this.add.sprite(player.x, player.y, "player");
+    sprite.setOrigin(0.5, 0.93);
+    sprite.setDisplaySize(AVATAR_LOGICAL_WIDTH, AVATAR_LOGICAL_HEIGHT);
+    sprite.setDepth(1000);
+
+    const label = this.add
+      .text(player.x, player.y - 42, player.name, {
+        fontFamily: '"Fredoka", "Nunito", sans-serif',
+        fontSize: "12px",
+        fontStyle: "bold",
+        color: isLocal ? "#e6a800" : "#3d2b1f",
+        stroke: "#fff9f0",
+        strokeThickness: 4,
+        backgroundColor: isLocal ? "#fff3d6" : "#ffffff",
+        padding: { x: 6, y: 3 },
+      })
+      .setOrigin(0.5, 1)
+      .setDepth(1001);
+
+    let lastTextureKey = "player";
+    try {
+      lastTextureKey = setAvatarPose(this, sprite, player.appearance, "front", "idle", 0);
+    } catch (error) {
+      console.warn("Failed to apply avatar pose, using fallback sprite.", error);
+      sprite.setTexture("player");
+    }
+
+    return {
+      sprite,
+      label,
+      appearance: player.appearance,
+      direction: "front",
+      action: "idle",
+      actionUntil: 0,
+      actionDirection: "front",
+      targetX: player.x,
+      targetY: player.y,
+      lastTargetX: player.x,
+      lastTargetY: player.y,
+      predicted: { x: player.x, y: player.y },
+      displayDirection: "front",
+      displayAction: "idle",
+      poseStartedAt: Date.now(),
+      lastTextureKey,
+      remoteMoving: false,
+      prevSpriteX: player.x,
+      prevSpriteY: player.y,
+    };
   }
 
   private adoptRenderedSessionId(oldSessionId: string, newSessionId: string, rendered: RenderedPlayer) {
@@ -423,82 +534,6 @@ export class GameScene extends Phaser.Scene {
     if (this.localSessionId === oldSessionId) {
       this.localSessionId = newSessionId;
     }
-  }
-
-  private removeDuplicateLocalPlayers(keepSessionId: string, playerName: string) {
-    for (const [sessionId, rendered] of [...this.renderedPlayers.entries()]) {
-      if (sessionId === keepSessionId) continue;
-      if (!this.isLocalRenderedPlayer(sessionId, rendered, playerName)) continue;
-      rendered.sprite.destroy();
-      rendered.label.destroy();
-      this.renderedPlayers.delete(sessionId);
-    }
-  }
-
-  private pruneExtraLocalSprites(playerName: string, keepSessionId: string | null) {
-    if (!keepSessionId) return;
-
-    for (const [sessionId, rendered] of [...this.renderedPlayers.entries()]) {
-      if (sessionId === keepSessionId) continue;
-      if (!this.isLocalRenderedPlayer(sessionId, rendered, playerName)) continue;
-      rendered.sprite.destroy();
-      rendered.label.destroy();
-      this.renderedPlayers.delete(sessionId);
-    }
-  }
-
-  private isLocalRenderedPlayer(
-    sessionId: string,
-    rendered: RenderedPlayer,
-    playerName: string,
-  ): boolean {
-    return (
-      rendered.label.text === playerName ||
-      sessionId === networkManager.sessionId ||
-      sessionId === this.localSessionId
-    );
-  }
-
-  private purgeDuplicateLocalSprites() {
-    const playerName = useGameStore.getState().playerName;
-    const keepSessionId = networkManager.sessionId ?? this.localSessionId;
-    if (!keepSessionId) return;
-
-    for (const [sessionId, rendered] of [...this.renderedPlayers.entries()]) {
-      if (sessionId === keepSessionId) continue;
-      if (!this.isLocalRenderedPlayer(sessionId, rendered, playerName)) continue;
-      rendered.sprite.destroy();
-      rendered.label.destroy();
-      this.renderedPlayers.delete(sessionId);
-    }
-  }
-
-  private resolveRenderedPlayer(player: RemotePlayer): RenderedPlayer | undefined {
-    let existing = this.renderedPlayers.get(player.sessionId);
-    if (existing) return existing;
-
-    const localName = useGameStore.getState().playerName;
-    const isLocal =
-      player.sessionId === this.localSessionId ||
-      player.sessionId === networkManager.sessionId ||
-      player.name === localName;
-
-    if (isLocal) {
-      const byName = this.findRenderedByName(player.name);
-      if (byName) {
-        const [oldSessionId, rendered] = byName;
-        this.adoptRenderedSessionId(oldSessionId, player.sessionId, rendered);
-        return rendered;
-      }
-    }
-
-    if (networkManager.playerCount === 1 && this.renderedPlayers.size === 1) {
-      const [oldSessionId, rendered] = [...this.renderedPlayers.entries()][0];
-      this.adoptRenderedSessionId(oldSessionId, player.sessionId, rendered);
-      return rendered;
-    }
-
-    return undefined;
   }
 
   private renderZone(zoneId: string) {
@@ -762,9 +797,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private applyKnockedOutVisuals() {
-    if (!this.localSessionId) return;
-
-    const local = this.renderedPlayers.get(this.localSessionId);
+    const local = this.findLocalPlayer();
     if (!local) return;
 
     const knockedOut = useGameStore.getState().knockedOut;
@@ -783,7 +816,7 @@ export class GameScene extends Phaser.Scene {
   private showPlayerDamageNumber(damage: number) {
     if (!this.localSessionId || damage <= 0) return;
 
-    const local = this.renderedPlayers.get(this.localSessionId);
+    const local = this.findLocalPlayer();
     if (!local) return;
 
     const text = this.add
@@ -851,7 +884,7 @@ export class GameScene extends Phaser.Scene {
     if (!mobileInteract && !keyboardInteract) return;
     if (!this.localSessionId) return;
 
-    const local = this.renderedPlayers.get(this.localSessionId);
+    const local = this.findLocalPlayer();
     if (!local) return;
 
     let nearest: RenderedNpc | null = null;
@@ -878,7 +911,7 @@ export class GameScene extends Phaser.Scene {
     if (!mobileAttack && !keyboardAttack) return;
     if (!this.localSessionId) return;
 
-    const local = this.renderedPlayers.get(this.localSessionId);
+    const local = this.findLocalPlayer();
     if (!local) return;
 
     let nearest: RenderedNpc | null = null;
@@ -909,7 +942,7 @@ export class GameScene extends Phaser.Scene {
     if (!keyboardChop) return;
     if (!this.localSessionId) return;
 
-    const local = this.renderedPlayers.get(this.localSessionId);
+    const local = this.findLocalPlayer();
     if (!local) return;
 
     this.chopNearestTree(local);
@@ -942,7 +975,7 @@ export class GameScene extends Phaser.Scene {
     const keyboardFish = this.fishKey !== null && Phaser.Input.Keyboard.JustDown(this.fishKey);
     if (!keyboardFish || !this.localSessionId) return;
 
-    const local = this.renderedPlayers.get(this.localSessionId);
+    const local = this.findLocalPlayer();
     if (!local) return;
 
     this.setPlayerAction(local, "fish", local.direction, AVATAR_ACTION_DURATIONS_MS.fish);
@@ -988,9 +1021,10 @@ export class GameScene extends Phaser.Scene {
 
   private updatePlayerAnimations() {
     const now = Date.now();
+    const localPlayer = this.findLocalPlayer();
 
-    for (const [sessionId, rendered] of this.renderedPlayers) {
-      const isLocal = sessionId === this.localSessionId;
+    for (const [, rendered] of this.renderedPlayers) {
+      const isLocal = localPlayer !== null && rendered === localPlayer;
       let direction = rendered.direction;
       let action: AvatarAction = "idle";
 
@@ -1037,7 +1071,7 @@ export class GameScene extends Phaser.Scene {
         rendered.poseStartedAt = now;
       }
 
-      const frame = getAnimFrame(playAction, now - rendered.poseStartedAt);
+      const frame = playAction === "walk" ? 0 : getAnimFrame(playAction, now - rendered.poseStartedAt);
       const textureKey = getAvatarTextureKey(
         rendered.appearance,
         playDirection,
@@ -1087,111 +1121,56 @@ export class GameScene extends Phaser.Scene {
     }
 
     const localName = useGameStore.getState().playerName;
-    const canonicalSessionId = networkManager.sessionId;
-    this.purgeDuplicateLocalSprites();
-
     const seen = new Set<string>();
 
     for (const player of players) {
-      seen.add(player.sessionId);
       const isLocal =
         player.sessionId === this.localSessionId ||
         player.sessionId === networkManager.sessionId ||
         player.name === localName;
 
       if (isLocal) {
-        this.removeDuplicateLocalPlayers(player.sessionId, player.name);
+        this.upsertLocalPlayer(player);
+        seen.add(networkManager.sessionId ?? player.sessionId);
+        continue;
       }
 
-      let existing = this.resolveRenderedPlayer(player);
+      seen.add(player.sessionId);
+      let existing = this.renderedPlayers.get(player.sessionId);
 
       if (!existing) {
-        const sprite = this.add.sprite(player.x, player.y, "player");
-        sprite.setOrigin(0.5, 0.93);
-        sprite.setDisplaySize(AVATAR_LOGICAL_WIDTH, AVATAR_LOGICAL_HEIGHT);
-        sprite.setDepth(1000);
-
-        const label = this.add
-          .text(player.x, player.y - 42, player.name, {
-            fontFamily: '"Fredoka", "Nunito", sans-serif',
-            fontSize: "12px",
-            fontStyle: "bold",
-            color: isLocal ? "#e6a800" : "#3d2b1f",
-            stroke: "#fff9f0",
-            strokeThickness: 4,
-            backgroundColor: isLocal ? "#fff3d6" : "#ffffff",
-            padding: { x: 6, y: 3 },
-          })
-          .setOrigin(0.5, 1)
-          .setDepth(1001);
-
-        let lastTextureKey = "player";
-        try {
-          lastTextureKey = setAvatarPose(this, sprite, player.appearance, "front", "idle", 0);
-        } catch (error) {
-          console.warn("Failed to apply avatar pose, using fallback sprite.", error);
-          sprite.setTexture("player");
-        }
-
-        this.renderedPlayers.set(player.sessionId, {
-          sprite,
-          label,
-          appearance: player.appearance,
-          direction: "front",
-          action: "idle",
-          actionUntil: 0,
-          actionDirection: "front",
-          targetX: player.x,
-          targetY: player.y,
-          lastTargetX: player.x,
-          lastTargetY: player.y,
-          predicted: { x: player.x, y: player.y },
-          displayDirection: "front",
-          displayAction: "idle",
-          poseStartedAt: Date.now(),
-          lastTextureKey,
-          remoteMoving: false,
-          prevSpriteX: player.x,
-          prevSpriteY: player.y,
-        });
-
-        if (isLocal) {
-          this.localSessionId = player.sessionId;
-          this.bindCameraToLocalPlayer();
-        }
+        const entry = this.createRenderedPlayerEntry(player, false);
+        this.renderedPlayers.set(player.sessionId, entry);
       } else {
         existing.sprite.setDisplaySize(AVATAR_LOGICAL_WIDTH, AVATAR_LOGICAL_HEIGHT);
         existing.lastTargetX = existing.targetX;
         existing.lastTargetY = existing.targetY;
         existing.targetX = player.x;
         existing.targetY = player.y;
-
-        if (isLocal) {
-          const moving = this.lastSentInput.dx !== 0 || this.lastSentInput.dy !== 0;
-          existing.predicted = moving
-            ? reconcilePrediction(existing.predicted, { x: player.x, y: player.y })
-            : { x: player.x, y: player.y };
-        }
-
         existing.label.setText(player.name);
+      }
+    }
+
+    const localRendered = this.findLocalPlayer();
+    if (localRendered) {
+      const localKey = this.findRenderedSessionId(localRendered);
+      if (localKey) {
+        seen.add(localKey);
       }
     }
 
     for (const [sessionId, rendered] of this.renderedPlayers) {
       if (!seen.has(sessionId)) {
-        rendered.sprite.destroy();
-        rendered.label.destroy();
-        this.renderedPlayers.delete(sessionId);
+        this.destroyRenderedPlayer(sessionId, rendered);
       }
     }
 
-    this.pruneExtraLocalSprites(localName, canonicalSessionId);
+    this.sweepStrayAvatarSprites();
     this.bindCameraToLocalPlayer();
   }
 
   private applyLocalPrediction(dx: number, dy: number, delta: number) {
-    if (!this.localSessionId) return;
-    const local = this.renderedPlayers.get(this.localSessionId);
+    const local = this.findLocalPlayer();
     if (!local) return;
 
     if (dx !== 0 || dy !== 0) {
@@ -1206,9 +1185,10 @@ export class GameScene extends Phaser.Scene {
 
   private interpolateRemotePlayers() {
     const alpha = 0.25;
+    const localPlayer = this.findLocalPlayer();
 
-    for (const [sessionId, rendered] of this.renderedPlayers) {
-      if (sessionId === this.localSessionId) continue;
+    for (const [, rendered] of this.renderedPlayers) {
+      if (localPlayer !== null && rendered === localPlayer) continue;
 
       const x = Math.round(Phaser.Math.Linear(rendered.sprite.x, rendered.targetX, alpha));
       const y = Math.round(Phaser.Math.Linear(rendered.sprite.y, rendered.targetY, alpha));
