@@ -22,6 +22,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS characters_wallet_address_idx ON characters (w
 ALTER TABLE characters ADD COLUMN IF NOT EXISTS gold INTEGER NOT NULL DEFAULT 25;
 ALTER TABLE characters ADD COLUMN IF NOT EXISTS hp INTEGER;
 ALTER TABLE characters ADD COLUMN IF NOT EXISTS equipment JSONB NOT NULL DEFAULT '{"weaponId":null}'::jsonb;
+ALTER TABLE characters ADD COLUMN IF NOT EXISTS npc_interact_at JSONB NOT NULL DEFAULT '{}'::jsonb;
 
 CREATE TABLE IF NOT EXISTS token_purchases (
   signature VARCHAR(88) PRIMARY KEY,

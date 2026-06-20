@@ -1,6 +1,6 @@
 export const XP_PORTAL_TRAVEL = 25;
 export const XP_NPC_INTERACT = 10;
-export const NPC_INTERACT_COOLDOWN_MS = 30_000;
+export const NPC_INTERACT_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 export const NPC_INTERACT_RANGE = 80;
 
 /** Cumulative XP required to reach each level (index = level - 1). */

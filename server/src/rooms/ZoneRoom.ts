@@ -83,7 +83,7 @@ type JoinAuthData = JoinOptions & { wallet?: string };
 export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   private inputs = new Map<string, PendingInput>();
   private chatCooldowns = new Map<string, number>();
-  private npcCooldowns = new Map<string, number>();
+  private npcInteractAt = new Map<string, Record<string, number>>();
   private attackCooldowns = new Map<string, number>();
   private transferring = new Set<string>();
   private questProgress = new Map<string, QuestProgress>();
@@ -267,6 +267,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     );
     const maxHp = getPlayerMaxHp(player.level);
     this.playerHp.set(player.name, Math.min(saved?.hp ?? maxHp, maxHp));
+    this.npcInteractAt.set(player.name, saved?.npcInteractAt ?? {});
 
     this.sendProfile(client, player);
     this.sendQuestState(client, player.name);
@@ -307,13 +308,13 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       this.playerGold.delete(player.name);
       this.playerHp.delete(player.name);
       this.playerEquipment.delete(player.name);
+      this.npcInteractAt.delete(player.name);
       this.playerWallets.delete(client.sessionId);
     }
 
     this.state.players.delete(client.sessionId);
     this.inputs.delete(client.sessionId);
     this.chatCooldowns.delete(client.sessionId);
-    this.npcCooldowns.delete(client.sessionId);
     this.attackCooldowns.delete(client.sessionId);
     this.transferring.delete(client.sessionId);
   }
@@ -434,20 +435,20 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       });
     }
 
-    const cooldownKey = `${client.sessionId}:${npcId}`;
-    const lastInteract = this.npcCooldowns.get(cooldownKey) ?? 0;
-    if (Date.now() - lastInteract < NPC_INTERACT_COOLDOWN_MS) {
-      client.send("npcDialogue", { npcName: npc.name, dialogue: npc.dialogue });
-      void this.openShopForNpc(client, player, npc);
-      return;
-    }
+    const now = Date.now();
+    const interactAt = { ...(this.npcInteractAt.get(player.name) ?? {}) };
+    const lastInteract = interactAt[npcId] ?? 0;
+    const canEarnXp = now - lastInteract >= NPC_INTERACT_COOLDOWN_MS;
 
-    this.npcCooldowns.set(cooldownKey, Date.now());
     client.send("npcDialogue", { npcName: npc.name, dialogue: npc.dialogue });
-
     void this.openShopForNpc(client, player, npc);
 
-    this.grantXp(client, player, XP_NPC_INTERACT, `spoke with ${npc.name}`);
+    if (canEarnXp) {
+      interactAt[npcId] = now;
+      this.npcInteractAt.set(player.name, interactAt);
+      this.grantXp(client, player, XP_NPC_INTERACT, `spoke with ${npc.name}`);
+    }
+
     await this.checkTalkObjectives(client, player.name, npcId);
     await this.checkCollectObjectives(client, player.name);
     await this.persistPlayer(player);
@@ -1258,6 +1259,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       inventory: normalizeInventory(this.inventories.get(player.name)),
       hp: this.playerHp.get(player.name) ?? getPlayerMaxHp(player.level),
       equipment: normalizeEquipment(this.playerEquipment.get(player.name)),
+      npcInteractAt: this.npcInteractAt.get(player.name) ?? {},
     });
   }
 

@@ -22,6 +22,9 @@ await saveCharacter({
     outfitStyle: "robe",
   },
   inventory: [],
+  hp: 100,
+  equipment: { weaponId: null },
+  npcInteractAt: {},
 });
 
 const loaded = await loadCharacter("__healthcheck__");

@@ -28,6 +28,7 @@ export interface CharacterRecord {
   inventory: InventoryEntry[];
   hp: number;
   equipment: PlayerEquipment;
+  npcInteractAt: Record<string, number>;
 }
 
 type CharacterRow = {
@@ -44,6 +45,7 @@ type CharacterRow = {
   inventory: InventoryEntry[] | null;
   hp: number | null;
   equipment: PlayerEquipment | null;
+  npc_interact_at: Record<string, number> | null;
 };
 
 export async function loadCharacterByName(name: string): Promise<CharacterRecord | null> {
@@ -51,7 +53,7 @@ export async function loadCharacterByName(name: string): Promise<CharacterRecord
   if (!db) return null;
 
   const result = await db.query<CharacterRow>(
-    `SELECT name, wallet_address, zone_id, x, y, level, xp, gold, quest_progress, appearance, inventory, hp, equipment
+    `SELECT name, wallet_address, zone_id, x, y, level, xp, gold, quest_progress, appearance, inventory, hp, equipment, npc_interact_at
      FROM characters
      WHERE name = $1`,
     [name],
@@ -66,7 +68,7 @@ export async function loadCharacterByWallet(wallet: string): Promise<CharacterRe
   if (!db) return null;
 
   const result = await db.query<CharacterRow>(
-    `SELECT name, wallet_address, zone_id, x, y, level, xp, gold, quest_progress, appearance, inventory, hp, equipment
+    `SELECT name, wallet_address, zone_id, x, y, level, xp, gold, quest_progress, appearance, inventory, hp, equipment, npc_interact_at
      FROM characters
      WHERE wallet_address = $1`,
     [wallet],
@@ -86,8 +88,8 @@ export async function saveCharacter(record: CharacterRecord): Promise<void> {
   if (!db) return;
 
   await db.query(
-    `INSERT INTO characters (name, wallet_address, zone_id, x, y, level, xp, gold, quest_progress, appearance, inventory, hp, equipment, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10::jsonb, $11::jsonb, $12, $13::jsonb, NOW())
+    `INSERT INTO characters (name, wallet_address, zone_id, x, y, level, xp, gold, quest_progress, appearance, inventory, hp, equipment, npc_interact_at, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10::jsonb, $11::jsonb, $12, $13::jsonb, $14::jsonb, NOW())
      ON CONFLICT (name)
      DO UPDATE SET
        wallet_address = COALESCE(EXCLUDED.wallet_address, characters.wallet_address),
@@ -102,6 +104,7 @@ export async function saveCharacter(record: CharacterRecord): Promise<void> {
        inventory = EXCLUDED.inventory,
        hp = EXCLUDED.hp,
        equipment = EXCLUDED.equipment,
+       npc_interact_at = EXCLUDED.npc_interact_at,
        updated_at = NOW()`,
     [
       record.name,
@@ -117,6 +120,7 @@ export async function saveCharacter(record: CharacterRecord): Promise<void> {
       JSON.stringify(record.inventory),
       record.hp,
       JSON.stringify(record.equipment),
+      JSON.stringify(record.npcInteractAt),
     ],
   );
 }
@@ -180,6 +184,8 @@ export async function bindCharacterToWallet(
     equipment: normalizeEquipment(
       existingByWallet?.equipment ?? existingByName?.equipment ?? EMPTY_EQUIPMENT,
     ),
+    npcInteractAt:
+      existingByWallet?.npcInteractAt ?? existingByName?.npcInteractAt ?? {},
   };
 
   await saveCharacter(record);
@@ -237,7 +243,20 @@ function mapRow(row: CharacterRow): CharacterRecord {
     inventory: normalizeInventory(row.inventory ?? EMPTY_INVENTORY),
     hp: row.hp ?? getPlayerMaxHp(row.level),
     equipment: normalizeEquipment(row.equipment ?? EMPTY_EQUIPMENT),
+    npcInteractAt: normalizeNpcInteractAt(row.npc_interact_at),
   };
+}
+
+function normalizeNpcInteractAt(raw: Record<string, number> | null): Record<string, number> {
+  if (!raw || typeof raw !== "object") return {};
+
+  const result: Record<string, number> = {};
+  for (const [npcId, timestamp] of Object.entries(raw)) {
+    if (typeof npcId === "string" && typeof timestamp === "number" && Number.isFinite(timestamp)) {
+      result[npcId] = timestamp;
+    }
+  }
+  return result;
 }
 
 function normalizeQuestProgress(raw: QuestProgress | null): QuestProgress {

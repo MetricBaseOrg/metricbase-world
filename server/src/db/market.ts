@@ -160,12 +160,20 @@ export async function cancelMarketOrder(orderId: string, wallet: string): Promis
   const db = getPool();
   if (!db) return null;
 
-  const result = await db.query<MarketOrderRow>(
-    `UPDATE market_orders
+  const result = await db.query<MarketOrderRow & { refunded_escrow_gold: number }>(
+    `WITH target AS (
+       SELECT id, side, status, wallet, player_name, gold_amount, token_price, escrow_gold,
+              counterparty_wallet, pending_expires_at, created_at
+       FROM market_orders
+       WHERE id = $1 AND wallet = $2 AND status IN ('open', 'pending')
+     )
+     UPDATE market_orders AS o
      SET status = 'cancelled', escrow_gold = 0, updated_at = NOW()
-     WHERE id = $1 AND wallet = $2 AND status IN ('open', 'pending')
-     RETURNING id, side, status, wallet, player_name, gold_amount, token_price, escrow_gold,
-               counterparty_wallet, pending_expires_at, created_at`,
+     FROM target AS t
+     WHERE o.id = t.id
+     RETURNING o.id, o.side, o.status, o.wallet, o.player_name, o.gold_amount, o.token_price,
+               t.escrow_gold AS escrow_gold,
+               o.counterparty_wallet, o.pending_expires_at, o.created_at`,
     [orderId, wallet],
   );
 

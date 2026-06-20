@@ -136,12 +136,13 @@ export async function cancelPlayerMarketOrder(input: {
     return { result: { ok: false, error: "Order not found." }, playerGold: input.playerGold };
   }
 
+  const escrowRefund = order.escrowGold;
   const cancelled = await cancelMarketOrder(input.orderId, input.wallet);
   if (!cancelled) {
     return { result: { ok: false, error: "Could not cancel order." }, playerGold: input.playerGold };
   }
 
-  const playerGold = input.playerGold + cancelled.escrowGold;
+  const playerGold = input.playerGold + escrowRefund;
   const market = await buildMarketState(input.wallet);
   return { result: { ok: true, gold: playerGold, market }, playerGold };
 }
