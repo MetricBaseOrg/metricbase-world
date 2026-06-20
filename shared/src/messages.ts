@@ -41,8 +41,10 @@ export interface InteractPayload {
 export interface ProfilePayload {
   level: number;
   xp: number;
+  gold?: number;
 }
 
 export type { QuestStatePayload } from "./quests.js";
 export type { AttackResultPayload, MobHealthPayload } from "./combat.js";
 export type { InventoryStatePayload } from "./items.js";
+export type { ShopOpenPayload, ShopResultPayload } from "./shop.js";

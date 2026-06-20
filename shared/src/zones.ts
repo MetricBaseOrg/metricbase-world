@@ -24,6 +24,7 @@ export interface ZoneNpc {
   tileX: number;
   tileY: number;
   dialogue: string;
+  shopId?: string;
   combat?: NpcCombatConfig;
 }
 
@@ -64,7 +65,9 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
         name: "Pip",
         tileX: 16,
         tileY: 14,
-        dialogue: "Shops aren't open yet, but keep exploring. Every journey earns experience.",
+        shopId: "pip_general",
+        dialogue:
+          "Welcome to Pip's Provisions! Buy potions and gear, or sell training scrap you've looted.",
       },
     ],
   },

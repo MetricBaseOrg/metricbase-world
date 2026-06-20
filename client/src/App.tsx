@@ -10,6 +10,7 @@ import { LoginOverlay } from "./ui/LoginOverlay";
 import { InventoryHotkey } from "./ui/InventoryHotkey";
 import { InventoryPanel } from "./ui/InventoryPanel";
 import { QuestPanel } from "./ui/QuestPanel";
+import { ShopPanel } from "./ui/ShopPanel";
 
 export function App() {
   const [joined, setJoined] = useState(false);
@@ -26,6 +27,9 @@ export function App() {
     setQuestState,
     setInventory,
     setInventoryOpen,
+    setShop,
+    setShopOpen,
+    setPlayerGold,
   } = useGameStore();
 
   useEffect(() => {
@@ -47,7 +51,7 @@ export function App() {
     });
 
     const unsubscribeProfile = networkManager.onProfile((profile) => {
-      setProfile(profile.level, profile.xp);
+      setProfile(profile.level, profile.xp, profile.gold);
     });
 
     const unsubscribeQuestState = networkManager.onQuestState((state) => {
@@ -67,6 +71,14 @@ export function App() {
 
     const unsubscribeInventory = networkManager.onInventoryState((state) => {
       setInventory(state);
+    });
+
+    const unsubscribeShopOpen = networkManager.onShopOpen((payload) => {
+      setShop(payload);
+      setShopOpen(true);
+      if (payload.gold !== undefined) {
+        setPlayerGold(payload.gold);
+      }
     });
 
     const unsubscribeNpcDialogue = networkManager.onNpcDialogue((npcName, dialogue) => {
@@ -89,6 +101,7 @@ export function App() {
       unsubscribeQuestState();
       unsubscribeTransfer();
       unsubscribeInventory();
+      unsubscribeShopOpen();
       unsubscribeNpcDialogue();
       void networkManager.disconnect();
     };
@@ -97,7 +110,10 @@ export function App() {
     clearChat,
     setConnected,
     setInventory,
+    setPlayerGold,
     setPlayerCount,
+    setShop,
+    setShopOpen,
     setProfile,
     setQuestState,
     setZoneName,
@@ -129,6 +145,9 @@ export function App() {
     setQuestState({ active: [], completed: [] });
     setInventory({ items: [], capacity: 16 });
     setInventoryOpen(false);
+    setShop(null);
+    setShopOpen(false);
+    setPlayerGold(0);
     setJoined(false);
   };
 
@@ -139,6 +158,7 @@ export function App() {
       {joined && <QuestPanel />}
       {joined && <InventoryPanel />}
       {joined && <InventoryHotkey />}
+      {joined && <ShopPanel />}
       {joined && <ChatPanel />}
       {!joined && <LoginOverlay onJoin={handleJoin} />}
     </div>

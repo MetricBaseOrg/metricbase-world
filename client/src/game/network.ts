@@ -10,6 +10,8 @@ import {
   normalizeCharacterAppearance,
   ProfilePayload,
   QuestStatePayload,
+  ShopOpenPayload,
+  ShopResultPayload,
   ZONE_HUB,
   ZoneState,
   ZoneTransferPayload,
@@ -39,6 +41,8 @@ type QuestStateListener = (state: QuestStatePayload) => void;
 type MobHealthListener = (payload: MobHealthPayload) => void;
 type AttackResultListener = (payload: AttackResultPayload) => void;
 type InventoryListener = (state: InventoryStatePayload) => void;
+type ShopOpenListener = (payload: ShopOpenPayload) => void;
+type ShopResultListener = (payload: ShopResultPayload) => void;
 
 export class NetworkManager {
   private client: Client | null = null;
@@ -58,6 +62,8 @@ export class NetworkManager {
   private mobHealthListeners = new Set<MobHealthListener>();
   private attackResultListeners = new Set<AttackResultListener>();
   private inventoryListeners = new Set<InventoryListener>();
+  private shopOpenListeners = new Set<ShopOpenListener>();
+  private shopResultListeners = new Set<ShopResultListener>();
   private latestQuestState: QuestStatePayload = { active: [], completed: [] };
   private latestInventory: InventoryStatePayload = { items: [], capacity: 16 };
   private isTransferring = false;
@@ -157,6 +163,14 @@ export class NetworkManager {
     this.room?.send("attack", { npcId });
   }
 
+  sendShopBuy(shopId: string, itemId: string) {
+    this.room?.send("shopBuy", { shopId, itemId });
+  }
+
+  sendShopSell(shopId: string, itemId: string, quantity = 1) {
+    this.room?.send("shopSell", { shopId, itemId, quantity });
+  }
+
   getMobHealth(npcId: string): MobHealthPayload | undefined {
     return this.mobHealth.get(npcId);
   }
@@ -242,6 +256,16 @@ export class NetworkManager {
     return () => this.inventoryListeners.delete(listener);
   }
 
+  onShopOpen(listener: ShopOpenListener) {
+    this.shopOpenListeners.add(listener);
+    return () => this.shopOpenListeners.delete(listener);
+  }
+
+  onShopResult(listener: ShopResultListener) {
+    this.shopResultListeners.add(listener);
+    return () => this.shopResultListeners.delete(listener);
+  }
+
   private async joinZone(zoneId: string) {
     if (!this.client) {
       this.client = new Client(getWebSocketUrl());
@@ -301,6 +325,22 @@ export class NetworkManager {
     this.room.onMessage("inventory", (payload: InventoryStatePayload) => {
       this.latestInventory = payload;
       for (const listener of this.inventoryListeners) {
+        listener(payload);
+      }
+    });
+    this.room.onMessage("shopOpen", (payload: ShopOpenPayload) => {
+      for (const listener of this.shopOpenListeners) {
+        listener(payload);
+      }
+    });
+    this.room.onMessage("shopResult", (payload: ShopResultPayload) => {
+      if (payload.inventory) {
+        this.latestInventory = payload.inventory;
+        for (const listener of this.inventoryListeners) {
+          listener(payload.inventory);
+        }
+      }
+      for (const listener of this.shopResultListeners) {
         listener(payload);
       }
     });

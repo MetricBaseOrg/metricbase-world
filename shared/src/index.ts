@@ -40,6 +40,7 @@ export * from "./combat.js";
 export * from "./tokenGate.js";
 export * from "./character.js";
 export * from "./items.js";
+export * from "./shop.js";
 export * from "./schema/PlayerSchema.js";
 export * from "./schema/ZoneState.js";
 

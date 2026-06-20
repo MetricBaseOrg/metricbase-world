@@ -12,8 +12,13 @@ import {
   getQuestsOfferedByNpc,
   addItemToInventory,
   buildInventoryPayload,
+  buildShopOpenPayload,
   getItemDefinition,
+  getShopByNpcId,
+  getShopDefinition,
   getZoneConfig,
+  removeItemFromInventory,
+  STARTING_GOLD,
   JoinOptions,
   normalizeCharacterAppearance,
   normalizeInventory,
@@ -70,6 +75,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   private mobHp = new Map<string, number>();
   private mobRespawnAt = new Map<string, number>();
   private inventories = new Map<string, InventoryEntry[]>();
+  private playerGold = new Map<string, number>();
   private playerWallets = new Map<string, string>();
   private zoneConfig!: ZoneConfig;
 
@@ -103,6 +109,19 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
     this.onMessage("attack", (client, message: { npcId?: string }) => {
       void this.handleAttack(client, message.npcId ?? "");
+    });
+
+    this.onMessage("shopBuy", (client, message: { shopId?: string; itemId?: string }) => {
+      void this.handleShopBuy(client, message.shopId ?? "", message.itemId ?? "");
+    });
+
+    this.onMessage("shopSell", (client, message: { shopId?: string; itemId?: string; quantity?: number }) => {
+      void this.handleShopSell(
+        client,
+        message.shopId ?? "",
+        message.itemId ?? "",
+        message.quantity ?? 1,
+      );
     });
   }
 
@@ -183,8 +202,9 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     this.inputs.set(client.sessionId, { dx: 0, dy: 0 });
     this.questProgress.set(player.name, saved?.questProgress ?? { active: [], objectiveIndex: {}, completed: [] });
     this.inventories.set(player.name, normalizeInventory(saved?.inventory));
+    this.playerGold.set(player.name, saved?.gold ?? STARTING_GOLD);
 
-    client.send("profile", { level: player.level, xp: player.xp });
+    this.sendProfile(client, player);
     this.sendQuestState(client, player.name);
     this.sendInventory(client, player.name);
     this.sendMobHealth(client);
@@ -351,11 +371,15 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     const lastInteract = this.npcCooldowns.get(cooldownKey) ?? 0;
     if (Date.now() - lastInteract < NPC_INTERACT_COOLDOWN_MS) {
       client.send("npcDialogue", { npcName: npc.name, dialogue: npc.dialogue });
+      this.openShopForNpc(client, player, npc);
       return;
     }
 
     this.npcCooldowns.set(cooldownKey, Date.now());
     client.send("npcDialogue", { npcName: npc.name, dialogue: npc.dialogue });
+
+    this.openShopForNpc(client, player, npc);
+
     this.grantXp(client, player, XP_NPC_INTERACT, `spoke with ${npc.name}`);
     await this.checkTalkObjectives(client, player.name, npcId);
     await this.persistPlayer(player);
@@ -387,6 +411,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     if (defeated) {
       this.mobRespawnAt.set(npcId, now + npc.combat.respawnMs);
       this.grantXp(client, player, npc.combat.rewardXp, `defeated ${npc.name}`);
+      this.grantGold(client, player, 5, `defeated ${npc.name}`);
       this.grantLoot(client, player.name, "item_training_scrap", 1);
       await this.persistPlayer(player);
     }
@@ -459,6 +484,9 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     progress = completeQuest(progress, questId);
     this.questProgress.set(playerName, progress);
     this.grantXp(client, player, quest.rewardXp, `completed ${quest.title}`);
+    if (quest.rewardGold) {
+      this.grantGold(client, player, quest.rewardGold, `completed ${quest.title}`);
+    }
 
     this.broadcastChat({
       id: crypto.randomUUID(),
@@ -497,7 +525,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     player.xp += amount;
     player.level = levelFromXp(player.xp);
 
-    client.send("profile", { level: player.level, xp: player.xp });
+    this.sendProfile(client, player);
 
     this.broadcastChat({
       id: crypto.randomUUID(),
@@ -524,6 +552,159 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     return (
       this.questProgress.get(playerName) ?? { active: [], objectiveIndex: {}, completed: [] }
     );
+  }
+
+  private openShopForNpc(
+    client: Client,
+    player: InstanceType<typeof PlayerSchema>,
+    npc: ZoneConfig["npcs"][number],
+  ) {
+    const shop = npc.shopId ? getShopByNpcId(npc.id) : null;
+    if (!shop) return;
+
+    const inventory = this.inventories.get(player.name) ?? [];
+    const gold = this.playerGold.get(player.name) ?? STARTING_GOLD;
+    client.send("shopOpen", buildShopOpenPayload(shop, npc.name, npc.dialogue, gold, inventory));
+  }
+
+  private sendProfile(client: Client, player: InstanceType<typeof PlayerSchema>) {
+    client.send("profile", {
+      level: player.level,
+      xp: player.xp,
+      gold: this.playerGold.get(player.name) ?? STARTING_GOLD,
+    });
+  }
+
+  private grantGold(
+    client: Client,
+    player: InstanceType<typeof PlayerSchema>,
+    amount: number,
+    reason: string,
+  ) {
+    if (amount <= 0) return;
+
+    const next = (this.playerGold.get(player.name) ?? STARTING_GOLD) + amount;
+    this.playerGold.set(player.name, next);
+    this.sendProfile(client, player);
+
+    this.broadcastChat({
+      id: crypto.randomUUID(),
+      channel: "system",
+      senderId: "system",
+      senderName: "System",
+      body: `${player.name} earned ${amount} gold (${reason}).`,
+      sentAt: Date.now(),
+    });
+  }
+
+  private async handleShopBuy(client: Client, shopId: string, itemId: string) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !shopId || !itemId) return;
+
+    let shop;
+    try {
+      shop = getShopDefinition(shopId);
+    } catch {
+      client.send("shopResult", { ok: false, error: "Unknown shop." });
+      return;
+    }
+
+    const offer = shop.buyOffers.find((entry) => entry.itemId === itemId);
+    if (!offer) {
+      client.send("shopResult", { ok: false, error: "Item not for sale." });
+      return;
+    }
+
+    const gold = this.playerGold.get(player.name) ?? STARTING_GOLD;
+    if (gold < offer.price) {
+      client.send("shopResult", { ok: false, error: "Not enough gold." });
+      return;
+    }
+
+    const current = this.inventories.get(player.name) ?? [];
+    const { inventory, added } = addItemToInventory(current, itemId, 1);
+    if (added <= 0) {
+      client.send("shopResult", { ok: false, error: "Inventory full." });
+      return;
+    }
+
+    this.playerGold.set(player.name, gold - offer.price);
+    this.inventories.set(player.name, inventory);
+    this.sendProfile(client, player);
+    this.sendInventory(client, player.name);
+
+    const item = getItemDefinition(itemId);
+    this.broadcastChat({
+      id: crypto.randomUUID(),
+      channel: "system",
+      senderId: "system",
+      senderName: "Shop",
+      body: `${player.name} bought ${item.name} for ${offer.price} gold.`,
+      sentAt: Date.now(),
+    });
+
+    client.send("shopResult", {
+      ok: true,
+      gold: this.playerGold.get(player.name),
+      inventory: buildInventoryPayload(inventory),
+    });
+    await this.persistPlayer(player);
+  }
+
+  private async handleShopSell(
+    client: Client,
+    shopId: string,
+    itemId: string,
+    quantity: number,
+  ) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !shopId || !itemId) return;
+
+    let shop;
+    try {
+      shop = getShopDefinition(shopId);
+    } catch {
+      client.send("shopResult", { ok: false, error: "Unknown shop." });
+      return;
+    }
+
+    const unitPrice = shop.sellPrices[itemId];
+    if (!unitPrice) {
+      client.send("shopResult", { ok: false, error: "Merchant won't buy that item." });
+      return;
+    }
+
+    const sellQuantity = Math.max(1, Math.floor(quantity));
+    const current = this.inventories.get(player.name) ?? [];
+    const { inventory, removed } = removeItemFromInventory(current, itemId, sellQuantity);
+    if (removed <= 0) {
+      client.send("shopResult", { ok: false, error: "You don't have that item." });
+      return;
+    }
+
+    const payout = unitPrice * removed;
+    const gold = (this.playerGold.get(player.name) ?? STARTING_GOLD) + payout;
+    this.playerGold.set(player.name, gold);
+    this.inventories.set(player.name, inventory);
+    this.sendProfile(client, player);
+    this.sendInventory(client, player.name);
+
+    const item = getItemDefinition(itemId);
+    this.broadcastChat({
+      id: crypto.randomUUID(),
+      channel: "system",
+      senderId: "system",
+      senderName: "Shop",
+      body: `${player.name} sold ${removed}x ${item.name} for ${payout} gold.`,
+      sentAt: Date.now(),
+    });
+
+    client.send("shopResult", {
+      ok: true,
+      gold,
+      inventory: buildInventoryPayload(inventory),
+    });
+    await this.persistPlayer(player);
   }
 
   private sendInventory(client: Client, playerName: string) {
@@ -595,6 +776,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       y,
       level: player.level,
       xp: player.xp,
+      gold: this.playerGold.get(player.name) ?? STARTING_GOLD,
       questProgress: this.getQuestProgress(player.name),
       appearance: {
         bodyColor: player.bodyColor,

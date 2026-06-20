@@ -17,6 +17,7 @@ export interface QuestDefinition {
   description: string;
   objectives: QuestObjective[];
   rewardXp: number;
+  rewardGold?: number;
   startNpcId?: string;
   requiresCompleted?: string[];
 }
@@ -53,6 +54,7 @@ export const QUESTS: Record<string, QuestDefinition> = {
     description: "Aria can point you toward your first adventure.",
     objectives: [{ type: "talk_npc", target: "hub_guide", label: "Talk to Aria" }],
     rewardXp: 20,
+    rewardGold: 10,
     startNpcId: "hub_guide",
   },
   [QUEST_EXPLORE_WILDERNESS]: {
@@ -61,6 +63,7 @@ export const QUESTS: Record<string, QuestDefinition> = {
     description: "Step through the portal and explore the outer zone.",
     objectives: [{ type: "visit_zone", target: ZONE_WILDERNESS, label: "Enter the Wilderness" }],
     rewardXp: 50,
+    rewardGold: 25,
     startNpcId: "hub_guide",
     requiresCompleted: [QUEST_GREET_ARIA],
   },

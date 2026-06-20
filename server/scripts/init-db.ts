@@ -12,6 +12,7 @@ await saveCharacter({
   y: 0,
   level: 1,
   xp: 0,
+  gold: 25,
   questProgress: { active: [], objectiveIndex: {}, completed: [] },
   appearance: {
     bodyColor: 0xffc857,

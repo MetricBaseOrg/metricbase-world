@@ -77,6 +77,36 @@ export function normalizeInventory(raw: InventoryEntry[] | null | undefined): In
   return items.slice(0, INVENTORY_CAPACITY);
 }
 
+export function getItemQuantity(inventory: InventoryEntry[], itemId: string): number {
+  return normalizeInventory(inventory).find((entry) => entry.itemId === itemId)?.quantity ?? 0;
+}
+
+export function removeItemFromInventory(
+  inventory: InventoryEntry[],
+  itemId: string,
+  quantity = 1,
+): { inventory: InventoryEntry[]; removed: number } {
+  const definition = ITEMS[itemId];
+  if (!definition || quantity <= 0) {
+    return { inventory: normalizeInventory(inventory), removed: 0 };
+  }
+
+  const next = normalizeInventory(inventory);
+  const index = next.findIndex((entry) => entry.itemId === itemId);
+  if (index < 0) {
+    return { inventory: next, removed: 0 };
+  }
+
+  const entry = next[index];
+  const removed = Math.min(quantity, entry.quantity);
+  entry.quantity -= removed;
+  if (entry.quantity <= 0) {
+    next.splice(index, 1);
+  }
+
+  return { inventory: next, removed };
+}
+
 export function addItemToInventory(
   inventory: InventoryEntry[],
   itemId: string,

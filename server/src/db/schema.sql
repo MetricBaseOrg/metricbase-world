@@ -19,3 +19,4 @@ ALTER TABLE characters ADD COLUMN IF NOT EXISTS appearance JSONB NOT NULL DEFAUL
 ALTER TABLE characters ADD COLUMN IF NOT EXISTS inventory JSONB NOT NULL DEFAULT '[]'::jsonb;
 ALTER TABLE characters ADD COLUMN IF NOT EXISTS wallet_address VARCHAR(44);
 CREATE UNIQUE INDEX IF NOT EXISTS characters_wallet_address_idx ON characters (wallet_address) WHERE wallet_address IS NOT NULL;
+ALTER TABLE characters ADD COLUMN IF NOT EXISTS gold INTEGER NOT NULL DEFAULT 25;

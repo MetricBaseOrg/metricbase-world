@@ -11,6 +11,9 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Merchant shop (Pip)** — Press **E** near Pip in the Hub to open his shop. Buy health potions and a rusty blade with gold; sell training scrap looted from the Wilderness dummy. Gold persists in Postgres and shows in the HUD.
+- **Soft currency (gold)** — New players start with 25 gold. Earn more from quests, combat, and selling items.
+
 - **Starter quests** — "Meet the Guide" and "Into the Wilderness" with quest log UI, persisted in Postgres (`quest_progress` JSONB). Talk to Aria to begin; complete objectives for XP rewards.
 - **Training dummy combat** — Attack the Wilderness training dummy with **Space**. Server-authoritative damage, HP bars, respawn timer, and XP on defeat.
 

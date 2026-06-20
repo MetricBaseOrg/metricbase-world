@@ -1,6 +1,7 @@
 import {
   EMPTY_INVENTORY,
   EMPTY_QUEST_PROGRESS,
+  STARTING_GOLD,
   normalizeCharacterAppearance,
   normalizeInventory,
   type CharacterAppearance,
@@ -17,6 +18,7 @@ export interface CharacterRecord {
   y: number;
   level: number;
   xp: number;
+  gold: number;
   questProgress: QuestProgress;
   appearance: CharacterAppearance;
   inventory: InventoryEntry[];
@@ -30,6 +32,7 @@ type CharacterRow = {
   y: number;
   level: number;
   xp: number;
+  gold: number | null;
   quest_progress: QuestProgress | null;
   appearance: CharacterAppearance | null;
   inventory: InventoryEntry[] | null;
@@ -40,7 +43,7 @@ export async function loadCharacterByName(name: string): Promise<CharacterRecord
   if (!db) return null;
 
   const result = await db.query<CharacterRow>(
-    `SELECT name, wallet_address, zone_id, x, y, level, xp, quest_progress, appearance, inventory
+    `SELECT name, wallet_address, zone_id, x, y, level, xp, gold, quest_progress, appearance, inventory
      FROM characters
      WHERE name = $1`,
     [name],
@@ -55,7 +58,7 @@ export async function loadCharacterByWallet(wallet: string): Promise<CharacterRe
   if (!db) return null;
 
   const result = await db.query<CharacterRow>(
-    `SELECT name, wallet_address, zone_id, x, y, level, xp, quest_progress, appearance, inventory
+    `SELECT name, wallet_address, zone_id, x, y, level, xp, gold, quest_progress, appearance, inventory
      FROM characters
      WHERE wallet_address = $1`,
     [wallet],
@@ -75,8 +78,8 @@ export async function saveCharacter(record: CharacterRecord): Promise<void> {
   if (!db) return;
 
   await db.query(
-    `INSERT INTO characters (name, wallet_address, zone_id, x, y, level, xp, quest_progress, appearance, inventory, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9::jsonb, $10::jsonb, NOW())
+    `INSERT INTO characters (name, wallet_address, zone_id, x, y, level, xp, gold, quest_progress, appearance, inventory, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10::jsonb, $11::jsonb, NOW())
      ON CONFLICT (name)
      DO UPDATE SET
        wallet_address = COALESCE(EXCLUDED.wallet_address, characters.wallet_address),
@@ -85,6 +88,7 @@ export async function saveCharacter(record: CharacterRecord): Promise<void> {
        y = EXCLUDED.y,
        level = EXCLUDED.level,
        xp = EXCLUDED.xp,
+       gold = EXCLUDED.gold,
        quest_progress = EXCLUDED.quest_progress,
        appearance = EXCLUDED.appearance,
        inventory = EXCLUDED.inventory,
@@ -97,6 +101,7 @@ export async function saveCharacter(record: CharacterRecord): Promise<void> {
       record.y,
       record.level,
       record.xp,
+      record.gold,
       JSON.stringify(record.questProgress),
       JSON.stringify(record.appearance),
       JSON.stringify(record.inventory),
@@ -149,6 +154,7 @@ export async function bindCharacterToWallet(
     y: existingByWallet?.y ?? existingByName?.y ?? 0,
     level: existingByWallet?.level ?? existingByName?.level ?? 1,
     xp: existingByWallet?.xp ?? existingByName?.xp ?? 0,
+    gold: existingByWallet?.gold ?? existingByName?.gold ?? STARTING_GOLD,
     questProgress:
       existingByWallet?.questProgress ??
       existingByName?.questProgress ??
@@ -206,6 +212,7 @@ function mapRow(row: CharacterRow): CharacterRecord {
     y: row.y,
     level: row.level,
     xp: row.xp,
+    gold: row.gold ?? STARTING_GOLD,
     questProgress: normalizeQuestProgress(row.quest_progress),
     appearance: normalizeCharacterAppearance(row.appearance),
     inventory: normalizeInventory(row.inventory ?? EMPTY_INVENTORY),

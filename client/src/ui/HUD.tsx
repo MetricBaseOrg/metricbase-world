@@ -7,8 +7,16 @@ interface HUDProps {
 }
 
 export function HUD({ onLeave }: HUDProps) {
-  const { playerName, playerLevel, playerXp, walletAddress, connected, playerCount, zoneName } =
-    useGameStore();
+  const {
+    playerName,
+    playerLevel,
+    playerXp,
+    playerGold,
+    walletAddress,
+    connected,
+    playerCount,
+    zoneName,
+  } = useGameStore();
   const progress = xpProgress(playerXp, playerLevel);
   const percent = Math.min(100, Math.round((progress.current / progress.required) * 100));
 
@@ -31,7 +39,7 @@ export function HUD({ onLeave }: HUDProps) {
       <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 6 }}>MetricBase World</div>
       <div style={{ fontSize: 13, opacity: 0.85 }}>Zone: {zoneName}</div>
       <div style={{ fontSize: 13, opacity: 0.85, marginTop: 4 }}>
-        {playerName} · Lv {playerLevel}
+        {playerName} · Lv {playerLevel} · {playerGold} gold
       </div>
       {walletAddress && (
         <div style={{ fontSize: 12, opacity: 0.65, marginTop: 4 }}>
@@ -65,7 +73,7 @@ export function HUD({ onLeave }: HUDProps) {
       </div>
       <div style={{ fontSize: 13, opacity: 0.85, marginTop: 4 }}>Online: {playerCount}</div>
       <div style={{ fontSize: 12, opacity: 0.6, marginTop: 10 }}>
-        WASD move · E talk · Space attack · I inventory · Purple tiles = portals
+        WASD move · E talk/shop · Space attack · I inventory · Purple tiles = portals
       </div>
       <button
         type="button"
