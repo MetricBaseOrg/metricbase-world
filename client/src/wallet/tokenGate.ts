@@ -28,6 +28,7 @@ export function clearStoredAccessToken(): void {
 const WALLET_CONNECT_TIMEOUT_MS = 90_000;
 const WALLET_SIGN_TIMEOUT_MS = 90_000;
 const API_TIMEOUT_MS = 25_000;
+const VERIFY_TIMEOUT_MS = 45_000;
 
 export async function fetchTokenGateInfo(): Promise<TokenGateInfoResponse> {
   const response = await fetchWithTimeout(
@@ -89,7 +90,7 @@ export async function connectAndVerifyWallet(
         message: challenge.message,
       }),
     },
-    API_TIMEOUT_MS,
+    VERIFY_TIMEOUT_MS,
   );
 
   const body = (await verifyResponse.json()) as AuthVerifyResponse & {

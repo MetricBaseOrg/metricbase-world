@@ -7,7 +7,7 @@ import { Router } from "express";
 import { createAccessToken, verifyAccessToken } from "../auth/accessToken.js";
 import { consumeChallenge, createChallenge } from "../auth/challenges.js";
 import { getTokenGateInfo, isTokenGateEnabled } from "../auth/tokenGate.js";
-import { getWalletTokenBalance, walletMeetsTokenGate } from "../solana/tokenBalance.js";
+import { getWalletTokenBalance } from "../solana/tokenBalance.js";
 import { verifyWalletSignature } from "../solana/verifySignature.js";
 
 export const authRouter = Router();
@@ -65,10 +65,9 @@ authRouter.post("/auth/verify", async (req, res) => {
   }
 
   try {
-    const meetsGate = await walletMeetsTokenGate(wallet);
-    if (!meetsGate) {
-      const balance = await getWalletTokenBalance(wallet);
-      const minUiAmount = Number(process.env.MIN_TOKEN_UI_AMOUNT ?? MIN_TOKEN_UI_AMOUNT);
+    const balance = await getWalletTokenBalance(wallet);
+    const minUiAmount = Number(process.env.MIN_TOKEN_UI_AMOUNT ?? MIN_TOKEN_UI_AMOUNT);
+    if (balance < minUiAmount) {
       res.status(403).json({
         error: "Insufficient token balance",
         mint: getTokenGateInfo().mint,
@@ -78,7 +77,6 @@ authRouter.post("/auth/verify", async (req, res) => {
       return;
     }
 
-    const balance = await getWalletTokenBalance(wallet);
     const { token, expiresAt } = createAccessToken(wallet);
     res.json({
       accessToken: token,

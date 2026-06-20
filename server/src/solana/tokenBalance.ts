@@ -1,48 +1,39 @@
 import { METRICBASE_TOKEN_MINT, MIN_TOKEN_UI_AMOUNT } from "@metricbase/shared";
-import { Connection, PublicKey } from "@solana/web3.js";
-
-function getRpcUrl(): string {
-  return process.env.SOLANA_RPC_URL ?? "https://api.mainnet-beta.solana.com";
-}
+import { getAssociatedTokenAddressSync } from "@solana/spl-token";
+import { PublicKey } from "@solana/web3.js";
+import { withRpcFallback } from "./rpc.js";
 
 function getTokenMint(): string {
   return process.env.TOKEN_MINT ?? METRICBASE_TOKEN_MINT;
 }
 
-const RPC_TIMEOUT_MS = 15_000;
-
-async function withRpcTimeout<T>(promise: Promise<T>, label: string): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => {
-      reject(new Error(`${label} timed out. Try again in a moment.`));
-    }, RPC_TIMEOUT_MS);
-
-    promise
-      .then((value) => {
-        clearTimeout(timer);
-        resolve(value);
-      })
-      .catch((error: unknown) => {
-        clearTimeout(timer);
-        reject(error);
-      });
-  });
+function isMissingTokenAccount(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  const message = error.message.toLowerCase();
+  return (
+    message.includes("could not find account") ||
+    message.includes("account does not exist") ||
+    message.includes("invalid param") ||
+    message.includes("not found")
+  );
 }
 
 export async function getWalletTokenBalance(wallet: string): Promise<number> {
-  const connection = new Connection(getRpcUrl(), "confirmed");
   const owner = new PublicKey(wallet);
   const mint = new PublicKey(getTokenMint());
+  const tokenAccount = getAssociatedTokenAddressSync(mint, owner);
 
-  const accounts = await withRpcTimeout(
-    connection.getParsedTokenAccountsByOwner(owner, { mint }),
-    "Token balance lookup",
-  );
-
-  return accounts.value.reduce((total, entry) => {
-    const amount = entry.account.data.parsed.info.tokenAmount.uiAmount;
-    return total + (typeof amount === "number" ? amount : 0);
-  }, 0);
+  return withRpcFallback(async (connection) => {
+    try {
+      const result = await connection.getTokenAccountBalance(tokenAccount);
+      return result.value.uiAmount ?? 0;
+    } catch (error) {
+      if (isMissingTokenAccount(error)) {
+        return 0;
+      }
+      throw error;
+    }
+  }, "Token balance lookup");
 }
 
 export async function walletMeetsTokenGate(wallet: string): Promise<boolean> {
