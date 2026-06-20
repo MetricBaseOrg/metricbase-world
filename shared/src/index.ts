@@ -34,6 +34,8 @@ export function worldToTile(worldX: number, worldY: number): { tileX: number; ti
 export * from "./zones.js";
 export * from "./maps.js";
 export * from "./messages.js";
+export * from "./schema/PlayerSchema.js";
+export * from "./schema/ZoneState.js";
 
 // Backward-compatible default zone alias
 export { ZONE_HUB as ZONE_ROOM } from "./zones.js";

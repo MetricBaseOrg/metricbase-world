@@ -7,16 +7,17 @@ import {
   JoinOptions,
   MAX_PLAYERS_PER_ZONE,
   PLAYER_SPEED,
+  PlayerSchema,
   TICK_RATE,
   tileToWorld,
   worldToTile,
+  ZoneState,
   ZoneTransferPayload,
   type ZoneConfig,
+  type ZoneStateInstance,
 } from "@metricbase/shared";
 import { loadCharacter, saveCharacter } from "../db/characters.js";
 import { isWalkable } from "../map/collision.js";
-import { PlayerSchema } from "../schema/PlayerSchema.js";
-import { ZoneState, type ZoneStateInstance } from "../schema/ZoneState.js";
 
 interface PendingInput {
   dx: number;

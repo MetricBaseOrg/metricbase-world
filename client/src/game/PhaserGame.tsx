@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import Phaser from "phaser";
 import { BootScene } from "./BootScene";
 import { GameScene } from "./GameScene";
+import { registerPhaserGame, unregisterPhaserGame } from "./inputControl";
 
 export function PhaserGame() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -10,7 +11,7 @@ export function PhaserGame() {
   useEffect(() => {
     if (!containerRef.current || gameRef.current) return;
 
-    gameRef.current = new Phaser.Game({
+    const instance = new Phaser.Game({
       type: Phaser.AUTO,
       parent: containerRef.current,
       width: window.innerWidth,
@@ -27,7 +28,11 @@ export function PhaserGame() {
       },
     });
 
+    gameRef.current = instance;
+    registerPhaserGame(instance);
+
     return () => {
+      unregisterPhaserGame();
       gameRef.current?.destroy(true);
       gameRef.current = null;
     };

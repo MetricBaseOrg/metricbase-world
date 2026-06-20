@@ -5,6 +5,7 @@ import {
   getZoneConfig,
   JoinOptions,
   ZONE_HUB,
+  ZoneState,
   ZoneTransferPayload,
 } from "@metricbase/shared";
 import { getHttpServerUrl, getWebSocketUrl } from "./serverUrl";
@@ -143,7 +144,7 @@ export class NetworkManager {
 
     const config = getZoneConfig(zoneId);
     const options: JoinOptions = { name: this.playerName, zoneId };
-    this.room = await this.client.joinOrCreate(config.roomName, options);
+    this.room = await this.client.joinOrCreate(config.roomName, options, ZoneState);
     this.currentZoneId = zoneId;
 
     this.room.onStateChange(() => this.emitPlayers());
@@ -165,7 +166,7 @@ export class NetworkManager {
     });
 
     this.emitZone(zoneId);
-    this.emitConnection(true, this.room.state.players.size);
+    this.emitConnection(true, this.room.state.players?.size ?? 0);
     this.emitPlayers();
     this.emitLocalProfile();
   }

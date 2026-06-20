@@ -1,5 +1,6 @@
 import { CHAT_MAX_LENGTH } from "@metricbase/shared";
 import { FormEvent, useEffect, useRef, useState } from "react";
+import { setUiTypingActive } from "../game/inputControl";
 import { networkManager } from "../game/network";
 import { useGameStore } from "../store/gameStore";
 
@@ -77,6 +78,8 @@ export function ChatPanel() {
         <input
           value={draft}
           onChange={(event) => setDraft(event.target.value.slice(0, CHAT_MAX_LENGTH))}
+          onFocus={() => setUiTypingActive(true)}
+          onBlur={() => setUiTypingActive(false)}
           placeholder="Press Enter to chat..."
           style={{
             flex: 1,

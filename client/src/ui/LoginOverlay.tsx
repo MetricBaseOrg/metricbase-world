@@ -2,17 +2,30 @@ import { FormEvent, useState } from "react";
 import { useGameStore } from "../store/gameStore";
 
 interface LoginOverlayProps {
-  onJoin: (name: string) => void;
+  onJoin: (name: string) => Promise<void>;
 }
 
 export function LoginOverlay({ onJoin }: LoginOverlayProps) {
   const playerName = useGameStore((state) => state.playerName);
   const [name, setName] = useState(playerName);
+  const [joining, setJoining] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (event: FormEvent) => {
+  const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     const trimmed = name.trim() || "Traveler";
-    onJoin(trimmed);
+    setJoining(true);
+    setError(null);
+
+    try {
+      await onJoin(trimmed);
+    } catch (joinError) {
+      const message =
+        joinError instanceof Error ? joinError.message : "Could not connect to the game server.";
+      setError(message);
+    } finally {
+      setJoining(false);
+    }
   };
 
   return (
@@ -59,20 +72,38 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
             marginBottom: 16,
           }}
         />
+        {error && (
+          <p
+            style={{
+              margin: "0 0 12px",
+              padding: "10px 12px",
+              borderRadius: 8,
+              background: "rgba(255, 80, 80, 0.12)",
+              border: "1px solid rgba(255, 120, 120, 0.35)",
+              color: "#ffb4b4",
+              fontSize: 13,
+            }}
+          >
+            {error}
+          </p>
+        )}
         <button
           type="submit"
+          disabled={joining}
           style={{
             width: "100%",
             padding: "11px 12px",
             border: "none",
             borderRadius: 8,
-            background: "linear-gradient(135deg, #4f8cff, #6c5ce7)",
+            background: joining
+              ? "rgba(79, 140, 255, 0.45)"
+              : "linear-gradient(135deg, #4f8cff, #6c5ce7)",
             color: "#fff",
             fontWeight: 600,
-            cursor: "pointer",
+            cursor: joining ? "wait" : "pointer",
           }}
         >
-          Join Zone
+          {joining ? "Connecting..." : "Join Zone"}
         </button>
       </form>
     </div>

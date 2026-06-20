@@ -10,7 +10,8 @@
     "build": "pnpm run -r build",
     "build:client": "pnpm --filter @metricbase/client build",
     "typecheck": "pnpm run -r typecheck",
-    "vercel-build": "pnpm --filter @metricbase/client build"
+    "vercel-build": "pnpm --filter @metricbase/client build",
+    "verify-deploy": "node scripts/verify-deploy.mjs"
   },
   "engines": {
     "node": ">=20"
