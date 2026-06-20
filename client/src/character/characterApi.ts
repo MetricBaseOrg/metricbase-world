@@ -3,6 +3,7 @@ import {
   type CharacterLookupResponse,
 } from "@metricbase/shared";
 import { getHttpServerUrl } from "../game/serverUrl";
+import { fetchWithTimeout } from "../utils/fetchWithTimeout";
 
 function authHeaders(accessToken: string): HeadersInit {
   return {
@@ -14,7 +15,7 @@ function authHeaders(accessToken: string): HeadersInit {
 export async function lookupBondedCharacter(
   accessToken: string,
 ): Promise<CharacterLookupResponse> {
-  const response = await fetch(`${getHttpServerUrl()}/api/character/me`, {
+  const response = await fetchWithTimeout(`${getHttpServerUrl()}/api/character/me`, {
     headers: authHeaders(accessToken),
   });
   if (!response.ok) {
@@ -25,7 +26,7 @@ export async function lookupBondedCharacter(
 
 /** Public name check — only reveals whether a name is bonded, not wallet identity. */
 export async function lookupCharacter(name: string): Promise<CharacterLookupResponse> {
-  const response = await fetch(
+  const response = await fetchWithTimeout(
     `${getHttpServerUrl()}/api/character?name=${encodeURIComponent(name)}`,
   );
   if (!response.ok) {
@@ -39,7 +40,7 @@ export async function saveCharacterAppearance(
   appearance: CharacterAppearance,
   accessToken: string,
 ): Promise<void> {
-  const response = await fetch(`${getHttpServerUrl()}/api/character`, {
+  const response = await fetchWithTimeout(`${getHttpServerUrl()}/api/character`, {
     method: "POST",
     headers: authHeaders(accessToken),
     body: JSON.stringify({ name, appearance }),

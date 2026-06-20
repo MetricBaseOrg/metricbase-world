@@ -5,6 +5,7 @@ import {
 } from "@metricbase/shared";
 import bs58 from "bs58";
 import { getHttpServerUrl } from "../game/serverUrl";
+import { fetchWithTimeout, withTimeout } from "../utils/fetchWithTimeout";
 import {
   clearSelectedWalletId,
   discoverWallets,
@@ -24,8 +25,16 @@ export function clearStoredAccessToken(): void {
   clearSelectedWalletId();
 }
 
+const WALLET_CONNECT_TIMEOUT_MS = 90_000;
+const WALLET_SIGN_TIMEOUT_MS = 90_000;
+const API_TIMEOUT_MS = 25_000;
+
 export async function fetchTokenGateInfo(): Promise<TokenGateInfoResponse> {
-  const response = await fetch(`${getHttpServerUrl()}/api/token-gate`);
+  const response = await fetchWithTimeout(
+    `${getHttpServerUrl()}/api/token-gate`,
+    undefined,
+    API_TIMEOUT_MS,
+  );
   if (!response.ok) {
     throw new Error("Failed to load token gate settings");
   }
@@ -45,10 +54,16 @@ export async function connectAndVerifyWallet(
 ): Promise<AuthVerifyResponse> {
   setSelectedWalletId(wallet.id);
 
-  const walletAddress = await wallet.connect();
+  const walletAddress = await withTimeout(
+    wallet.connect(),
+    WALLET_CONNECT_TIMEOUT_MS,
+    "Wallet connection timed out. Open your wallet extension and approve the connection.",
+  );
 
-  const challengeResponse = await fetch(
+  const challengeResponse = await fetchWithTimeout(
     `${getHttpServerUrl()}/api/auth/challenge?wallet=${encodeURIComponent(walletAddress)}`,
+    undefined,
+    API_TIMEOUT_MS,
   );
   if (!challengeResponse.ok) {
     throw new Error("Failed to start wallet verification");
@@ -56,18 +71,26 @@ export async function connectAndVerifyWallet(
 
   const challenge = (await challengeResponse.json()) as AuthChallengeResponse;
   const messageBytes = new TextEncoder().encode(challenge.message);
-  const signatureBytes = await wallet.signMessage(messageBytes);
+  const signatureBytes = await withTimeout(
+    wallet.signMessage(messageBytes),
+    WALLET_SIGN_TIMEOUT_MS,
+    "Wallet signature timed out. Open your wallet extension and approve the message.",
+  );
   const signature = bs58.encode(signatureBytes);
 
-  const verifyResponse = await fetch(`${getHttpServerUrl()}/api/auth/verify`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      wallet: walletAddress,
-      signature,
-      message: challenge.message,
-    }),
-  });
+  const verifyResponse = await fetchWithTimeout(
+    `${getHttpServerUrl()}/api/auth/verify`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        wallet: walletAddress,
+        signature,
+        message: challenge.message,
+      }),
+    },
+    API_TIMEOUT_MS,
+  );
 
   const body = (await verifyResponse.json()) as AuthVerifyResponse & {
     error?: string;
@@ -93,9 +116,13 @@ export async function getValidWalletSession(): Promise<AuthVerifyResponse | null
     return null;
   }
 
-  const sessionResponse = await fetch(`${getHttpServerUrl()}/api/auth/session`, {
-    headers: { Authorization: `Bearer ${existing}` },
-  });
+  const sessionResponse = await fetchWithTimeout(
+    `${getHttpServerUrl()}/api/auth/session`,
+    {
+      headers: { Authorization: `Bearer ${existing}` },
+    },
+    API_TIMEOUT_MS,
+  );
   if (!sessionResponse.ok) {
     clearStoredAccessToken();
     return null;

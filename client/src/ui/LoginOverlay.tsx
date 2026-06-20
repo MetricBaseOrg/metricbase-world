@@ -115,6 +115,7 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
   const [joining, setJoining] = useState(false);
   const [connectingWallet, setConnectingWallet] = useState(false);
   const [loadingCharacter, setLoadingCharacter] = useState(false);
+  const [bootstrapping, setBootstrapping] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [gateEnabled, setGateEnabled] = useState(true);
   const [tokenMint, setTokenMint] = useState(METRICBASE_TOKEN_MINT);
@@ -144,8 +145,15 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
           setTokenBalance(session.tokenBalance);
           await loadBondedCharacter(session.accessToken);
         }
-      } catch {
+      } catch (bootstrapError) {
         clearStoredAccessToken();
+        const message =
+          bootstrapError instanceof Error
+            ? bootstrapError.message
+            : "Could not reach the game server.";
+        setError(message);
+      } finally {
+        setBootstrapping(false);
       }
     })();
   }, [setWalletAddress]);
@@ -230,12 +238,29 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
   };
 
   const handleConnectWallet = async () => {
-    setConnectingWallet(true);
     setError(null);
     clearStoredAccessToken();
 
     try {
-      await requestWalletConnection();
+      const wallet = resolveWalletConnector();
+      if (wallet) {
+        setConnectingWallet(true);
+        await connectSelectedWallet(wallet);
+        return;
+      }
+
+      const wallets = listAvailableWallets();
+      if (wallets.length === 0) {
+        throw new Error(
+          "No Solana wallet detected. Install Jupiter Wallet (or another Solana wallet), then refresh this page.",
+        );
+      }
+
+      setDetectedWallets(wallets);
+      setWalletPickerOpen(true);
+      await new Promise<Awaited<ReturnType<typeof connectAndVerifyWallet>>>((resolve, reject) => {
+        walletConnectResolver.current = { resolve, reject };
+      });
     } catch (walletError) {
       if (walletError instanceof Error && walletError.message === "Wallet connection cancelled.") {
         return;
@@ -248,6 +273,8 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
       setTokenBalance(null);
     } finally {
       setConnectingWallet(false);
+      setWalletPickerOpen(false);
+      walletConnectResolver.current = null;
     }
   };
 
@@ -262,7 +289,16 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
       let accessToken: string | null = null;
 
       if (gateEnabled) {
-        const session = (await getValidWalletSession()) ?? (await requestWalletConnection());
+        let session = await getValidWalletSession();
+        if (!session) {
+          setConnectingWallet(true);
+          try {
+            session = await requestWalletConnection();
+          } finally {
+            setConnectingWallet(false);
+            setWalletPickerOpen(false);
+          }
+        }
         if (!session) {
           throw new Error("Connect your wallet to bond and save your character.");
         }
@@ -297,7 +333,25 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
   };
 
   const nameReady = name.trim().length >= 2;
-  const enterDisabled = joining || loadingCharacter || !nameReady;
+  const enterDisabled = bootstrapping || joining || loadingCharacter || connectingWallet || !nameReady;
+
+  const connectButtonLabel = connectingWallet
+    ? "Verifying wallet..."
+    : walletPickerOpen
+      ? "Choose wallet in popup..."
+      : walletAddress
+        ? "Reconnect Wallet"
+        : "Connect Wallet";
+
+  const enterButtonLabel = bootstrapping
+    ? "Checking server..."
+    : joining
+      ? walletPickerOpen
+        ? "Choose wallet to continue..."
+        : "Entering world..."
+      : gateEnabled && !walletAddress
+        ? "Connect Wallet & Enter"
+        : "Enter Zone";
 
   return (
     <div className="chibi-overlay">
@@ -315,7 +369,11 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
             <div className="chibi-label">Preview</div>
             <CharacterPreview appearance={appearance} width={168} height={200} />
             <div className="chibi-text-muted" style={{ marginTop: 12, textAlign: "center" }}>
-              {loadingCharacter ? "Loading saved character..." : "Your chibi adventurer"}
+              {bootstrapping
+                ? "Checking wallet status..."
+                : loadingCharacter
+                  ? "Loading saved character..."
+                  : "Your chibi adventurer"}
             </div>
           </div>
 
@@ -426,14 +484,10 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
                   type="button"
                   className="chibi-btn chibi-btn--secondary"
                   onClick={() => void handleConnectWallet()}
-                  disabled={connectingWallet || joining}
+                  disabled={connectingWallet || joining || bootstrapping}
                   style={{ width: "100%", padding: "10px 12px" }}
                 >
-                  {connectingWallet
-                    ? "Verifying wallet..."
-                    : walletAddress
-                      ? "Reconnect Wallet"
-                      : "Connect Wallet"}
+                  {connectButtonLabel}
                 </button>
               </div>
           </div>
@@ -451,11 +505,7 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
           disabled={enterDisabled}
           style={{ width: "100%", marginTop: 20, padding: "13px 12px", fontSize: "1rem" }}
         >
-          {joining
-            ? "Entering world..."
-            : gateEnabled && !walletAddress
-              ? "Connect Wallet & Enter"
-              : "Enter Zone"}
+          {enterButtonLabel}
         </button>
       </form>
 
