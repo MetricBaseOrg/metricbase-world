@@ -1,5 +1,6 @@
 import { xpProgress } from "@metricbase/shared";
 import { useState } from "react";
+import { isSoundEnabled, playSfx, setSoundEnabled } from "../audio/soundEffects";
 import { useGameStore } from "../store/gameStore";
 import { shortenWallet } from "../wallet/solanaProvider";
 import { useMobileLayout } from "./useMobileLayout";
@@ -12,6 +13,7 @@ interface HUDProps {
 export function HUD({ onLeave }: HUDProps) {
   const mobileLayout = useMobileLayout();
   const [expanded, setExpanded] = useState(false);
+  const [soundOn, setSoundOn] = useState(isSoundEnabled);
   const {
     playerName,
     playerLevel,
@@ -131,11 +133,25 @@ export function HUD({ onLeave }: HUDProps) {
             </div>
           </div>
 
-          <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap", alignItems: "center" }}>
             <span className={`chibi-badge ${connected ? "chibi-badge--online" : "chibi-badge--offline"}`}>
               {connected ? "Online" : "Connecting"}
             </span>
             <span className="chibi-stat-pill">👥 {playerCount}</span>
+            <button
+              type="button"
+              className="chibi-btn chibi-btn--ghost"
+              style={{ padding: "4px 8px", fontSize: "0.78rem" }}
+              onClick={() => {
+                const next = !soundOn;
+                setSoundEnabled(next);
+                setSoundOn(next);
+                if (next) playSfx("ui_click");
+              }}
+              aria-label={soundOn ? "Mute sound effects" : "Enable sound effects"}
+            >
+              {soundOn ? "🔊" : "🔇"}
+            </button>
           </div>
 
           {activeQuest && (

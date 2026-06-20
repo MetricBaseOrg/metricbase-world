@@ -19,10 +19,28 @@ export type SfxType =
   | "level_up";
 
 const MASTER_VOLUME = 0.32;
+const MUTE_STORAGE_KEY = "metricbase-sfx-muted";
 
 let audioContext: AudioContext | null = null;
 let masterGain: GainNode | null = null;
 let initialized = false;
+let soundEnabled = readStoredMutePreference();
+
+function readStoredMutePreference(): boolean {
+  if (typeof window === "undefined") return true;
+  return window.localStorage.getItem(MUTE_STORAGE_KEY) !== "true";
+}
+
+export function isSoundEnabled(): boolean {
+  return soundEnabled;
+}
+
+export function setSoundEnabled(enabled: boolean): void {
+  soundEnabled = enabled;
+  if (typeof window !== "undefined") {
+    window.localStorage.setItem(MUTE_STORAGE_KEY, enabled ? "false" : "true");
+  }
+}
 
 function getContext(): AudioContext | null {
   if (typeof window === "undefined") return null;
@@ -58,6 +76,8 @@ export function initSoundEffects(): void {
 }
 
 export function playSfx(type: SfxType): void {
+  if (!soundEnabled) return;
+
   const ctx = getContext();
   if (!ctx || !masterGain) return;
 

@@ -56,6 +56,14 @@ export const ITEMS: Record<string, ItemDefinition> = {
     maxStack: 1,
     kind: "weapon",
   },
+  item_slime_gel: {
+    id: "item_slime_gel",
+    name: "Slime Gel",
+    description: "Sticky residue from a defeated slime. Pip buys these for alchemy.",
+    stackable: true,
+    maxStack: 99,
+    kind: "material",
+  },
 };
 
 export const EMPTY_INVENTORY: InventoryEntry[] = [];

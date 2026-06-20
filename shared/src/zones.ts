@@ -91,7 +91,7 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
         tileX: 8,
         tileY: 8,
         dialogue:
-          "Head east to the Training Dummy, or south to hunt Wild Slimes. They hit back — keep potions handy!",
+          "Head east to the Training Dummy, or south to hunt Wild Slimes. Veterans can pick up patrol work from me — bring back Slime Gel!",
       },
       {
         id: "training_dummy",

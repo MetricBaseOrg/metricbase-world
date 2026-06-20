@@ -55,6 +55,7 @@ export const SHOPS: Record<string, ShopDefinition> = {
     ],
     sellPrices: {
       item_training_scrap: 8,
+      item_slime_gel: 12,
     },
   },
 };

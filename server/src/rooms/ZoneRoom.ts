@@ -36,9 +36,8 @@ import {
   normalizeEquipment,
   PLAYER_SPEED,
   POTION_HEAL_AMOUNT,
+  getMobRewardConfig,
   TRAINING_DUMMY_COUNTER_DAMAGE,
-  TRAINING_DUMMY_GOLD_REWARD,
-  TRAINING_DUMMY_NPC_ID,
   PlayerSchema,
   startQuest,
   TICK_RATE,
@@ -496,18 +495,24 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       this.mobRespawnAt.set(npcId, now + npc.combat.respawnMs);
       this.grantXp(client, player, npc.combat.rewardXp, `defeated ${npc.name}`);
 
-      if (npcId === TRAINING_DUMMY_NPC_ID) {
-        const claimed = { ...(this.mobGoldClaimed.get(player.name) ?? {}) };
-        if (!claimed[npcId]) {
-          this.grantGold(client, player, TRAINING_DUMMY_GOLD_REWARD, `defeated ${npc.name}`);
-          claimed[npcId] = true;
-          this.mobGoldClaimed.set(player.name, claimed);
+      const rewards = getMobRewardConfig(npcId);
+      if (rewards && rewards.goldReward > 0) {
+        if (rewards.goldOnceOnly) {
+          const claimed = { ...(this.mobGoldClaimed.get(player.name) ?? {}) };
+          if (!claimed[npcId]) {
+            this.grantGold(client, player, rewards.goldReward, `defeated ${npc.name}`);
+            claimed[npcId] = true;
+            this.mobGoldClaimed.set(player.name, claimed);
+          }
+        } else {
+          this.grantGold(client, player, rewards.goldReward, `defeated ${npc.name}`);
         }
-      } else {
-        this.grantGold(client, player, 5, `defeated ${npc.name}`);
       }
 
-      await this.grantLoot(client, player.name, "item_training_scrap", 1);
+      if (rewards?.lootItemId) {
+        await this.grantLoot(client, player.name, rewards.lootItemId, rewards.lootQuantity);
+      }
+
       await this.checkDefeatObjectives(client, player.name, npcId);
       await this.persistPlayer(player);
     }
@@ -593,14 +598,26 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       sentAt: Date.now(),
     });
 
-    const nextQuests = getQuestsOfferedByNpc("hub_guide", progress);
-    if (nextQuests.length > 0) {
+    const ariaQuests = getQuestsOfferedByNpc("hub_guide", progress);
+    if (ariaQuests.length > 0) {
       this.broadcastChat({
         id: crypto.randomUUID(),
         channel: "system",
         senderId: "system",
         senderName: "Quest",
         body: "Return to Aria in the hub for your next quest.",
+        sentAt: Date.now(),
+      });
+    }
+
+    const rookQuests = getQuestsOfferedByNpc("wilderness_scout", progress);
+    if (rookQuests.length > 0) {
+      this.broadcastChat({
+        id: crypto.randomUUID(),
+        channel: "system",
+        senderId: "system",
+        senderName: "Quest",
+        body: "Talk to Rook in the Wilderness for patrol work.",
         sentAt: Date.now(),
       });
     }

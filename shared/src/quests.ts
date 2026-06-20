@@ -6,6 +6,9 @@ export const QUEST_EXPLORE_WILDERNESS = "quest_explore_wilderness";
 export const QUEST_DEFEAT_DUMMY = "quest_defeat_dummy";
 export const QUEST_COLLECT_SCRAP = "quest_collect_scrap";
 export const QUEST_VETERAN = "quest_veteran";
+export const QUEST_SLIME_HUNTER = "quest_slime_hunter";
+export const QUEST_SLIME_SAMPLES = "quest_slime_samples";
+export const QUEST_ARIA_COMMENDATION = "quest_aria_commendation";
 
 export type QuestObjectiveType = "talk_npc" | "visit_zone" | "defeat_npc" | "collect_item";
 
@@ -111,6 +114,43 @@ export const QUESTS: Record<string, QuestDefinition> = {
     rewardGold: 50,
     startNpcId: "hub_guide",
     requiresCompleted: [QUEST_COLLECT_SCRAP],
+  },
+  [QUEST_SLIME_HUNTER]: {
+    id: QUEST_SLIME_HUNTER,
+    title: "Slime Patrol",
+    description: "Rook needs the Wild Slime near the south path cleared.",
+    objectives: [{ type: "defeat_npc", target: "wild_slime", label: "Defeat a Wild Slime" }],
+    rewardXp: 60,
+    rewardGold: 15,
+    startNpcId: "wilderness_scout",
+    requiresCompleted: [QUEST_VETERAN],
+  },
+  [QUEST_SLIME_SAMPLES]: {
+    id: QUEST_SLIME_SAMPLES,
+    title: "Gel Collection",
+    description: "Harvest slime gel for Pip's alchemy supplies.",
+    objectives: [
+      {
+        type: "collect_item",
+        target: "item_slime_gel",
+        count: 5,
+        label: "Collect 5 Slime Gel",
+      },
+    ],
+    rewardXp: 80,
+    rewardGold: 35,
+    startNpcId: "wilderness_scout",
+    requiresCompleted: [QUEST_SLIME_HUNTER],
+  },
+  [QUEST_ARIA_COMMENDATION]: {
+    id: QUEST_ARIA_COMMENDATION,
+    title: "Commendation",
+    description: "Rook says Aria will want to hear about your patrol work.",
+    objectives: [{ type: "talk_npc", target: "hub_guide", label: "Report to Aria in the Hub" }],
+    rewardXp: 120,
+    rewardGold: 60,
+    startNpcId: "wilderness_scout",
+    requiresCompleted: [QUEST_SLIME_SAMPLES],
   },
 };
 

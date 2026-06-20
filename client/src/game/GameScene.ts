@@ -96,6 +96,7 @@ export class GameScene extends Phaser.Scene {
     });
 
     const unsubscribeAttackResult = networkManager.onAttackResult((payload) => {
+      this.showDamageNumber(payload.npcId, payload.damage);
       if (payload.defeated) {
         playSfx("attack_defeat");
       } else {
@@ -253,6 +254,32 @@ export class GameScene extends Phaser.Scene {
     npc.hpBarBg.strokeRoundedRect(x, y, width, height, 4);
     npc.hpBarFill.fillStyle(npc.currentHp > 0 ? 0xff6b9d : 0xc9b8a8, 1);
     npc.hpBarFill.fillRoundedRect(x + 2, y + 2, fillWidth, height - 4, 3);
+  }
+
+  private showDamageNumber(npcId: string, damage: number) {
+    const npc = this.renderedNpcs.find((entry) => entry.id === npcId);
+    if (!npc || damage <= 0) return;
+
+    const text = this.add
+      .text(npc.worldX, npc.worldY - 44, `-${damage}`, {
+        fontFamily: "Segoe UI, sans-serif",
+        fontSize: "15px",
+        color: "#ff4466",
+        fontStyle: "bold",
+        stroke: "#2d1b2e",
+        strokeThickness: 3,
+      })
+      .setOrigin(0.5)
+      .setDepth(200);
+
+    this.tweens.add({
+      targets: text,
+      y: text.y - 30,
+      alpha: 0,
+      duration: 750,
+      ease: "Cubic.easeOut",
+      onComplete: () => text.destroy(),
+    });
   }
 
   private updateNpcHealth(npcId: string, currentHp: number, maxHp: number) {
