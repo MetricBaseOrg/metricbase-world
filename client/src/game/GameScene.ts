@@ -12,6 +12,7 @@ import {
   consumeMobileAttack,
   consumeMobileInteract,
   getMobileAxis,
+  isUiTypingActive,
 } from "./inputControl";
 import { networkManager, RemotePlayer } from "./network";
 import { buildZoneMap } from "./mapData";
@@ -109,6 +110,14 @@ export class GameScene extends Phaser.Scene {
   }
 
   update(_time: number, delta: number) {
+    if (isUiTypingActive()) {
+      if (this.lastSentInput.dx !== 0 || this.lastSentInput.dy !== 0) {
+        networkManager.sendInput(0, 0);
+        this.lastSentInput = { dx: 0, dy: 0 };
+      }
+      return;
+    }
+
     const dx = this.getAxisInput();
     const dy = this.getAxisInputY();
 

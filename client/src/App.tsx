@@ -1,6 +1,6 @@
 import { type CharacterAppearance } from "@metricbase/shared";
 import { useEffect, useState } from "react";
-import { resetMobileInput } from "./game/inputControl";
+import { bindUiTypingFocusGuard, resetMobileInput } from "./game/inputControl";
 import { PhaserGame } from "./game/PhaserGame";
 import { networkManager } from "./game/network";
 import { clearStoredAccessToken, getValidWalletSession } from "./wallet/tokenGate";
@@ -34,6 +34,8 @@ export function App() {
     setShopOpen,
     setPlayerGold,
   } = useGameStore();
+
+  useEffect(() => bindUiTypingFocusGuard(), []);
 
   useEffect(() => {
     const unsubscribeConnection = networkManager.onConnectionChange((connected, count) => {

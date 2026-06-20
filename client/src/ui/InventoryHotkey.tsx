@@ -1,10 +1,8 @@
 import { useEffect } from "react";
-import { setUiTypingActive } from "../game/inputControl";
 import { useGameStore } from "../store/gameStore";
 
 export function InventoryHotkey() {
   const toggleInventoryOpen = useGameStore((state) => state.toggleInventoryOpen);
-  const inventoryOpen = useGameStore((state) => state.inventoryOpen);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -19,10 +17,6 @@ export function InventoryHotkey() {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [toggleInventoryOpen]);
-
-  useEffect(() => {
-    setUiTypingActive(inventoryOpen);
-  }, [inventoryOpen]);
 
   return null;
 }
