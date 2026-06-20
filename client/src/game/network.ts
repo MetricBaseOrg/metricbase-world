@@ -45,6 +45,7 @@ type InventoryListener = (state: InventoryStatePayload) => void;
 type ShopOpenListener = (payload: ShopOpenPayload) => void;
 type ShopResultListener = (payload: ShopResultPayload) => void;
 type MarketResultListener = (payload: MarketResultPayload) => void;
+type WalletLinkedListener = (payload: { ok: boolean; wallet?: string; error?: string }) => void;
 
 export class NetworkManager {
   private client: Client | null = null;
@@ -67,6 +68,7 @@ export class NetworkManager {
   private shopOpenListeners = new Set<ShopOpenListener>();
   private shopResultListeners = new Set<ShopResultListener>();
   private marketResultListeners = new Set<MarketResultListener>();
+  private walletLinkedListeners = new Set<WalletLinkedListener>();
   private latestQuestState: QuestStatePayload = { active: [], completed: [] };
   private latestInventory: InventoryStatePayload = { items: [], capacity: 16 };
   private isTransferring = false;
@@ -136,6 +138,9 @@ export class NetworkManager {
 
     this.currentZoneId = zoneId;
     await this.joinZone(zoneId);
+    if (this.accessToken) {
+      await this.linkWallet();
+    }
   }
 
   async transferToZone(targetZone: string): Promise<void> {
@@ -145,6 +150,9 @@ export class NetworkManager {
       await this.leaveCurrentRoom();
       this.currentZoneId = targetZone;
       await this.joinZone(targetZone);
+      if (this.accessToken) {
+        await this.linkWallet();
+      }
     } finally {
       this.isTransferring = false;
     }
@@ -196,6 +204,31 @@ export class NetworkManager {
 
   sendMarketRefresh() {
     this.room?.send("marketRefresh", {});
+  }
+
+  setAccessToken(accessToken: string | null) {
+    this.accessToken = accessToken;
+  }
+
+  async linkWallet(): Promise<boolean> {
+    if (!this.accessToken || !this.room) {
+      return false;
+    }
+
+    return new Promise((resolve) => {
+      const timeout = window.setTimeout(() => {
+        unsubscribe();
+        resolve(false);
+      }, 8000);
+
+      const unsubscribe = this.onWalletLinked((payload) => {
+        window.clearTimeout(timeout);
+        unsubscribe();
+        resolve(payload.ok);
+      });
+
+      this.room?.send("linkWallet", { accessToken: this.accessToken });
+    });
   }
 
   getMobHealth(npcId: string): MobHealthPayload | undefined {
@@ -298,6 +331,11 @@ export class NetworkManager {
     return () => this.marketResultListeners.delete(listener);
   }
 
+  onWalletLinked(listener: WalletLinkedListener) {
+    this.walletLinkedListeners.add(listener);
+    return () => this.walletLinkedListeners.delete(listener);
+  }
+
   private async joinZone(zoneId: string) {
     if (!this.client) {
       this.client = new Client(getWebSocketUrl());
@@ -362,6 +400,11 @@ export class NetworkManager {
     });
     this.room.onMessage("shopOpen", (payload: ShopOpenPayload) => {
       for (const listener of this.shopOpenListeners) {
+        listener(payload);
+      }
+    });
+    this.room.onMessage("walletLinked", (payload: { ok: boolean; wallet?: string; error?: string }) => {
+      for (const listener of this.walletLinkedListeners) {
         listener(payload);
       }
     });

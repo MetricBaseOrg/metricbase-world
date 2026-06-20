@@ -1,6 +1,7 @@
 import { xpProgress } from "@metricbase/shared";
 import { useGameStore } from "../store/gameStore";
 import { shortenWallet } from "../wallet/solanaProvider";
+import { WalletConnectBar } from "./WalletConnectBar";
 
 interface HUDProps {
   onLeave: () => void;
@@ -41,9 +42,13 @@ export function HUD({ onLeave }: HUDProps) {
       <div style={{ fontSize: 13, opacity: 0.85, marginTop: 4 }}>
         {playerName} · Lv {playerLevel} · {playerGold} gold
       </div>
-      {walletAddress && (
+      {walletAddress ? (
         <div style={{ fontSize: 12, opacity: 0.65, marginTop: 4 }}>
           Wallet: {shortenWallet(walletAddress)}
+        </div>
+      ) : (
+        <div style={{ marginTop: 8 }}>
+          <WalletConnectBar compact hint="Connect wallet to trade on the gold market (E at Pip)." />
         </div>
       )}
       <div style={{ marginTop: 8 }}>

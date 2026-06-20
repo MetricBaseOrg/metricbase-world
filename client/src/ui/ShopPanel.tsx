@@ -10,6 +10,7 @@ import { useState } from "react";
 import { networkManager } from "../game/network";
 import { useGameStore } from "../store/gameStore";
 import { sendMetricbaseTokenPayment } from "../wallet/tokenPayment";
+import { WalletConnectBar } from "./WalletConnectBar";
 
 type ShopTab = "gold" | "market";
 
@@ -169,7 +170,12 @@ export function ShopPanel() {
     const result = await waitForMarketResult();
     setPending(false);
     if (!result.ok) {
-      setError(result.error ?? "Could not place order.");
+      const message = result.error ?? "Could not place order.";
+      setError(
+        /connect your wallet/i.test(message)
+          ? `${message} Use the Connect Wallet button above.`
+          : message,
+      );
       return;
     }
     applyMarketResult(result);
@@ -359,6 +365,10 @@ export function ShopPanel() {
             <div style={{ fontWeight: 700, marginBottom: 6 }}>Open peer-to-peer gold market</div>
             <div style={{ fontSize: 11, fontFamily: "monospace", wordBreak: "break-all", opacity: 0.85 }}>{tokenMint}</div>
             <div style={{ marginTop: 8, fontSize: 12, opacity: 0.8 }}>Tokens go directly player-to-player. Pip does not take a cut.</div>
+          </div>
+
+          <div style={{ marginTop: 14 }}>
+            <WalletConnectBar compact={!!walletAddress} />
           </div>
 
           {!market?.enabled ? (

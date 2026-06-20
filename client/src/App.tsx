@@ -2,7 +2,7 @@ import { type CharacterAppearance } from "@metricbase/shared";
 import { useEffect, useState } from "react";
 import { PhaserGame } from "./game/PhaserGame";
 import { networkManager } from "./game/network";
-import { clearStoredAccessToken } from "./wallet/tokenGate";
+import { clearStoredAccessToken, getValidWalletSession } from "./wallet/tokenGate";
 import { useGameStore } from "./store/gameStore";
 import { ChatPanel } from "./ui/ChatPanel";
 import { HUD } from "./ui/HUD";
@@ -123,9 +123,28 @@ export function App() {
   ) => {
     setPlayerName(name);
     setCharacterAppearance(appearance);
+
+    let token = accessToken ?? null;
+    if (!token) {
+      const session = await getValidWalletSession();
+      if (session) {
+        token = session.accessToken;
+        setWalletAddress(session.wallet);
+      }
+    } else {
+      const session = await getValidWalletSession();
+      if (session) {
+        setWalletAddress(session.wallet);
+      }
+    }
+
+    if (token) {
+      networkManager.setAccessToken(token);
+    }
+
     setJoined(true);
     try {
-      await networkManager.connect(name, accessToken, appearance);
+      await networkManager.connect(name, token, appearance);
       setZoneName(networkManager.zoneName);
     } catch (error) {
       setJoined(false);

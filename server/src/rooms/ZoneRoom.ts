@@ -160,6 +160,10 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     this.onMessage("marketRefresh", (client) => {
       void this.handleMarketRefresh(client);
     });
+
+    this.onMessage("linkWallet", (client, message: { accessToken?: string }) => {
+      void this.handleLinkWallet(client, message.accessToken ?? "");
+    });
   }
 
   async onAuth(_client: Client, options: JoinOptions) {
@@ -638,6 +642,23 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       body: `${player.name} earned ${amount} gold (${reason}).`,
       sentAt: Date.now(),
     });
+  }
+
+  private async handleLinkWallet(client: Client, accessToken: string) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !accessToken) {
+      client.send("walletLinked", { ok: false, error: "Invalid wallet session." });
+      return;
+    }
+
+    const payload = verifyAccessToken(accessToken);
+    if (!payload) {
+      client.send("walletLinked", { ok: false, error: "Wallet session expired. Reconnect your wallet." });
+      return;
+    }
+
+    this.playerWallets.set(player.name, payload.wallet);
+    client.send("walletLinked", { ok: true, wallet: payload.wallet });
   }
 
   private async handleMarketRefresh(client: Client) {
