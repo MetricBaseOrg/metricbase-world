@@ -20,7 +20,7 @@ export function PhaserGame() {
       scene: [BootScene, GameScene],
       scale: {
         mode: Phaser.Scale.RESIZE,
-        autoCenter: Phaser.Scale.NO_CENTER,
+        autoCenter: Phaser.Scale.CENTER_BOTH,
       },
       render: {
         pixelArt: true,

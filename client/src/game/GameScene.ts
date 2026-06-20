@@ -17,8 +17,6 @@ import {
   MAP_HEIGHT,
   MAP_WIDTH,
   NPC_INTERACT_RANGE,
-  TILE_HEIGHT,
-  TILE_WIDTH,
   tileToWorld,
 } from "@metricbase/shared";
 import {
@@ -108,6 +106,7 @@ export class GameScene extends Phaser.Scene {
   private lastSentInput = { dx: 0, dy: 0 };
   private currentZoneId: string | null = null;
   private localChoppingUntil = 0;
+  private cameraTarget: Phaser.GameObjects.Sprite | null = null;
 
   constructor() {
     super("GameScene");
@@ -117,8 +116,7 @@ export class GameScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor("#b8e8fc");
     this.cameras.main.setZoom(2);
     this.cameras.main.roundPixels = true;
-    this.setupCamera();
-    this.scale.on(Phaser.Scale.Events.RESIZE, this.setupCamera, this);
+    this.cameras.main.useBounds = false;
 
     if (this.input.keyboard) {
       this.cursors = this.input.keyboard.createCursorKeys();
@@ -130,8 +128,9 @@ export class GameScene extends Phaser.Scene {
     }
 
     const unsubscribePlayers = networkManager.onPlayersChange((players, sessionId) => {
-      this.localSessionId = sessionId;
+      this.localSessionId = sessionId ?? networkManager.sessionId;
       this.syncPlayers(players);
+      this.bindCameraToLocalPlayer();
     });
 
     const unsubscribeZone = networkManager.onZoneChange((zoneId) => {
@@ -139,6 +138,8 @@ export class GameScene extends Phaser.Scene {
       networkManager.sendInput(0, 0);
       this.localSessionId = null;
       this.localChoppingUntil = 0;
+      this.cameraTarget = null;
+      this.cameras.main.stopFollow();
       this.renderedPlayers.forEach((entry) => {
         entry.sprite.destroy();
         entry.label.destroy();
@@ -231,7 +232,6 @@ export class GameScene extends Phaser.Scene {
     this.renderZone(networkManager.zoneId);
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
-      this.scale.off(Phaser.Scale.Events.RESIZE, this.setupCamera, this);
       unsubscribePlayers();
       unsubscribeZone();
       unsubscribeMobHealth();
@@ -278,34 +278,60 @@ export class GameScene extends Phaser.Scene {
       this.tryFish();
     }
 
-    this.updateCamera();
+    if (!this.localSessionId && networkManager.sessionId) {
+      this.localSessionId = networkManager.sessionId;
+    }
+    this.bindCameraToLocalPlayer();
     this.applyKnockedOutVisuals();
     this.redrawActiveChopBars();
     this.updatePlayerAnimations();
   }
 
-  private setupCamera() {
-    const corner = tileToWorld(0, 0);
-    const opposite = tileToWorld(MAP_WIDTH - 1, MAP_HEIGHT - 1);
-    const minX = Math.min(corner.x, opposite.x) - TILE_WIDTH * 4;
-    const maxX = Math.max(corner.x, opposite.x) + TILE_WIDTH * 4;
-    const minY = Math.min(corner.y, opposite.y) - TILE_HEIGHT * 6;
-    const maxY = Math.max(corner.y, opposite.y) + TILE_HEIGHT * 6;
-    this.cameras.main.setBounds(minX, minY, maxX - minX, maxY - minY);
+  private findLocalPlayer(): RenderedPlayer | null {
+    if (this.localSessionId) {
+      const match = this.renderedPlayers.get(this.localSessionId);
+      if (match) return match;
+    }
+
+    const sessionId = networkManager.sessionId;
+    if (sessionId) {
+      const match = this.renderedPlayers.get(sessionId);
+      if (match) return match;
+    }
+
+    const playerName = useGameStore.getState().playerName;
+    for (const rendered of this.renderedPlayers.values()) {
+      if (rendered.label.text === playerName) {
+        return rendered;
+      }
+    }
+
+    return null;
   }
 
-  private updateCamera() {
-    if (!this.localSessionId) return;
-    const local = this.renderedPlayers.get(this.localSessionId);
+  private bindCameraToLocalPlayer() {
+    const local = this.findLocalPlayer();
     if (!local) return;
 
-    this.cameras.main.centerOn(local.sprite.x, local.sprite.y);
+    for (const [sessionId, rendered] of this.renderedPlayers.entries()) {
+      if (rendered === local) {
+        this.localSessionId = sessionId;
+        break;
+      }
+    }
+
+    const cam = this.cameras.main;
+    if (this.cameraTarget === local.sprite) return;
+
+    cam.stopFollow();
+    cam.startFollow(local.sprite, true, 1, 1);
+    cam.centerOn(local.sprite.x, local.sprite.y);
+    this.cameraTarget = local.sprite;
   }
 
   private renderZone(zoneId: string) {
     if (this.currentZoneId === zoneId) return;
     this.currentZoneId = zoneId;
-    this.setupCamera();
     this.clearMap();
     this.clearNpcs();
     this.clearResources();
@@ -882,7 +908,10 @@ export class GameScene extends Phaser.Scene {
     for (const player of players) {
       seen.add(player.sessionId);
       const existing = this.renderedPlayers.get(player.sessionId);
-      const isLocal = player.sessionId === this.localSessionId;
+      const isLocal =
+        player.sessionId === this.localSessionId ||
+        player.sessionId === networkManager.sessionId ||
+        player.name === useGameStore.getState().playerName;
 
       if (!existing) {
         preloadAvatarTextures(this, player.appearance);
@@ -933,7 +962,7 @@ export class GameScene extends Phaser.Scene {
         });
 
         if (isLocal) {
-          this.updateCamera();
+          this.bindCameraToLocalPlayer();
         }
       } else {
         existing.lastTargetX = existing.targetX;
