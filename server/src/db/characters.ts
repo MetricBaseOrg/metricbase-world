@@ -1,11 +1,15 @@
 import {
+  EMPTY_EQUIPMENT,
   EMPTY_INVENTORY,
   EMPTY_QUEST_PROGRESS,
   STARTING_GOLD,
+  getPlayerMaxHp,
   normalizeCharacterAppearance,
+  normalizeEquipment,
   normalizeInventory,
   type CharacterAppearance,
   type InventoryEntry,
+  type PlayerEquipment,
   type QuestProgress,
 } from "@metricbase/shared";
 import { getPool } from "./pool.js";
@@ -22,6 +26,8 @@ export interface CharacterRecord {
   questProgress: QuestProgress;
   appearance: CharacterAppearance;
   inventory: InventoryEntry[];
+  hp: number;
+  equipment: PlayerEquipment;
 }
 
 type CharacterRow = {
@@ -36,6 +42,8 @@ type CharacterRow = {
   quest_progress: QuestProgress | null;
   appearance: CharacterAppearance | null;
   inventory: InventoryEntry[] | null;
+  hp: number | null;
+  equipment: PlayerEquipment | null;
 };
 
 export async function loadCharacterByName(name: string): Promise<CharacterRecord | null> {
@@ -43,7 +51,7 @@ export async function loadCharacterByName(name: string): Promise<CharacterRecord
   if (!db) return null;
 
   const result = await db.query<CharacterRow>(
-    `SELECT name, wallet_address, zone_id, x, y, level, xp, gold, quest_progress, appearance, inventory
+    `SELECT name, wallet_address, zone_id, x, y, level, xp, gold, quest_progress, appearance, inventory, hp, equipment
      FROM characters
      WHERE name = $1`,
     [name],
@@ -58,7 +66,7 @@ export async function loadCharacterByWallet(wallet: string): Promise<CharacterRe
   if (!db) return null;
 
   const result = await db.query<CharacterRow>(
-    `SELECT name, wallet_address, zone_id, x, y, level, xp, gold, quest_progress, appearance, inventory
+    `SELECT name, wallet_address, zone_id, x, y, level, xp, gold, quest_progress, appearance, inventory, hp, equipment
      FROM characters
      WHERE wallet_address = $1`,
     [wallet],
@@ -78,8 +86,8 @@ export async function saveCharacter(record: CharacterRecord): Promise<void> {
   if (!db) return;
 
   await db.query(
-    `INSERT INTO characters (name, wallet_address, zone_id, x, y, level, xp, gold, quest_progress, appearance, inventory, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10::jsonb, $11::jsonb, NOW())
+    `INSERT INTO characters (name, wallet_address, zone_id, x, y, level, xp, gold, quest_progress, appearance, inventory, hp, equipment, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10::jsonb, $11::jsonb, $12, $13::jsonb, NOW())
      ON CONFLICT (name)
      DO UPDATE SET
        wallet_address = COALESCE(EXCLUDED.wallet_address, characters.wallet_address),
@@ -92,6 +100,8 @@ export async function saveCharacter(record: CharacterRecord): Promise<void> {
        quest_progress = EXCLUDED.quest_progress,
        appearance = EXCLUDED.appearance,
        inventory = EXCLUDED.inventory,
+       hp = EXCLUDED.hp,
+       equipment = EXCLUDED.equipment,
        updated_at = NOW()`,
     [
       record.name,
@@ -105,6 +115,8 @@ export async function saveCharacter(record: CharacterRecord): Promise<void> {
       JSON.stringify(record.questProgress),
       JSON.stringify(record.appearance),
       JSON.stringify(record.inventory),
+      record.hp,
+      JSON.stringify(record.equipment),
     ],
   );
 }
@@ -161,6 +173,13 @@ export async function bindCharacterToWallet(
       { active: [], objectiveIndex: {}, completed: [] },
     appearance,
     inventory: existingByWallet?.inventory ?? existingByName?.inventory ?? [],
+    hp:
+      existingByWallet?.hp ??
+      existingByName?.hp ??
+      getPlayerMaxHp(existingByWallet?.level ?? existingByName?.level ?? 1),
+    equipment: normalizeEquipment(
+      existingByWallet?.equipment ?? existingByName?.equipment ?? EMPTY_EQUIPMENT,
+    ),
   };
 
   await saveCharacter(record);
@@ -216,6 +235,8 @@ function mapRow(row: CharacterRow): CharacterRecord {
     questProgress: normalizeQuestProgress(row.quest_progress),
     appearance: normalizeCharacterAppearance(row.appearance),
     inventory: normalizeInventory(row.inventory ?? EMPTY_INVENTORY),
+    hp: row.hp ?? getPlayerMaxHp(row.level),
+    equipment: normalizeEquipment(row.equipment ?? EMPTY_EQUIPMENT),
   };
 }
 

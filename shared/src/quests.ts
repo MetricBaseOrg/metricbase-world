@@ -1,14 +1,19 @@
+import { getItemQuantity, type InventoryEntry } from "./items.js";
 import { ZONE_WILDERNESS } from "./zones.js";
 
 export const QUEST_GREET_ARIA = "quest_greet_aria";
 export const QUEST_EXPLORE_WILDERNESS = "quest_explore_wilderness";
+export const QUEST_DEFEAT_DUMMY = "quest_defeat_dummy";
+export const QUEST_COLLECT_SCRAP = "quest_collect_scrap";
+export const QUEST_VETERAN = "quest_veteran";
 
-export type QuestObjectiveType = "talk_npc" | "visit_zone";
+export type QuestObjectiveType = "talk_npc" | "visit_zone" | "defeat_npc" | "collect_item";
 
 export interface QuestObjective {
   type: QuestObjectiveType;
   target: string;
   label: string;
+  count?: number;
 }
 
 export interface QuestDefinition {
@@ -37,8 +42,9 @@ export interface QuestView {
   id: string;
   title: string;
   description: string;
-  objectives: Array<{ label: string; done: boolean }>;
+  objectives: Array<{ label: string; done: boolean; progress?: string }>;
   rewardXp: number;
+  rewardGold?: number;
 }
 
 export const EMPTY_QUEST_PROGRESS: QuestProgress = {
@@ -66,6 +72,45 @@ export const QUESTS: Record<string, QuestDefinition> = {
     rewardGold: 25,
     startNpcId: "hub_guide",
     requiresCompleted: [QUEST_GREET_ARIA],
+  },
+  [QUEST_DEFEAT_DUMMY]: {
+    id: QUEST_DEFEAT_DUMMY,
+    title: "Practice Makes Perfect",
+    description: "The Training Dummy in the Wilderness is waiting. Show it what you've learned.",
+    objectives: [
+      { type: "defeat_npc", target: "training_dummy", label: "Defeat the Training Dummy" },
+    ],
+    rewardXp: 75,
+    rewardGold: 30,
+    startNpcId: "hub_guide",
+    requiresCompleted: [QUEST_EXPLORE_WILDERNESS],
+  },
+  [QUEST_COLLECT_SCRAP]: {
+    id: QUEST_COLLECT_SCRAP,
+    title: "Salvage the Scrap",
+    description: "Bring back training materials from defeated dummies.",
+    objectives: [
+      {
+        type: "collect_item",
+        target: "item_training_scrap",
+        count: 3,
+        label: "Collect 3 Training Scrap",
+      },
+    ],
+    rewardXp: 40,
+    rewardGold: 20,
+    startNpcId: "hub_guide",
+    requiresCompleted: [QUEST_DEFEAT_DUMMY],
+  },
+  [QUEST_VETERAN]: {
+    id: QUEST_VETERAN,
+    title: "Veteran Adventurer",
+    description: "Aria wants to recognize your progress in the hub.",
+    objectives: [{ type: "talk_npc", target: "hub_guide", label: "Report back to Aria" }],
+    rewardXp: 100,
+    rewardGold: 50,
+    startNpcId: "hub_guide",
+    requiresCompleted: [QUEST_COLLECT_SCRAP],
   },
 };
 
@@ -134,7 +179,28 @@ export function advanceQuestObjective(
   };
 }
 
-export function buildQuestViews(progress: QuestProgress): QuestStatePayload {
+function objectiveProgressLabel(
+  objective: QuestObjective,
+  inventory: InventoryEntry[],
+): string | undefined {
+  if (objective.type !== "collect_item") return undefined;
+  const required = objective.count ?? 1;
+  const owned = getItemQuantity(inventory, objective.target);
+  return `${Math.min(owned, required)}/${required}`;
+}
+
+export function isCollectObjectiveMet(
+  objective: QuestObjective,
+  inventory: InventoryEntry[],
+): boolean {
+  if (objective.type !== "collect_item") return false;
+  return getItemQuantity(inventory, objective.target) >= (objective.count ?? 1);
+}
+
+export function buildQuestViews(
+  progress: QuestProgress,
+  inventory: InventoryEntry[] = [],
+): QuestStatePayload {
   const active = progress.active.map((questId) => {
     const quest = getQuestDefinition(questId);
     const doneCount = progress.objectiveIndex[questId] ?? 0;
@@ -144,9 +210,14 @@ export function buildQuestViews(progress: QuestProgress): QuestStatePayload {
       title: quest.title,
       description: quest.description,
       rewardXp: quest.rewardXp,
+      rewardGold: quest.rewardGold,
       objectives: quest.objectives.map((objective, index) => ({
         label: objective.label,
         done: index < doneCount,
+        progress:
+          index === doneCount && objective.type === "collect_item"
+            ? objectiveProgressLabel(objective, inventory)
+            : undefined,
       })),
     };
   });

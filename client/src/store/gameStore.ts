@@ -13,6 +13,9 @@ interface GameStore {
   playerLevel: number;
   playerXp: number;
   playerGold: number;
+  playerHp: number;
+  playerMaxHp: number;
+  equippedWeaponId: string | null;
   walletAddress: string | null;
   connected: boolean;
   playerCount: number;
@@ -27,8 +30,16 @@ interface GameStore {
   setCharacterAppearance: (appearance: CharacterAppearance | null) => void;
   setPlayerLevel: (level: number) => void;
   setPlayerXp: (xp: number) => void;
-  setProfile: (level: number, xp: number, gold?: number) => void;
+  setProfile: (
+    level: number,
+    xp: number,
+    gold?: number,
+    hp?: number,
+    maxHp?: number,
+    equippedWeaponId?: string | null,
+  ) => void;
   setPlayerGold: (gold: number) => void;
+  setPlayerVitals: (hp: number, maxHp: number) => void;
   setWalletAddress: (wallet: string | null) => void;
   setConnected: (connected: boolean) => void;
   setPlayerCount: (count: number) => void;
@@ -51,6 +62,9 @@ export const useGameStore = create<GameStore>((set) => ({
   playerLevel: 1,
   playerXp: 0,
   playerGold: 0,
+  playerHp: 40,
+  playerMaxHp: 40,
+  equippedWeaponId: null,
   walletAddress: null,
   connected: false,
   playerCount: 0,
@@ -65,13 +79,18 @@ export const useGameStore = create<GameStore>((set) => ({
   setCharacterAppearance: (characterAppearance) => set({ characterAppearance }),
   setPlayerLevel: (level) => set({ playerLevel: level }),
   setPlayerXp: (xp) => set({ playerXp: xp }),
-  setProfile: (level, xp, gold) =>
+  setProfile: (level, xp, gold, hp, maxHp, equippedWeaponId) =>
     set((state) => ({
       playerLevel: level,
       playerXp: xp,
       playerGold: gold ?? state.playerGold,
+      playerHp: hp ?? state.playerHp,
+      playerMaxHp: maxHp ?? state.playerMaxHp,
+      equippedWeaponId:
+        equippedWeaponId !== undefined ? equippedWeaponId : state.equippedWeaponId,
     })),
   setPlayerGold: (playerGold) => set({ playerGold }),
+  setPlayerVitals: (playerHp, playerMaxHp) => set({ playerHp, playerMaxHp }),
   setWalletAddress: (walletAddress) => set({ walletAddress }),
   setConnected: (connected) => set({ connected }),
   setPlayerCount: (count) => set({ playerCount: count }),

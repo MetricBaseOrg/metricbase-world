@@ -42,9 +42,12 @@ export interface ProfilePayload {
   level: number;
   xp: number;
   gold?: number;
+  hp?: number;
+  maxHp?: number;
+  equippedWeaponId?: string | null;
 }
 
 export type { QuestStatePayload } from "./quests.js";
 export type { AttackResultPayload, MobHealthPayload } from "./combat.js";
-export type { InventoryStatePayload } from "./items.js";
+export type { InventoryResultPayload, InventoryStatePayload } from "./items.js";
 export type { ShopOpenPayload, ShopResultPayload } from "./shop.js";

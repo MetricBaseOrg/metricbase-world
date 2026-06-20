@@ -14,6 +14,7 @@ import {
   buildInventoryPayload,
   buildShopOpenPayload,
   getItemDefinition,
+  getItemQuantity,
   getShopByNpcId,
   getShopDefinition,
   getZoneConfig,
@@ -29,10 +30,14 @@ import {
   MAX_PLAYERS_PER_ZONE,
   NPC_INTERACT_COOLDOWN_MS,
   NPC_INTERACT_RANGE,
-  PLAYER_ATTACK_DAMAGE,
+  getPlayerAttackDamage,
+  getPlayerMaxHp,
+  isCollectObjectiveMet,
+  normalizeEquipment,
   PLAYER_SPEED,
+  POTION_HEAL_AMOUNT,
+  TRAINING_DUMMY_COUNTER_DAMAGE,
   PlayerSchema,
-  QUEST_EXPLORE_WILDERNESS,
   startQuest,
   TICK_RATE,
   tileToWorld,
@@ -86,6 +91,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   private mobRespawnAt = new Map<string, number>();
   private inventories = new Map<string, InventoryEntry[]>();
   private playerGold = new Map<string, number>();
+  private playerHp = new Map<string, number>();
+  private playerEquipment = new Map<string, ReturnType<typeof normalizeEquipment>>();
   private playerWallets = new Map<string, string>();
   private zoneConfig!: ZoneConfig;
 
@@ -165,6 +172,14 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
     this.onMessage("linkWallet", (client, message: { accessToken?: string }) => {
       void this.handleLinkWallet(client, message.accessToken ?? "");
+    });
+
+    this.onMessage("useItem", (client, message: { itemId?: string }) => {
+      void this.handleUseItem(client, message.itemId ?? "");
+    });
+
+    this.onMessage("equipItem", (client, message: { itemId?: string | null }) => {
+      void this.handleEquipItem(client, message.itemId ?? null);
     });
   }
 
@@ -246,6 +261,12 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     this.questProgress.set(player.name, saved?.questProgress ?? { active: [], objectiveIndex: {}, completed: [] });
     this.inventories.set(player.name, normalizeInventory(saved?.inventory));
     this.playerGold.set(player.name, saved?.gold ?? STARTING_GOLD);
+    this.playerEquipment.set(
+      player.name,
+      normalizeEquipment(saved?.equipment),
+    );
+    const maxHp = getPlayerMaxHp(player.level);
+    this.playerHp.set(player.name, Math.min(saved?.hp ?? maxHp, maxHp));
 
     this.sendProfile(client, player);
     this.sendQuestState(client, player.name);
@@ -283,6 +304,9 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     if (player) {
       this.questProgress.delete(player.name);
       this.inventories.delete(player.name);
+      this.playerGold.delete(player.name);
+      this.playerHp.delete(player.name);
+      this.playerEquipment.delete(player.name);
       this.playerWallets.delete(client.sessionId);
     }
 
@@ -425,6 +449,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
     this.grantXp(client, player, XP_NPC_INTERACT, `spoke with ${npc.name}`);
     await this.checkTalkObjectives(client, player.name, npcId);
+    await this.checkCollectObjectives(client, player.name);
     await this.persistPlayer(player);
   }
 
@@ -446,22 +471,33 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     const currentHp = this.mobHp.get(npcId);
     if (currentHp === undefined || currentHp <= 0) return;
 
+    const playerHp = this.playerHp.get(player.name) ?? getPlayerMaxHp(player.level);
+    if (playerHp <= 0) return;
+
     this.attackCooldowns.set(client.sessionId, now);
-    const nextHp = Math.max(0, currentHp - PLAYER_ATTACK_DAMAGE);
+    const equipment = this.playerEquipment.get(player.name);
+    const damage = getPlayerAttackDamage(equipment?.weaponId);
+    const nextHp = Math.max(0, currentHp - damage);
     this.mobHp.set(npcId, nextHp);
+
+    if (npc.combat) {
+      const counterDamage = npcId === "wild_slime" ? 5 : TRAINING_DUMMY_COUNTER_DAMAGE;
+      this.damagePlayer(client, player, counterDamage, `${npc.name} counter-attack`);
+    }
 
     const defeated = nextHp === 0;
     if (defeated) {
       this.mobRespawnAt.set(npcId, now + npc.combat.respawnMs);
       this.grantXp(client, player, npc.combat.rewardXp, `defeated ${npc.name}`);
       this.grantGold(client, player, 5, `defeated ${npc.name}`);
-      this.grantLoot(client, player.name, "item_training_scrap", 1);
+      await this.grantLoot(client, player.name, "item_training_scrap", 1);
+      await this.checkDefeatObjectives(client, player.name, npcId);
       await this.persistPlayer(player);
     }
 
     this.broadcast("attackResult", {
       npcId,
-      damage: PLAYER_ATTACK_DAMAGE,
+      damage,
       currentHp: nextHp,
       maxHp: npc.combat.maxHp,
       defeated,
@@ -540,22 +576,66 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       sentAt: Date.now(),
     });
 
-    if (questId === QUEST_EXPLORE_WILDERNESS) {
-      const next = getQuestsOfferedByNpc("hub_guide", progress);
-      if (next.length > 0) {
-        this.broadcastChat({
-          id: crypto.randomUUID(),
-          channel: "system",
-          senderId: "system",
-          senderName: "Quest",
-          body: "Return to Aria in the hub for more quests.",
-          sentAt: Date.now(),
-        });
-      }
+    const nextQuests = getQuestsOfferedByNpc("hub_guide", progress);
+    if (nextQuests.length > 0) {
+      this.broadcastChat({
+        id: crypto.randomUUID(),
+        channel: "system",
+        senderId: "system",
+        senderName: "Quest",
+        body: "Return to Aria in the hub for your next quest.",
+        sentAt: Date.now(),
+      });
     }
 
     await this.persistPlayer(player);
     return progress;
+  }
+
+  private async checkDefeatObjectives(client: Client, playerName: string, npcId: string) {
+    let progress = this.getQuestProgress(playerName);
+
+    for (const questId of [...progress.active]) {
+      const quest = getQuestDefinition(questId);
+      const objectiveIndex = progress.objectiveIndex[questId] ?? 0;
+      const objective = quest.objectives[objectiveIndex];
+      if (!objective || objective.type !== "defeat_npc" || objective.target !== npcId) {
+        continue;
+      }
+
+      const result = advanceQuestObjective(progress, questId);
+      progress = result.progress;
+      this.questProgress.set(playerName, progress);
+
+      if (result.completed) {
+        progress = await this.finishQuest(client, playerName, questId, progress);
+      }
+    }
+
+    this.sendQuestState(client, playerName);
+  }
+
+  private async checkCollectObjectives(client: Client, playerName: string) {
+    let progress = this.getQuestProgress(playerName);
+    const inventory = this.inventories.get(playerName) ?? [];
+
+    for (const questId of [...progress.active]) {
+      const quest = getQuestDefinition(questId);
+      const objectiveIndex = progress.objectiveIndex[questId] ?? 0;
+      const objective = quest.objectives[objectiveIndex];
+      if (!objective || objective.type !== "collect_item") continue;
+      if (!isCollectObjectiveMet(objective, inventory)) continue;
+
+      const result = advanceQuestObjective(progress, questId);
+      progress = result.progress;
+      this.questProgress.set(playerName, progress);
+
+      if (result.completed) {
+        progress = await this.finishQuest(client, playerName, questId, progress);
+      }
+    }
+
+    this.sendQuestState(client, playerName);
   }
 
   private grantXp(
@@ -580,6 +660,9 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     });
 
     if (player.level > previousLevel) {
+      const maxHp = getPlayerMaxHp(player.level);
+      this.playerHp.set(player.name, maxHp);
+      this.sendProfile(client, player);
       this.broadcastChat({
         id: crypto.randomUUID(),
         channel: "system",
@@ -617,11 +700,45 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   }
 
   private sendProfile(client: Client, player: InstanceType<typeof PlayerSchema>) {
+    const maxHp = getPlayerMaxHp(player.level);
+    const equipment = this.playerEquipment.get(player.name);
     client.send("profile", {
       level: player.level,
       xp: player.xp,
       gold: this.playerGold.get(player.name) ?? STARTING_GOLD,
+      hp: this.playerHp.get(player.name) ?? maxHp,
+      maxHp,
+      equippedWeaponId: equipment?.weaponId ?? null,
     });
+  }
+
+  private damagePlayer(
+    client: Client,
+    player: InstanceType<typeof PlayerSchema>,
+    amount: number,
+    reason: string,
+  ) {
+    const maxHp = getPlayerMaxHp(player.level);
+    const current = this.playerHp.get(player.name) ?? maxHp;
+    const next = Math.max(0, current - amount);
+    this.playerHp.set(player.name, next);
+    this.sendProfile(client, player);
+
+    if (next === 0) {
+      const spawn = tileToWorld(this.zoneConfig.spawnTile.x, this.zoneConfig.spawnTile.y);
+      player.x = spawn.x;
+      player.y = spawn.y;
+      this.playerHp.set(player.name, maxHp);
+      this.sendProfile(client, player);
+      this.broadcastChat({
+        id: crypto.randomUUID(),
+        channel: "system",
+        senderId: "system",
+        senderName: "System",
+        body: `${player.name} was knocked out (${reason}) and respawned.`,
+        sentAt: Date.now(),
+      });
+    }
   }
 
   private grantGold(
@@ -872,7 +989,10 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     client.send("shopResult", {
       ok: true,
       gold: this.playerGold.get(player.name),
-      inventory: buildInventoryPayload(inventory),
+      inventory: buildInventoryPayload(
+        inventory,
+        this.playerEquipment.get(player.name)?.weaponId ?? null,
+      ),
     });
     await this.persistPlayer(player);
   }
@@ -928,17 +1048,22 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     client.send("shopResult", {
       ok: true,
       gold,
-      inventory: buildInventoryPayload(inventory),
+      inventory: buildInventoryPayload(
+        inventory,
+        this.playerEquipment.get(player.name)?.weaponId ?? null,
+      ),
     });
+    await this.checkCollectObjectives(client, player.name);
     await this.persistPlayer(player);
   }
 
   private sendInventory(client: Client, playerName: string) {
     const inventory = this.inventories.get(playerName) ?? [];
-    client.send("inventory", buildInventoryPayload(inventory));
+    const equipment = this.playerEquipment.get(playerName);
+    client.send("inventory", buildInventoryPayload(inventory, equipment?.weaponId ?? null));
   }
 
-  private grantLoot(client: Client, playerName: string, itemId: string, quantity: number) {
+  private async grantLoot(client: Client, playerName: string, itemId: string, quantity: number) {
     const current = this.inventories.get(playerName) ?? [];
     const { inventory, added } = addItemToInventory(current, itemId, quantity);
     if (added <= 0) return;
@@ -957,10 +1082,129 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       body: `${player.name} received ${added}x ${getItemDefinition(itemId).name}.`,
       sentAt: Date.now(),
     });
+
+    await this.checkCollectObjectives(client, playerName);
   }
 
   private sendQuestState(client: Client, playerName: string) {
-    client.send("questState", buildQuestViews(this.getQuestProgress(playerName)));
+    const inventory = this.inventories.get(playerName) ?? [];
+    client.send("questState", buildQuestViews(this.getQuestProgress(playerName), inventory));
+  }
+
+  private async handleUseItem(client: Client, itemId: string) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !itemId) return;
+
+    let item;
+    try {
+      item = getItemDefinition(itemId);
+    } catch {
+      client.send("inventoryResult", { ok: false, error: "Unknown item." });
+      return;
+    }
+
+    if (item.kind !== "consumable") {
+      client.send("inventoryResult", { ok: false, error: "That item cannot be used." });
+      return;
+    }
+
+    const current = this.inventories.get(player.name) ?? [];
+    const { inventory, removed } = removeItemFromInventory(current, itemId, 1);
+    if (removed <= 0) {
+      client.send("inventoryResult", { ok: false, error: "You don't have that item." });
+      return;
+    }
+
+    const maxHp = getPlayerMaxHp(player.level);
+    const healed = Math.min(POTION_HEAL_AMOUNT, maxHp - (this.playerHp.get(player.name) ?? maxHp));
+    const nextHp = Math.min(maxHp, (this.playerHp.get(player.name) ?? maxHp) + POTION_HEAL_AMOUNT);
+    this.playerHp.set(player.name, nextHp);
+    this.inventories.set(player.name, inventory);
+    this.sendProfile(client, player);
+    this.sendInventory(client, player.name);
+
+    this.broadcastChat({
+      id: crypto.randomUUID(),
+      channel: "system",
+      senderId: "system",
+      senderName: "Item",
+      body:
+        healed > 0
+          ? `${player.name} drank a Health Potion (+${healed} HP).`
+          : `${player.name} drank a Health Potion (already at full HP).`,
+      sentAt: Date.now(),
+    });
+
+    client.send("inventoryResult", {
+      ok: true,
+      inventory: buildInventoryPayload(
+        inventory,
+        this.playerEquipment.get(player.name)?.weaponId ?? null,
+      ),
+      hp: nextHp,
+      maxHp,
+    });
+    await this.persistPlayer(player);
+  }
+
+  private async handleEquipItem(client: Client, itemId: string | null) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+
+    if (itemId === null) {
+      this.playerEquipment.set(player.name, normalizeEquipment({ weaponId: null }));
+      this.sendProfile(client, player);
+      this.sendInventory(client, player.name);
+      client.send("inventoryResult", {
+        ok: true,
+        equippedWeaponId: null,
+        inventory: buildInventoryPayload(
+          this.inventories.get(player.name) ?? [],
+          null,
+        ),
+      });
+      await this.persistPlayer(player);
+      return;
+    }
+
+    let item;
+    try {
+      item = getItemDefinition(itemId);
+    } catch {
+      client.send("inventoryResult", { ok: false, error: "Unknown item." });
+      return;
+    }
+
+    if (item.kind !== "weapon") {
+      client.send("inventoryResult", { ok: false, error: "That item cannot be equipped." });
+      return;
+    }
+
+    const inventory = this.inventories.get(player.name) ?? [];
+    if (getItemQuantity(inventory, itemId) <= 0) {
+      client.send("inventoryResult", { ok: false, error: "You don't have that item." });
+      return;
+    }
+
+    this.playerEquipment.set(player.name, normalizeEquipment({ weaponId: itemId }));
+    this.sendProfile(client, player);
+    this.sendInventory(client, player.name);
+
+    this.broadcastChat({
+      id: crypto.randomUUID(),
+      channel: "system",
+      senderId: "system",
+      senderName: "Item",
+      body: `${player.name} equipped ${item.name}.`,
+      sentAt: Date.now(),
+    });
+
+    client.send("inventoryResult", {
+      ok: true,
+      equippedWeaponId: itemId,
+      inventory: buildInventoryPayload(inventory, itemId),
+    });
+    await this.persistPlayer(player);
   }
 
   private sendMobHealth(client: Client) {
@@ -1012,6 +1256,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         outfitStyle: player.outfitStyle as "robe" | "armor" | "casual",
       },
       inventory: normalizeInventory(this.inventories.get(player.name)),
+      hp: this.playerHp.get(player.name) ?? getPlayerMaxHp(player.level),
+      equipment: normalizeEquipment(this.playerEquipment.get(player.name)),
     });
   }
 

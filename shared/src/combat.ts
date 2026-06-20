@@ -1,6 +1,20 @@
+import { getWeaponBonusDamage } from "./equipment.js";
+
 export const ATTACK_RANGE = 72;
 export const ATTACK_COOLDOWN_MS = 450;
 export const PLAYER_ATTACK_DAMAGE = 18;
+export const PLAYER_MAX_HP_BASE = 40;
+export const PLAYER_MAX_HP_PER_LEVEL = 8;
+export const TRAINING_DUMMY_COUNTER_DAMAGE = 8;
+export const POTION_HEAL_AMOUNT = 25;
+
+export function getPlayerMaxHp(level: number): number {
+  return PLAYER_MAX_HP_BASE + Math.max(0, level - 1) * PLAYER_MAX_HP_PER_LEVEL;
+}
+
+export function getPlayerAttackDamage(weaponId: string | null | undefined): number {
+  return PLAYER_ATTACK_DAMAGE + getWeaponBonusDamage(weaponId);
+}
 
 export interface NpcCombatConfig {
   maxHp: number;

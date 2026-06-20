@@ -13,6 +13,9 @@ export function HUD({ onLeave }: HUDProps) {
     playerLevel,
     playerXp,
     playerGold,
+    playerHp,
+    playerMaxHp,
+    equippedWeaponId,
     walletAddress,
     connected,
     playerCount,
@@ -33,6 +36,29 @@ export function HUD({ onLeave }: HUDProps) {
 
       <div style={{ fontSize: "0.88rem", fontWeight: 700, marginTop: 8 }}>
         {playerName} · Lv {playerLevel} · <span style={{ color: "var(--chibi-gold-deep)" }}>🪙 {playerGold}</span>
+      </div>
+
+      <div style={{ marginTop: 8 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.75rem", fontWeight: 700 }}>
+          <span>❤️ HP</span>
+          <span>
+            {playerHp} / {playerMaxHp}
+          </span>
+        </div>
+        <div className="chibi-progress" style={{ marginTop: 4 }}>
+          <div
+            className="chibi-progress__fill"
+            style={{
+              width: `${playerMaxHp > 0 ? Math.round((playerHp / playerMaxHp) * 100) : 0}%`,
+              background: "linear-gradient(90deg, #ff6b6b, #ff8f8f)",
+            }}
+          />
+        </div>
+        {equippedWeaponId && (
+          <div className="chibi-text-muted" style={{ marginTop: 4 }}>
+            ⚔️ {equippedWeaponId === "item_rusty_blade" ? "Rusty Blade equipped" : "Weapon equipped"}
+          </div>
+        )}
       </div>
 
       {walletAddress ? (

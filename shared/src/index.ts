@@ -40,6 +40,7 @@ export * from "./combat.js";
 export * from "./tokenGate.js";
 export * from "./character.js";
 export * from "./items.js";
+export * from "./equipment.js";
 export * from "./shop.js";
 export * from "./tokenShop.js";
 export * from "./market.js";

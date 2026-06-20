@@ -37,10 +37,14 @@ export function QuestPanel() {
                 }}
               >
                 {objective.done ? "✅" : "⭕"} {objective.label}
+                {!objective.done && objective.progress && (
+                  <span style={{ color: "var(--chibi-gold-deep)", marginLeft: 6 }}>({objective.progress})</span>
+                )}
               </div>
             ))}
             <div className="chibi-text-muted" style={{ marginTop: 4 }}>
               Reward: {quest.rewardXp} XP
+              {quest.rewardGold ? ` · 🪙 ${quest.rewardGold} gold` : ""}
             </div>
           </div>
         ))

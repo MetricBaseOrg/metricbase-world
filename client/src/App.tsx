@@ -54,7 +54,14 @@ export function App() {
     });
 
     const unsubscribeProfile = networkManager.onProfile((profile) => {
-      setProfile(profile.level, profile.xp, profile.gold);
+      setProfile(
+        profile.level,
+        profile.xp,
+        profile.gold,
+        profile.hp,
+        profile.maxHp,
+        profile.equippedWeaponId,
+      );
     });
 
     const unsubscribeQuestState = networkManager.onQuestState((state) => {
@@ -168,6 +175,9 @@ export function App() {
     setShop(null);
     setShopOpen(false);
     setPlayerGold(0);
+    const store = useGameStore.getState();
+    store.setPlayerVitals(40, 40);
+    store.setProfile(store.playerLevel, store.playerXp, 0, 40, 40, null);
     setJoined(false);
   };
 

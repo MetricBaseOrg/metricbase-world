@@ -1,9 +1,12 @@
+export type ItemKind = "material" | "consumable" | "weapon";
+
 export interface ItemDefinition {
   id: string;
   name: string;
   description: string;
   stackable: boolean;
   maxStack: number;
+  kind: ItemKind;
 }
 
 export interface InventoryEntry {
@@ -14,6 +17,16 @@ export interface InventoryEntry {
 export interface InventoryStatePayload {
   items: InventoryEntry[];
   capacity: number;
+  equippedWeaponId?: string | null;
+}
+
+export interface InventoryResultPayload {
+  ok: boolean;
+  error?: string;
+  inventory?: InventoryStatePayload;
+  hp?: number;
+  maxHp?: number;
+  equippedWeaponId?: string | null;
 }
 
 export const INVENTORY_CAPACITY = 16;
@@ -22,9 +35,10 @@ export const ITEMS: Record<string, ItemDefinition> = {
   item_health_potion: {
     id: "item_health_potion",
     name: "Health Potion",
-    description: "Restores vitality. Consumables coming soon.",
+    description: "Restores 25 HP when used.",
     stackable: true,
     maxStack: 20,
+    kind: "consumable",
   },
   item_training_scrap: {
     id: "item_training_scrap",
@@ -32,13 +46,15 @@ export const ITEMS: Record<string, ItemDefinition> = {
     description: "Fibers from a battered dummy. Useful for crafting.",
     stackable: true,
     maxStack: 99,
+    kind: "material",
   },
   item_rusty_blade: {
     id: "item_rusty_blade",
     name: "Rusty Blade",
-    description: "A worn practice sword. Better than bare hands.",
+    description: "A worn practice sword. +12 attack damage when equipped.",
     stackable: false,
     maxStack: 1,
+    kind: "weapon",
   },
 };
 
@@ -136,9 +152,13 @@ export function addItemToInventory(
   return { inventory: next, added };
 }
 
-export function buildInventoryPayload(inventory: InventoryEntry[]): InventoryStatePayload {
+export function buildInventoryPayload(
+  inventory: InventoryEntry[],
+  equippedWeaponId: string | null = null,
+): InventoryStatePayload {
   return {
     items: normalizeInventory(inventory),
     capacity: INVENTORY_CAPACITY,
+    equippedWeaponId,
   };
 }

@@ -5,6 +5,7 @@ import {
   ChatMessagePayload,
   getZoneConfig,
   JoinOptions,
+  InventoryResultPayload,
   InventoryStatePayload,
   MobHealthPayload,
   normalizeCharacterAppearance,
@@ -43,6 +44,7 @@ type QuestStateListener = (state: QuestStatePayload) => void;
 type MobHealthListener = (payload: MobHealthPayload) => void;
 type AttackResultListener = (payload: AttackResultPayload) => void;
 type InventoryListener = (state: InventoryStatePayload) => void;
+type InventoryResultListener = (payload: InventoryResultPayload) => void;
 type ShopOpenListener = (payload: ShopOpenPayload) => void;
 type ShopResultListener = (payload: ShopResultPayload) => void;
 type MarketResultListener = (payload: MarketResultPayload) => void;
@@ -66,6 +68,7 @@ export class NetworkManager {
   private mobHealthListeners = new Set<MobHealthListener>();
   private attackResultListeners = new Set<AttackResultListener>();
   private inventoryListeners = new Set<InventoryListener>();
+  private inventoryResultListeners = new Set<InventoryResultListener>();
   private shopOpenListeners = new Set<ShopOpenListener>();
   private shopResultListeners = new Set<ShopResultListener>();
   private marketResultListeners = new Set<MarketResultListener>();
@@ -207,6 +210,14 @@ export class NetworkManager {
     this.room?.send("marketRefresh", {});
   }
 
+  sendUseItem(itemId: string) {
+    this.room?.send("useItem", { itemId });
+  }
+
+  sendEquipItem(itemId: string | null) {
+    this.room?.send("equipItem", { itemId });
+  }
+
   setAccessToken(accessToken: string | null) {
     this.accessToken = accessToken;
   }
@@ -337,6 +348,11 @@ export class NetworkManager {
     return () => this.inventoryListeners.delete(listener);
   }
 
+  onInventoryResult(listener: InventoryResultListener) {
+    this.inventoryResultListeners.add(listener);
+    return () => this.inventoryResultListeners.delete(listener);
+  }
+
   onShopOpen(listener: ShopOpenListener) {
     this.shopOpenListeners.add(listener);
     return () => this.shopOpenListeners.delete(listener);
@@ -416,6 +432,17 @@ export class NetworkManager {
     this.room.onMessage("inventory", (payload: InventoryStatePayload) => {
       this.latestInventory = payload;
       for (const listener of this.inventoryListeners) {
+        listener(payload);
+      }
+    });
+    this.room.onMessage("inventoryResult", (payload: InventoryResultPayload) => {
+      if (payload.inventory) {
+        this.latestInventory = payload.inventory;
+        for (const listener of this.inventoryListeners) {
+          listener(payload.inventory);
+        }
+      }
+      for (const listener of this.inventoryResultListeners) {
         listener(payload);
       }
     });

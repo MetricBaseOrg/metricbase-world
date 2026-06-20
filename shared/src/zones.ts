@@ -58,7 +58,7 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
         tileX: 12,
         tileY: 10,
         dialogue:
-          "Welcome to MetricBase Hub. Talk to me anytime — I have quests. Purple tiles are portals!",
+          "Welcome to MetricBase Hub! I track quests for new adventurers. Purple tiles are portals to the Wilderness.",
       },
       {
         id: "hub_merchant",
@@ -90,15 +90,24 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
         name: "Rook",
         tileX: 8,
         tileY: 8,
-        dialogue: "The wilderness is dangerous — for now. Walk the purple gate to return to the hub.",
+        dialogue:
+          "Head east to the Training Dummy, or south to hunt Wild Slimes. They hit back — keep potions handy!",
       },
       {
         id: "training_dummy",
         name: "Training Dummy",
         tileX: 14,
         tileY: 10,
-        dialogue: "A sturdy straw dummy. Press Space to practice your attacks.",
+        dialogue: "A sturdy straw dummy. It swings back when you attack — press Space or tap Attack.",
         combat: { maxHp: 90, rewardXp: 35, respawnMs: 12_000 },
+      },
+      {
+        id: "wild_slime",
+        name: "Wild Slime",
+        tileX: 18,
+        tileY: 14,
+        dialogue: "Gloop! A squishy slime. Easier than the dummy, but still fights back.",
+        combat: { maxHp: 45, rewardXp: 20, respawnMs: 8_000 },
       },
     ],
   },
