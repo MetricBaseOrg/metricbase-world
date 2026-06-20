@@ -29,6 +29,7 @@ export interface CharacterRecord {
   hp: number;
   equipment: PlayerEquipment;
   npcInteractAt: Record<string, number>;
+  mobGoldClaimed: Record<string, boolean>;
 }
 
 type CharacterRow = {
@@ -46,6 +47,7 @@ type CharacterRow = {
   hp: number | null;
   equipment: PlayerEquipment | null;
   npc_interact_at: Record<string, number> | null;
+  mob_gold_claimed: Record<string, boolean> | null;
 };
 
 export async function loadCharacterByName(name: string): Promise<CharacterRecord | null> {
@@ -53,7 +55,7 @@ export async function loadCharacterByName(name: string): Promise<CharacterRecord
   if (!db) return null;
 
   const result = await db.query<CharacterRow>(
-    `SELECT name, wallet_address, zone_id, x, y, level, xp, gold, quest_progress, appearance, inventory, hp, equipment, npc_interact_at
+    `SELECT name, wallet_address, zone_id, x, y, level, xp, gold, quest_progress, appearance, inventory, hp, equipment, npc_interact_at, mob_gold_claimed
      FROM characters
      WHERE name = $1`,
     [name],
@@ -68,7 +70,7 @@ export async function loadCharacterByWallet(wallet: string): Promise<CharacterRe
   if (!db) return null;
 
   const result = await db.query<CharacterRow>(
-    `SELECT name, wallet_address, zone_id, x, y, level, xp, gold, quest_progress, appearance, inventory, hp, equipment, npc_interact_at
+    `SELECT name, wallet_address, zone_id, x, y, level, xp, gold, quest_progress, appearance, inventory, hp, equipment, npc_interact_at, mob_gold_claimed
      FROM characters
      WHERE wallet_address = $1`,
     [wallet],
@@ -88,8 +90,8 @@ export async function saveCharacter(record: CharacterRecord): Promise<void> {
   if (!db) return;
 
   await db.query(
-    `INSERT INTO characters (name, wallet_address, zone_id, x, y, level, xp, gold, quest_progress, appearance, inventory, hp, equipment, npc_interact_at, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10::jsonb, $11::jsonb, $12, $13::jsonb, $14::jsonb, NOW())
+    `INSERT INTO characters (name, wallet_address, zone_id, x, y, level, xp, gold, quest_progress, appearance, inventory, hp, equipment, npc_interact_at, mob_gold_claimed, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10::jsonb, $11::jsonb, $12, $13::jsonb, $14::jsonb, $15::jsonb, NOW())
      ON CONFLICT (name)
      DO UPDATE SET
        wallet_address = COALESCE(EXCLUDED.wallet_address, characters.wallet_address),
@@ -105,6 +107,7 @@ export async function saveCharacter(record: CharacterRecord): Promise<void> {
        hp = EXCLUDED.hp,
        equipment = EXCLUDED.equipment,
        npc_interact_at = EXCLUDED.npc_interact_at,
+       mob_gold_claimed = EXCLUDED.mob_gold_claimed,
        updated_at = NOW()`,
     [
       record.name,
@@ -121,6 +124,7 @@ export async function saveCharacter(record: CharacterRecord): Promise<void> {
       record.hp,
       JSON.stringify(record.equipment),
       JSON.stringify(record.npcInteractAt),
+      JSON.stringify(record.mobGoldClaimed),
     ],
   );
 }
@@ -186,6 +190,8 @@ export async function bindCharacterToWallet(
     ),
     npcInteractAt:
       existingByWallet?.npcInteractAt ?? existingByName?.npcInteractAt ?? {},
+    mobGoldClaimed:
+      existingByWallet?.mobGoldClaimed ?? existingByName?.mobGoldClaimed ?? {},
   };
 
   await saveCharacter(record);
@@ -244,7 +250,20 @@ function mapRow(row: CharacterRow): CharacterRecord {
     hp: row.hp ?? getPlayerMaxHp(row.level),
     equipment: normalizeEquipment(row.equipment ?? EMPTY_EQUIPMENT),
     npcInteractAt: normalizeNpcInteractAt(row.npc_interact_at),
+    mobGoldClaimed: normalizeMobGoldClaimed(row.mob_gold_claimed),
   };
+}
+
+function normalizeMobGoldClaimed(raw: Record<string, boolean> | null): Record<string, boolean> {
+  if (!raw || typeof raw !== "object") return {};
+
+  const result: Record<string, boolean> = {};
+  for (const [npcId, claimed] of Object.entries(raw)) {
+    if (typeof npcId === "string" && claimed === true) {
+      result[npcId] = true;
+    }
+  }
+  return result;
 }
 
 function normalizeNpcInteractAt(raw: Record<string, number> | null): Record<string, number> {

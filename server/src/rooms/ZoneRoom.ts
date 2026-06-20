@@ -37,6 +37,8 @@ import {
   PLAYER_SPEED,
   POTION_HEAL_AMOUNT,
   TRAINING_DUMMY_COUNTER_DAMAGE,
+  TRAINING_DUMMY_GOLD_REWARD,
+  TRAINING_DUMMY_NPC_ID,
   PlayerSchema,
   startQuest,
   TICK_RATE,
@@ -84,6 +86,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   private inputs = new Map<string, PendingInput>();
   private chatCooldowns = new Map<string, number>();
   private npcInteractAt = new Map<string, Record<string, number>>();
+  private mobGoldClaimed = new Map<string, Record<string, boolean>>();
   private attackCooldowns = new Map<string, number>();
   private transferring = new Set<string>();
   private questProgress = new Map<string, QuestProgress>();
@@ -268,6 +271,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     const maxHp = getPlayerMaxHp(player.level);
     this.playerHp.set(player.name, Math.min(saved?.hp ?? maxHp, maxHp));
     this.npcInteractAt.set(player.name, saved?.npcInteractAt ?? {});
+    this.mobGoldClaimed.set(player.name, saved?.mobGoldClaimed ?? {});
 
     this.sendProfile(client, player);
     this.sendQuestState(client, player.name);
@@ -309,6 +313,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       this.playerHp.delete(player.name);
       this.playerEquipment.delete(player.name);
       this.npcInteractAt.delete(player.name);
+      this.mobGoldClaimed.delete(player.name);
       this.playerWallets.delete(client.sessionId);
     }
 
@@ -490,7 +495,18 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     if (defeated) {
       this.mobRespawnAt.set(npcId, now + npc.combat.respawnMs);
       this.grantXp(client, player, npc.combat.rewardXp, `defeated ${npc.name}`);
-      this.grantGold(client, player, 5, `defeated ${npc.name}`);
+
+      if (npcId === TRAINING_DUMMY_NPC_ID) {
+        const claimed = { ...(this.mobGoldClaimed.get(player.name) ?? {}) };
+        if (!claimed[npcId]) {
+          this.grantGold(client, player, TRAINING_DUMMY_GOLD_REWARD, `defeated ${npc.name}`);
+          claimed[npcId] = true;
+          this.mobGoldClaimed.set(player.name, claimed);
+        }
+      } else {
+        this.grantGold(client, player, 5, `defeated ${npc.name}`);
+      }
+
       await this.grantLoot(client, player.name, "item_training_scrap", 1);
       await this.checkDefeatObjectives(client, player.name, npcId);
       await this.persistPlayer(player);
@@ -1260,6 +1276,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       hp: this.playerHp.get(player.name) ?? getPlayerMaxHp(player.level),
       equipment: normalizeEquipment(this.playerEquipment.get(player.name)),
       npcInteractAt: this.npcInteractAt.get(player.name) ?? {},
+      mobGoldClaimed: this.mobGoldClaimed.get(player.name) ?? {},
     });
   }
 

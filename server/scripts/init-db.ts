@@ -25,6 +25,7 @@ await saveCharacter({
   hp: 100,
   equipment: { weaponId: null },
   npcInteractAt: {},
+  mobGoldClaimed: {},
 });
 
 const loaded = await loadCharacter("__healthcheck__");
