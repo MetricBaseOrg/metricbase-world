@@ -29,6 +29,7 @@ export interface ChopResultPayload {
   depleted: boolean;
   skillXpGained: number;
   woodcuttingLevel: number;
+  playerName?: string;
   ok?: boolean;
   error?: string;
 }

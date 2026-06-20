@@ -1531,6 +1531,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       depleted,
       skillXpGained,
       woodcuttingLevel: newLevel,
+      playerName: player.name,
       ok: true,
     };
 

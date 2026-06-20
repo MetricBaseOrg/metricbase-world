@@ -1,16 +1,25 @@
 import Phaser from "phaser";
 import {
   ATTACK_RANGE,
+  AVATAR_ACTION_DURATIONS_MS,
+  avatarFrameTextureKey,
+  appearanceTextureKey,
   CHOP_RANGE,
+  directionFromDelta,
+  directionFromInput,
+  directionTowardTarget,
   SLIME_BRUTE_NPC_ID,
   WILD_SLIME_NPC_ID,
+  type AvatarAction,
+  type AvatarDirection,
+  type CharacterAppearance,
   getZoneConfig,
   MAP_HEIGHT,
   MAP_WIDTH,
   NPC_INTERACT_RANGE,
   tileToWorld,
 } from "@metricbase/shared";
-import { ensurePhaserCharacterTexture } from "../character/characterArt";
+import { playAvatarAnimation, preloadAvatarAnimations } from "../character/avatarAnimations";
 import {
   consumeMobileAttack,
   consumeMobileInteract,
@@ -26,9 +35,15 @@ import { PredictedPosition, reconcilePrediction, stepPrediction } from "./predic
 interface RenderedPlayer {
   sprite: Phaser.GameObjects.Sprite;
   label: Phaser.GameObjects.Text;
-  textureKey: string;
+  appearance: CharacterAppearance;
+  direction: AvatarDirection;
+  action: AvatarAction;
+  actionUntil: number;
+  actionDirection: AvatarDirection;
   targetX: number;
   targetY: number;
+  lastTargetX: number;
+  lastTargetY: number;
   predicted: PredictedPosition;
 }
 
@@ -73,6 +88,7 @@ export class GameScene extends Phaser.Scene {
   private interactKey: Phaser.Input.Keyboard.Key | null = null;
   private attackKey: Phaser.Input.Keyboard.Key | null = null;
   private chopKey: Phaser.Input.Keyboard.Key | null = null;
+  private fishKey: Phaser.Input.Keyboard.Key | null = null;
   private lastSentInput = { dx: 0, dy: 0 };
   private currentZoneId: string | null = null;
 
@@ -90,6 +106,7 @@ export class GameScene extends Phaser.Scene {
       this.interactKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
       this.attackKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
       this.chopKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.F);
+      this.fishKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.G);
     }
 
     const unsubscribePlayers = networkManager.onPlayersChange((players, sessionId) => {
@@ -137,6 +154,9 @@ export class GameScene extends Phaser.Scene {
       if (payload.ok === false) {
         playSfx("shop_fail");
         return;
+      }
+      if (payload.playerName) {
+        this.triggerChopAnimation(payload.playerName, payload.resourceId);
       }
       if (payload.depleted) {
         playSfx("chop_fell");
@@ -190,6 +210,8 @@ export class GameScene extends Phaser.Scene {
     this.tryInteract();
     this.tryAttack();
     this.tryChop();
+    this.tryFish();
+    this.updatePlayerAnimations();
   }
 
   private renderZone(zoneId: string) {
@@ -589,7 +611,97 @@ export class GameScene extends Phaser.Scene {
 
     if (nearest) {
       playSfx("chop_swing");
+      const local = this.renderedPlayers.get(this.localSessionId!);
+      if (local) {
+        const direction = directionTowardTarget(
+          local.predicted.x,
+          local.predicted.y,
+          nearest.worldX,
+          nearest.worldY,
+          local.direction,
+        );
+        this.setPlayerAction(local, "chop", direction, AVATAR_ACTION_DURATIONS_MS.chop);
+      }
       networkManager.sendChop(nearest.id);
+    }
+  }
+
+  private tryFish() {
+    const keyboardFish = this.fishKey !== null && Phaser.Input.Keyboard.JustDown(this.fishKey);
+    if (!keyboardFish || !this.localSessionId) return;
+
+    const local = this.renderedPlayers.get(this.localSessionId);
+    if (!local) return;
+
+    this.setPlayerAction(local, "fish", local.direction, AVATAR_ACTION_DURATIONS_MS.fish);
+  }
+
+  private triggerChopAnimation(playerName: string, resourceId: string) {
+    const resource = this.renderedResources.find((entry) => entry.id === resourceId);
+    for (const [, rendered] of this.renderedPlayers) {
+      const labelText = rendered.label.text;
+      if (labelText !== playerName) continue;
+      const direction = resource
+        ? directionTowardTarget(
+            rendered.sprite.x,
+            rendered.sprite.y,
+            resource.worldX,
+            resource.worldY,
+            rendered.direction,
+          )
+        : rendered.direction;
+      this.setPlayerAction(rendered, "chop", direction, AVATAR_ACTION_DURATIONS_MS.chop);
+      break;
+    }
+  }
+
+  private setPlayerAction(
+    player: RenderedPlayer,
+    action: AvatarAction,
+    direction: AvatarDirection,
+    durationMs: number,
+  ) {
+    player.action = action;
+    player.actionDirection = direction;
+    player.actionUntil = Date.now() + durationMs;
+    playAvatarAnimation(this, player.sprite, player.appearance, direction, action);
+  }
+
+  private updatePlayerAnimations() {
+    const now = Date.now();
+
+    for (const [sessionId, rendered] of this.renderedPlayers) {
+      const isLocal = sessionId === this.localSessionId;
+      let direction = rendered.direction;
+      let action: AvatarAction = "idle";
+
+      if (rendered.actionUntil > now) {
+        direction = rendered.actionDirection;
+        action = rendered.action;
+      } else if (isLocal) {
+        const moving = this.lastSentInput.dx !== 0 || this.lastSentInput.dy !== 0;
+        if (moving) {
+          direction = directionFromInput(this.lastSentInput.dx, this.lastSentInput.dy);
+        }
+        action = moving ? "walk" : "idle";
+      } else {
+        const vx = rendered.targetX - rendered.lastTargetX;
+        const vy = rendered.targetY - rendered.lastTargetY;
+        const moving = Math.hypot(vx, vy) > 0.4;
+        if (moving) {
+          direction = directionFromDelta(vx, vy, rendered.direction);
+          action = "walk";
+        }
+      }
+
+      rendered.direction = direction;
+      if (rendered.actionUntil <= now) {
+        rendered.action = action;
+      }
+
+      const playDirection = rendered.actionUntil > now ? rendered.actionDirection : direction;
+      const playAction = rendered.actionUntil > now ? rendered.action : action;
+      playAvatarAnimation(this, rendered.sprite, rendered.appearance, playDirection, playAction);
     }
   }
 
@@ -626,10 +738,17 @@ export class GameScene extends Phaser.Scene {
       const isLocal = player.sessionId === this.localSessionId;
 
       if (!existing) {
-        const textureKey = ensurePhaserCharacterTexture(this, player.appearance);
-        const sprite = this.add.sprite(player.x, player.y, textureKey);
+        preloadAvatarAnimations(this, player.appearance);
+        const frameKey = avatarFrameTextureKey(
+          appearanceTextureKey(player.appearance),
+          "front",
+          "idle",
+          0,
+        );
+        const sprite = this.add.sprite(player.x, player.y, frameKey);
         sprite.setOrigin(0.5, 0.93);
         sprite.setDepth(1000);
+        playAvatarAnimation(this, sprite, player.appearance, "front", "idle");
         const label = this.add
           .text(player.x, player.y - 42, player.name, {
             fontFamily: '"Fredoka", "Nunito", sans-serif',
@@ -651,17 +770,20 @@ export class GameScene extends Phaser.Scene {
         this.renderedPlayers.set(player.sessionId, {
           sprite,
           label,
-          textureKey,
+          appearance: player.appearance,
+          direction: "front",
+          action: "idle",
+          actionUntil: 0,
+          actionDirection: "front",
           targetX: player.x,
           targetY: player.y,
+          lastTargetX: player.x,
+          lastTargetY: player.y,
           predicted: { x: player.x, y: player.y },
         });
       } else {
-        const textureKey = ensurePhaserCharacterTexture(this, player.appearance);
-        if (existing.textureKey !== textureKey) {
-          existing.sprite.setTexture(textureKey);
-          existing.textureKey = textureKey;
-        }
+        existing.lastTargetX = existing.targetX;
+        existing.lastTargetY = existing.targetY;
         existing.targetX = player.x;
         existing.targetY = player.y;
 
