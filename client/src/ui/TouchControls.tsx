@@ -109,27 +109,30 @@ export function TouchControls() {
       <div className="chibi-action-pad" aria-label="Action controls">
         <button
           type="button"
-          className="chibi-btn chibi-btn--mint chibi-action-btn"
+          className="chibi-btn chibi-btn--mint chibi-action-btn chibi-action-btn--icon"
           onPointerDown={(event) => event.preventDefault()}
           onClick={() => queueMobileAttack()}
+          aria-label="Attack"
         >
-          ⚔️ Attack
+          ⚔️
         </button>
         <button
           type="button"
-          className="chibi-btn chibi-btn--primary chibi-action-btn"
+          className="chibi-btn chibi-btn--primary chibi-action-btn chibi-action-btn--icon"
           onPointerDown={(event) => event.preventDefault()}
           onClick={() => queueMobileInteract()}
+          aria-label="Interact"
         >
-          ✨ Interact
+          ✨
         </button>
         <button
           type="button"
-          className="chibi-btn chibi-btn--secondary chibi-action-btn"
+          className="chibi-btn chibi-btn--secondary chibi-action-btn chibi-action-btn--icon"
           onPointerDown={(event) => event.preventDefault()}
           onClick={() => toggleInventoryOpen()}
+          aria-label="Inventory"
         >
-          🎒 Bag
+          🎒
         </button>
       </div>
     </div>

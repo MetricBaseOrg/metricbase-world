@@ -7,7 +7,7 @@ export function QuestPanel() {
   const mobileLayout = useMobileLayout();
   const hasContent = questState.active.length > 0 || questState.completed.length > 0;
 
-  if (!hasContent || (mobileLayout && inventoryOpen)) {
+  if (!hasContent || inventoryOpen || mobileLayout) {
     return null;
   }
 

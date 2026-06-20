@@ -6,7 +6,7 @@
   --chibi-safe-bottom: env(safe-area-inset-bottom, 0px);
   --chibi-safe-left: env(safe-area-inset-left, 0px);
   --chibi-ui-gap: 12px;
-  --chibi-touch-zone: 108px;
+  --chibi-touch-zone: 88px;
   --chibi-font: "Nunito", system-ui, sans-serif;
   --chibi-font-display: "Fredoka", "Nunito", system-ui, sans-serif;
   --chibi-ink: #3d2b1f;
@@ -528,6 +528,130 @@ body {
   font-size: 0.78rem;
 }
 
+.chibi-action-btn--icon {
+  min-width: 48px;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  font-size: 1.2rem;
+  display: grid;
+  place-items: center;
+}
+
+.chibi-hud-compact-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.chibi-hud-compact-bar__name {
+  font-weight: 800;
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
+.chibi-hud-compact-bar__stats {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.chibi-hud-compact-bar__quest {
+  color: var(--chibi-gold-deep);
+}
+
+.chibi-hud-compact-bar__chevron {
+  font-size: 0.7rem;
+  opacity: 0.7;
+}
+
+.chibi-chat-fab {
+  position: fixed;
+  top: max(58px, calc(var(--chibi-safe-top) + 48px));
+  right: max(10px, var(--chibi-safe-right));
+  z-index: 19;
+  width: 44px;
+  height: 44px;
+  border: 3px solid var(--chibi-outline);
+  border-radius: var(--chibi-radius-pill);
+  background: var(--chibi-panel-solid);
+  box-shadow: 0 4px 0 var(--chibi-shadow);
+  font-size: 1.1rem;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.chibi-chat-fab__badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: var(--chibi-radius-pill);
+  background: var(--chibi-pink);
+  color: #fff;
+  font-size: 0.62rem;
+  font-weight: 800;
+  display: grid;
+  place-items: center;
+}
+
+.chibi-chat-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 24;
+  border: none;
+  background: rgba(61, 43, 31, 0.35);
+  pointer-events: auto;
+}
+
+.chibi-chat-sheet {
+  position: fixed;
+  left: max(10px, var(--chibi-safe-left));
+  right: max(10px, var(--chibi-safe-right));
+  bottom: max(10px, var(--chibi-safe-bottom));
+  z-index: 25;
+  max-height: min(42dvh, 320px);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 3px solid var(--chibi-outline);
+  border-radius: var(--chibi-radius);
+  background: var(--chibi-panel-solid);
+  box-shadow: 0 6px 0 var(--chibi-shadow);
+  pointer-events: auto;
+}
+
+.chibi-chat-sheet__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.chibi-chat-sheet__form {
+  display: flex;
+  gap: 8px;
+}
+
+.chibi-chat-sheet .chibi-chat-log {
+  flex: 1;
+  min-height: 0;
+  height: auto;
+  max-height: min(24dvh, 180px);
+}
+
 .chibi-chat-system {
   color: var(--chibi-mint-deep);
   font-style: italic;
@@ -570,9 +694,19 @@ body {
     align-items: flex-start;
   }
 
-  .chibi-panel--hud {
-    max-width: min(280px, calc(100vw - 16px - var(--chibi-safe-left) - var(--chibi-safe-right)));
-    padding: 10px 12px;
+  .chibi-panel--hud-mobile {
+    max-width: min(340px, calc(100vw - 20px - var(--chibi-safe-left) - var(--chibi-safe-right)));
+    padding: 8px 10px;
+  }
+
+  .chibi-panel--hud-mobile:not(.chibi-panel--hud-expanded) {
+    max-height: none;
+  }
+
+  .chibi-panel--hud-expanded {
+    max-height: min(52dvh, 380px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   .chibi-panel--hud .chibi-title {
@@ -584,32 +718,28 @@ body {
     display: none;
   }
 
-  .chibi-key-hint--mobile {
-    display: block;
-  }
-
-  .chibi-panel--chat {
-    left: max(8px, var(--chibi-safe-left));
-    right: max(8px, var(--chibi-safe-right));
-    width: auto;
-    bottom: calc(var(--chibi-touch-zone) + var(--chibi-safe-bottom));
-  }
-
-  .chibi-chat-log {
-    height: 120px;
-  }
-
   .chibi-panel--side {
     top: auto;
-    bottom: calc(var(--chibi-touch-zone) + 12px + var(--chibi-safe-bottom));
-    max-height: min(38dvh, 260px);
+    left: max(10px, var(--chibi-safe-left));
+    right: max(10px, var(--chibi-safe-right));
+    bottom: calc(var(--chibi-touch-zone) + 8px + var(--chibi-safe-bottom));
+    width: auto;
+    max-height: min(34dvh, 240px);
   }
 
-  .chibi-panel--quest {
-    top: auto;
-    bottom: calc(var(--chibi-touch-zone) + 12px + var(--chibi-safe-bottom));
-    max-width: min(220px, 48vw);
-    max-height: min(28dvh, 200px);
+  .chibi-panel--inventory {
+    z-index: 23;
+  }
+
+  .chibi-action-pad {
+    display: flex;
+    flex-direction: row;
+    gap: 6px;
+  }
+
+  .chibi-dpad {
+    grid-template-columns: repeat(3, 46px);
+    grid-template-rows: repeat(3, 46px);
   }
 
   .chibi-panel--shop {
@@ -642,17 +772,17 @@ body {
 
 @media (max-width: 420px) {
   .chibi-dpad {
-    grid-template-columns: repeat(3, 46px);
-    grid-template-rows: repeat(3, 46px);
+    grid-template-columns: repeat(3, 42px);
+    grid-template-rows: repeat(3, 42px);
   }
 
-  .chibi-action-btn {
-    min-width: 96px;
-    padding: 8px 10px;
-    font-size: 0.72rem;
+  .chibi-action-btn--icon {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
   }
 
-  .chibi-chat-log {
-    height: 96px;
+  .chibi-hud-compact-bar__name {
+    font-size: 0.78rem;
   }
 }
