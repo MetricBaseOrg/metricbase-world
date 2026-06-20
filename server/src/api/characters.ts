@@ -20,6 +20,7 @@ characterRouter.get("/character", async (req, res) => {
         x: saved.x,
         y: saved.y,
         level: saved.level,
+        xp: saved.xp,
         found: true,
       }
     : {
@@ -28,6 +29,7 @@ characterRouter.get("/character", async (req, res) => {
         x: 0,
         y: 0,
         level: 1,
+        xp: 0,
         found: false,
       };
 

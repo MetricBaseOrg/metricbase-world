@@ -10,7 +10,7 @@ export function App() {
   const [joined, setJoined] = useState(false);
   const {
     setPlayerName,
-    setPlayerLevel,
+    setProfile,
     setConnected,
     setPlayerCount,
     setZoneName,
@@ -37,8 +37,19 @@ export function App() {
       clearChat();
     });
 
-    const unsubscribeProfile = networkManager.onProfile((level) => {
-      setPlayerLevel(level);
+    const unsubscribeProfile = networkManager.onProfile((profile) => {
+      setProfile(profile.level, profile.xp);
+    });
+
+    const unsubscribeNpcDialogue = networkManager.onNpcDialogue((npcName, dialogue) => {
+      addChatMessage({
+        id: crypto.randomUUID(),
+        channel: "system",
+        senderId: "npc",
+        senderName: npcName,
+        body: dialogue,
+        sentAt: Date.now(),
+      });
     });
 
     return () => {
@@ -47,9 +58,10 @@ export function App() {
       unsubscribeChat();
       unsubscribeZone();
       unsubscribeProfile();
-      networkManager.disconnect();
+      unsubscribeNpcDialogue();
+      void networkManager.disconnect();
     };
-  }, [addChatMessage, clearChat, setConnected, setPlayerCount, setPlayerLevel, setZoneName]);
+  }, [addChatMessage, clearChat, setConnected, setPlayerCount, setProfile, setZoneName]);
 
   const handleJoin = async (name: string) => {
     setPlayerName(name);
@@ -58,10 +70,16 @@ export function App() {
     setJoined(true);
   };
 
+  const handleLeave = async () => {
+    await networkManager.disconnect();
+    clearChat();
+    setJoined(false);
+  };
+
   return (
     <div style={{ position: "relative", width: "100%", height: "100%" }}>
       {joined && <PhaserGame />}
-      {joined && <HUD />}
+      {joined && <HUD onLeave={() => void handleLeave()} />}
       {joined && <ChatPanel />}
       {!joined && <LoginOverlay onJoin={handleJoin} />}
     </div>

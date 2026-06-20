@@ -18,6 +18,7 @@ export class BootScene extends Phaser.Scene {
   preload() {
     this.createTilesetTexture();
     this.createPlayerTexture();
+    this.createNpcTexture();
   }
 
   create() {
@@ -53,6 +54,22 @@ export class BootScene extends Phaser.Scene {
     });
     this.textures.remove("tileset-source");
     this.textures.get("tileset").setFilter(Phaser.Textures.FilterMode.NEAREST);
+  }
+
+  private createNpcTexture() {
+    const graphics = this.make.graphics({ x: 0, y: 0 });
+    const cx = 16;
+    const cy = 28;
+
+    graphics.fillStyle(0x2d3436, 1);
+    graphics.fillEllipse(cx, cy, 20, 10);
+    graphics.fillStyle(0xb388ff, 1);
+    graphics.fillCircle(cx, cy - 14, 10);
+    graphics.fillStyle(0x4a148c, 1);
+    graphics.fillRoundedRect(cx - 8, cy - 8, 16, 14, 3);
+
+    graphics.generateTexture("npc", 32, 40);
+    graphics.destroy();
   }
 
   private createPlayerTexture() {

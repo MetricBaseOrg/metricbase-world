@@ -9,6 +9,21 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **Zone NPCs** — Hub guide (Aria), merchant (Pip), and wilderness scout (Rook). Walk nearby and press **E** to talk; dialogue appears in chat.
+- **XP progression** — Earn XP from NPC conversations and portal travel. Level-ups broadcast to the zone. XP bar shown in HUD.
+- **Leave World** button — disconnects cleanly and returns to the login screen (character saved on leave).
+
+### Changed
+
+- `characters` table and Colyseus `PlayerSchema` now include an `xp` field.
+- Shared package adds `progression.ts` with level thresholds and XP helpers.
+
+---
+
+## [0.1.2] — 2026-06-20
+
 ### Fixed
 
 - **Chat input blocked by movement keys** — Phaser was capturing W/A/S/D globally for movement, preventing those letters from appearing in the chat box. Added `inputControl.ts` to disable Phaser keyboard input while the chat field is focused.

@@ -6,6 +6,7 @@ export interface CharacterRecord {
   x: number;
   y: number;
   level: number;
+  xp: number;
 }
 
 export async function loadCharacter(name: string): Promise<CharacterRecord | null> {
@@ -18,8 +19,9 @@ export async function loadCharacter(name: string): Promise<CharacterRecord | nul
     x: number;
     y: number;
     level: number;
+    xp: number;
   }>(
-    `SELECT name, zone_id, x, y, level
+    `SELECT name, zone_id, x, y, level, xp
      FROM characters
      WHERE name = $1`,
     [name],
@@ -36,6 +38,7 @@ export async function loadCharacter(name: string): Promise<CharacterRecord | nul
     x: row.x,
     y: row.y,
     level: row.level,
+    xp: row.xp,
   };
 }
 
@@ -44,15 +47,16 @@ export async function saveCharacter(record: CharacterRecord): Promise<void> {
   if (!db) return;
 
   await db.query(
-    `INSERT INTO characters (name, zone_id, x, y, level, updated_at)
-     VALUES ($1, $2, $3, $4, $5, NOW())
+    `INSERT INTO characters (name, zone_id, x, y, level, xp, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, NOW())
      ON CONFLICT (name)
      DO UPDATE SET
        zone_id = EXCLUDED.zone_id,
        x = EXCLUDED.x,
        y = EXCLUDED.y,
        level = EXCLUDED.level,
+       xp = EXCLUDED.xp,
        updated_at = NOW()`,
-    [record.name, record.zoneId, record.x, record.y, record.level],
+    [record.name, record.zoneId, record.x, record.y, record.level, record.xp],
   );
 }

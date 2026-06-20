@@ -27,7 +27,10 @@ The current build is **Milestone 1** — a playable multiplayer prototype that p
 5. **Travel between zones** — Walk onto **purple portal tiles** to transfer between:
    - **MetricBase Hub** — central spawn area
    - **Wilderness** — outer zone with a return portal
-6. **Persist progress** — Character name, zone, position, and level are saved to PostgreSQL (Neon). Rejoining with the same name restores your last location.
+6. **Talk to NPCs** — Purple NPCs in each zone. Walk close and press **E** to hear dialogue and earn XP.
+7. **Earn XP and level up** — Portal travel and NPC conversations grant experience. Progress is shown in the HUD XP bar.
+8. **Persist progress** — Character name, zone, position, level, and XP are saved to PostgreSQL (Neon). Rejoining with the same name restores your last location.
+9. **Leave World** — Use the HUD button to disconnect and return to the login screen.
 
 ### Zones
 
@@ -41,9 +44,11 @@ The current build is **Milestone 1** — a playable multiplayer prototype that p
 | Input | Action |
 |-------|--------|
 | WASD / Arrow keys | Move (when chat is not focused) |
+| E | Talk to nearest NPC |
 | Chat input | Type messages; movement pauses while typing |
 | Enter | Send chat message |
 | Purple tiles | Zone portal transfer |
+| Leave World (HUD) | Disconnect and return to login |
 
 ---
 
@@ -152,7 +157,8 @@ metricbase-world/
 ├── shared/                    # Code shared by client and server
 │   └── src/
 │       ├── index.ts           # Constants, tile math, re-exports
-│       ├── zones.ts           # Zone configs, portals, spawn points
+│       ├── zones.ts           # Zone configs, portals, NPCs, spawn points
+│       ├── progression.ts     # XP thresholds, level helpers
 │       ├── maps.ts            # Tile layer data per zone
 │       ├── messages.ts        # Protocol types (chat, join, transfer)
 │       └── schema/

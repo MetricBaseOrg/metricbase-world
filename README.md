@@ -113,5 +113,8 @@ shared/   Zone maps, protocol types
 - [x] Railway game server deploy config
 - [x] Character lookup API + rejoin saved zone
 - [x] Client-side movement prediction
+- [x] Zone NPCs with E to interact
+- [x] XP progression and level-up
+- [x] Leave World button (save on disconnect)
 - [ ] Redis session layer
-- [ ] Combat and progression
+- [ ] Combat and abilities

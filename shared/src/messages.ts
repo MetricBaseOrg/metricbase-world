@@ -23,5 +23,15 @@ export interface CharacterLookupResponse {
   x: number;
   y: number;
   level: number;
+  xp: number;
   found: boolean;
+}
+
+export interface InteractPayload {
+  npcId: string;
+}
+
+export interface ProfilePayload {
+  level: number;
+  xp: number;
 }

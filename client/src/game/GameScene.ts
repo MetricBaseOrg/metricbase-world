@@ -1,5 +1,11 @@
 import Phaser from "phaser";
-import { MAP_HEIGHT, MAP_WIDTH, tileToWorld } from "@metricbase/shared";
+import {
+  getZoneConfig,
+  MAP_HEIGHT,
+  MAP_WIDTH,
+  NPC_INTERACT_RANGE,
+  tileToWorld,
+} from "@metricbase/shared";
 import { networkManager, RemotePlayer } from "./network";
 import { buildZoneMap } from "./mapData";
 import { PredictedPosition, reconcilePrediction, stepPrediction } from "./prediction";
@@ -10,6 +16,14 @@ interface RenderedPlayer {
   targetX: number;
   targetY: number;
   predicted: PredictedPosition;
+}
+
+interface RenderedNpc {
+  id: string;
+  sprite: Phaser.GameObjects.Sprite;
+  label: Phaser.GameObjects.Text;
+  worldX: number;
+  worldY: number;
 }
 
 export class GameScene extends Phaser.Scene {
@@ -23,6 +37,8 @@ export class GameScene extends Phaser.Scene {
   private renderedPlayers = new Map<string, RenderedPlayer>();
   private localSessionId: string | null = null;
   private mapTiles: Phaser.GameObjects.Image[] = [];
+  private renderedNpcs: RenderedNpc[] = [];
+  private interactKey: Phaser.Input.Keyboard.Key | null = null;
   private currentZoneId: string | null = null;
 
   constructor() {
@@ -36,6 +52,7 @@ export class GameScene extends Phaser.Scene {
     if (this.input.keyboard) {
       this.cursors = this.input.keyboard.createCursorKeys();
       this.wasd = this.input.keyboard.addKeys("W,A,S,D") as GameScene["wasd"];
+      this.interactKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
     }
 
     const unsubscribePlayers = networkManager.onPlayersChange((players, sessionId) => {
@@ -53,6 +70,7 @@ export class GameScene extends Phaser.Scene {
       unsubscribePlayers();
       unsubscribeZone();
       this.clearMap();
+      this.clearNpcs();
       this.renderedPlayers.forEach((entry) => {
         entry.sprite.destroy();
         entry.label.destroy();
@@ -72,12 +90,14 @@ export class GameScene extends Phaser.Scene {
     this.applyLocalPrediction(dx, dy, delta);
     this.interpolateRemotePlayers();
     this.followLocalPlayer();
+    this.tryInteract();
   }
 
   private renderZone(zoneId: string) {
     if (this.currentZoneId === zoneId) return;
     this.currentZoneId = zoneId;
     this.clearMap();
+    this.clearNpcs();
 
     const ground = buildZoneMap(zoneId);
 
@@ -92,11 +112,72 @@ export class GameScene extends Phaser.Scene {
         this.mapTiles.push(tile);
       }
     }
+
+    this.renderNpcs(zoneId);
   }
 
   private clearMap() {
     this.mapTiles.forEach((tile) => tile.destroy());
     this.mapTiles = [];
+  }
+
+  private clearNpcs() {
+    this.renderedNpcs.forEach((npc) => {
+      npc.sprite.destroy();
+      npc.label.destroy();
+    });
+    this.renderedNpcs = [];
+  }
+
+  private renderNpcs(zoneId: string) {
+    const config = getZoneConfig(zoneId);
+
+    for (const npc of config.npcs) {
+      const { x, y } = tileToWorld(npc.tileX, npc.tileY);
+      const sprite = this.add.sprite(x, y, "npc");
+      sprite.setDepth(900);
+      const label = this.add
+        .text(x, y - 28, npc.name, {
+          fontFamily: "system-ui, sans-serif",
+          fontSize: "11px",
+          color: "#e1bee7",
+          stroke: "#000000",
+          strokeThickness: 2,
+        })
+        .setOrigin(0.5, 1)
+        .setDepth(901);
+
+      this.renderedNpcs.push({
+        id: npc.id,
+        sprite,
+        label,
+        worldX: x,
+        worldY: y,
+      });
+    }
+  }
+
+  private tryInteract() {
+    if (!this.interactKey || !Phaser.Input.Keyboard.JustDown(this.interactKey)) return;
+    if (!this.localSessionId) return;
+
+    const local = this.renderedPlayers.get(this.localSessionId);
+    if (!local) return;
+
+    let nearest: RenderedNpc | null = null;
+    let nearestDistance = NPC_INTERACT_RANGE;
+
+    for (const npc of this.renderedNpcs) {
+      const distance = Math.hypot(local.predicted.x - npc.worldX, local.predicted.y - npc.worldY);
+      if (distance <= nearestDistance) {
+        nearest = npc;
+        nearestDistance = distance;
+      }
+    }
+
+    if (nearest) {
+      networkManager.sendInteract(nearest.id);
+    }
   }
 
   private getAxisInput(): number {

@@ -13,12 +13,21 @@ export interface ZonePortal {
   label: string;
 }
 
+export interface ZoneNpc {
+  id: string;
+  name: string;
+  tileX: number;
+  tileY: number;
+  dialogue: string;
+}
+
 export interface ZoneConfig {
   id: string;
   roomName: string;
   displayName: string;
   spawnTile: { x: number; y: number };
   portals: ZonePortal[];
+  npcs: ZoneNpc[];
 }
 
 export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
@@ -35,6 +44,22 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
         label: "Wilderness Gate",
       },
     ],
+    npcs: [
+      {
+        id: "hub_guide",
+        name: "Aria",
+        tileX: 12,
+        tileY: 10,
+        dialogue: "Welcome to MetricBase Hub. Purple tiles are portals — the wilderness awaits!",
+      },
+      {
+        id: "hub_merchant",
+        name: "Pip",
+        tileX: 16,
+        tileY: 14,
+        dialogue: "Shops aren't open yet, but keep exploring. Every journey earns experience.",
+      },
+    ],
   },
   [ZONE_WILDERNESS]: {
     id: ZONE_WILDERNESS,
@@ -47,6 +72,15 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
         tileY: 12,
         targetZone: ZONE_HUB,
         label: "Return Gate",
+      },
+    ],
+    npcs: [
+      {
+        id: "wilderness_scout",
+        name: "Rook",
+        tileX: 8,
+        tileY: 8,
+        dialogue: "The wilderness is dangerous — for now. Walk the purple gate to return to the hub.",
       },
     ],
   },

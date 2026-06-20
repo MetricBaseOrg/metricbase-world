@@ -6,6 +6,7 @@ export const PlayerSchema = schema({
   x: "number",
   y: "number",
   level: "number",
+  xp: "number",
 });
 
 export type Player = InstanceType<typeof PlayerSchema>;
