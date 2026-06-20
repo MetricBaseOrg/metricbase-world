@@ -12,6 +12,7 @@ import {
   type AvatarDirection,
   type CharacterAppearance,
   getZoneConfig,
+  normalizeCharacterAppearance,
   MAP_HEIGHT,
   MAP_WIDTH,
   NPC_INTERACT_RANGE,
@@ -283,8 +284,8 @@ export class GameScene extends Phaser.Scene {
       this.localSessionId = networkManager.sessionId;
     }
 
-    if (this.renderedPlayers.size === 0 && networkManager.isConnected) {
-      this.syncPlayers(networkManager.getRemotePlayers());
+    if (networkManager.isConnected && !this.findLocalPlayer()) {
+      this.ensureLocalAvatar();
     }
 
     this.bindCameraToLocalPlayer();
@@ -343,15 +344,61 @@ export class GameScene extends Phaser.Scene {
         }
       }
 
-      cam.centerOn(Math.round(local.sprite.x), Math.round(local.sprite.y));
+      this.centerCameraOn(local.sprite.x, local.sprite.y);
       return;
     }
 
-    if (!this.currentZoneId) return;
+    const zoneId = this.currentZoneId ?? networkManager.zoneId;
+    if (!zoneId) return;
 
-    const config = getZoneConfig(this.currentZoneId);
+    const config = getZoneConfig(zoneId);
     const spawn = tileToWorld(config.spawnTile.x, config.spawnTile.y);
-    cam.centerOn(spawn.x, spawn.y);
+    this.centerCameraOn(spawn.x, spawn.y);
+  }
+
+  private centerCameraOn(worldX: number, worldY: number) {
+    const cam = this.cameras.main;
+    if (cam.width <= 0 || cam.height <= 0) return;
+
+    const halfW = cam.width / cam.zoom / 2;
+    const halfH = cam.height / cam.zoom / 2;
+    cam.setScroll(Math.round(worldX - halfW), Math.round(worldY - halfH));
+  }
+
+  private ensureLocalAvatar() {
+    if (!networkManager.isConnected) return;
+
+    const sessionId = networkManager.sessionId;
+    if (sessionId && this.renderedPlayers.has(sessionId)) return;
+
+    const localFromState = networkManager.getLocalPlayerFromState();
+    if (localFromState) {
+      this.localSessionId = localFromState.sessionId;
+      const players = networkManager.getRemotePlayers();
+      this.syncPlayers(players.length > 0 ? players : [localFromState]);
+      return;
+    }
+
+    const playerName = useGameStore.getState().playerName;
+    const appearance = useGameStore.getState().characterAppearance;
+    if (!sessionId || !playerName || !appearance) return;
+    if (this.findRenderedByName(playerName)) return;
+
+    const zoneId = this.currentZoneId ?? networkManager.zoneId;
+    const config = getZoneConfig(zoneId);
+    const spawn = tileToWorld(config.spawnTile.x, config.spawnTile.y);
+
+    this.syncPlayers([
+      {
+        sessionId,
+        name: playerName,
+        x: spawn.x,
+        y: spawn.y,
+        level: useGameStore.getState().playerLevel,
+        xp: useGameStore.getState().playerXp,
+        appearance: normalizeCharacterAppearance(appearance),
+      },
+    ]);
   }
 
   private findRenderedByName(name: string): [string, RenderedPlayer] | null {

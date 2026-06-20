@@ -102,6 +102,8 @@ export class NetworkManager {
   private resourceHealth = new Map<string, ResourceHealthPayload>();
   private lastPlayerSnapshot = "";
   private playerCallbacksCleanup: (() => void) | null = null;
+  private playerCache = new Map<string, RemotePlayer>();
+  private playerListenCleanup = new Map<string, () => void>();
 
   get sessionId(): string | null {
     return this.room?.sessionId ?? null;
@@ -113,6 +115,31 @@ export class NetworkManager {
 
   getRemotePlayers(): RemotePlayer[] {
     return this.getPlayers();
+  }
+
+  getLocalPlayerFromState(): RemotePlayer | null {
+    const sessionId = this.sessionId;
+    if (!sessionId) return null;
+
+    const cached = this.playerCache.get(sessionId);
+    if (cached) return cached;
+
+    const map = this.room?.state?.players;
+    if (!map || map.size === 0) return null;
+
+    const direct = map.get(sessionId);
+    if (direct) {
+      return this.toRemotePlayer(sessionId, direct);
+    }
+
+    let fallback: RemotePlayer | null = null;
+    map.forEach((player: Player, key: string) => {
+      if (fallback) return;
+      if (key === sessionId || player.sessionId === sessionId || player.name === this.playerName) {
+        fallback = this.toRemotePlayer(key, player);
+      }
+    });
+    return fallback;
   }
 
   get playerCount(): number {
@@ -314,6 +341,7 @@ export class NetworkManager {
 
   async disconnect() {
     await this.leaveCurrentRoom();
+    this.clearPlayerTracking();
     this.client = null;
     this.accessToken = null;
     this.appearance = null;
@@ -661,30 +689,78 @@ export class NetworkManager {
   }
 
   private async leaveCurrentRoom() {
-    this.playerCallbacksCleanup?.();
-    this.playerCallbacksCleanup = null;
+    this.clearPlayerTracking();
     if (!this.room) return;
     await this.room.leave();
     this.room = null;
   }
 
+  private clearPlayerTracking() {
+    this.playerCallbacksCleanup?.();
+    this.playerCallbacksCleanup = null;
+    for (const cleanup of this.playerListenCleanup.values()) {
+      cleanup();
+    }
+    this.playerListenCleanup.clear();
+    this.playerCache.clear();
+  }
+
   private bindPlayerStateCallbacks() {
     if (!this.room) return;
 
-    this.playerCallbacksCleanup?.();
+    this.clearPlayerTracking();
 
     const $ = getStateCallbacks(this.room);
-    const unbindAdd = $(this.room.state).players.onAdd(() => {
+    const unbindAdd = $(this.room.state).players.onAdd((player, sessionId) => {
+      this.attachPlayer(sessionId, player);
       this.emitPlayers(true);
     }, true);
-    const unbindRemove = $(this.room.state).players.onRemove(() => {
+    const unbindRemove = $(this.room.state).players.onRemove((_player, sessionId) => {
+      this.detachPlayer(sessionId);
       this.emitPlayers(true);
     });
 
     this.playerCallbacksCleanup = () => {
       unbindAdd();
       unbindRemove();
+      for (const cleanup of this.playerListenCleanup.values()) {
+        cleanup();
+      }
+      this.playerListenCleanup.clear();
+      this.playerCache.clear();
     };
+  }
+
+  private attachPlayer(sessionId: string, player: Player) {
+    this.refreshCachedPlayer(sessionId, player);
+    if (!this.room) return;
+
+    this.playerListenCleanup.get(sessionId)?.();
+    const $ = getStateCallbacks(this.room);
+    const cleanups = [
+      $(player).listen("x", () => this.refreshCachedPlayer(sessionId, player)),
+      $(player).listen("y", () => this.refreshCachedPlayer(sessionId, player)),
+      $(player).listen("name", () => this.refreshCachedPlayer(sessionId, player)),
+      $(player).onChange(() => this.refreshCachedPlayer(sessionId, player)),
+    ];
+    this.playerListenCleanup.set(sessionId, () => {
+      for (const cleanup of cleanups) {
+        cleanup();
+      }
+    });
+  }
+
+  private detachPlayer(sessionId: string) {
+    this.playerListenCleanup.get(sessionId)?.();
+    this.playerListenCleanup.delete(sessionId);
+    this.playerCache.delete(sessionId);
+  }
+
+  private refreshCachedPlayer(sessionId: string, player: Player) {
+    const remote = this.toRemotePlayer(sessionId, player);
+    if (!remote) return;
+    this.playerCache.set(remote.sessionId, remote);
+    this.emitPlayers();
   }
 
   private emitLocalProfile() {
@@ -733,15 +809,16 @@ export class NetworkManager {
   }
 
   private resolvePlayerSessionId(sessionId: string, player: Player): string | null {
-    const candidates = [sessionId, player.sessionId, this.sessionId].filter(
-      (value): value is string => typeof value === "string" && value.length > 0,
-    );
-    for (const id of candidates) {
-      if (/^[A-Za-z0-9_-]{8,}$/.test(id)) {
-        return id;
-      }
+    if (typeof sessionId === "string" && sessionId.length > 0) {
+      return sessionId;
     }
-    return candidates[0] ?? null;
+    if (typeof player.sessionId === "string" && player.sessionId.length > 0) {
+      return player.sessionId;
+    }
+    if (typeof this.sessionId === "string" && this.sessionId.length > 0) {
+      return this.sessionId;
+    }
+    return null;
   }
 
   private toRemotePlayer(sessionId: string, player: Player): RemotePlayer | null {
@@ -765,6 +842,10 @@ export class NetworkManager {
   }
 
   private getPlayers(): RemotePlayer[] {
+    if (this.playerCache.size > 0) {
+      return Array.from(this.playerCache.values());
+    }
+
     if (!this.room?.state?.players) return [];
 
     const map = this.room.state.players;
@@ -779,25 +860,26 @@ export class NetworkManager {
       if (!remote || seen.has(remote.sessionId)) return;
       seen.add(remote.sessionId);
       players.push(remote);
+      this.playerCache.set(remote.sessionId, remote);
     };
 
-    if (map.size === 1 && this.sessionId) {
+    if (this.sessionId) {
       pushPlayer(this.sessionId, map.get(this.sessionId));
-      if (players.length > 0) {
-        return players;
-      }
+    }
+
+    if (typeof map.forEach === "function") {
+      map.forEach((player: Player, sessionId: string) => {
+        pushPlayer(sessionId, player);
+      });
+    }
+
+    if (players.length > 0) {
+      return players;
     }
 
     const items = (map as { $items?: Map<string, Player> }).$items;
     if (items && items.size > 0) {
       for (const [sessionId, player] of items) {
-        pushPlayer(sessionId, player);
-      }
-      return players;
-    }
-
-    if (typeof map.entries === "function") {
-      for (const [sessionId, player] of map.entries()) {
         pushPlayer(sessionId, player);
       }
     }
