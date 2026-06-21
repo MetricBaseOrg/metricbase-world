@@ -6,6 +6,7 @@ import {
   type MarketOrderView,
   type MarketStatePayload,
   type ShopOpenPayload,
+  type ShopResultPayload,
 } from "@metricbase/shared";
 import { useState } from "react";
 import { playSfx } from "../audio/soundEffects";
@@ -25,6 +26,12 @@ function refreshShopCatalog(
   market?: MarketStatePayload,
 ): ShopOpenPayload {
   const definition = getShopDefinition(shop.shopId);
+  // Preserve the current dynamic sell prices the server last sent, so a buy
+  // doesn't visually reset them to the base prices.
+  const sellPriceOverrides: Record<string, number> = {};
+  for (const offer of shop.sellOffers) {
+    sellPriceOverrides[offer.itemId] = offer.price;
+  }
   return buildShopOpenPayload(
     definition,
     shop.merchantName,
@@ -32,6 +39,7 @@ function refreshShopCatalog(
     gold,
     inventory.items,
     market ? normalizeMarketState(market) : shop.market,
+    sellPriceOverrides,
   );
 }
 
@@ -132,7 +140,7 @@ export function ShopPanel() {
     setPending(true);
     setError(null);
     networkManager.sendShopSell(shop.shopId, itemId, 1);
-    const result = await new Promise<{ ok: boolean; error?: string; gold?: number }>((resolve) => {
+    const result = await new Promise<ShopResultPayload>((resolve) => {
       const timeout = window.setTimeout(() => resolve({ ok: false, error: "Shop request timed out." }), 8000);
       const unsubscribe = networkManager.onShopResult((payload) => {
         window.clearTimeout(timeout);
@@ -150,7 +158,17 @@ export function ShopPanel() {
     playSfx("coin");
     const nextGold = result.gold ?? playerGold;
     setPlayerGold(nextGold);
-    setShop(refreshShopCatalog(shop, nextGold, useGameStore.getState().inventory, market));
+    // Prefer the server's dynamic catalog so the price drop shows immediately.
+    if (result.sellOffers) {
+      setShop({
+        ...shop,
+        gold: nextGold,
+        sellOffers: result.sellOffers,
+        buyOffers: result.buyOffers ?? shop.buyOffers,
+      });
+    } else {
+      setShop(refreshShopCatalog(shop, nextGold, useGameStore.getState().inventory, market));
+    }
   };
 
   const handlePlaceOrder = async (side: "bid" | "ask") => {

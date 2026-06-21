@@ -6,9 +6,11 @@ import { useGameStore } from "../store/gameStore";
 
 export function CraftPanel() {
   const inventory = useGameStore((state) => state.inventory);
+  const playerGold = useGameStore((state) => state.playerGold);
   const open = useGameStore((state) => state.craftOpen);
   const setCraftOpen = useGameStore((state) => state.setCraftOpen);
   const setInventory = useGameStore((state) => state.setInventory);
+  const setPlayerGold = useGameStore((state) => state.setPlayerGold);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -21,6 +23,7 @@ export function CraftPanel() {
     const result = await new Promise<{
       ok: boolean;
       error?: string;
+      gold?: number;
       inventory?: typeof inventory;
     }>((resolve) => {
       const timeout = window.setTimeout(() => resolve({ ok: false, error: "Request timed out." }), 8000);
@@ -32,6 +35,7 @@ export function CraftPanel() {
     });
     setPending(false);
     if (result.inventory) setInventory(result.inventory);
+    if (typeof result.gold === "number") setPlayerGold(result.gold);
     if (!result.ok) {
       playSfx("shop_fail");
       setError(result.error ?? "Could not craft.");
@@ -64,9 +68,11 @@ export function CraftPanel() {
       <div style={{ display: "grid", gap: 10 }}>
         {CRAFT_RECIPES.map((recipe) => {
           const output = getItemDefinition(recipe.output.itemId);
-          const canCraft = recipe.inputs.every(
+          const hasMaterials = recipe.inputs.every(
             (input) => getItemQuantity(inventory.items, input.itemId) >= input.quantity,
           );
+          const hasGold = playerGold >= recipe.goldCost;
+          const canCraft = hasMaterials && hasGold;
           return (
             <div key={recipe.id} className="chibi-card" style={{ padding: "10px 12px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
@@ -105,6 +111,12 @@ export function CraftPanel() {
                     </span>
                   );
                 })}
+                <span
+                  className="chibi-stat-pill"
+                  style={{ fontSize: "0.7rem", color: hasGold ? "var(--chibi-gold-deep)" : "#d6453b" }}
+                >
+                  🪙 {recipe.goldCost}
+                </span>
               </div>
             </div>
           );

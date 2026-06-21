@@ -86,6 +86,7 @@ import {
   fillAskOrder,
   placeMarketOrder,
 } from "../market/service.js";
+import { dynamicSellPrices, effectiveSellPrice, recordSale } from "../market/sellPressure.js";
 
 interface PendingInput {
   dx: number;
@@ -861,7 +862,15 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
     client.send(
       "shopOpen",
-      buildShopOpenPayload(shop, npc.name, npc.dialogue, gold, inventory, market),
+      buildShopOpenPayload(
+        shop,
+        npc.name,
+        npc.dialogue,
+        gold,
+        inventory,
+        market,
+        dynamicSellPrices(shop.sellPrices),
+      ),
     );
   }
 
@@ -1269,8 +1278,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       return;
     }
 
-    const unitPrice = shop.sellPrices[itemId];
-    if (!unitPrice) {
+    const basePrice = shop.sellPrices[itemId];
+    if (!basePrice) {
       client.send("shopResult", { ok: false, error: "Merchant won't buy that item." });
       return;
     }
@@ -1283,7 +1292,11 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       return;
     }
 
+    // Pay the current (supply-adjusted) price, then record the sale so the price
+    // softens — this caps the gather→sell gold faucet.
+    const unitPrice = effectiveSellPrice(itemId, basePrice);
     const payout = unitPrice * removed;
+    recordSale(itemId, removed);
     const gold = (this.playerGold.get(player.name) ?? STARTING_GOLD) + payout;
     this.playerGold.set(player.name, gold);
     this.inventories.set(player.name, inventory);
@@ -1300,6 +1313,15 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       sentAt: Date.now(),
     });
 
+    const updated = buildShopOpenPayload(
+      shop,
+      "",
+      "",
+      gold,
+      inventory,
+      undefined,
+      dynamicSellPrices(shop.sellPrices),
+    );
     client.send("shopResult", {
       ok: true,
       gold,
@@ -1307,6 +1329,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         inventory,
         this.playerEquipment.get(player.name)?.weaponId ?? null,
       ),
+      buyOffers: updated.buyOffers,
+      sellOffers: updated.sellOffers,
     });
     await this.checkCollectObjectives(client, player.name);
     await this.persistPlayer(player);
@@ -1417,6 +1441,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
     let inventory = this.inventories.get(player.name) ?? [];
     const weaponId = this.playerEquipment.get(player.name)?.weaponId ?? null;
+    let gold = this.playerGold.get(player.name) ?? STARTING_GOLD;
 
     // Verify the player has every ingredient before consuming anything.
     for (const input of recipe.inputs) {
@@ -1425,11 +1450,24 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         client.send("craftResult", {
           ok: false,
           recipeId,
+          gold,
           error: `Need ${input.quantity}x ${def?.name ?? input.itemId}.`,
           inventory: buildInventoryPayload(inventory, weaponId),
         });
         return;
       }
+    }
+
+    // Forge fee — a gold sink that keeps the economy from inflating.
+    if (gold < recipe.goldCost) {
+      client.send("craftResult", {
+        ok: false,
+        recipeId,
+        gold,
+        error: `Need ${recipe.goldCost} gold for the forge fee.`,
+        inventory: buildInventoryPayload(inventory, weaponId),
+      });
+      return;
     }
 
     // Make sure there is room for the output (non-stackables need a free slot).
@@ -1448,8 +1486,11 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       inventory = removeItemFromInventory(inventory, input.itemId, input.quantity).inventory;
     }
     inventory = addItemToInventory(inventory, recipe.output.itemId, recipe.output.quantity).inventory;
+    gold -= recipe.goldCost;
+    this.playerGold.set(player.name, gold);
     this.inventories.set(player.name, inventory);
     this.sendInventory(client, player.name);
+    this.sendProfile(client, player);
 
     const outputName = ITEMS[recipe.output.itemId]?.name ?? recipe.output.itemId;
     this.broadcastChat({
@@ -1464,6 +1505,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     client.send("craftResult", {
       ok: true,
       recipeId,
+      gold,
       inventory: buildInventoryPayload(inventory, weaponId),
     });
     await this.persistPlayer(player);

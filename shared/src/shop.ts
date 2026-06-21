@@ -43,6 +43,9 @@ export interface ShopResultPayload {
   error?: string;
   gold?: number;
   inventory?: InventoryStatePayload;
+  /** Updated catalogs so the client reflects dynamic prices immediately. */
+  buyOffers?: ShopCatalogItem[];
+  sellOffers?: ShopCatalogItem[];
 }
 
 export const SHOPS: Record<string, ShopDefinition> = {
@@ -87,6 +90,8 @@ export function buildShopOpenPayload(
   gold: number,
   inventory: InventoryEntry[],
   market?: MarketStatePayload,
+  /** Effective (dynamic) per-unit sell prices; falls back to the base prices. */
+  sellPriceOverrides?: Record<string, number>,
 ): ShopOpenPayload {
   const normalized = normalizeInventory(inventory);
 
@@ -102,7 +107,7 @@ export function buildShopOpenPayload(
   });
 
   const sellOffers: ShopCatalogItem[] = Object.entries(shop.sellPrices)
-    .map(([itemId, price]) => {
+    .map(([itemId, basePrice]) => {
       const owned = getOwnedQuantity(normalized, itemId);
       if (owned <= 0) return null;
       const item = getItemDefinition(itemId);
@@ -110,7 +115,7 @@ export function buildShopOpenPayload(
         itemId,
         name: item.name,
         description: item.description,
-        price,
+        price: sellPriceOverrides?.[itemId] ?? basePrice,
         owned,
       };
     })

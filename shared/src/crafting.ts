@@ -9,12 +9,15 @@ export interface CraftRecipe {
   description: string;
   inputs: RecipeIngredient[];
   output: RecipeIngredient;
+  /** Forge fee in gold — a sink that removes gold from the economy. */
+  goldCost: number;
 }
 
 export interface CraftResultPayload {
   ok: boolean;
   recipeId?: string;
   error?: string;
+  gold?: number;
   inventory?: import("./items.js").InventoryStatePayload;
 }
 
@@ -25,6 +28,7 @@ export const CRAFT_RECIPES: CraftRecipe[] = [
     description: "Smooth two logs into a sturdy plank.",
     inputs: [{ itemId: "item_wood", quantity: 2 }],
     output: { itemId: "item_plank", quantity: 1 },
+    goldCost: 2,
   },
   {
     id: "craft_copper_bar",
@@ -32,6 +36,7 @@ export const CRAFT_RECIPES: CraftRecipe[] = [
     description: "Smelt copper ore into a workable bar.",
     inputs: [{ itemId: "item_ore", quantity: 2 }],
     output: { itemId: "item_copper_bar", quantity: 1 },
+    goldCost: 3,
   },
   {
     id: "craft_cooked_fish",
@@ -39,6 +44,7 @@ export const CRAFT_RECIPES: CraftRecipe[] = [
     description: "Grill a fresh catch into a filling meal (+40 HP).",
     inputs: [{ itemId: "item_fish", quantity: 1 }],
     output: { itemId: "item_cooked_fish", quantity: 1 },
+    goldCost: 1,
   },
   {
     id: "craft_copper_dagger",
@@ -49,6 +55,7 @@ export const CRAFT_RECIPES: CraftRecipe[] = [
       { itemId: "item_copper_bar", quantity: 2 },
     ],
     output: { itemId: "item_copper_dagger", quantity: 1 },
+    goldCost: 20,
   },
 ];
 
