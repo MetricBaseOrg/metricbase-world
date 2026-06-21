@@ -3,6 +3,7 @@ import {
   createTransferInstruction,
   getAssociatedTokenAddress,
   getAccount,
+  getMint,
 } from "@solana/spl-token";
 import { Connection, PublicKey, Transaction } from "@solana/web3.js";
 import { pickWalletConnector } from "./discovery";
@@ -27,7 +28,17 @@ export async function sendMetricbaseTokenPayment(options: {
 
   const payerAta = await getAssociatedTokenAddress(mint, payer);
   const recipientAta = await getAssociatedTokenAddress(mint, recipient);
-  const rawAmount = BigInt(Math.round(options.uiAmount * 10 ** options.decimals));
+
+  // Use the mint's ACTUAL on-chain decimals as the source of truth. Trusting a
+  // configured/cached decimals value caused transfers to be scaled by the wrong
+  // power of ten (e.g. sending 100,000,000,000 instead of 100,000 tokens).
+  let decimals = options.decimals;
+  try {
+    decimals = (await getMint(connection, mint)).decimals;
+  } catch {
+    // Fall back to the configured decimals if the mint lookup fails.
+  }
+  const rawAmount = BigInt(Math.round(options.uiAmount * 10 ** decimals));
 
   const transaction = new Transaction();
   let recipientAccountExists = true;
