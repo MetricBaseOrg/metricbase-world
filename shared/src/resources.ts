@@ -16,8 +16,17 @@ export interface MiningConfig {
   lootQuantity: number;
 }
 
-export type ResourceKind = "tree" | "rock";
-export type GatherSkill = "woodcutting" | "mining";
+export interface FishingConfig {
+  spotLevel: number;
+  requiredLevel?: number;
+  skillXp: number;
+  respawnMs: number;
+  lootItemId: string;
+  lootQuantity: number;
+}
+
+export type ResourceKind = "tree" | "rock" | "fish";
+export type GatherSkill = "woodcutting" | "mining" | "fishing";
 
 export interface ZoneResourceNode {
   id: string;
@@ -29,6 +38,8 @@ export interface ZoneResourceNode {
   woodcutting?: WoodcuttingConfig;
   /** Present on rock nodes. */
   mining?: MiningConfig;
+  /** Present on fishing-spot nodes. */
+  fishing?: FishingConfig;
 }
 
 export interface ResourceHealthPayload {

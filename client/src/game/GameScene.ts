@@ -1,7 +1,6 @@
 import Phaser from "phaser";
 import {
   ATTACK_RANGE,
-  AVATAR_ACTION_DURATIONS_MS,
   CHOP_RANGE,
   directionFromDelta,
   directionFromInput,
@@ -75,7 +74,7 @@ interface RenderedNpc {
 
 interface RenderedResource {
   id: string;
-  kind: "tree" | "rock";
+  kind: "tree" | "rock" | "fish";
   sprite: Phaser.GameObjects.Sprite;
   label: Phaser.GameObjects.Text;
   worldX: number;
@@ -193,10 +192,10 @@ export class GameScene extends Phaser.Scene {
         chopDurationMs: payload.durationMs,
       });
       this.startChopAnimation(payload.playerName, payload.resourceId, payload.endsAt);
-      const isRock = this.resourceKind(payload.resourceId) === "rock";
-      playSfx(isRock ? "mine_hit" : "chop_swing");
+      const kind = this.resourceKind(payload.resourceId);
+      playSfx(kind === "rock" ? "mine_hit" : kind === "fish" ? "fish_cast" : "chop_swing");
       if (payload.playerName === useGameStore.getState().playerName) {
-        this.startLocalChopHits(payload.endsAt, isRock);
+        this.startLocalChopHits(payload.endsAt, kind);
       }
     });
 
@@ -240,7 +239,13 @@ export class GameScene extends Phaser.Scene {
       if (isLocalChopper) {
         this.localChoppingUntil = 0;
         this.stopLocalChopHits();
-        playSfx(payload.skill === "mining" ? "ore_gather" : "wood_gather");
+        playSfx(
+          payload.skill === "mining"
+            ? "ore_gather"
+            : payload.skill === "fishing"
+              ? "fish_catch"
+              : "wood_gather",
+        );
       }
       if (payload.depleted) {
         playSfx("chop_fell");
@@ -717,22 +722,28 @@ export class GameScene extends Phaser.Scene {
       const { x, y } = tileToWorld(resource.tileX, resource.tileY);
       const saved = networkManager.getResourceHealth(resource.id);
       const available = saved?.available ?? true;
-      const isRock = resource.kind === "rock";
+      const kind: "tree" | "rock" | "fish" =
+        resource.kind === "rock" ? "rock" : resource.kind === "fish" ? "fish" : "tree";
+      const texture = kind === "rock" ? "rock" : kind === "fish" ? "fishspot" : "tree";
+      const originY = kind === "rock" ? 0.86 : kind === "fish" ? 0.82 : 0.94;
+      const labelOffset = kind === "rock" ? 34 : kind === "fish" ? 30 : 54;
+      const labelColor = kind === "rock" ? "#6b5238" : kind === "fish" ? "#1f6f9e" : "#2e7d32";
+      const labelBg = kind === "rock" ? "#ece3d6" : kind === "fish" ? "#d6eefc" : "#dcfce7";
 
-      const sprite = this.add.sprite(x, y, isRock ? "rock" : "tree");
-      sprite.setOrigin(0.5, isRock ? 0.86 : 0.94);
-      sprite.setDepth(850);
+      const sprite = this.add.sprite(x, y, texture);
+      sprite.setOrigin(0.5, originY);
+      sprite.setDepth(kind === "fish" ? 840 : 850);
       sprite.setAlpha(available ? 1 : 0.35);
 
       const label = this.add
-        .text(x, y - (isRock ? 34 : 54), resource.name, {
+        .text(x, y - labelOffset, resource.name, {
           fontFamily: '"Fredoka", "Nunito", sans-serif',
           fontSize: "11px",
           fontStyle: "bold",
-          color: isRock ? "#6b5238" : "#2e7d32",
+          color: labelColor,
           stroke: "#fff9f0",
           strokeThickness: 4,
-          backgroundColor: isRock ? "#ece3d6" : "#dcfce7",
+          backgroundColor: labelBg,
           padding: { x: 5, y: 2 },
         })
         .setOrigin(0.5, 1)
@@ -743,7 +754,7 @@ export class GameScene extends Phaser.Scene {
 
       const rendered: RenderedResource = {
         id: resource.id,
-        kind: isRock ? "rock" : "tree",
+        kind,
         sprite,
         label,
         worldX: x,
@@ -1026,29 +1037,47 @@ export class GameScene extends Phaser.Scene {
 
     const local = this.findLocalPlayer();
     if (!local) return;
+    if (Date.now() < this.localChoppingUntil) return;
 
-    this.setPlayerAction(local, "fish", local.direction, AVATAR_ACTION_DURATIONS_MS.fish);
-    playSfx("fish_cast");
-    this.time.delayedCall(450, () => playSfx("fish_splash"));
-    this.time.delayedCall(AVATAR_ACTION_DURATIONS_MS.fish - 250, () => playSfx("fish_catch"));
+    // Cast at the nearest available fishing spot — the server runs the gather
+    // session and broadcasts the cast animation + catch back to everyone.
+    let nearest: RenderedResource | null = null;
+    let nearestDistance = CHOP_RANGE;
+    for (const resource of this.renderedResources) {
+      if (resource.kind !== "fish" || !resource.available || resource.chopperName) continue;
+      const distance = Math.hypot(
+        local.predicted.x - resource.worldX,
+        local.predicted.y - resource.worldY,
+      );
+      if (distance <= nearestDistance) {
+        nearest = resource;
+        nearestDistance = distance;
+      }
+    }
+
+    if (nearest) {
+      networkManager.sendChop(nearest.id);
+    }
   }
 
-  private resourceKind(resourceId: string): "tree" | "rock" {
+  private resourceKind(resourceId: string): "tree" | "rock" | "fish" {
     return this.renderedResources.find((entry) => entry.id === resourceId)?.kind ?? "tree";
   }
 
-  private startLocalChopHits(endsAt: number, isRock = false) {
+  private startLocalChopHits(endsAt: number, kind: "tree" | "rock" | "fish" = "tree") {
     this.stopLocalChopHits();
+    const hitSound = kind === "rock" ? "mine_hit" : kind === "fish" ? "fish_splash" : "chop_hit";
+    const interval = kind === "fish" ? 900 : 360;
     // Rhythmic impact sounds for the duration of the gather.
     this.chopHitTimer = this.time.addEvent({
-      delay: 360,
+      delay: interval,
       loop: true,
       callback: () => {
         if (Date.now() >= endsAt) {
           this.stopLocalChopHits();
           return;
         }
-        playSfx(isRock ? "mine_hit" : "chop_hit");
+        playSfx(hitSound);
       },
     });
   }
@@ -1085,7 +1114,8 @@ export class GameScene extends Phaser.Scene {
           rendered.direction,
         )
       : rendered.direction;
-    this.setPlayerAction(rendered, "chop", direction, durationMs);
+    const action = resource?.kind === "fish" ? "fish" : "chop";
+    this.setPlayerAction(rendered, action, direction, durationMs);
     if (playerName === useGameStore.getState().playerName) {
       this.localChoppingUntil = endsAt;
     }

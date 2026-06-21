@@ -17,6 +17,8 @@ interface GameStore {
   woodcuttingXp: number;
   miningLevel: number;
   miningXp: number;
+  fishingLevel: number;
+  fishingXp: number;
   playerGold: number;
   playerHp: number;
   playerMaxHp: number;
@@ -42,6 +44,8 @@ interface GameStore {
     woodcuttingXp: number,
     miningLevel?: number,
     miningXp?: number,
+    fishingLevel?: number,
+    fishingXp?: number,
   ) => void;
   setProfile: (
     level: number,
@@ -81,6 +85,8 @@ export const useGameStore = create<GameStore>((set) => ({
   woodcuttingXp: 0,
   miningLevel: 1,
   miningXp: 0,
+  fishingLevel: 1,
+  fishingXp: 0,
   playerGold: 0,
   playerHp: 40,
   playerMaxHp: 40,
@@ -101,12 +107,14 @@ export const useGameStore = create<GameStore>((set) => ({
   setCharacterAppearance: (characterAppearance) => set({ characterAppearance }),
   setPlayerLevel: (level) => set({ playerLevel: level }),
   setPlayerXp: (xp) => set({ playerXp: xp }),
-  setSkillState: (woodcuttingLevel, woodcuttingXp, miningLevel, miningXp) =>
+  setSkillState: (woodcuttingLevel, woodcuttingXp, miningLevel, miningXp, fishingLevel, fishingXp) =>
     set((state) => ({
       woodcuttingLevel,
       woodcuttingXp,
       miningLevel: miningLevel ?? state.miningLevel,
       miningXp: miningXp ?? state.miningXp,
+      fishingLevel: fishingLevel ?? state.fishingLevel,
+      fishingXp: fishingXp ?? state.fishingXp,
     })),
   setProfile: (level, xp, gold, hp, maxHp, equippedWeaponId, knockedOut, freeRespawnAt) =>
     set((state) => ({

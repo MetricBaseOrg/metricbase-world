@@ -42,6 +42,7 @@ export function App() {
   const previousLevelRef = useRef(1);
   const previousWoodcuttingLevelRef = useRef(1);
   const previousMiningLevelRef = useRef(1);
+  const previousFishingLevelRef = useRef(1);
   const previousCompletedQuestsRef = useRef(0);
 
   useEffect(() => bindUiTypingFocusGuard(), []);
@@ -124,15 +125,25 @@ export function App() {
 
     const unsubscribeSkillState = networkManager.onSkillState((state) => {
       const mining = state.mining ?? { level: 1, xp: 0 };
+      const fishing = state.fishing ?? { level: 1, xp: 0 };
       if (
         state.woodcutting.level > previousWoodcuttingLevelRef.current ||
-        mining.level > previousMiningLevelRef.current
+        mining.level > previousMiningLevelRef.current ||
+        fishing.level > previousFishingLevelRef.current
       ) {
         playSfx("skill_level_up");
       }
       previousWoodcuttingLevelRef.current = state.woodcutting.level;
       previousMiningLevelRef.current = mining.level;
-      setSkillState(state.woodcutting.level, state.woodcutting.xp, mining.level, mining.xp);
+      previousFishingLevelRef.current = fishing.level;
+      setSkillState(
+        state.woodcutting.level,
+        state.woodcutting.xp,
+        mining.level,
+        mining.xp,
+        fishing.level,
+        fishing.xp,
+      );
     });
 
     const unsubscribeNpcDialogue = networkManager.onNpcDialogue((npcName, dialogue) => {
@@ -235,8 +246,9 @@ export function App() {
     const store = useGameStore.getState();
     store.setPlayerVitals(40, 40);
     store.setProfile(store.playerLevel, store.playerXp, 0, 40, 40, null, false, null);
-    store.setSkillState(1, 0, 1, 0);
+    store.setSkillState(1, 0, 1, 0, 1, 0);
     previousMiningLevelRef.current = 1;
+    previousFishingLevelRef.current = 1;
     setJoined(false);
   };
 

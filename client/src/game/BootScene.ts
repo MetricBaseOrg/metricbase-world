@@ -32,6 +32,7 @@ export class BootScene extends Phaser.Scene {
     this.createBruteTexture();
     this.createTreeTexture();
     this.createRockTexture();
+    this.createFishSpotTexture();
   }
 
   create() {
@@ -463,6 +464,42 @@ export class BootScene extends Phaser.Scene {
     g.fillStyle(0xf0a868, 1).fillCircle(cx - 4, baseY - 6.6, 0.7).fillCircle(cx + 6, baseY - 8.6, 0.6);
 
     g.generateTexture("rock", 44, 44);
+    g.destroy();
+  }
+
+  private createFishSpotTexture() {
+    const g = this.make.graphics({ x: 0, y: 0 });
+    const cx = 20;
+    const cy = 22;
+
+    // ripple rings on the water surface
+    g.lineStyle(2, 0xffffff, 0.7);
+    g.strokeEllipse(cx, cy, 30, 15);
+    g.lineStyle(2, 0xeaf7ff, 0.55);
+    g.strokeEllipse(cx, cy, 20, 10);
+    g.lineStyle(1.5, 0xffffff, 0.45);
+    g.strokeEllipse(cx, cy, 10, 5);
+
+    // bobber float (red top, white bottom) above the water
+    const bx = cx + 6;
+    const by = cy - 8;
+    g.fillStyle(0xffffff, 1).fillCircle(bx, by, 4);
+    g.lineStyle(1.5, OUTLINE, 1).strokeCircle(bx, by, 4);
+    g.fillStyle(0xe2483b, 1);
+    g.beginPath();
+    g.moveTo(bx - 4, by);
+    g.lineTo(bx + 4, by);
+    g.lineTo(bx + 3, by - 3);
+    g.lineTo(bx, by - 4.4);
+    g.lineTo(bx - 3, by - 3);
+    g.closePath();
+    g.fillPath();
+    g.lineStyle(1.5, OUTLINE, 1).strokeCircle(bx, by, 4);
+    g.fillStyle(OUTLINE, 1).fillCircle(bx, by + 0.5, 1);
+    // tiny fish glint
+    g.fillStyle(0x8fd3ff, 0.9).fillCircle(cx - 6, cy + 2, 1.6);
+
+    g.generateTexture("fishspot", 40, 40);
     g.destroy();
   }
 

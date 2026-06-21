@@ -72,6 +72,14 @@ export const ITEMS: Record<string, ItemDefinition> = {
     maxStack: 99,
     kind: "material",
   },
+  item_fish: {
+    id: "item_fish",
+    name: "River Fish",
+    description: "A fresh catch from the shallows. Pip buys these for the kitchen.",
+    stackable: true,
+    maxStack: 99,
+    kind: "material",
+  },
   item_slime_gel: {
     id: "item_slime_gel",
     name: "Slime Gel",

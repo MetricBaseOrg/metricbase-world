@@ -1,5 +1,6 @@
 import {
   GAME_VERSION,
+  fishingXpProgress,
   getItemDefinition,
   miningXpProgress,
   woodcuttingXpProgress,
@@ -40,12 +41,17 @@ export function HUD({ onLeave }: HUDProps) {
     woodcuttingXp,
     miningLevel,
     miningXp,
+    fishingLevel,
+    fishingXp,
   } = useGameStore();
   const progress = xpProgress(playerXp, playerLevel);
   const xpRatio = progress.required > 0 ? progress.current / progress.required : 0;
   const miningProgress = miningXpProgress(miningXp, miningLevel);
   const miningRatio =
     miningProgress.required > 0 ? miningProgress.current / miningProgress.required : 0;
+  const fishingProgress = fishingXpProgress(fishingXp, fishingLevel);
+  const fishingRatio =
+    fishingProgress.required > 0 ? fishingProgress.current / fishingProgress.required : 0;
   const woodcuttingProgress = woodcuttingXpProgress(woodcuttingXp, woodcuttingLevel);
   const woodcuttingRatio =
     woodcuttingProgress.required > 0
@@ -133,6 +139,15 @@ export function HUD({ onLeave }: HUDProps) {
                 color="#b0833a"
               />
               <span className="chibi-hud-gauge-caption">Mining</span>
+            </div>
+            <div className="chibi-hud-gauge-item">
+              <CircleGauge
+                value={fishingRatio}
+                label={`${fishingLevel}`}
+                title={`Fishing ${fishingProgress.current} / ${fishingProgress.required} XP`}
+                color="#3690cf"
+              />
+              <span className="chibi-hud-gauge-caption">Fishing</span>
             </div>
           </div>
 

@@ -28,8 +28,8 @@ import {
   normalizeInventory,
   normalizeSkills,
   woodcuttingLevelFromXp,
-  miningLevelFromXp,
   computeMineDurationMs,
+  computeFishDurationMs,
   type GatherSkill,
   type ZoneResourceNode,
   MIN_TOKEN_UI_AMOUNT,
@@ -1693,6 +1693,21 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
   /** Resolve the active gather skill + tuning for a resource node. */
   private gatherInfo(resource: ZoneResourceNode) {
+    if (resource.kind === "fish" && resource.fishing) {
+      const f = resource.fishing;
+      return {
+        skill: "fishing" as GatherSkill,
+        label: "Fishing",
+        verb: "reeled in a catch from",
+        requiredLevel: f.requiredLevel ?? 1,
+        nodeLevel: f.spotLevel,
+        skillXp: f.skillXp,
+        respawnMs: f.respawnMs,
+        lootItemId: f.lootItemId,
+        lootQuantity: f.lootQuantity,
+        durationMs: (lvl: number) => computeFishDurationMs(f.spotLevel, lvl),
+      };
+    }
     if (resource.kind === "rock" && resource.mining) {
       const m = resource.mining;
       return {
@@ -1731,9 +1746,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
   private skillLevelFor(playerName: string, skill: GatherSkill): number {
     const skills = this.playerSkills.get(playerName) ?? normalizeSkills();
-    return skill === "mining"
-      ? miningLevelFromXp(skills.mining)
-      : woodcuttingLevelFromXp(skills.woodcutting);
+    // All gather skills share the same XP curve.
+    return woodcuttingLevelFromXp(skills[skill]);
   }
 
   private grantWoodcuttingXp(playerName: string, amount: number) {
@@ -1742,11 +1756,10 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
   private grantSkillXp(playerName: string, skill: GatherSkill, amount: number) {
     const skills = this.playerSkills.get(playerName) ?? normalizeSkills();
-    const levelFn = skill === "mining" ? miningLevelFromXp : woodcuttingLevelFromXp;
-    const previousLevel = levelFn(skills[skill]);
+    const previousLevel = woodcuttingLevelFromXp(skills[skill]);
     const updated = { ...skills, [skill]: skills[skill] + amount };
     this.playerSkills.set(playerName, updated);
-    const newLevel = levelFn(updated[skill]);
+    const newLevel = woodcuttingLevelFromXp(updated[skill]);
     return {
       updated,
       previousLevel,

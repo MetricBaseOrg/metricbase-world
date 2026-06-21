@@ -1,8 +1,10 @@
 export const SKILL_WOODCUTTING = "woodcutting";
 export const SKILL_MINING = "mining";
+export const SKILL_FISHING = "fishing";
 
 export const CHOP_RANGE = 80;
 export const MINE_RANGE = 80;
+export const FISH_RANGE = 90;
 
 /** Base chop time per tree level (level-1 trees take 60 seconds at Woodcutting 1). */
 export const WOODCUTTING_CHOP_BASE_MS = 60_000;
@@ -29,6 +31,11 @@ export function computeMineDurationMs(rockLevel: number, miningLevel: number): n
   return computeChopDurationMs(rockLevel, miningLevel);
 }
 
+/** Fishing is a bit quicker per level — biting is luck, not effort. */
+export function computeFishDurationMs(spotLevel: number, fishingLevel: number): number {
+  return Math.round(computeChopDurationMs(spotLevel, fishingLevel) * 0.7);
+}
+
 /** Cumulative woodcutting XP required to reach each level (index = level - 1). */
 export const WOODCUTTING_LEVEL_XP_THRESHOLDS = [
   0, 50, 120, 220, 360, 550, 800, 1100, 1500, 2000, 2600,
@@ -37,6 +44,7 @@ export const WOODCUTTING_LEVEL_XP_THRESHOLDS = [
 export interface SkillXpMap {
   woodcutting: number;
   mining: number;
+  fishing: number;
 }
 
 export interface WoodcuttingSkillView {
@@ -51,11 +59,13 @@ export interface SkillStatePayload {
   woodcutting: WoodcuttingSkillView;
   /** Optional so older clients/payloads keep type-checking. */
   mining?: SkillView;
+  fishing?: SkillView;
 }
 
 export const EMPTY_SKILLS: SkillXpMap = {
   woodcutting: 0,
   mining: 0,
+  fishing: 0,
 };
 
 export function woodcuttingLevelFromXp(xp: number): number {
@@ -82,9 +92,11 @@ export function woodcuttingXpProgress(
   };
 }
 
-/** Mining shares the woodcutting XP curve. */
+/** Mining and fishing share the woodcutting XP curve. */
 export const miningLevelFromXp = woodcuttingLevelFromXp;
 export const miningXpProgress = woodcuttingXpProgress;
+export const fishingLevelFromXp = woodcuttingLevelFromXp;
+export const fishingXpProgress = woodcuttingXpProgress;
 
 function normalizeXpValue(value: unknown): number {
   return typeof value === "number" && Number.isFinite(value) && value >= 0 ? Math.floor(value) : 0;
@@ -98,6 +110,7 @@ export function normalizeSkills(raw?: Partial<SkillXpMap> | null): SkillXpMap {
   return {
     woodcutting: normalizeXpValue(raw.woodcutting),
     mining: normalizeXpValue(raw.mining),
+    fishing: normalizeXpValue(raw.fishing),
   };
 }
 
@@ -110,6 +123,10 @@ export function buildSkillStatePayload(skills: SkillXpMap): SkillStatePayload {
     mining: {
       level: miningLevelFromXp(skills.mining),
       xp: skills.mining,
+    },
+    fishing: {
+      level: fishingLevelFromXp(skills.fishing),
+      xp: skills.fishing,
     },
   };
 }

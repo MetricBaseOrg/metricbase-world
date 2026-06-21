@@ -57,6 +57,7 @@ export const SHOPS: Record<string, ShopDefinition> = {
       item_training_scrap: 8,
       item_wood: 6,
       item_ore: 9,
+      item_fish: 8,
       item_slime_gel: 12,
       item_slime_core: 25,
     },
