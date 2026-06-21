@@ -302,6 +302,14 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       this.playerHp.set(player.name, Math.min(savedHp, maxHp));
     }
 
+    // Safety net: never drop a player onto a blocked tile. Stale saved
+    // coordinates inside a wall (e.g. the map corner) leave the player
+    // unable to move in any direction — snap them back to the spawn tile.
+    if (!isWalkable(this.zoneConfig.id, player.x, player.y)) {
+      player.x = spawn.x;
+      player.y = spawn.y;
+    }
+
     this.state.players.set(client.sessionId, player);
     this.inputs.set(client.sessionId, { dx: 0, dy: 0 });
     this.questProgress.set(player.name, saved?.questProgress ?? { active: [], objectiveIndex: {}, completed: [] });

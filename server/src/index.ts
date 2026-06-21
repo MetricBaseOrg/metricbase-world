@@ -18,7 +18,7 @@ app.use(cors({ origin: true }));
 app.use(express.json());
 
 app.get("/health", (_req, res) => {
-  res.json({ status: "ok", version: "0.1.1", tokenGate: "failopen" });
+  res.json({ status: "ok", version: "0.1.2", tokenGate: "failopen", spawnGuard: true });
 });
 
 app.use("/api", authRouter);
