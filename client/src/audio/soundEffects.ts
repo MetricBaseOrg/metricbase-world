@@ -21,7 +21,17 @@ export type SfxType =
   | "player_hurt"
   | "chop_swing"
   | "chop_hit"
-  | "chop_fell";
+  | "chop_fell"
+  | "footstep"
+  | "coin"
+  | "item_pickup"
+  | "fish_cast"
+  | "fish_splash"
+  | "fish_catch"
+  | "hover"
+  | "respawn"
+  | "notify"
+  | "equip";
 
 const MASTER_VOLUME = 0.32;
 const MUTE_STORAGE_KEY = "metricbase-sfx-muted";
@@ -184,7 +194,53 @@ export function playSfx(type: SfxType): void {
       playTone(ctx, masterGain, now, 180, "sawtooth", 0.06, 0.16);
       playTone(ctx, masterGain, now + 0.05, 120, "sawtooth", 0.08, 0.14);
       break;
+    case "footstep":
+      playTone(ctx, masterGain, now, 90 + Math.random() * 16, "triangle", 0.05, 0.06);
+      playNoiseBurst(ctx, masterGain, now, 0.03, 0.025);
+      break;
+    case "coin":
+      playTone(ctx, masterGain, now, 1568, "triangle", 0.04, 0.12);
+      playTone(ctx, masterGain, now + 0.05, 2093, "triangle", 0.08, 0.14);
+      break;
+    case "item_pickup":
+      playTone(ctx, masterGain, now, 660, "sine", 0.05, 0.14);
+      playTone(ctx, masterGain, now + 0.05, 880, "sine", 0.08, 0.16);
+      break;
+    case "fish_cast":
+      playSweep(ctx, masterGain, now, 620, 220, 0.2, "triangle", 0.1);
+      break;
+    case "fish_splash":
+      playNoiseBurst(ctx, masterGain, now, 0.14, 0.1);
+      playSweep(ctx, masterGain, now + 0.02, 480, 260, 0.12, "sine", 0.08);
+      break;
+    case "fish_catch":
+      playTone(ctx, masterGain, now, 660, "sine", 0.06, 0.18);
+      playTone(ctx, masterGain, now + 0.08, 880, "sine", 0.06, 0.18);
+      playTone(ctx, masterGain, now + 0.16, 1108, "triangle", 0.12, 0.2);
+      break;
+    case "hover":
+      playTone(ctx, masterGain, now, 1200, "triangle", 0.02, 0.05);
+      break;
+    case "respawn":
+      playTone(ctx, masterGain, now, 392, "sine", 0.1, 0.14);
+      playTone(ctx, masterGain, now + 0.1, 523, "sine", 0.1, 0.16);
+      playTone(ctx, masterGain, now + 0.22, 659, "triangle", 0.18, 0.18);
+      break;
+    case "notify":
+      playTone(ctx, masterGain, now, 880, "sine", 0.06, 0.14);
+      playTone(ctx, masterGain, now + 0.09, 1318, "sine", 0.1, 0.16);
+      break;
+    case "equip":
+      playTone(ctx, masterGain, now, 700, "square", 0.04, 0.14);
+      playTone(ctx, masterGain, now + 0.05, 920, "square", 0.06, 0.14);
+      playNoiseBurst(ctx, masterGain, now + 0.01, 0.03, 0.04);
+      break;
   }
+}
+
+/** Shared AudioContext (lazily created, resumed on demand) for the music bus. */
+export function getAudioContext(): AudioContext | null {
+  return getContext();
 }
 
 function playTone(

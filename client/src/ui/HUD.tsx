@@ -1,6 +1,7 @@
 import { GAME_VERSION, getItemDefinition, woodcuttingXpProgress, xpProgress } from "@metricbase/shared";
 import { useState } from "react";
 import { isSoundEnabled, playSfx, setSoundEnabled } from "../audio/soundEffects";
+import { isMusicEnabled, setMusicEnabled } from "../audio/backgroundMusic";
 import { useGameStore } from "../store/gameStore";
 import { shortenWallet } from "../wallet/solanaProvider";
 import { CircleGauge } from "./CircleGauge";
@@ -15,6 +16,7 @@ export function HUD({ onLeave }: HUDProps) {
   const mobileLayout = useMobileLayout();
   const [expanded, setExpanded] = useState(false);
   const [soundOn, setSoundOn] = useState(isSoundEnabled);
+  const [musicOn, setMusicOn] = useState(isMusicEnabled);
   const {
     playerName,
     playerLevel,
@@ -150,6 +152,20 @@ export function HUD({ onLeave }: HUDProps) {
               aria-label={soundOn ? "Mute sound effects" : "Enable sound effects"}
             >
               {soundOn ? "🔊" : "🔇"}
+            </button>
+            <button
+              type="button"
+              className="chibi-btn chibi-btn--ghost"
+              style={{ padding: "4px 8px", fontSize: "0.78rem", opacity: musicOn ? 1 : 0.4 }}
+              onClick={() => {
+                const next = !musicOn;
+                setMusicEnabled(next);
+                setMusicOn(next);
+                if (next && soundOn) playSfx("ui_click");
+              }}
+              aria-label={musicOn ? "Mute music" : "Enable music"}
+            >
+              {musicOn ? "🎵" : "🎵̶"}
             </button>
           </div>
 

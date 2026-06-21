@@ -1,6 +1,7 @@
 import { type CharacterAppearance } from "@metricbase/shared";
 import { useEffect, useRef, useState } from "react";
 import { initSoundEffects, playSfx } from "./audio/soundEffects";
+import { startBackgroundMusic, stopBackgroundMusic } from "./audio/backgroundMusic";
 import { bindUiTypingFocusGuard, resetMobileInput } from "./game/inputControl";
 import { waitForGameSceneReady } from "./game/gameSceneReady";
 import { PhaserGame } from "./game/PhaserGame";
@@ -195,6 +196,7 @@ export function App() {
     }
 
     setJoined(true);
+    startBackgroundMusic();
 
     try {
       await waitForGameSceneReady();
@@ -202,11 +204,13 @@ export function App() {
       setZoneName(networkManager.zoneName);
     } catch (error) {
       setJoined(false);
+      stopBackgroundMusic();
       throw error;
     }
   };
 
   const handleLeave = async () => {
+    stopBackgroundMusic();
     resetMobileInput();
     previousLevelRef.current = 1;
     previousWoodcuttingLevelRef.current = 1;

@@ -147,6 +147,7 @@ export function ShopPanel() {
       return;
     }
     playSfx("shop_sell");
+    playSfx("coin");
     const nextGold = result.gold ?? playerGold;
     setPlayerGold(nextGold);
     setShop(refreshShopCatalog(shop, nextGold, useGameStore.getState().inventory, market));

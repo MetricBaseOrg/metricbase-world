@@ -61,7 +61,7 @@ export function DeathOverlay() {
       return;
     }
 
-    playSfx("zone_enter");
+    playSfx("respawn");
     const store = useGameStore.getState();
     setProfile(
       store.playerLevel,

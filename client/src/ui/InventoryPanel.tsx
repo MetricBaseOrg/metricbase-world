@@ -59,7 +59,7 @@ export function InventoryPanel() {
       setError(result.error ?? "Could not equip item.");
       return;
     }
-    playSfx("ui_click");
+    playSfx("equip");
     if (result.inventory) setInventory(result.inventory);
   };
 

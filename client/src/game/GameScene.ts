@@ -109,6 +109,7 @@ export class GameScene extends Phaser.Scene {
   private lastSentInput = { dx: 0, dy: 0 };
   private currentZoneId: string | null = null;
   private localChoppingUntil = 0;
+  private lastFootstepAt = 0;
 
   constructor() {
     super("GameScene");
@@ -276,6 +277,15 @@ export class GameScene extends Phaser.Scene {
       }
 
       this.applyLocalPrediction(dx, dy, delta);
+
+      if (dx !== 0 || dy !== 0) {
+        const now = Date.now();
+        if (now - this.lastFootstepAt > 330) {
+          this.lastFootstepAt = now;
+          playSfx("footstep");
+        }
+      }
+
       this.interpolateRemotePlayers();
       this.tryInteract();
       this.tryAttack();
@@ -966,6 +976,9 @@ export class GameScene extends Phaser.Scene {
     if (!local) return;
 
     this.setPlayerAction(local, "fish", local.direction, AVATAR_ACTION_DURATIONS_MS.fish);
+    playSfx("fish_cast");
+    this.time.delayedCall(450, () => playSfx("fish_splash"));
+    this.time.delayedCall(AVATAR_ACTION_DURATIONS_MS.fish - 250, () => playSfx("fish_catch"));
   }
 
   private startChopAnimation(playerName: string, resourceId: string, endsAt: number) {
