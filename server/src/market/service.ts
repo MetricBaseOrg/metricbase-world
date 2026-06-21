@@ -8,6 +8,8 @@ import {
   MIN_MARKET_GOLD,
   MIN_MARKET_TOKEN_PRICE,
   TOKEN_DECIMALS,
+  goldAfterMarketFee,
+  marketFee,
   tradePricePerGold,
   type MarketResultPayload,
   type MarketSide,
@@ -196,10 +198,11 @@ export async function fillAskOrder(input: {
     return { result: { ok: false, error: "Trade already recorded." }, buyerGold: input.buyerGold };
   }
 
-  const buyerGold = input.buyerGold + order.goldAmount;
+  const received = goldAfterMarketFee(order.goldAmount);
+  const buyerGold = input.buyerGold + received;
   const market = await buildMarketState(input.buyerWallet);
   return {
-    result: { ok: true, gold: buyerGold, market },
+    result: { ok: true, gold: buyerGold, fee: marketFee(order.goldAmount), market },
     buyerGold,
   };
 }
@@ -297,11 +300,12 @@ export async function completeBidPayment(input: {
     txSignature: input.signature,
   });
 
-  const buyerGold = input.buyerGold + order.goldAmount;
+  const received = goldAfterMarketFee(order.goldAmount);
+  const buyerGold = input.buyerGold + received;
   const market = await buildMarketState(input.buyerWallet);
 
   return {
-    result: { ok: true, gold: buyerGold, market },
+    result: { ok: true, gold: buyerGold, fee: marketFee(order.goldAmount), market },
     buyerGold,
     sellerWallet,
     goldToCreditSeller: 0,

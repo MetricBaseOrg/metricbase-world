@@ -67,3 +67,10 @@ CREATE TABLE IF NOT EXISTS market_trades (
 );
 
 CREATE INDEX IF NOT EXISTS market_trades_created_at_idx ON market_trades (created_at);
+
+-- Persistent vendor sell pressure (dynamic NPC pricing) so prices survive restarts.
+CREATE TABLE IF NOT EXISTS vendor_sell_pressure (
+  item_id VARCHAR(64) PRIMARY KEY,
+  value DOUBLE PRECISION NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);

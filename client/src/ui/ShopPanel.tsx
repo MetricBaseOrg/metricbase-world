@@ -4,6 +4,7 @@ import {
   METRICBASE_TOKEN_MINT,
   normalizeMarketState,
   type MarketOrderView,
+  type MarketResultPayload,
   type MarketStatePayload,
   type ShopOpenPayload,
   type ShopResultPayload,
@@ -53,13 +54,7 @@ function orderRowStyle(): React.CSSProperties {
 }
 
 async function waitForMarketResult() {
-  return new Promise<{
-    ok: boolean;
-    error?: string;
-    gold?: number;
-    market?: MarketStatePayload;
-    payment?: MarketStatePayload extends never ? never : import("@metricbase/shared").MarketResultPayload["payment"];
-  }>((resolve) => {
+  return new Promise<MarketResultPayload>((resolve) => {
     const timeout = window.setTimeout(() => resolve({ ok: false, error: "Market request timed out." }), 30000);
     const unsubscribe = networkManager.onMarketResult((payload) => {
       window.clearTimeout(timeout);
@@ -96,6 +91,9 @@ export function ShopPanel() {
     if (result.gold !== undefined) setPlayerGold(result.gold);
     if (result.market) {
       setShop(refreshShopCatalog(shop, result.gold ?? playerGold, inventory, result.market));
+    }
+    if (result.fee && result.fee > 0) {
+      setStatus(`Trade complete — ${result.fee} gold market fee.`);
     }
   };
 

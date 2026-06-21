@@ -35,3 +35,16 @@ export function sellPriceMultiplier(saturation: number): number {
 export function dynamicSellPrice(basePrice: number, saturation: number): number {
   return Math.max(1, Math.round(basePrice * sellPriceMultiplier(saturation)));
 }
+
+// Gold market fee — a cut of every completed gold trade is burned (removed from
+// the economy), acting as a gold sink and curbing wash-trading.
+export const MARKET_FEE_RATE = 0.04;
+
+export function marketFee(goldAmount: number): number {
+  return Math.floor(Math.max(0, goldAmount) * MARKET_FEE_RATE);
+}
+
+/** Gold the buyer actually receives after the market fee is burned. */
+export function goldAfterMarketFee(goldAmount: number): number {
+  return Math.max(0, goldAmount - marketFee(goldAmount));
+}

@@ -56,6 +56,8 @@ export interface MarketResultPayload {
   ok: boolean;
   error?: string;
   gold?: number;
+  /** Gold burned as the market fee on this trade. */
+  fee?: number;
   market?: MarketStatePayload;
   /** Buyer must pay this wallet to complete a trade. */
   payment?: {

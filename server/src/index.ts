@@ -8,6 +8,7 @@ import { authRouter } from "./api/auth.js";
 import { characterRouter } from "./api/characters.js";
 import { tokenShopRouter } from "./api/tokenShop.js";
 import { initDatabase } from "./db/pool.js";
+import { initSellPressure } from "./market/sellPressure.js";
 import { ZoneRoom } from "./rooms/ZoneRoom.js";
 
 const PORT = Number(process.env.PORT ?? 2567);
@@ -18,7 +19,7 @@ app.use(cors({ origin: true }));
 app.use(express.json());
 
 app.get("/health", (_req, res) => {
-  res.json({ status: "ok", version: "0.1.2", tokenGate: "failopen", spawnGuard: true });
+  res.json({ status: "ok", version: "0.4.1", economy: "v1", sellPressurePersist: true });
 });
 
 app.use("/api", authRouter);
@@ -36,6 +37,7 @@ gameServer.define(ZONE_WILDERNESS, ZoneRoom, { zoneId: ZONE_WILDERNESS });
 gameServer.define(ZONE_GROTTO, ZoneRoom, { zoneId: ZONE_GROTTO });
 
 await initDatabase();
+await initSellPressure();
 
 httpServer.listen(PORT, () => {
   console.log(`MetricBase game server listening on ws://localhost:${PORT}`);
