@@ -343,15 +343,23 @@ export class GameScene extends Phaser.Scene {
     const canvas = this.game.canvas;
     const playerScreenX = local ? (local.sprite.x - cam.scrollX) * cam.zoom : 0;
     const playerScreenY = local ? (local.sprite.y - cam.scrollY) * cam.zoom : 0;
+    const uiTyping = isUiTypingActive();
+    const knockedOut = useGameStore.getState().knockedOut;
+    const chopping = Date.now() < this.localChoppingUntil;
+    const ax = this.getAxisInput();
+    const ay = this.getAxisInputY();
     this.debugText.setText(
       [
         `cam ${Math.round(cam.width)}x${Math.round(cam.height)} zoom ${cam.zoom}`,
-        `scroll ${Math.round(cam.scrollX)},${Math.round(cam.scrollY)}`,
-        `scale ${Math.round(this.scale.width)}x${Math.round(this.scale.height)} game ${Math.round(this.scale.gameSize.width)}x${Math.round(this.scale.gameSize.height)}`,
+        `scroll ${Math.round(cam.scrollX)},${Math.round(cam.scrollY)} follow ${this.cameraFollowSprite ? "Y" : "N"}`,
+        `game ${Math.round(this.scale.gameSize.width)}x${Math.round(this.scale.gameSize.height)} disp ${Math.round(this.scale.displaySize.width)}x${Math.round(this.scale.displaySize.height)}`,
         `canvas ${canvas.width}x${canvas.height} css ${canvas.clientWidth}x${canvas.clientHeight}`,
         `win ${window.innerWidth}x${window.innerHeight} dpr ${window.devicePixelRatio}`,
         `player world ${local ? `${Math.round(local.sprite.x)},${Math.round(local.sprite.y)}` : "NONE"}`,
-        `player screen ${Math.round(playerScreenX)},${Math.round(playerScreenY)} follow ${this.cameraFollowSprite ? "Y" : "N"}`,
+        `player screen ${Math.round(playerScreenX)},${Math.round(playerScreenY)}`,
+        `input ${ax},${ay} sent ${this.lastSentInput.dx},${this.lastSentInput.dy}`,
+        `blocked typing:${uiTyping ? 1 : 0} ko:${knockedOut ? 1 : 0} chop:${chopping ? 1 : 0}`,
+        `session ${networkManager.sessionId ?? "none"} conn ${networkManager.isConnected ? 1 : 0}`,
       ].join("\n"),
     );
   }
