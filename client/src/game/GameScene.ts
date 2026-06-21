@@ -112,6 +112,7 @@ export class GameScene extends Phaser.Scene {
   private lastFootstepAt = 0;
   private chopHitTimer: Phaser.Time.TimerEvent | null = null;
   private cameraFollowSprite: Phaser.GameObjects.Sprite | null = null;
+  private debugText: Phaser.GameObjects.Text | null = null;
 
   constructor() {
     super("GameScene");
@@ -128,6 +129,17 @@ export class GameScene extends Phaser.Scene {
     // Re-sync once layout has settled, in case the canvas mounted before the
     // container reached its final size.
     this.time.delayedCall(60, () => this.handleViewportResize());
+
+    this.debugText = this.add
+      .text(6, 6, "", {
+        fontFamily: "monospace",
+        fontSize: "13px",
+        color: "#101010",
+        backgroundColor: "rgba(255,255,255,0.85)",
+        padding: { x: 5, y: 4 },
+      })
+      .setScrollFactor(0)
+      .setDepth(100000);
 
     if (this.input.keyboard) {
       this.cursors = this.input.keyboard.createCursorKeys();
@@ -321,6 +333,27 @@ export class GameScene extends Phaser.Scene {
     this.applyKnockedOutVisuals();
     this.redrawActiveChopBars();
     this.updatePlayerAnimations();
+    this.updateDebugReadout();
+  }
+
+  private updateDebugReadout() {
+    if (!this.debugText) return;
+    const cam = this.cameras.main;
+    const local = this.findLocalPlayer();
+    const canvas = this.game.canvas;
+    const playerScreenX = local ? (local.sprite.x - cam.scrollX) * cam.zoom : 0;
+    const playerScreenY = local ? (local.sprite.y - cam.scrollY) * cam.zoom : 0;
+    this.debugText.setText(
+      [
+        `cam ${Math.round(cam.width)}x${Math.round(cam.height)} zoom ${cam.zoom}`,
+        `scroll ${Math.round(cam.scrollX)},${Math.round(cam.scrollY)}`,
+        `scale ${Math.round(this.scale.width)}x${Math.round(this.scale.height)} game ${Math.round(this.scale.gameSize.width)}x${Math.round(this.scale.gameSize.height)}`,
+        `canvas ${canvas.width}x${canvas.height} css ${canvas.clientWidth}x${canvas.clientHeight}`,
+        `win ${window.innerWidth}x${window.innerHeight} dpr ${window.devicePixelRatio}`,
+        `player world ${local ? `${Math.round(local.sprite.x)},${Math.round(local.sprite.y)}` : "NONE"}`,
+        `player screen ${Math.round(playerScreenX)},${Math.round(playerScreenY)} follow ${this.cameraFollowSprite ? "Y" : "N"}`,
+      ].join("\n"),
+    );
   }
 
   private findLocalPlayer(): RenderedPlayer | null {
