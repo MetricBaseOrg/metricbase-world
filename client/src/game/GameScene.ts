@@ -111,6 +111,7 @@ export class GameScene extends Phaser.Scene {
   private localChoppingUntil = 0;
   private lastFootstepAt = 0;
   private chopHitTimer: Phaser.Time.TimerEvent | null = null;
+  private cameraFollowSprite: Phaser.GameObjects.Sprite | null = null;
 
   constructor() {
     super("GameScene");
@@ -328,6 +329,10 @@ export class GameScene extends Phaser.Scene {
 
   private destroyLocalAvatar() {
     if (!this.localAvatar) return;
+    if (this.cameraFollowSprite === this.localAvatar.sprite) {
+      this.cameras.main.stopFollow();
+      this.cameraFollowSprite = null;
+    }
     this.localAvatar.sprite.destroy();
     this.localAvatar.label.destroy();
     this.localAvatar = null;
@@ -356,15 +361,33 @@ export class GameScene extends Phaser.Scene {
 
   private bindCameraToLocalPlayer() {
     const cam = this.cameras.main;
+
+    // Keep the camera viewport matched to the live canvas size every frame so
+    // the follow/centering math can never use a stale (too-small) width/height,
+    // which is what pushed the player into a corner.
+    const gw = this.scale.gameSize.width;
+    const gh = this.scale.gameSize.height;
+    if (gw > 0 && gh > 0 && (cam.width !== gw || cam.height !== gh)) {
+      cam.setSize(gw, gh);
+    }
+
     const local = this.findLocalPlayer();
 
-    cam.stopFollow();
-
     if (local) {
-      // Center on the torso (sprite origin is at the feet) so the player
-      // sits in the middle of the view rather than the lower third.
-      this.centerCameraOn(local.sprite.x, local.sprite.y - 20);
+      // Use Phaser's built-in follow — it recenters every render with the
+      // current viewport, so the player stays centered through resizes and
+      // movement. Offset lifts the focus to the torso (origin is at the feet).
+      if (this.cameraFollowSprite !== local.sprite) {
+        this.cameraFollowSprite = local.sprite;
+        cam.startFollow(local.sprite, true, 0.25, 0.25);
+        cam.setFollowOffset(0, 18);
+      }
       return;
+    }
+
+    if (this.cameraFollowSprite) {
+      cam.stopFollow();
+      this.cameraFollowSprite = null;
     }
 
     const zoneId = this.currentZoneId ?? networkManager.zoneId;

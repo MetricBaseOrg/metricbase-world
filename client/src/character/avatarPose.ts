@@ -656,9 +656,12 @@ export function drawAvatarPose(
     ctx.translate(-CX, 0);
   }
 
+  // Render pure left/right as three-quarter views — the cute face stays
+  // visible and we avoid the awkward flat side-profile. Mirroring (handled
+  // above) turns the right-facing draw into a left-facing one.
   const drawDirection: AvatarDirection =
-    pose.direction === "left"
-      ? "right"
+    pose.direction === "left" || pose.direction === "right"
+      ? "threeQuarterRight"
       : pose.direction === "threeQuarterLeft"
         ? "threeQuarterRight"
         : pose.direction;
