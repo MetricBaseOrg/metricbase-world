@@ -1,8 +1,7 @@
 import {
   createAssociatedTokenAccountInstruction,
-  createTransferInstruction,
+  createTransferCheckedInstruction,
   getAssociatedTokenAddress,
-  getAccount,
   getMint,
 } from "@solana/spl-token";
 import { Connection, PublicKey, Transaction } from "@solana/web3.js";
@@ -41,11 +40,15 @@ export async function sendMetricbaseTokenPayment(options: {
   const rawAmount = BigInt(Math.round(options.uiAmount * 10 ** decimals));
 
   const transaction = new Transaction();
+  // getAccountInfo returns null when the account truly doesn't exist and only
+  // throws on RPC/network errors. On an RPC error we assume the account exists,
+  // so we never add a redundant create-ATA instruction that fails on-chain with
+  // "account already in use".
   let recipientAccountExists = true;
   try {
-    await getAccount(connection, recipientAta);
+    recipientAccountExists = (await connection.getAccountInfo(recipientAta)) !== null;
   } catch {
-    recipientAccountExists = false;
+    recipientAccountExists = true;
   }
 
   if (!recipientAccountExists) {
@@ -54,7 +57,12 @@ export async function sendMetricbaseTokenPayment(options: {
     );
   }
 
-  transaction.add(createTransferInstruction(payerAta, recipientAta, payer, rawAmount));
+  // Checked transfer carries the mint + decimals so the wallet shows the real
+  // token amount (e.g. "100,000 BASE") instead of the raw base-unit count, and
+  // the chain rejects any decimals mismatch.
+  transaction.add(
+    createTransferCheckedInstruction(payerAta, mint, recipientAta, payer, rawAmount, decimals),
+  );
 
   const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash("confirmed");
   transaction.recentBlockhash = blockhash;
