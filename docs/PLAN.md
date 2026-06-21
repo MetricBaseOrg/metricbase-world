@@ -25,16 +25,21 @@ server on Railway, Neon PostgreSQL, Solana token gate/market.
 - **Everyday loop — Trade:** sell gathered/crafted mats to Pip; P2P gold market
   (BASE is a Token-2022 mint — payments use the Token-2022 program + checked
   transfers).
+- **Everyday loop — Build (Housing):** buy a land plot with gold (the biggest
+  sink), build a house or shop, persistent ownership with your name on it.
 - **Economy v1 (sustainability):** dynamic vendor prices — Pip pays less for a
   material as it's sold (supply saturation, decays over time, 40% floor) to cap
-  the gold faucet; crafting forge fees as a gold sink. Tuning in
-  `shared/src/economy.ts`.
+  the gold faucet; crafting forge fees + 4% market trade fee + 500g land plots
+  as gold sinks. Tuning in `shared/src/economy.ts`.
+- **Iso art + OG card:** buildings/plots drawn in tile-matching isometric
+  perspective; social card at `client/public/metricbase-world.png`.
 
 ### Next (roadmap)
 
-- **Housing:** buy a land plot, place a house/shop, persistent ownership + build UI.
+- Housing depth: customize/decorate interiors, player shops that actually sell.
 - Deeper crafting tiers + tool/gear progression that boosts gather speed.
 - Persist farm-plot state to the DB (currently in-memory per room).
+- Iso pass for the remaining billboard props (trees/rocks/mobs) if desired.
 - More zones, NPCs, and quests around the loop.
 
 ---
