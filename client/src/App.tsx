@@ -75,7 +75,7 @@ export function App() {
       }
       const wasKnockedOut = useGameStore.getState().knockedOut;
       if (profile.knockedOut && !wasKnockedOut) {
-        playSfx("shop_fail");
+        playSfx("knockout");
       }
       applyProfilePatch(profile);
     });

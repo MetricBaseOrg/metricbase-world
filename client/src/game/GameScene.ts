@@ -110,6 +110,7 @@ export class GameScene extends Phaser.Scene {
   private currentZoneId: string | null = null;
   private localChoppingUntil = 0;
   private lastFootstepAt = 0;
+  private chopHitTimer: Phaser.Time.TimerEvent | null = null;
 
   constructor() {
     super("GameScene");
@@ -147,6 +148,7 @@ export class GameScene extends Phaser.Scene {
       networkManager.sendInput(0, 0);
       this.localSessionId = null;
       this.localChoppingUntil = 0;
+      this.stopLocalChopHits();
       this.destroyLocalAvatar();
       this.renderedPlayers.forEach((entry) => {
         entry.sprite.destroy();
@@ -190,6 +192,9 @@ export class GameScene extends Phaser.Scene {
       });
       this.startChopAnimation(payload.playerName, payload.resourceId, payload.endsAt);
       playSfx("chop_swing");
+      if (payload.playerName === useGameStore.getState().playerName) {
+        this.startLocalChopHits(payload.endsAt);
+      }
     });
 
     const unsubscribeChopCancel = networkManager.onChopCancel((payload) => {
@@ -204,6 +209,7 @@ export class GameScene extends Phaser.Scene {
       });
       if (payload.playerName === useGameStore.getState().playerName) {
         this.localChoppingUntil = 0;
+        this.stopLocalChopHits();
         const local = this.findLocalPlayer();
         if (local) {
           local.actionUntil = 0;
@@ -227,8 +233,11 @@ export class GameScene extends Phaser.Scene {
         playSfx("shop_fail");
         return;
       }
-      if (payload.playerName === useGameStore.getState().playerName) {
+      const isLocalChopper = payload.playerName === useGameStore.getState().playerName;
+      if (isLocalChopper) {
         this.localChoppingUntil = 0;
+        this.stopLocalChopHits();
+        playSfx("wood_gather");
       }
       if (payload.depleted) {
         playSfx("chop_fell");
@@ -250,6 +259,7 @@ export class GameScene extends Phaser.Scene {
       unsubscribeChopStart();
       unsubscribeChopCancel();
       unsubscribeChopResult();
+      this.stopLocalChopHits();
       this.clearMap();
       this.clearNpcs();
       this.clearResources();
@@ -990,6 +1000,27 @@ export class GameScene extends Phaser.Scene {
     playSfx("fish_cast");
     this.time.delayedCall(450, () => playSfx("fish_splash"));
     this.time.delayedCall(AVATAR_ACTION_DURATIONS_MS.fish - 250, () => playSfx("fish_catch"));
+  }
+
+  private startLocalChopHits(endsAt: number) {
+    this.stopLocalChopHits();
+    // Rhythmic axe-impact thuds for the duration of the chop.
+    this.chopHitTimer = this.time.addEvent({
+      delay: 360,
+      loop: true,
+      callback: () => {
+        if (Date.now() >= endsAt) {
+          this.stopLocalChopHits();
+          return;
+        }
+        playSfx("chop_hit");
+      },
+    });
+  }
+
+  private stopLocalChopHits() {
+    this.chopHitTimer?.remove(false);
+    this.chopHitTimer = null;
   }
 
   private startChopAnimation(playerName: string, resourceId: string, endsAt: number) {

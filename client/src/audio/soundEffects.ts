@@ -31,7 +31,9 @@ export type SfxType =
   | "hover"
   | "respawn"
   | "notify"
-  | "equip";
+  | "equip"
+  | "knockout"
+  | "wood_gather";
 
 const MASTER_VOLUME = 0.32;
 const MUTE_STORAGE_KEY = "metricbase-sfx-muted";
@@ -234,6 +236,17 @@ export function playSfx(type: SfxType): void {
       playTone(ctx, masterGain, now, 700, "square", 0.04, 0.14);
       playTone(ctx, masterGain, now + 0.05, 920, "square", 0.06, 0.14);
       playNoiseBurst(ctx, masterGain, now + 0.01, 0.03, 0.04);
+      break;
+    case "knockout":
+      playSweep(ctx, masterGain, now, 320, 90, 0.4, "sawtooth", 0.18);
+      playTone(ctx, masterGain, now + 0.16, 196, "sine", 0.18, 0.16);
+      playTone(ctx, masterGain, now + 0.3, 147, "sine", 0.26, 0.16);
+      playNoiseBurst(ctx, masterGain, now, 0.12, 0.08);
+      break;
+    case "wood_gather":
+      playTone(ctx, masterGain, now, 240, "triangle", 0.05, 0.14);
+      playTone(ctx, masterGain, now + 0.04, 180, "triangle", 0.07, 0.12);
+      playNoiseBurst(ctx, masterGain, now, 0.04, 0.05);
       break;
   }
 }
