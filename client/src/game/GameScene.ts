@@ -17,8 +17,11 @@ import {
   NPC_INTERACT_RANGE,
   FARM_RANGE,
   farmGrowthProgress,
+  HOUSE_RANGE,
+  structureLabel,
   tileToWorld,
   type FarmStatePayload,
+  type HousingStatePayload,
 } from "@metricbase/shared";
 import {
   getAnimFrame,
@@ -74,6 +77,14 @@ interface RenderedFarmPlot {
   readyAt?: number;
 }
 
+interface RenderedLandPlot {
+  id: string;
+  sprite: Phaser.GameObjects.Sprite;
+  label: Phaser.GameObjects.Text;
+  worldX: number;
+  worldY: number;
+}
+
 interface RenderedNpc {
   id: string;
   sprite: Phaser.GameObjects.Sprite;
@@ -119,6 +130,7 @@ export class GameScene extends Phaser.Scene {
   private renderedNpcs: RenderedNpc[] = [];
   private renderedResources: RenderedResource[] = [];
   private renderedFarmPlots = new Map<string, RenderedFarmPlot>();
+  private renderedLandPlots = new Map<string, RenderedLandPlot>();
   private interactKey: Phaser.Input.Keyboard.Key | null = null;
   private attackKey: Phaser.Input.Keyboard.Key | null = null;
   private chopKey: Phaser.Input.Keyboard.Key | null = null;
@@ -197,6 +209,10 @@ export class GameScene extends Phaser.Scene {
 
     const unsubscribeFarmState = networkManager.onFarmState((payload) => {
       this.applyFarmState(payload);
+    });
+
+    const unsubscribeHousingState = networkManager.onHousingState((payload) => {
+      this.applyHousingState(payload);
     });
 
     const unsubscribeFarmResult = networkManager.onFarmResult((payload) => {
@@ -301,11 +317,13 @@ export class GameScene extends Phaser.Scene {
       unsubscribeChopResult();
       unsubscribeFarmState();
       unsubscribeFarmResult();
+      unsubscribeHousingState();
       this.stopLocalChopHits();
       this.clearMap();
       this.clearNpcs();
       this.clearResources();
       this.clearFarmPlots();
+      this.clearLandPlots();
       this.destroyLocalAvatar();
       this.renderedPlayers.forEach((entry) => {
         entry.sprite.destroy();
@@ -609,6 +627,7 @@ export class GameScene extends Phaser.Scene {
     this.clearNpcs();
     this.clearResources();
     this.clearFarmPlots();
+    this.clearLandPlots();
 
     const ground = buildZoneMap(zoneId);
 
@@ -631,6 +650,7 @@ export class GameScene extends Phaser.Scene {
     this.renderNpcs(zoneId);
     this.renderResources(zoneId);
     this.renderFarmPlots(zoneId);
+    this.renderLandPlots(zoneId);
   }
 
   private renderFarmPlots(zoneId: string) {
@@ -638,7 +658,7 @@ export class GameScene extends Phaser.Scene {
     for (const plot of config.farmPlots ?? []) {
       const { x, y } = tileToWorld(plot.tileX, plot.tileY);
       const sprite = this.add.sprite(x, y, "plot_empty");
-      sprite.setOrigin(0.5, 0.62);
+      sprite.setOrigin(0.5, 0.5);
       sprite.setDepth(845);
       const label = this.add
         .text(x, y - 30, "Plot", {
@@ -676,6 +696,54 @@ export class GameScene extends Phaser.Scene {
       plot.barFill.destroy();
     });
     this.renderedFarmPlots.clear();
+  }
+
+  private renderLandPlots(zoneId: string) {
+    const config = getZoneConfig(zoneId);
+    for (const plot of config.landPlots ?? []) {
+      const { x, y } = tileToWorld(plot.tileX, plot.tileY);
+      const sprite = this.add.sprite(x, y, "plot_marker");
+      sprite.setOrigin(0.5, 0.75);
+      sprite.setDepth(820);
+      const label = this.add
+        .text(x, y - 50, "For Sale", {
+          fontFamily: '"Fredoka", "Nunito", sans-serif',
+          fontSize: "10px",
+          fontStyle: "bold",
+          color: "#ffd24a",
+          stroke: "#2a1d12",
+          strokeThickness: 4,
+        })
+        .setOrigin(0.5, 1)
+        .setDepth(821);
+      this.renderedLandPlots.set(plot.id, { id: plot.id, sprite, label, worldX: x, worldY: y });
+    }
+    this.applyHousingState(networkManager.getHousingState());
+  }
+
+  private clearLandPlots() {
+    this.renderedLandPlots.forEach((plot) => {
+      plot.sprite.destroy();
+      plot.label.destroy();
+    });
+    this.renderedLandPlots.clear();
+  }
+
+  private applyHousingState(payload: HousingStatePayload) {
+    for (const state of payload.plots) {
+      const plot = this.renderedLandPlots.get(state.plotId);
+      if (!plot) continue;
+      const owned = state.structure !== "none";
+      plot.sprite.setTexture(owned ? (state.structure === "shop" ? "shop" : "house") : "plot_marker");
+      plot.sprite.setDepth(owned ? 870 : 820);
+      if (owned && state.ownerName) {
+        plot.label.setText(`${state.ownerName}'s ${structureLabel(state.structure)}`);
+        plot.label.setColor("#ffffff");
+      } else {
+        plot.label.setText("For Sale");
+        plot.label.setColor("#ffd24a");
+      }
+    }
   }
 
   private applyFarmState(payload: FarmStatePayload) {
@@ -1074,6 +1142,22 @@ export class GameScene extends Phaser.Scene {
     }
     if (nearestPlot) {
       networkManager.sendFarmInteract(nearestPlot.id);
+      return;
+    }
+
+    // A nearby land plot opens the housing panel (buy / view owner).
+    let nearestLand: RenderedLandPlot | null = null;
+    let nearestLandDistance = HOUSE_RANGE;
+    for (const land of this.renderedLandPlots.values()) {
+      const distance = Math.hypot(local.predicted.x - land.worldX, local.predicted.y - land.worldY);
+      if (distance <= nearestLandDistance) {
+        nearestLand = land;
+        nearestLandDistance = distance;
+      }
+    }
+    if (nearestLand) {
+      playSfx("ui_open");
+      useGameStore.getState().openHousing(nearestLand.id);
       return;
     }
 

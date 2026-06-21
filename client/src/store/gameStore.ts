@@ -4,6 +4,7 @@ import {
   QuestStatePayload,
   type CharacterAppearance,
   type InventoryStatePayload,
+  type LandPlotState,
   type ShopOpenPayload,
 } from "@metricbase/shared";
 import { create } from "zustand";
@@ -36,6 +37,9 @@ interface GameStore {
   inventory: InventoryStatePayload;
   inventoryOpen: boolean;
   craftOpen: boolean;
+  housingOpen: boolean;
+  housingPlotId: string | null;
+  housingPlots: LandPlotState[];
   shop: ShopOpenPayload | null;
   shopOpen: boolean;
   setPlayerName: (name: string) => void;
@@ -77,6 +81,9 @@ interface GameStore {
   toggleInventoryOpen: () => void;
   setCraftOpen: (open: boolean) => void;
   toggleCraftOpen: () => void;
+  openHousing: (plotId: string) => void;
+  setHousingOpen: (open: boolean) => void;
+  setHousingPlots: (plots: LandPlotState[]) => void;
   setShop: (shop: ShopOpenPayload | null) => void;
   setShopOpen: (open: boolean) => void;
 }
@@ -111,6 +118,9 @@ export const useGameStore = create<GameStore>((set) => ({
   inventory: { items: [], capacity: 16 },
   inventoryOpen: false,
   craftOpen: false,
+  housingOpen: false,
+  housingPlotId: null,
+  housingPlots: [],
   shop: null,
   shopOpen: false,
   setPlayerName: (name) => set({ playerName: name }),
@@ -181,6 +191,10 @@ export const useGameStore = create<GameStore>((set) => ({
     set((state) => ({ inventoryOpen: !state.inventoryOpen, craftOpen: false })),
   setCraftOpen: (craftOpen) => set({ craftOpen, inventoryOpen: false }),
   toggleCraftOpen: () => set((state) => ({ craftOpen: !state.craftOpen, inventoryOpen: false })),
+  openHousing: (housingPlotId) =>
+    set({ housingPlotId, housingOpen: true, inventoryOpen: false, craftOpen: false }),
+  setHousingOpen: (housingOpen) => set({ housingOpen }),
+  setHousingPlots: (housingPlots) => set({ housingPlots }),
   setShop: (shop) => set({ shop }),
   setShopOpen: (shopOpen) => set({ shopOpen }),
 }));

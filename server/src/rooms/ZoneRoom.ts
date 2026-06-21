@@ -36,8 +36,13 @@ import {
   FARM_RANGE,
   getFarmCropBySeed,
   DEFAULT_FARM_SEED,
+  PLOT_PRICE,
+  HOUSE_RANGE,
+  structureLabel,
   type GatherSkill,
   type FarmPlotState,
+  type LandPlotState,
+  type StructureType,
   type ZoneResourceNode,
   MIN_TOKEN_UI_AMOUNT,
   PORTAL_TRIGGER_RANGE,
@@ -91,6 +96,7 @@ import {
   placeMarketOrder,
 } from "../market/service.js";
 import { dynamicSellPrices, effectiveSellPrice, recordSale } from "../market/sellPressure.js";
+import { buildLandPlotStates, claimPlot, getPlotOwner } from "../housing/landRegistry.js";
 
 interface PendingInput {
   dx: number;
@@ -240,6 +246,14 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       void this.handleFarmInteract(client, message.plotId ?? "");
     });
 
+    this.onMessage("housingBuy", (client, message: { plotId?: string; structure?: string }) => {
+      void this.handleHousingBuy(
+        client,
+        message.plotId ?? "",
+        message.structure === "shop" ? "shop" : "house",
+      );
+    });
+
     this.onMessage("requestRespawn", (client, message: { payGold?: boolean }) => {
       void this.handleRequestRespawn(client, Boolean(message.payGold));
     });
@@ -362,6 +376,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     this.sendResourceHealth(client);
     this.sendSkillState(client, player.name);
     client.send("farmState", this.buildFarmState());
+    client.send("housingState", this.buildHousingState());
 
     this.broadcastChat({
       id: crypto.randomUUID(),
@@ -2034,6 +2049,69 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       farmingLevel: newLevel,
       inventory: buildInventoryPayload(inventory, weaponId),
       playerName: player.name,
+    });
+    await this.persistPlayer(player);
+  }
+
+  private buildHousingState(): { plots: LandPlotState[] } {
+    const plotIds = (this.zoneConfig.landPlots ?? []).map((plot) => plot.id);
+    return { plots: buildLandPlotStates(plotIds) };
+  }
+
+  private broadcastHousingState() {
+    this.broadcast("housingState", this.buildHousingState());
+  }
+
+  private async handleHousingBuy(client: Client, plotId: string, structure: StructureType) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !plotId || this.isKnockedOut(player.name)) return;
+
+    const plot = (this.zoneConfig.landPlots ?? []).find((entry) => entry.id === plotId);
+    if (!plot) return;
+
+    if (getPlotOwner(plotId)) {
+      client.send("housingResult", { ok: false, plotId, error: "That plot is already owned." });
+      return;
+    }
+
+    const plotPos = tileToWorld(plot.tileX, plot.tileY);
+    if (Math.hypot(player.x - plotPos.x, player.y - plotPos.y) > HOUSE_RANGE) {
+      client.send("housingResult", { ok: false, plotId, error: "Move closer to the plot." });
+      return;
+    }
+
+    const gold = this.playerGold.get(player.name) ?? STARTING_GOLD;
+    if (gold < PLOT_PRICE) {
+      client.send("housingResult", {
+        ok: false,
+        plotId,
+        gold,
+        error: `You need ${PLOT_PRICE} gold to buy this plot.`,
+      });
+      return;
+    }
+
+    const nextGold = gold - PLOT_PRICE;
+    this.playerGold.set(player.name, nextGold);
+    const wallet = this.getClientWallet(client) ?? this.playerWallets.get(client.sessionId) ?? null;
+    claimPlot(plotId, this.zoneConfig.id, player.name, wallet, structure);
+    this.sendProfile(client, player);
+    this.broadcastHousingState();
+
+    this.broadcastChat({
+      id: crypto.randomUUID(),
+      channel: "system",
+      senderId: "system",
+      senderName: "Housing",
+      body: `${player.name} bought a plot and built a ${structureLabel(structure)}!`,
+      sentAt: Date.now(),
+    });
+
+    client.send("housingResult", {
+      ok: true,
+      plotId,
+      gold: nextGold,
+      ownerName: player.name,
     });
     await this.persistPlayer(player);
   }

@@ -74,3 +74,13 @@ CREATE TABLE IF NOT EXISTS vendor_sell_pressure (
   value DOUBLE PRECISION NOT NULL,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Owned land plots (housing). One row per purchased plot.
+CREATE TABLE IF NOT EXISTS land_plots (
+  plot_id VARCHAR(64) PRIMARY KEY,
+  zone_id VARCHAR(64) NOT NULL,
+  owner_wallet VARCHAR(44),
+  owner_name VARCHAR(16) NOT NULL,
+  structure VARCHAR(16) NOT NULL DEFAULT 'house',
+  purchased_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);

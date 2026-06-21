@@ -13,6 +13,8 @@ import {
   CraftResultPayload,
   FarmStatePayload,
   FarmResultPayload,
+  HousingStatePayload,
+  HousingResultPayload,
   MobHealthPayload,
   normalizeCharacterAppearance,
   PlayerDamagePayload,
@@ -58,6 +60,8 @@ type InventoryResultListener = (payload: InventoryResultPayload) => void;
 type CraftResultListener = (payload: CraftResultPayload) => void;
 type FarmStateListener = (payload: FarmStatePayload) => void;
 type FarmResultListener = (payload: FarmResultPayload) => void;
+type HousingStateListener = (payload: HousingStatePayload) => void;
+type HousingResultListener = (payload: HousingResultPayload) => void;
 type ShopOpenListener = (payload: ShopOpenPayload) => void;
 type ShopResultListener = (payload: ShopResultPayload) => void;
 type MarketResultListener = (payload: MarketResultPayload) => void;
@@ -93,6 +97,9 @@ export class NetworkManager {
   private farmStateListeners = new Set<FarmStateListener>();
   private farmResultListeners = new Set<FarmResultListener>();
   private latestFarmState: FarmStatePayload = { plots: [] };
+  private housingStateListeners = new Set<HousingStateListener>();
+  private housingResultListeners = new Set<HousingResultListener>();
+  private latestHousingState: HousingStatePayload = { plots: [] };
   private shopOpenListeners = new Set<ShopOpenListener>();
   private shopResultListeners = new Set<ShopResultListener>();
   private marketResultListeners = new Set<MarketResultListener>();
@@ -304,6 +311,14 @@ export class NetworkManager {
     return this.latestFarmState;
   }
 
+  sendHousingBuy(plotId: string, structure: "house" | "shop") {
+    this.room?.send("housingBuy", { plotId, structure });
+  }
+
+  getHousingState(): HousingStatePayload {
+    return this.latestHousingState;
+  }
+
   sendRequestRespawn(payGold: boolean) {
     this.room?.send("requestRespawn", { payGold });
   }
@@ -465,6 +480,17 @@ export class NetworkManager {
   onFarmResult(listener: FarmResultListener) {
     this.farmResultListeners.add(listener);
     return () => this.farmResultListeners.delete(listener);
+  }
+
+  onHousingState(listener: HousingStateListener) {
+    this.housingStateListeners.add(listener);
+    listener(this.latestHousingState);
+    return () => this.housingStateListeners.delete(listener);
+  }
+
+  onHousingResult(listener: HousingResultListener) {
+    this.housingResultListeners.add(listener);
+    return () => this.housingResultListeners.delete(listener);
   }
 
   onShopOpen(listener: ShopOpenListener) {
@@ -684,6 +710,17 @@ export class NetworkManager {
         }
       }
       for (const listener of this.farmResultListeners) {
+        listener(payload);
+      }
+    });
+    this.room.onMessage("housingState", (payload: HousingStatePayload) => {
+      this.latestHousingState = payload;
+      for (const listener of this.housingStateListeners) {
+        listener(payload);
+      }
+    });
+    this.room.onMessage("housingResult", (payload: HousingResultPayload) => {
+      for (const listener of this.housingResultListeners) {
         listener(payload);
       }
     });

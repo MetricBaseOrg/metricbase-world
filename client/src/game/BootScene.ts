@@ -34,6 +34,7 @@ export class BootScene extends Phaser.Scene {
     this.createRockTexture();
     this.createFishSpotTexture();
     this.createFarmPlotTextures();
+    this.createHousingTextures();
   }
 
   create() {
@@ -505,50 +506,222 @@ export class BootScene extends Phaser.Scene {
   }
 
   private createFarmPlotTextures() {
-    const W = 46;
-    const H = 30;
+    // Iso-diamond soil bed that matches the tile shape.
+    const W = 56;
+    const H = 40;
+    const cx = W / 2;
+    const cy = 20;
+    const hw = 24;
+    const hh = 12;
 
-    const drawSoil = (g: Phaser.GameObjects.Graphics) => {
-      g.fillStyle(0x2a1d12, 0.18).fillEllipse(W / 2, H - 4, W - 6, 8);
-      g.fillStyle(0x6b4a2f, 1).fillRoundedRect(4, 4, W - 8, H - 8, 4);
-      g.lineStyle(2, OUTLINE, 1).strokeRoundedRect(4, 4, W - 8, H - 8, 4);
-      g.fillStyle(0x573b25, 1);
-      for (const fy of [H / 2 - 4, H / 2 + 2]) g.fillRoundedRect(8, fy, W - 16, 2, 1);
+    const isoDiamond = (g: Phaser.GameObjects.Graphics, color: number) => {
+      g.fillStyle(color, 1);
+      g.beginPath();
+      g.moveTo(cx, cy - hh);
+      g.lineTo(cx + hw, cy);
+      g.lineTo(cx, cy + hh);
+      g.lineTo(cx - hw, cy);
+      g.closePath();
+      g.fillPath();
     };
 
-    // Empty tilled soil.
+    // Crop position along the bed surface (on the diamond).
+    const spot = (i: number, n: number) => {
+      const t = (i + 0.5) / n - 0.5; // -0.5..0.5 along the SW-NE axis
+      return { x: cx + t * hw * 1.4, y: cy + t * hh * 1.4 };
+    };
+
+    const drawSoil = (g: Phaser.GameObjects.Graphics) => {
+      isoDiamond(g, 0x6b4a2f);
+      // furrows running parallel to the right edge (the iso row direction)
+      g.lineStyle(1.5, 0x573b25, 1);
+      for (const k of [-1, 0, 1]) {
+        const ox = k * -hw * 0.3;
+        const oy = k * hh * 0.3;
+        g.beginPath();
+        g.moveTo(cx - hw * 0.55 + ox, cy - hh * 0.55 + oy);
+        g.lineTo(cx + hw * 0.55 + ox, cy + hh * 0.55 + oy);
+        g.strokePath();
+      }
+      g.lineStyle(2, OUTLINE, 1);
+      g.beginPath();
+      g.moveTo(cx, cy - hh);
+      g.lineTo(cx + hw, cy);
+      g.lineTo(cx, cy + hh);
+      g.lineTo(cx - hw, cy);
+      g.closePath();
+      g.strokePath();
+    };
+
     let g = this.make.graphics({ x: 0, y: 0 });
     drawSoil(g);
     g.generateTexture("plot_empty", W, H);
     g.destroy();
 
-    // Growing — small green sprouts.
     g = this.make.graphics({ x: 0, y: 0 });
     drawSoil(g);
-    for (const sx of [W / 2 - 10, W / 2, W / 2 + 10]) {
+    for (let i = 0; i < 3; i++) {
+      const p = spot(i, 3);
       g.lineStyle(2, 0x4caf50, 1);
       g.beginPath();
-      g.moveTo(sx, H / 2 + 3);
-      g.lineTo(sx, H / 2 - 4);
+      g.moveTo(p.x, p.y);
+      g.lineTo(p.x, p.y - 8);
       g.strokePath();
-      g.fillStyle(0x66bb6a, 1).fillCircle(sx - 2, H / 2 - 4, 2).fillCircle(sx + 2, H / 2 - 5, 2);
+      g.fillStyle(0x66bb6a, 1).fillCircle(p.x - 2, p.y - 8, 2).fillCircle(p.x + 2, p.y - 9, 2);
     }
     g.generateTexture("plot_growing", W, H);
     g.destroy();
 
-    // Ready — golden wheat stalks.
     g = this.make.graphics({ x: 0, y: 0 });
     drawSoil(g);
-    for (const sx of [W / 2 - 12, W / 2 - 4, W / 2 + 4, W / 2 + 12]) {
+    for (let i = 0; i < 4; i++) {
+      const p = spot(i, 4);
       g.lineStyle(2, 0xc79a3a, 1);
       g.beginPath();
-      g.moveTo(sx, H / 2 + 4);
-      g.lineTo(sx, H / 2 - 8);
+      g.moveTo(p.x, p.y);
+      g.lineTo(p.x, p.y - 12);
       g.strokePath();
-      g.fillStyle(0xf2c94c, 1).fillEllipse(sx, H / 2 - 9, 4, 7);
-      g.lineStyle(1, OUTLINE, 0.7).strokeEllipse(sx, H / 2 - 9, 4, 7);
+      g.fillStyle(0xf2c94c, 1).fillEllipse(p.x, p.y - 13, 4, 7);
+      g.lineStyle(1, OUTLINE, 0.7).strokeEllipse(p.x, p.y - 13, 4, 7);
     }
     g.generateTexture("plot_ready", W, H);
+    g.destroy();
+  }
+
+  private createHousingTextures() {
+    const W = 64;
+    const H = 72;
+    const cx = W / 2;
+    const baseY = H - 18;
+    const hw = 24;
+    const hh = 12;
+    const wallH = 22;
+    const roofH = 16;
+
+    type P = [number, number];
+    const fE: P = [cx + hw, baseY];
+    const fS: P = [cx, baseY + hh];
+    const fW: P = [cx - hw, baseY];
+    const tN: P = [cx, baseY - hh - wallH];
+    const tE: P = [cx + hw, baseY - wallH];
+    const tS: P = [cx, baseY + hh - wallH];
+    const tW: P = [cx - hw, baseY - wallH];
+    const apex: P = [cx, baseY - wallH - roofH];
+    const lerp = (a: P, b: P, t: number): P => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+
+    const poly = (g: Phaser.GameObjects.Graphics, pts: P[], fill: number) => {
+      g.fillStyle(fill, 1);
+      g.beginPath();
+      g.moveTo(pts[0][0], pts[0][1]);
+      for (let i = 1; i < pts.length; i++) g.lineTo(pts[i][0], pts[i][1]);
+      g.closePath();
+      g.fillPath();
+    };
+    const outline = (g: Phaser.GameObjects.Graphics, pts: P[], close = true) => {
+      g.lineStyle(2, OUTLINE, 1);
+      g.beginPath();
+      g.moveTo(pts[0][0], pts[0][1]);
+      for (let i = 1; i < pts.length; i++) g.lineTo(pts[i][0], pts[i][1]);
+      if (close) g.closePath();
+      g.strokePath();
+    };
+
+    const building = (
+      g: Phaser.GameObjects.Graphics,
+      roofColor: number,
+      roofDark: number,
+      accent: (g: Phaser.GameObjects.Graphics) => void,
+    ) => {
+      g.fillStyle(0x2a1d12, 0.22).fillEllipse(cx, baseY + hh + 2, hw * 2, 10);
+      // walls (SW darker, SE lighter for iso shading)
+      poly(g, [fW, fS, tS, tW], 0xcdb791);
+      poly(g, [fS, fE, tE, tS], 0xead9b8);
+      outline(g, [fW, fS, tS, tW]);
+      outline(g, [fS, fE, tE, tS]);
+      // roof — back faces first, then front. Light comes from the right (SE),
+      // so the SE-facing slope/wall is lighter and the SW side is shaded, to
+      // match the wall shading (otherwise the roof reads as facing the wrong way).
+      poly(g, [tN, tW, apex], roofDark);
+      poly(g, [tN, tE, apex], roofColor);
+      poly(g, [tW, tS, apex], roofDark);
+      poly(g, [tS, tE, apex], roofColor);
+      outline(g, [tW, apex, tE]);
+      outline(g, [tS, apex], false);
+      outline(g, [tW, tS, tE], false);
+      accent(g);
+    };
+
+    // House — blue roof + windows.
+    let g = this.make.graphics({ x: 0, y: 0 });
+    building(g, 0x4f8cff, 0x3a6fd0, (gg) => {
+      // door on the SE wall
+      const dbl = lerp(fS, fE, 0.34);
+      const dbr = lerp(fS, fE, 0.62);
+      const door: P[] = [dbl, dbr, [dbr[0], dbr[1] - 14], [dbl[0], dbl[1] - 14]];
+      poly(gg, door, 0x7a5236);
+      outline(gg, door);
+      // window on the SW wall
+      const wbl = lerp(fW, fS, 0.4);
+      const wbr = lerp(fW, fS, 0.62);
+      const win: P[] = [
+        [wbl[0], wbl[1] - 7],
+        [wbr[0], wbr[1] - 7],
+        [wbr[0], wbr[1] - 14],
+        [wbl[0], wbl[1] - 14],
+      ];
+      poly(gg, win, 0xbfe3ff);
+      outline(gg, win);
+    });
+    g.generateTexture("house", W, H);
+    g.destroy();
+
+    // Shop — warm roof, striped awning over the SE wall, coin sign.
+    g = this.make.graphics({ x: 0, y: 0 });
+    building(g, 0xe07a3c, 0xb85f2a, (gg) => {
+      // door
+      const dbl = lerp(fS, fE, 0.3);
+      const dbr = lerp(fS, fE, 0.56);
+      const door: P[] = [dbl, dbr, [dbr[0], dbr[1] - 13], [dbl[0], dbl[1] - 13]];
+      poly(gg, door, 0x7a5236);
+      outline(gg, door);
+      // striped awning band high on the SE wall
+      for (let i = 0; i < 5; i++) {
+        const a = lerp(fS, fE, i / 5);
+        const b = lerp(fS, fE, (i + 1) / 5);
+        const band: P[] = [
+          [a[0], a[1] - wallH + 4],
+          [b[0], b[1] - wallH + 4],
+          [b[0], b[1] - wallH - 2],
+          [a[0], a[1] - wallH - 2],
+        ];
+        poly(gg, band, i % 2 === 0 ? 0xe2483b : 0xfff1e0);
+      }
+      const aw0 = lerp(fS, fE, 0);
+      const aw1 = lerp(fS, fE, 1);
+      outline(gg, [
+        [aw0[0], aw0[1] - wallH + 4],
+        [aw1[0], aw1[1] - wallH + 4],
+        [aw1[0], aw1[1] - wallH - 2],
+        [aw0[0], aw0[1] - wallH - 2],
+      ]);
+      gg.fillStyle(0xf2c94c, 1).fillCircle(tE[0] - 2, tE[1] - 4, 4);
+      gg.lineStyle(1.5, OUTLINE, 1).strokeCircle(tE[0] - 2, tE[1] - 4, 4);
+    });
+    g.generateTexture("shop", W, H);
+    g.destroy();
+
+    // Empty plot — iso dirt diamond + a "for sale" signpost.
+    g = this.make.graphics({ x: 0, y: 0 });
+    g.fillStyle(0x2a1d12, 0.16).fillEllipse(cx, baseY + hh + 2, hw * 2, 9);
+    poly(g, [[cx, baseY - hh], fE, fS, fW], 0x9b8a6a);
+    outline(g, [[cx, baseY - hh], fE, fS, fW]);
+    g.fillStyle(0x8a5a33, 1).fillRoundedRect(cx - 2, baseY - 26, 4, 24, 1.5);
+    g.lineStyle(1.5, OUTLINE, 1).strokeRoundedRect(cx - 2, baseY - 26, 4, 24, 1.5);
+    g.fillStyle(0xf3ead2, 1).fillRoundedRect(cx - 13, baseY - 32, 26, 13, 2);
+    g.lineStyle(2, OUTLINE, 1).strokeRoundedRect(cx - 13, baseY - 32, 26, 13, 2);
+    g.fillStyle(0x4caf50, 1).fillRoundedRect(cx - 9, baseY - 28, 18, 2.4, 1);
+    g.fillStyle(0x4caf50, 1).fillRoundedRect(cx - 9, baseY - 24, 12, 2.4, 1);
+    g.generateTexture("plot_marker", W, H);
     g.destroy();
   }
 

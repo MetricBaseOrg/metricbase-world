@@ -10,6 +10,7 @@ import { clearStoredAccessToken, getValidWalletSession } from "./wallet/tokenGat
 import { useGameStore } from "./store/gameStore";
 import { ChatPanel } from "./ui/ChatPanel";
 import { CraftPanel } from "./ui/CraftPanel";
+import { HousingPanel } from "./ui/HousingPanel";
 import { DeathOverlay } from "./ui/DeathOverlay";
 import { HUD } from "./ui/HUD";
 import { LoginOverlay } from "./ui/LoginOverlay";
@@ -164,7 +165,12 @@ export function App() {
       });
     });
 
+    const unsubscribeHousingState = networkManager.onHousingState((state) => {
+      useGameStore.getState().setHousingPlots(state.plots);
+    });
+
     return () => {
+      unsubscribeHousingState();
       unsubscribeConnection();
       unsubscribePlayers();
       unsubscribeChat();
@@ -252,6 +258,8 @@ export function App() {
     setPlayerGold(0);
     const store = useGameStore.getState();
     store.setCraftOpen(false);
+    store.setHousingOpen(false);
+    store.setHousingPlots([]);
     store.setPlayerVitals(40, 40);
     store.setProfile(store.playerLevel, store.playerXp, 0, 40, 40, null, false, null);
     store.setSkillState(1, 0, 1, 0, 1, 0, 1, 0);
@@ -268,6 +276,7 @@ export function App() {
       {joined && <QuestPanel />}
       {joined && <InventoryPanel />}
       {joined && <CraftPanel />}
+      {joined && <HousingPanel />}
       {joined && <InventoryHotkey />}
       {joined && (
         <ErrorBoundary label="Shop">
