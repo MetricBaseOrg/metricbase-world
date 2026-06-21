@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import Phaser from "phaser";
 import { BootScene } from "./BootScene";
 import { GameScene } from "./GameScene";
-import { resetGameSceneReady } from "./gameSceneReady";
+
 import { registerPhaserGame, unregisterPhaserGame } from "./inputControl";
 
 export function PhaserGame() {
@@ -11,8 +11,6 @@ export function PhaserGame() {
 
   useEffect(() => {
     if (!containerRef.current || gameRef.current) return;
-
-    resetGameSceneReady();
 
     const { clientWidth, clientHeight } = containerRef.current;
 

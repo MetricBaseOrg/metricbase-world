@@ -10,6 +10,7 @@ export function resetGameSceneReady() {
 export function notifyGameSceneReady() {
   readyResolve?.();
   readyResolve = null;
+  readyPromise = null;
 }
 
 export function waitForGameSceneReady(): Promise<void> {
