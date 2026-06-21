@@ -20,7 +20,13 @@ server on Railway, Neon PostgreSQL, Solana token gate/market.
   system; nodes, items, skill XP, HUD gauges, art, FX/SFX).
 - **Everyday loop — Craft:** workbench recipes (planks, copper bars, cooked fish,
   copper dagger) via the `C` / 🔨 Crafting panel.
-- **Everyday loop — Trade:** sell gathered/crafted mats to Pip; P2P gold market.
+- **Everyday loop — Trade:** sell gathered/crafted mats to Pip; P2P gold market
+  (BASE is a Token-2022 mint — payments use the Token-2022 program + checked
+  transfers).
+- **Economy v1 (sustainability):** dynamic vendor prices — Pip pays less for a
+  material as it's sold (supply saturation, decays over time, 40% floor) to cap
+  the gold faucet; crafting forge fees as a gold sink. Tuning in
+  `shared/src/economy.ts`.
 
 ### Next (roadmap)
 
@@ -48,15 +54,15 @@ server on Railway, Neon PostgreSQL, Solana token gate/market.
 
 ### 2.1 Frontend (client)
 
-- **Rendering:**  
-  - **Engine:** Phaser 3 or similar HTML5 engine, customized for isometric tilemaps and entity batching.   
+- **Rendering:**
+  - **Engine:** Phaser 3 or similar HTML5 engine, customized for isometric tilemaps and entity batching.
   - **Tech:** TypeScript, WebGL (WebGPU optional later), Vite/ESBuild bundling.
 - **UI layer:**
-  - React (or lightweight alternative) for menus: inventory, chat, party, map, settings. 
+  - React (or lightweight alternative) for menus: inventory, chat, party, map, settings.
   - Global state via Redux/Zustand/Recoil.
 - **Networking:**
   - WebSocket client (Colyseus client SDK or custom).
-  - Client-side prediction + interpolation for movement. 
+  - Client-side prediction + interpolation for movement.
 - **Platform integration:**
   - Auth via JWT/OAuth (email, social login).
   - Analytics + error reporting (Sentry, custom events).
@@ -64,8 +70,8 @@ server on Railway, Neon PostgreSQL, Solana token gate/market.
 ### 2.2 Backend (game servers)
 
 - **Authoritative game server:**
-  - Node.js + Colyseus (or Nakama/Custom) for rooms, matchmaking, and state sync. 
-  - Each “zone” or “instance” is a room; seamless travel via handoff between rooms. 
+  - Node.js + Colyseus (or Nakama/Custom) for rooms, matchmaking, and state sync.
+  - Each “zone” or “instance” is a room; seamless travel via handoff between rooms.
 - **Microservices:**
   - **Auth service:** login, sessions, bans.
   - **Profile service:** characters, progression, cosmetics.
@@ -73,8 +79,8 @@ server on Railway, Neon PostgreSQL, Solana token gate/market.
   - **Blockchain service:** Solana integration, wallet binding, token validation, and on-chain sync for `DN2PNrZ8Jn65ioJw4QBwXv49j5JiBBL3wPLUDZcrpump`.
   - **Chat/social service:** channels, whispers, guilds.
 - **Data layer:**
-  - Primary DB: PostgreSQL or MongoDB for persistent data. 
-  - Redis for fast state, matchmaking, and pub/sub events. 
+  - Primary DB: PostgreSQL or MongoDB for persistent data.
+  - Redis for fast state, matchmaking, and pub/sub events.
 - **Infrastructure:**
   - Containerized (Docker), orchestrated via Kubernetes or Nomad.
   - Horizontal scaling of game server pods per CCU demand.
@@ -153,7 +159,7 @@ server on Railway, Neon PostgreSQL, Solana token gate/market.
 - **Authoritative movement:**
   - Client sends input (direction, actions).
   - Server simulates movement and collision.
-  - Clients render server state with interpolation. 
+  - Clients render server state with interpolation.
 - **Basic entities:**
   - Players, static obstacles, simple NPCs.
 - **Zone architecture:**
@@ -226,7 +232,7 @@ server on Railway, Neon PostgreSQL, Solana token gate/market.
 - **Server responsibilities:**
   - Authoritative simulation (movement, combat, economy).
   - Periodic state snapshots (e.g., 10–20 ticks/sec).
-  - Lag compensation (e.g., input timestamps). 
+  - Lag compensation (e.g., input timestamps).
 
 ### 5.2 Data model (examples)
 
@@ -276,15 +282,15 @@ server on Railway, Neon PostgreSQL, Solana token gate/market.
 
 ## 7. Milestones and deliverables
 
-- **Milestone 1:**  
+- **Milestone 1:**
   - Single zone, 20 players, movement + chat.
-- **Milestone 2:**  
+- **Milestone 2:**
   - Combat, basic progression, 3 zones.
-- **Milestone 3:**  
+- **Milestone 3:**
   - Parties, guilds, trading, 500+ CCU per shard.
-- **Milestone 4:**  
+- **Milestone 4:**
   - Live-ops tools, events, performance pass.
-- **Milestone 5:**  
+- **Milestone 5:**
   - Soft launch, telemetry-driven tuning, roadmap for expansions.
 
 ---
