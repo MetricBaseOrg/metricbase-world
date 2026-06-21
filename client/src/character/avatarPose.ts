@@ -523,14 +523,20 @@ function drawHair(
     return;
   }
 
-  // front / three-quarter crown
+  // front / three-quarter crown — fringe sits high on the forehead, well
+  // above the eyes, with short side pieces that frame (not cover) the face.
+  const browY = hy - 3.5; // hairline stays above the eyes (eyes ~ hy + 1)
   ctx.beginPath();
-  ctx.arc(x, hy - 1, HEAD_R + 0.5, Math.PI * 1.02, Math.PI * 1.98);
-  // fringe sweeps down across the forehead
-  ctx.lineTo(x + HEAD_R - 1, hy + 3.5);
-  ctx.quadraticCurveTo(x + 4, hy + 1.5, x + 1, hy + 4);
-  ctx.quadraticCurveTo(x - 2, hy + 1, x - 6, hy + 3.5);
-  ctx.quadraticCurveTo(x - HEAD_R + 2, hy + 2, x - HEAD_R, hy + 2);
+  ctx.arc(x, hy - 1, HEAD_R + 0.5, Math.PI * 1.0, Math.PI * 2.0);
+  // right temple down to the cheek, framing the face
+  ctx.lineTo(x + HEAD_R, hy + 4);
+  ctx.quadraticCurveTo(x + HEAD_R - 1, hy + 1, x + HEAD_R - 2.5, browY);
+  // gentle parted fringe across the forehead
+  ctx.quadraticCurveTo(x + 5, browY - 1.5, x + 1.5, browY + 1);
+  ctx.quadraticCurveTo(x, browY - 2, x - 2.5, browY + 0.5);
+  ctx.quadraticCurveTo(x - 6, browY - 1.5, x - HEAD_R + 2.5, browY);
+  // left temple down to the cheek
+  ctx.quadraticCurveTo(x - HEAD_R + 1, hy + 1, x - HEAD_R, hy + 4);
   ctx.closePath();
   ctx.fill();
   outline(ctx);
@@ -550,7 +556,7 @@ function drawHair(
   } else if (hairStyle === "long") {
     ctx.fillStyle = hair;
     for (const side of [-1, 1]) {
-      roundRect(ctx, x + side * HEAD_R - (side < 0 ? 4 : 0) - 0.5, hy - 3, 4.5, 15, 2.4);
+      roundRect(ctx, x + side * (HEAD_R - 0.5) - (side < 0 ? 4 : 0), hy - 4, 4.5, 16, 2.4);
       ctx.fill();
       outline(ctx);
     }
@@ -559,7 +565,7 @@ function drawHair(
   // glossy highlight on the crown
   ctx.fillStyle = hairLight;
   ctx.beginPath();
-  ctx.ellipse(x - 3.5, hy - HEAD_R * 0.55, 3.2, 1.6, -0.4, 0, Math.PI * 2);
+  ctx.ellipse(x - 3.5, hy - HEAD_R * 0.6, 3.2, 1.6, -0.4, 0, Math.PI * 2);
   ctx.fill();
 }
 

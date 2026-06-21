@@ -70,6 +70,7 @@ interface RenderedNpc {
   hpBarFill: Phaser.GameObjects.Graphics;
   maxHp: number;
   currentHp: number;
+  headTopY: number;
 }
 
 interface RenderedResource {
@@ -329,7 +330,9 @@ export class GameScene extends Phaser.Scene {
     cam.stopFollow();
 
     if (local) {
-      this.centerCameraOn(local.sprite.x, local.sprite.y);
+      // Center on the torso (sprite origin is at the feet) so the player
+      // sits in the middle of the view rather than the lower third.
+      this.centerCameraOn(local.sprite.x, local.sprite.y - 20);
       return;
     }
 
@@ -518,7 +521,7 @@ export class GameScene extends Phaser.Scene {
         const tileIndex = ground[y][x];
         const { x: worldX, y: worldY } = tileToWorld(x, y);
         const tile = this.add.image(worldX, worldY, "tileset");
-        tile.setOrigin(0.5, 0.75);
+        tile.setOrigin(0.5, 0.5);
         tile.setDepth(x + y);
         tile.setFrame(tileIndex);
         this.mapTiles.push(tile);
@@ -569,10 +572,24 @@ export class GameScene extends Phaser.Scene {
               ? "dummy"
               : "npc";
       const sprite = this.add.sprite(x, y, mobTexture);
-      if (npc.id === SLIME_BRUTE_NPC_ID) {
-        sprite.setScale(1.15);
-      }
+      // Anchor each sprite so its feet/base plant on the tile.
+      const originY: Record<string, number> = {
+        slime: 0.82,
+        brute: 0.86,
+        dummy: 0.91,
+        npc: 0.91,
+      };
+      sprite.setOrigin(0.5, originY[mobTexture] ?? 0.9);
       sprite.setDepth(900);
+      // World-Y of the visible head/top, used to place label + HP bar.
+      const headTopOffset: Record<string, number> = {
+        slime: 25,
+        brute: 33,
+        dummy: 36,
+        npc: 43,
+      };
+      const headTopY = y - (headTopOffset[mobTexture] ?? 34);
+      const labelY = isCombat ? headTopY - 12 : headTopY - 4;
       if (isCombat && npc.combat) {
         const saved = networkManager.getMobHealth(npc.id);
         const currentHp = saved?.currentHp ?? npc.combat.maxHp;
@@ -580,7 +597,7 @@ export class GameScene extends Phaser.Scene {
       }
 
       const label = this.add
-        .text(x, y - 32, npc.name, {
+        .text(x, labelY, npc.name, {
           fontFamily: '"Fredoka", "Nunito", sans-serif',
           fontSize: "12px",
           fontStyle: "bold",
@@ -623,6 +640,7 @@ export class GameScene extends Phaser.Scene {
         hpBarFill,
         maxHp,
         currentHp,
+        headTopY,
       };
 
       this.renderedNpcs.push(rendered);
@@ -641,11 +659,12 @@ export class GameScene extends Phaser.Scene {
       const available = saved?.available ?? true;
 
       const sprite = this.add.sprite(x, y, "tree");
+      sprite.setOrigin(0.5, 0.94);
       sprite.setDepth(850);
       sprite.setAlpha(available ? 1 : 0.35);
 
       const label = this.add
-        .text(x, y - 40, resource.name, {
+        .text(x, y - 54, resource.name, {
           fontFamily: '"Fredoka", "Nunito", sans-serif',
           fontSize: "11px",
           fontStyle: "bold",
@@ -717,7 +736,7 @@ export class GameScene extends Phaser.Scene {
     const width = 40;
     const height = 6;
     const x = resource.worldX - width / 2;
-    const y = resource.worldY - 52;
+    const y = resource.worldY - 50;
 
     if (resource.chopEndsAt && resource.chopDurationMs) {
       const now = Date.now();
@@ -753,7 +772,7 @@ export class GameScene extends Phaser.Scene {
     const width = 40;
     const height = 8;
     const x = npc.worldX - width / 2;
-    const y = npc.worldY - 46;
+    const y = npc.headTopY - 9;
     const fillWidth = Math.max(0, (npc.currentHp / npc.maxHp) * (width - 4));
 
     npc.hpBarBg.fillStyle(0xfff9f0, 1);
