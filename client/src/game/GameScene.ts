@@ -131,7 +131,7 @@ export class GameScene extends Phaser.Scene {
     this.time.delayedCall(60, () => this.handleViewportResize());
 
     this.debugText = this.add
-      .text(6, 6, "", {
+      .text(6, 170, "", {
         fontFamily: "monospace",
         fontSize: "13px",
         color: "#101010",
