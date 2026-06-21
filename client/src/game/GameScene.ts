@@ -121,7 +121,11 @@ export class GameScene extends Phaser.Scene {
     this.cameras.main.roundPixels = true;
     this.cameras.main.useBounds = false;
     this.scale.on(Phaser.Scale.Events.RESIZE, this.handleViewportResize, this);
+    this.scale.refresh();
     this.handleViewportResize();
+    // Re-sync once layout has settled, in case the canvas mounted before the
+    // container reached its final size.
+    this.time.delayedCall(60, () => this.handleViewportResize());
 
     if (this.input.keyboard) {
       this.cursors = this.input.keyboard.createCursorKeys();
@@ -327,9 +331,16 @@ export class GameScene extends Phaser.Scene {
     this.bindCameraToLocalPlayer();
   }
 
-  private handleViewportResize() {
+  private handleViewportResize(gameSize?: Phaser.Structs.Size) {
     const cam = this.cameras.main;
-    cam.setSize(this.scale.width, this.scale.height);
+    // Use the size carried by the RESIZE event — this.scale.width can lag
+    // behind during the event, leaving the camera viewport too small and
+    // throwing off the centering math.
+    const width = gameSize?.width ?? this.scale.width;
+    const height = gameSize?.height ?? this.scale.height;
+    if (width > 0 && height > 0) {
+      cam.setSize(width, height);
+    }
     this.bindCameraToLocalPlayer();
   }
 

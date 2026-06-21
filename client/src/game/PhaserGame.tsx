@@ -36,16 +36,22 @@ export function PhaserGame() {
 
     const resizeGame = () => {
       if (!containerRef.current || !gameRef.current) return;
-      gameRef.current.scale.resize(
-        containerRef.current.clientWidth,
-        containerRef.current.clientHeight,
-      );
+      const { clientWidth, clientHeight } = containerRef.current;
+      if (clientWidth > 0 && clientHeight > 0) {
+        gameRef.current.scale.resize(clientWidth, clientHeight);
+      }
     };
 
     resizeGame();
     window.addEventListener("resize", resizeGame);
+    // A ResizeObserver catches container size changes that don't fire a window
+    // resize (initial layout settling, sidebars, devtools), keeping the Phaser
+    // canvas — and therefore the camera viewport — in sync with what's shown.
+    const observer = new ResizeObserver(resizeGame);
+    observer.observe(containerRef.current);
 
     return () => {
+      observer.disconnect();
       window.removeEventListener("resize", resizeGame);
       unregisterPhaserGame();
       gameRef.current?.destroy(true);
