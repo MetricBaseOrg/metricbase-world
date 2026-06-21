@@ -11,6 +11,8 @@ import {
   InventoryResultPayload,
   InventoryStatePayload,
   CraftResultPayload,
+  FarmStatePayload,
+  FarmResultPayload,
   MobHealthPayload,
   normalizeCharacterAppearance,
   PlayerDamagePayload,
@@ -54,6 +56,8 @@ type AttackResultListener = (payload: AttackResultPayload) => void;
 type InventoryListener = (state: InventoryStatePayload) => void;
 type InventoryResultListener = (payload: InventoryResultPayload) => void;
 type CraftResultListener = (payload: CraftResultPayload) => void;
+type FarmStateListener = (payload: FarmStatePayload) => void;
+type FarmResultListener = (payload: FarmResultPayload) => void;
 type ShopOpenListener = (payload: ShopOpenPayload) => void;
 type ShopResultListener = (payload: ShopResultPayload) => void;
 type MarketResultListener = (payload: MarketResultPayload) => void;
@@ -86,6 +90,9 @@ export class NetworkManager {
   private inventoryListeners = new Set<InventoryListener>();
   private inventoryResultListeners = new Set<InventoryResultListener>();
   private craftResultListeners = new Set<CraftResultListener>();
+  private farmStateListeners = new Set<FarmStateListener>();
+  private farmResultListeners = new Set<FarmResultListener>();
+  private latestFarmState: FarmStatePayload = { plots: [] };
   private shopOpenListeners = new Set<ShopOpenListener>();
   private shopResultListeners = new Set<ShopResultListener>();
   private marketResultListeners = new Set<MarketResultListener>();
@@ -289,6 +296,14 @@ export class NetworkManager {
     this.room?.send("craft", { recipeId });
   }
 
+  sendFarmInteract(plotId: string) {
+    this.room?.send("farmInteract", { plotId });
+  }
+
+  getFarmState(): FarmStatePayload {
+    return this.latestFarmState;
+  }
+
   sendRequestRespawn(payGold: boolean) {
     this.room?.send("requestRespawn", { payGold });
   }
@@ -439,6 +454,17 @@ export class NetworkManager {
   onCraftResult(listener: CraftResultListener) {
     this.craftResultListeners.add(listener);
     return () => this.craftResultListeners.delete(listener);
+  }
+
+  onFarmState(listener: FarmStateListener) {
+    this.farmStateListeners.add(listener);
+    listener(this.latestFarmState);
+    return () => this.farmStateListeners.delete(listener);
+  }
+
+  onFarmResult(listener: FarmResultListener) {
+    this.farmResultListeners.add(listener);
+    return () => this.farmResultListeners.delete(listener);
   }
 
   onShopOpen(listener: ShopOpenListener) {
@@ -641,6 +667,23 @@ export class NetworkManager {
         }
       }
       for (const listener of this.craftResultListeners) {
+        listener(payload);
+      }
+    });
+    this.room.onMessage("farmState", (payload: FarmStatePayload) => {
+      this.latestFarmState = payload;
+      for (const listener of this.farmStateListeners) {
+        listener(payload);
+      }
+    });
+    this.room.onMessage("farmResult", (payload: FarmResultPayload) => {
+      if (payload.inventory) {
+        this.latestInventory = payload.inventory;
+        for (const listener of this.inventoryListeners) {
+          listener(payload.inventory);
+        }
+      }
+      for (const listener of this.farmResultListeners) {
         listener(payload);
       }
     });

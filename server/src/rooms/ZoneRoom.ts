@@ -33,7 +33,11 @@ import {
   woodcuttingLevelFromXp,
   computeMineDurationMs,
   computeFishDurationMs,
+  FARM_RANGE,
+  getFarmCropBySeed,
+  DEFAULT_FARM_SEED,
   type GatherSkill,
+  type FarmPlotState,
   type ZoneResourceNode,
   MIN_TOKEN_UI_AMOUNT,
   PORTAL_TRIGGER_RANGE,
@@ -119,6 +123,18 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     { resourceId: string; playerName: string; startedAt: number; endsAt: number; durationMs: number }
   >();
   private playerSkills = new Map<string, ReturnType<typeof normalizeSkills>>();
+  // Active farm plots (empty plots are absent from the map).
+  private farmPlots = new Map<
+    string,
+    {
+      cropId: string;
+      seedId: string;
+      plantedAt: number;
+      readyAt: number;
+      planterName: string;
+      readyBroadcast: boolean;
+    }
+  >();
   private inventories = new Map<string, InventoryEntry[]>();
   private playerGold = new Map<string, number>();
   private playerHp = new Map<string, number>();
@@ -218,6 +234,10 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
     this.onMessage("craft", (client, message: { recipeId?: string }) => {
       void this.handleCraft(client, message.recipeId ?? "");
+    });
+
+    this.onMessage("farmInteract", (client, message: { plotId?: string }) => {
+      void this.handleFarmInteract(client, message.plotId ?? "");
     });
 
     this.onMessage("requestRespawn", (client, message: { payGold?: boolean }) => {
@@ -341,6 +361,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     this.sendMobHealth(client);
     this.sendResourceHealth(client);
     this.sendSkillState(client, player.name);
+    client.send("farmState", this.buildFarmState());
 
     this.broadcastChat({
       id: crypto.randomUUID(),
@@ -416,6 +437,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     }
 
     this.processChopSessions(now);
+    this.processFarmGrowth(now);
 
     for (const client of this.clients) {
       const player = this.state.players.get(client.sessionId);
@@ -1881,6 +1903,139 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       newLevel,
       leveledUp: newLevel > previousLevel,
     };
+  }
+
+  private buildFarmState(): { plots: FarmPlotState[] } {
+    const now = Date.now();
+    const plots: FarmPlotState[] = (this.zoneConfig.farmPlots ?? []).map((plot) => {
+      const active = this.farmPlots.get(plot.id);
+      if (!active) return { plotId: plot.id, stage: "empty" as const };
+      return {
+        plotId: plot.id,
+        stage: now >= active.readyAt ? ("ready" as const) : ("growing" as const),
+        cropId: active.cropId,
+        plantedAt: active.plantedAt,
+        readyAt: active.readyAt,
+        planterName: active.planterName,
+      };
+    });
+    return { plots };
+  }
+
+  private broadcastFarmState() {
+    this.broadcast("farmState", this.buildFarmState());
+  }
+
+  private processFarmGrowth(now: number) {
+    for (const [, plot] of this.farmPlots) {
+      // Broadcast once when a plot first becomes ready so clients flip to the
+      // ripe stage without us streaming state every tick.
+      if (now >= plot.readyAt && !plot.readyBroadcast) {
+        plot.readyBroadcast = true;
+        this.broadcastFarmState();
+      }
+    }
+  }
+
+  private async handleFarmInteract(client: Client, plotId: string) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !plotId || this.isKnockedOut(player.name)) return;
+
+    const plot = (this.zoneConfig.farmPlots ?? []).find((entry) => entry.id === plotId);
+    if (!plot) return;
+
+    const plotPos = tileToWorld(plot.tileX, plot.tileY);
+    if (Math.hypot(player.x - plotPos.x, player.y - plotPos.y) > FARM_RANGE) {
+      client.send("farmResult", { ok: false, plotId, error: "Move closer to the plot." });
+      return;
+    }
+
+    const weaponId = this.playerEquipment.get(player.name)?.weaponId ?? null;
+    const active = this.farmPlots.get(plotId);
+    const now = Date.now();
+
+    if (!active) {
+      // Plant the default crop if the player has a seed.
+      const crop = getFarmCropBySeed(DEFAULT_FARM_SEED);
+      if (!crop) return;
+      let inventory = this.inventories.get(player.name) ?? [];
+      if (getItemQuantity(inventory, crop.seedItemId) < 1) {
+        client.send("farmResult", {
+          ok: false,
+          plotId,
+          action: "plant",
+          error: `You need a ${ITEMS[crop.seedItemId]?.name ?? "seed"} (buy from Pip).`,
+        });
+        return;
+      }
+      inventory = removeItemFromInventory(inventory, crop.seedItemId, 1).inventory;
+      this.inventories.set(player.name, inventory);
+      this.sendInventory(client, player.name);
+      this.farmPlots.set(plotId, {
+        cropId: crop.cropItemId,
+        seedId: crop.seedItemId,
+        plantedAt: now,
+        readyAt: now + crop.growMs,
+        planterName: player.name,
+        readyBroadcast: false,
+      });
+      this.broadcastFarmState();
+      client.send("farmResult", {
+        ok: true,
+        plotId,
+        action: "plant",
+        inventory: buildInventoryPayload(inventory, weaponId),
+        playerName: player.name,
+      });
+      return;
+    }
+
+    if (now < active.readyAt) {
+      client.send("farmResult", { ok: false, plotId, error: "Still growing." });
+      return;
+    }
+
+    // Harvest.
+    const crop = getFarmCropBySeed(active.seedId);
+    const yieldQty = crop?.yield ?? 1;
+    await this.grantLoot(client, player.name, active.cropId, yieldQty);
+    const skillXp = crop?.skillXp ?? 10;
+    const { newLevel, leveledUp } = this.grantSkillXp(player.name, "farming", skillXp);
+    this.sendSkillState(client, player.name);
+    this.farmPlots.delete(plotId);
+    this.broadcastFarmState();
+
+    const cropName = ITEMS[active.cropId]?.name ?? active.cropId;
+    if (leveledUp) {
+      this.broadcastChat({
+        id: crypto.randomUUID(),
+        channel: "system",
+        senderId: "system",
+        senderName: "Farming",
+        body: `${player.name} reached Farming level ${newLevel}!`,
+        sentAt: now,
+      });
+    }
+    this.broadcastChat({
+      id: crypto.randomUUID(),
+      channel: "system",
+      senderId: "system",
+      senderName: "Farming",
+      body: `${player.name} harvested ${yieldQty}x ${cropName} (+${skillXp} Farming XP).`,
+      sentAt: now,
+    });
+
+    const inventory = this.inventories.get(player.name) ?? [];
+    client.send("farmResult", {
+      ok: true,
+      plotId,
+      action: "harvest",
+      skillXpGained: skillXp,
+      farmingLevel: newLevel,
+      inventory: buildInventoryPayload(inventory, weaponId),
+      playerName: player.name,
+    });
+    await this.persistPlayer(player);
   }
 
   private sendSkillState(client: Client, playerName: string) {

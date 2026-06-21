@@ -47,6 +47,14 @@ export const CRAFT_RECIPES: CraftRecipe[] = [
     goldCost: 1,
   },
   {
+    id: "craft_bread",
+    name: "Bread",
+    description: "Bake wheat into bread (+30 HP).",
+    inputs: [{ itemId: "item_wheat", quantity: 3 }],
+    output: { itemId: "item_bread", quantity: 1 },
+    goldCost: 2,
+  },
+  {
     id: "craft_copper_dagger",
     name: "Copper Dagger",
     description: "Forge a keen blade. +18 attack when equipped.",

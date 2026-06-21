@@ -26,7 +26,7 @@ export interface FishingConfig {
 }
 
 export type ResourceKind = "tree" | "rock" | "fish";
-export type GatherSkill = "woodcutting" | "mining" | "fishing";
+export type GatherSkill = "woodcutting" | "mining" | "fishing" | "farming";
 
 export interface ZoneResourceNode {
   id: string;

@@ -54,6 +54,7 @@ export const SHOPS: Record<string, ShopDefinition> = {
     npcId: "hub_merchant",
     buyOffers: [
       { itemId: "item_health_potion", price: 15 },
+      { itemId: "item_wheat_seed", price: 5 },
       { itemId: "item_rusty_blade", price: 40 },
     ],
     sellPrices: {
@@ -61,6 +62,7 @@ export const SHOPS: Record<string, ShopDefinition> = {
       item_wood: 6,
       item_ore: 9,
       item_fish: 8,
+      item_wheat: 7,
       item_slime_gel: 12,
       item_slime_core: 25,
     },

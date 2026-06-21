@@ -15,7 +15,10 @@ import {
   MAP_HEIGHT,
   MAP_WIDTH,
   NPC_INTERACT_RANGE,
+  FARM_RANGE,
+  farmGrowthProgress,
   tileToWorld,
+  type FarmStatePayload,
 } from "@metricbase/shared";
 import {
   getAnimFrame,
@@ -56,6 +59,19 @@ interface RenderedPlayer {
   remoteMoving: boolean;
   prevSpriteX: number;
   prevSpriteY: number;
+}
+
+interface RenderedFarmPlot {
+  id: string;
+  sprite: Phaser.GameObjects.Sprite;
+  label: Phaser.GameObjects.Text;
+  barBg: Phaser.GameObjects.Graphics;
+  barFill: Phaser.GameObjects.Graphics;
+  worldX: number;
+  worldY: number;
+  stage: "empty" | "growing" | "ready";
+  plantedAt?: number;
+  readyAt?: number;
 }
 
 interface RenderedNpc {
@@ -102,6 +118,7 @@ export class GameScene extends Phaser.Scene {
   private mapTiles: Phaser.GameObjects.Image[] = [];
   private renderedNpcs: RenderedNpc[] = [];
   private renderedResources: RenderedResource[] = [];
+  private renderedFarmPlots = new Map<string, RenderedFarmPlot>();
   private interactKey: Phaser.Input.Keyboard.Key | null = null;
   private attackKey: Phaser.Input.Keyboard.Key | null = null;
   private chopKey: Phaser.Input.Keyboard.Key | null = null;
@@ -176,6 +193,21 @@ export class GameScene extends Phaser.Scene {
     const unsubscribePlayerDamage = networkManager.onPlayerDamage((payload) => {
       this.showPlayerDamageNumber(payload.amount);
       playSfx("player_hurt");
+    });
+
+    const unsubscribeFarmState = networkManager.onFarmState((payload) => {
+      this.applyFarmState(payload);
+    });
+
+    const unsubscribeFarmResult = networkManager.onFarmResult((payload) => {
+      const isLocal = payload.playerName === useGameStore.getState().playerName;
+      if (!payload.ok) {
+        if (isLocal) playSfx("shop_fail");
+        return;
+      }
+      if (isLocal) {
+        playSfx(payload.action === "harvest" ? "harvest" : "plant");
+      }
     });
 
     const unsubscribeResourceHealth = networkManager.onResourceHealth((payload) => {
@@ -267,10 +299,13 @@ export class GameScene extends Phaser.Scene {
       unsubscribeChopStart();
       unsubscribeChopCancel();
       unsubscribeChopResult();
+      unsubscribeFarmState();
+      unsubscribeFarmResult();
       this.stopLocalChopHits();
       this.clearMap();
       this.clearNpcs();
       this.clearResources();
+      this.clearFarmPlots();
       this.destroyLocalAvatar();
       this.renderedPlayers.forEach((entry) => {
         entry.sprite.destroy();
@@ -327,6 +362,7 @@ export class GameScene extends Phaser.Scene {
     this.bindCameraToLocalPlayer();
     this.applyKnockedOutVisuals();
     this.redrawActiveChopBars();
+    this.updateFarmPlots();
     this.updatePlayerAnimations();
   }
 
@@ -572,6 +608,7 @@ export class GameScene extends Phaser.Scene {
     this.clearMap();
     this.clearNpcs();
     this.clearResources();
+    this.clearFarmPlots();
 
     const ground = buildZoneMap(zoneId);
 
@@ -593,6 +630,97 @@ export class GameScene extends Phaser.Scene {
 
     this.renderNpcs(zoneId);
     this.renderResources(zoneId);
+    this.renderFarmPlots(zoneId);
+  }
+
+  private renderFarmPlots(zoneId: string) {
+    const config = getZoneConfig(zoneId);
+    for (const plot of config.farmPlots ?? []) {
+      const { x, y } = tileToWorld(plot.tileX, plot.tileY);
+      const sprite = this.add.sprite(x, y, "plot_empty");
+      sprite.setOrigin(0.5, 0.62);
+      sprite.setDepth(845);
+      const label = this.add
+        .text(x, y - 30, "Plot", {
+          fontFamily: '"Fredoka", "Nunito", sans-serif',
+          fontSize: "10px",
+          fontStyle: "bold",
+          color: "#e6d6b8",
+          stroke: "#2a1d12",
+          strokeThickness: 4,
+        })
+        .setOrigin(0.5, 1)
+        .setDepth(846)
+        .setVisible(false);
+      const barBg = this.add.graphics().setDepth(847);
+      const barFill = this.add.graphics().setDepth(848);
+      this.renderedFarmPlots.set(plot.id, {
+        id: plot.id,
+        sprite,
+        label,
+        barBg,
+        barFill,
+        worldX: x,
+        worldY: y,
+        stage: "empty",
+      });
+    }
+    this.applyFarmState(networkManager.getFarmState());
+  }
+
+  private clearFarmPlots() {
+    this.renderedFarmPlots.forEach((plot) => {
+      plot.sprite.destroy();
+      plot.label.destroy();
+      plot.barBg.destroy();
+      plot.barFill.destroy();
+    });
+    this.renderedFarmPlots.clear();
+  }
+
+  private applyFarmState(payload: FarmStatePayload) {
+    for (const state of payload.plots) {
+      const plot = this.renderedFarmPlots.get(state.plotId);
+      if (!plot) continue;
+      plot.stage = state.stage;
+      plot.plantedAt = state.plantedAt;
+      plot.readyAt = state.readyAt;
+      const texture =
+        state.stage === "ready" ? "plot_ready" : state.stage === "growing" ? "plot_growing" : "plot_empty";
+      plot.sprite.setTexture(texture);
+      plot.label.setText(state.stage === "ready" ? "Ready!" : "Plot");
+      plot.label.setVisible(state.stage === "ready");
+      if (state.stage !== "growing") {
+        plot.barBg.clear();
+        plot.barFill.clear();
+      }
+    }
+  }
+
+  private updateFarmPlots() {
+    const now = Date.now();
+    for (const plot of this.renderedFarmPlots.values()) {
+      if (plot.stage !== "growing" || !plot.plantedAt || !plot.readyAt) continue;
+      // Client-side flip to ready if the broadcast hasn't arrived yet.
+      if (now >= plot.readyAt) {
+        plot.stage = "ready";
+        plot.sprite.setTexture("plot_ready");
+        plot.label.setText("Ready!").setVisible(true);
+        plot.barBg.clear();
+        plot.barFill.clear();
+        continue;
+      }
+      const progress = farmGrowthProgress(plot.plantedAt, plot.readyAt, now);
+      const width = 34;
+      const height = 5;
+      const x = plot.worldX - width / 2;
+      const y = plot.worldY - 26;
+      plot.barBg.clear();
+      plot.barFill.clear();
+      plot.barBg.fillStyle(0xfff9f0, 1).fillRoundedRect(x, y, width, height, 2);
+      plot.barBg.lineStyle(1.5, 0x4a3728, 1).strokeRoundedRect(x, y, width, height, 2);
+      plot.barFill.fillStyle(0x66bb6a, 1).fillRoundedRect(x + 1.5, y + 1.5, (width - 3) * progress, height - 3, 1.5);
+    }
   }
 
   private clearMap() {
@@ -932,6 +1060,22 @@ export class GameScene extends Phaser.Scene {
 
     const local = this.findLocalPlayer();
     if (!local) return;
+
+    // A nearby farm plot takes priority — plant on an empty plot or harvest a
+    // ready one. The same key/button (E / ✨) drives plots and NPCs.
+    let nearestPlot: RenderedFarmPlot | null = null;
+    let nearestPlotDistance = FARM_RANGE;
+    for (const plot of this.renderedFarmPlots.values()) {
+      const distance = Math.hypot(local.predicted.x - plot.worldX, local.predicted.y - plot.worldY);
+      if (distance <= nearestPlotDistance) {
+        nearestPlot = plot;
+        nearestPlotDistance = distance;
+      }
+    }
+    if (nearestPlot) {
+      networkManager.sendFarmInteract(nearestPlot.id);
+      return;
+    }
 
     let nearest: RenderedNpc | null = null;
     let nearestDistance = NPC_INTERACT_RANGE;

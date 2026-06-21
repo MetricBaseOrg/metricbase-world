@@ -36,7 +36,9 @@ export type SfxType =
   | "wood_gather"
   | "mine_hit"
   | "ore_gather"
-  | "craft";
+  | "craft"
+  | "plant"
+  | "harvest";
 
 const MASTER_VOLUME = 0.32;
 const MUTE_STORAGE_KEY = "metricbase-sfx-muted";
@@ -269,6 +271,17 @@ export function playSfx(type: SfxType): void {
       playTone(ctx, masterGain, now + 0.11, 988, "square", 0.04, 0.12);
       playNoiseBurst(ctx, masterGain, now + 0.11, 0.04, 0.06);
       playTone(ctx, masterGain, now + 0.24, 1318, "triangle", 0.12, 0.16);
+      break;
+    case "plant":
+      // soft earthy pat
+      playTone(ctx, masterGain, now, 160, "sine", 0.06, 0.12);
+      playNoiseBurst(ctx, masterGain, now, 0.06, 0.06);
+      break;
+    case "harvest":
+      // bright rustle + chime
+      playNoiseBurst(ctx, masterGain, now, 0.06, 0.07);
+      playTone(ctx, masterGain, now, 660, "triangle", 0.05, 0.12);
+      playTone(ctx, masterGain, now + 0.06, 880, "triangle", 0.1, 0.14);
       break;
   }
 }

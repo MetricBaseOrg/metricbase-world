@@ -1,10 +1,12 @@
 export const SKILL_WOODCUTTING = "woodcutting";
 export const SKILL_MINING = "mining";
 export const SKILL_FISHING = "fishing";
+export const SKILL_FARMING = "farming";
 
 export const CHOP_RANGE = 80;
 export const MINE_RANGE = 80;
 export const FISH_RANGE = 90;
+export const FARM_RANGE = 80;
 
 /** Base chop time per tree level (level-1 trees take 60 seconds at Woodcutting 1). */
 export const WOODCUTTING_CHOP_BASE_MS = 60_000;
@@ -45,6 +47,7 @@ export interface SkillXpMap {
   woodcutting: number;
   mining: number;
   fishing: number;
+  farming: number;
 }
 
 export interface WoodcuttingSkillView {
@@ -60,12 +63,14 @@ export interface SkillStatePayload {
   /** Optional so older clients/payloads keep type-checking. */
   mining?: SkillView;
   fishing?: SkillView;
+  farming?: SkillView;
 }
 
 export const EMPTY_SKILLS: SkillXpMap = {
   woodcutting: 0,
   mining: 0,
   fishing: 0,
+  farming: 0,
 };
 
 export function woodcuttingLevelFromXp(xp: number): number {
@@ -97,6 +102,8 @@ export const miningLevelFromXp = woodcuttingLevelFromXp;
 export const miningXpProgress = woodcuttingXpProgress;
 export const fishingLevelFromXp = woodcuttingLevelFromXp;
 export const fishingXpProgress = woodcuttingXpProgress;
+export const farmingLevelFromXp = woodcuttingLevelFromXp;
+export const farmingXpProgress = woodcuttingXpProgress;
 
 function normalizeXpValue(value: unknown): number {
   return typeof value === "number" && Number.isFinite(value) && value >= 0 ? Math.floor(value) : 0;
@@ -111,6 +118,7 @@ export function normalizeSkills(raw?: Partial<SkillXpMap> | null): SkillXpMap {
     woodcutting: normalizeXpValue(raw.woodcutting),
     mining: normalizeXpValue(raw.mining),
     fishing: normalizeXpValue(raw.fishing),
+    farming: normalizeXpValue(raw.farming),
   };
 }
 
@@ -127,6 +135,10 @@ export function buildSkillStatePayload(skills: SkillXpMap): SkillStatePayload {
     fishing: {
       level: fishingLevelFromXp(skills.fishing),
       xp: skills.fishing,
+    },
+    farming: {
+      level: farmingLevelFromXp(skills.farming),
+      xp: skills.farming,
     },
   };
 }

@@ -1,4 +1,5 @@
 import type { NpcCombatConfig } from "./combat.js";
+import type { FarmPlotNode } from "./farming.js";
 import type { ZoneResourceNode } from "./resources.js";
 
 export const ZONE_HUB = "zone_hub";
@@ -38,6 +39,7 @@ export interface ZoneConfig {
   portals: ZonePortal[];
   npcs: ZoneNpc[];
   resources?: ZoneResourceNode[];
+  farmPlots?: FarmPlotNode[];
 }
 
 export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
@@ -172,6 +174,11 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
           lootQuantity: 1,
         },
       },
+    ],
+    farmPlots: [
+      { id: "hub_plot_1", tileX: 5, tileY: 10 },
+      { id: "hub_plot_2", tileX: 6, tileY: 10 },
+      { id: "hub_plot_3", tileX: 7, tileY: 10 },
     ],
   },
   [ZONE_WILDERNESS]: {

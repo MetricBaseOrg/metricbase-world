@@ -104,6 +104,30 @@ export const ITEMS: Record<string, ItemDefinition> = {
     maxStack: 1,
     kind: "weapon",
   },
+  item_wheat_seed: {
+    id: "item_wheat_seed",
+    name: "Wheat Seed",
+    description: "Plant in a farm plot, then harvest wheat once it grows.",
+    stackable: true,
+    maxStack: 99,
+    kind: "material",
+  },
+  item_wheat: {
+    id: "item_wheat",
+    name: "Wheat",
+    description: "Golden grain harvested from the fields. Mill it into bread.",
+    stackable: true,
+    maxStack: 99,
+    kind: "material",
+  },
+  item_bread: {
+    id: "item_bread",
+    name: "Bread",
+    description: "A warm loaf. Restores 30 HP when eaten.",
+    stackable: true,
+    maxStack: 20,
+    kind: "consumable",
+  },
   item_plank: {
     id: "item_plank",
     name: "Wooden Plank",
@@ -142,6 +166,7 @@ export const ITEMS: Record<string, ItemDefinition> = {
 export const CONSUMABLE_HEAL: Record<string, number> = {
   item_health_potion: 25,
   item_cooked_fish: 40,
+  item_bread: 30,
 };
 
 export function getConsumableHeal(itemId: string): number {
