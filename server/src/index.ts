@@ -20,7 +20,7 @@ app.use(cors({ origin: true }));
 app.use(express.json());
 
 app.get("/health", (_req, res) => {
-  res.json({ status: "ok", version: "0.5.0", economy: "v1", farming: true, housing: true });
+  res.json({ status: "ok", version: "0.7.0", farming: true, housing: true, emotes: true });
 });
 
 app.use("/api", authRouter);

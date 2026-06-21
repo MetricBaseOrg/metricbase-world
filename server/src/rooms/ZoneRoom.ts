@@ -39,6 +39,8 @@ import {
   PLOT_PRICE,
   HOUSE_RANGE,
   structureLabel,
+  getEmote,
+  EMOTE_COOLDOWN_MS,
   type GatherSkill,
   type FarmPlotState,
   type LandPlotState,
@@ -142,6 +144,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     }
   >();
   private inventories = new Map<string, InventoryEntry[]>();
+  private playerEmoteAt = new Map<string, number>();
   private playerGold = new Map<string, number>();
   private playerHp = new Map<string, number>();
   private playerEquipment = new Map<string, ReturnType<typeof normalizeEquipment>>();
@@ -252,6 +255,10 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         message.plotId ?? "",
         message.structure === "shop" ? "shop" : "house",
       );
+    });
+
+    this.onMessage("emote", (client, message: { emoteId?: string }) => {
+      this.handleEmote(client, message.emoteId ?? "");
     });
 
     this.onMessage("requestRespawn", (client, message: { payGold?: boolean }) => {
@@ -1959,7 +1966,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     const plot = (this.zoneConfig.farmPlots ?? []).find((entry) => entry.id === plotId);
     if (!plot) return;
 
-    const plotPos = tileToWorld(plot.tileX, plot.tileY);
+    const plotPos = tileToWorld(plot.tileX + 0.5, plot.tileY + 0.5);
     if (Math.hypot(player.x - plotPos.x, player.y - plotPos.y) > FARM_RANGE) {
       client.send("farmResult", { ok: false, plotId, error: "Move closer to the plot." });
       return;
@@ -2051,6 +2058,18 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       playerName: player.name,
     });
     await this.persistPlayer(player);
+  }
+
+  private handleEmote(client: Client, emoteId: string) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !getEmote(emoteId)) return;
+
+    const now = Date.now();
+    const last = this.playerEmoteAt.get(client.sessionId) ?? 0;
+    if (now - last < EMOTE_COOLDOWN_MS) return;
+    this.playerEmoteAt.set(client.sessionId, now);
+
+    this.broadcast("emote", { playerName: player.name, emoteId });
   }
 
   private buildHousingState(): { plots: LandPlotState[] } {

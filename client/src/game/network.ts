@@ -15,6 +15,7 @@ import {
   FarmResultPayload,
   HousingStatePayload,
   HousingResultPayload,
+  EmotePayload,
   MobHealthPayload,
   normalizeCharacterAppearance,
   PlayerDamagePayload,
@@ -62,6 +63,7 @@ type FarmStateListener = (payload: FarmStatePayload) => void;
 type FarmResultListener = (payload: FarmResultPayload) => void;
 type HousingStateListener = (payload: HousingStatePayload) => void;
 type HousingResultListener = (payload: HousingResultPayload) => void;
+type EmoteListener = (payload: EmotePayload) => void;
 type ShopOpenListener = (payload: ShopOpenPayload) => void;
 type ShopResultListener = (payload: ShopResultPayload) => void;
 type MarketResultListener = (payload: MarketResultPayload) => void;
@@ -100,6 +102,7 @@ export class NetworkManager {
   private housingStateListeners = new Set<HousingStateListener>();
   private housingResultListeners = new Set<HousingResultListener>();
   private latestHousingState: HousingStatePayload = { plots: [] };
+  private emoteListeners = new Set<EmoteListener>();
   private shopOpenListeners = new Set<ShopOpenListener>();
   private shopResultListeners = new Set<ShopResultListener>();
   private marketResultListeners = new Set<MarketResultListener>();
@@ -315,6 +318,10 @@ export class NetworkManager {
     this.room?.send("housingBuy", { plotId, structure });
   }
 
+  sendEmote(emoteId: string) {
+    this.room?.send("emote", { emoteId });
+  }
+
   getHousingState(): HousingStatePayload {
     return this.latestHousingState;
   }
@@ -491,6 +498,11 @@ export class NetworkManager {
   onHousingResult(listener: HousingResultListener) {
     this.housingResultListeners.add(listener);
     return () => this.housingResultListeners.delete(listener);
+  }
+
+  onEmote(listener: EmoteListener) {
+    this.emoteListeners.add(listener);
+    return () => this.emoteListeners.delete(listener);
   }
 
   onShopOpen(listener: ShopOpenListener) {
@@ -721,6 +733,11 @@ export class NetworkManager {
     });
     this.room.onMessage("housingResult", (payload: HousingResultPayload) => {
       for (const listener of this.housingResultListeners) {
+        listener(payload);
+      }
+    });
+    this.room.onMessage("emote", (payload: EmotePayload) => {
+      for (const listener of this.emoteListeners) {
         listener(payload);
       }
     });

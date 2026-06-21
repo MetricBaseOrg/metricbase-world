@@ -10,6 +10,7 @@ import { clearStoredAccessToken, getValidWalletSession } from "./wallet/tokenGat
 import { useGameStore } from "./store/gameStore";
 import { ChatPanel } from "./ui/ChatPanel";
 import { CraftPanel } from "./ui/CraftPanel";
+import { EmoteBar } from "./ui/EmoteBar";
 import { HousingPanel } from "./ui/HousingPanel";
 import { DeathOverlay } from "./ui/DeathOverlay";
 import { HUD } from "./ui/HUD";
@@ -284,6 +285,7 @@ export function App() {
         </ErrorBoundary>
       )}
       {joined && <ChatPanel />}
+      {joined && <EmoteBar />}
       {joined && <TouchControls />}
       {joined && <DeathOverlay />}
       {!joined && <LoginOverlay onJoin={handleJoin} />}

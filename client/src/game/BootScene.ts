@@ -506,13 +506,13 @@ export class BootScene extends Phaser.Scene {
   }
 
   private createFarmPlotTextures() {
-    // Iso-diamond soil bed that matches the tile shape.
-    const W = 56;
-    const H = 40;
+    // Iso-diamond soil bed spanning a 2x2 tile footprint.
+    const W = 128;
+    const H = 76;
     const cx = W / 2;
-    const cy = 20;
-    const hw = 24;
-    const hh = 12;
+    const cy = 40;
+    const hw = 58;
+    const hh = 29;
 
     const isoDiamond = (g: Phaser.GameObjects.Graphics, color: number) => {
       g.fillStyle(color, 1);
@@ -525,10 +525,18 @@ export class BootScene extends Phaser.Scene {
       g.fillPath();
     };
 
-    // Crop position along the bed surface (on the diamond).
-    const spot = (i: number, n: number) => {
-      const t = (i + 0.5) / n - 0.5; // -0.5..0.5 along the SW-NE axis
-      return { x: cx + t * hw * 1.4, y: cy + t * hh * 1.4 };
+    // Crop positions across the bed: two parallel rows following the furrows.
+    const crops = (perRow: number) => {
+      const out: { x: number; y: number }[] = [];
+      for (const r of [-0.5, 0.5]) {
+        const ox = r * -hw * 0.34;
+        const oy = r * hh * 0.34;
+        for (let i = 0; i < perRow; i++) {
+          const t = (i + 0.5) / perRow - 0.5;
+          out.push({ x: cx + t * hw * 1.1 + ox, y: cy + t * hh * 1.1 + oy });
+        }
+      }
+      return out;
     };
 
     const drawSoil = (g: Phaser.GameObjects.Graphics) => {
@@ -560,43 +568,42 @@ export class BootScene extends Phaser.Scene {
 
     g = this.make.graphics({ x: 0, y: 0 });
     drawSoil(g);
-    for (let i = 0; i < 3; i++) {
-      const p = spot(i, 3);
+    for (const p of crops(3)) {
       g.lineStyle(2, 0x4caf50, 1);
       g.beginPath();
       g.moveTo(p.x, p.y);
-      g.lineTo(p.x, p.y - 8);
+      g.lineTo(p.x, p.y - 9);
       g.strokePath();
-      g.fillStyle(0x66bb6a, 1).fillCircle(p.x - 2, p.y - 8, 2).fillCircle(p.x + 2, p.y - 9, 2);
+      g.fillStyle(0x66bb6a, 1).fillCircle(p.x - 2, p.y - 9, 2).fillCircle(p.x + 2, p.y - 10, 2);
     }
     g.generateTexture("plot_growing", W, H);
     g.destroy();
 
     g = this.make.graphics({ x: 0, y: 0 });
     drawSoil(g);
-    for (let i = 0; i < 4; i++) {
-      const p = spot(i, 4);
+    for (const p of crops(3)) {
       g.lineStyle(2, 0xc79a3a, 1);
       g.beginPath();
       g.moveTo(p.x, p.y);
-      g.lineTo(p.x, p.y - 12);
+      g.lineTo(p.x, p.y - 13);
       g.strokePath();
-      g.fillStyle(0xf2c94c, 1).fillEllipse(p.x, p.y - 13, 4, 7);
-      g.lineStyle(1, OUTLINE, 0.7).strokeEllipse(p.x, p.y - 13, 4, 7);
+      g.fillStyle(0xf2c94c, 1).fillEllipse(p.x, p.y - 14, 4, 7);
+      g.lineStyle(1, OUTLINE, 0.7).strokeEllipse(p.x, p.y - 14, 4, 7);
     }
     g.generateTexture("plot_ready", W, H);
     g.destroy();
   }
 
   private createHousingTextures() {
-    const W = 64;
-    const H = 72;
+    // Iso building spanning a 3x3 tile footprint.
+    const W = 176;
+    const H = 124;
     const cx = W / 2;
-    const baseY = H - 18;
-    const hw = 24;
-    const hh = 12;
-    const wallH = 22;
-    const roofH = 16;
+    const baseY = 78;
+    const hw = 84;
+    const hh = 42;
+    const wallH = 40;
+    const roofH = 32;
 
     type P = [number, number];
     const fE: P = [cx + hw, baseY];
@@ -655,19 +662,32 @@ export class BootScene extends Phaser.Scene {
     let g = this.make.graphics({ x: 0, y: 0 });
     building(g, 0x4f8cff, 0x3a6fd0, (gg) => {
       // door on the SE wall
-      const dbl = lerp(fS, fE, 0.34);
-      const dbr = lerp(fS, fE, 0.62);
-      const door: P[] = [dbl, dbr, [dbr[0], dbr[1] - 14], [dbl[0], dbl[1] - 14]];
+      const dbl = lerp(fS, fE, 0.38);
+      const dbr = lerp(fS, fE, 0.6);
+      const door: P[] = [dbl, dbr, [dbr[0], dbr[1] - 28], [dbl[0], dbl[1] - 28]];
       poly(gg, door, 0x7a5236);
       outline(gg, door);
-      // window on the SW wall
-      const wbl = lerp(fW, fS, 0.4);
-      const wbr = lerp(fW, fS, 0.62);
+      gg.fillStyle(0xf2c94c, 1).fillCircle(dbr[0] - 4, dbr[1] - 13, 1.8);
+      // a window on each wall
+      const seWin = (() => {
+        const a = lerp(fS, fE, 0.66);
+        const b = lerp(fS, fE, 0.86);
+        return [
+          [a[0], a[1] - 16],
+          [b[0], b[1] - 16],
+          [b[0], b[1] - 30],
+          [a[0], a[1] - 30],
+        ] as P[];
+      })();
+      poly(gg, seWin, 0xbfe3ff);
+      outline(gg, seWin);
+      const wbl = lerp(fW, fS, 0.32);
+      const wbr = lerp(fW, fS, 0.56);
       const win: P[] = [
-        [wbl[0], wbl[1] - 7],
-        [wbr[0], wbr[1] - 7],
-        [wbr[0], wbr[1] - 14],
-        [wbl[0], wbl[1] - 14],
+        [wbl[0], wbl[1] - 18],
+        [wbr[0], wbr[1] - 18],
+        [wbr[0], wbr[1] - 32],
+        [wbl[0], wbl[1] - 32],
       ];
       poly(gg, win, 0xbfe3ff);
       outline(gg, win);
@@ -679,33 +699,33 @@ export class BootScene extends Phaser.Scene {
     g = this.make.graphics({ x: 0, y: 0 });
     building(g, 0xe07a3c, 0xb85f2a, (gg) => {
       // door
-      const dbl = lerp(fS, fE, 0.3);
+      const dbl = lerp(fS, fE, 0.34);
       const dbr = lerp(fS, fE, 0.56);
-      const door: P[] = [dbl, dbr, [dbr[0], dbr[1] - 13], [dbl[0], dbl[1] - 13]];
+      const door: P[] = [dbl, dbr, [dbr[0], dbr[1] - 28], [dbl[0], dbl[1] - 28]];
       poly(gg, door, 0x7a5236);
       outline(gg, door);
       // striped awning band high on the SE wall
-      for (let i = 0; i < 5; i++) {
-        const a = lerp(fS, fE, i / 5);
-        const b = lerp(fS, fE, (i + 1) / 5);
+      for (let i = 0; i < 6; i++) {
+        const a = lerp(fS, fE, i / 6);
+        const b = lerp(fS, fE, (i + 1) / 6);
         const band: P[] = [
-          [a[0], a[1] - wallH + 4],
-          [b[0], b[1] - wallH + 4],
-          [b[0], b[1] - wallH - 2],
-          [a[0], a[1] - wallH - 2],
+          [a[0], a[1] - wallH + 12],
+          [b[0], b[1] - wallH + 12],
+          [b[0], b[1] - wallH - 3],
+          [a[0], a[1] - wallH - 3],
         ];
         poly(gg, band, i % 2 === 0 ? 0xe2483b : 0xfff1e0);
       }
       const aw0 = lerp(fS, fE, 0);
       const aw1 = lerp(fS, fE, 1);
       outline(gg, [
-        [aw0[0], aw0[1] - wallH + 4],
-        [aw1[0], aw1[1] - wallH + 4],
-        [aw1[0], aw1[1] - wallH - 2],
-        [aw0[0], aw0[1] - wallH - 2],
+        [aw0[0], aw0[1] - wallH + 12],
+        [aw1[0], aw1[1] - wallH + 12],
+        [aw1[0], aw1[1] - wallH - 3],
+        [aw0[0], aw0[1] - wallH - 3],
       ]);
-      gg.fillStyle(0xf2c94c, 1).fillCircle(tE[0] - 2, tE[1] - 4, 4);
-      gg.lineStyle(1.5, OUTLINE, 1).strokeCircle(tE[0] - 2, tE[1] - 4, 4);
+      gg.fillStyle(0xf2c94c, 1).fillCircle(tE[0] - 6, tE[1] - 8, 7);
+      gg.lineStyle(2, OUTLINE, 1).strokeCircle(tE[0] - 6, tE[1] - 8, 7);
     });
     g.generateTexture("shop", W, H);
     g.destroy();
@@ -715,12 +735,12 @@ export class BootScene extends Phaser.Scene {
     g.fillStyle(0x2a1d12, 0.16).fillEllipse(cx, baseY + hh + 2, hw * 2, 9);
     poly(g, [[cx, baseY - hh], fE, fS, fW], 0x9b8a6a);
     outline(g, [[cx, baseY - hh], fE, fS, fW]);
-    g.fillStyle(0x8a5a33, 1).fillRoundedRect(cx - 2, baseY - 26, 4, 24, 1.5);
-    g.lineStyle(1.5, OUTLINE, 1).strokeRoundedRect(cx - 2, baseY - 26, 4, 24, 1.5);
-    g.fillStyle(0xf3ead2, 1).fillRoundedRect(cx - 13, baseY - 32, 26, 13, 2);
-    g.lineStyle(2, OUTLINE, 1).strokeRoundedRect(cx - 13, baseY - 32, 26, 13, 2);
-    g.fillStyle(0x4caf50, 1).fillRoundedRect(cx - 9, baseY - 28, 18, 2.4, 1);
-    g.fillStyle(0x4caf50, 1).fillRoundedRect(cx - 9, baseY - 24, 12, 2.4, 1);
+    g.fillStyle(0x8a5a33, 1).fillRoundedRect(cx - 3, baseY - 46, 6, 44, 2);
+    g.lineStyle(1.5, OUTLINE, 1).strokeRoundedRect(cx - 3, baseY - 46, 6, 44, 2);
+    g.fillStyle(0xf3ead2, 1).fillRoundedRect(cx - 21, baseY - 58, 42, 21, 3);
+    g.lineStyle(2, OUTLINE, 1).strokeRoundedRect(cx - 21, baseY - 58, 42, 21, 3);
+    g.fillStyle(0x4caf50, 1).fillRoundedRect(cx - 15, baseY - 52, 30, 4, 1.5);
+    g.fillStyle(0x4caf50, 1).fillRoundedRect(cx - 15, baseY - 45, 20, 4, 1.5);
     g.generateTexture("plot_marker", W, H);
     g.destroy();
   }

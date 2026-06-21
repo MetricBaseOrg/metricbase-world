@@ -177,15 +177,17 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
         },
       },
     ],
+    // Southern village green. Farms are 2x2 (anchored at their top-left tile),
+    // houses are 3x3 (centred on the given tile); spaced so footprints don't overlap.
     farmPlots: [
-      { id: "hub_plot_1", tileX: 5, tileY: 10 },
-      { id: "hub_plot_2", tileX: 6, tileY: 10 },
-      { id: "hub_plot_3", tileX: 7, tileY: 10 },
+      { id: "hub_plot_1", tileX: 2, tileY: 16 },
+      { id: "hub_plot_2", tileX: 5, tileY: 16 },
+      { id: "hub_plot_3", tileX: 8, tileY: 16 },
     ],
     landPlots: [
-      { id: "hub_land_1", tileX: 16, tileY: 16 },
-      { id: "hub_land_2", tileX: 18, tileY: 16 },
-      { id: "hub_land_3", tileX: 20, tileY: 17 },
+      { id: "hub_land_1", tileX: 14, tileY: 17 },
+      { id: "hub_land_2", tileX: 18, tileY: 17 },
+      { id: "hub_land_3", tileX: 21, tileY: 18 },
     ],
   },
   [ZONE_WILDERNESS]: {

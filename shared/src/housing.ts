@@ -7,9 +7,10 @@ export type StructureType = "none" | "house" | "shop";
 /** Gold cost to buy a land plot. A deliberately large long-term gold sink. */
 export const PLOT_PRICE = 500;
 
-/** How close a player must stand to interact with a plot. */
-export const HOUSE_RANGE = 96;
+/** How close a player must stand to interact with a plot (3x3 footprint). */
+export const HOUSE_RANGE = 150;
 
+/** A land plot occupies a 3x3 tile footprint centred on (tileX, tileY). */
 export interface LandPlotNode {
   id: string;
   tileX: number;

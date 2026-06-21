@@ -19,6 +19,7 @@ import {
   farmGrowthProgress,
   HOUSE_RANGE,
   structureLabel,
+  getEmote,
   tileToWorld,
   type FarmStatePayload,
   type HousingStatePayload,
@@ -215,6 +216,11 @@ export class GameScene extends Phaser.Scene {
       this.applyHousingState(payload);
     });
 
+    const unsubscribeEmote = networkManager.onEmote((payload) => {
+      const emote = getEmote(payload.emoteId);
+      if (emote) this.showEmote(payload.playerName, emote.emoji);
+    });
+
     const unsubscribeFarmResult = networkManager.onFarmResult((payload) => {
       const isLocal = payload.playerName === useGameStore.getState().playerName;
       if (!payload.ok) {
@@ -318,6 +324,7 @@ export class GameScene extends Phaser.Scene {
       unsubscribeFarmState();
       unsubscribeFarmResult();
       unsubscribeHousingState();
+      unsubscribeEmote();
       this.stopLocalChopHits();
       this.clearMap();
       this.clearNpcs();
@@ -656,12 +663,13 @@ export class GameScene extends Phaser.Scene {
   private renderFarmPlots(zoneId: string) {
     const config = getZoneConfig(zoneId);
     for (const plot of config.farmPlots ?? []) {
-      const { x, y } = tileToWorld(plot.tileX, plot.tileY);
+      // Anchor at the centre of the 2x2 footprint.
+      const { x, y } = tileToWorld(plot.tileX + 0.5, plot.tileY + 0.5);
       const sprite = this.add.sprite(x, y, "plot_empty");
-      sprite.setOrigin(0.5, 0.5);
+      sprite.setOrigin(0.5, 0.526);
       sprite.setDepth(845);
       const label = this.add
-        .text(x, y - 30, "Plot", {
+        .text(x, y - 44, "Plot", {
           fontFamily: '"Fredoka", "Nunito", sans-serif',
           fontSize: "10px",
           fontStyle: "bold",
@@ -701,12 +709,13 @@ export class GameScene extends Phaser.Scene {
   private renderLandPlots(zoneId: string) {
     const config = getZoneConfig(zoneId);
     for (const plot of config.landPlots ?? []) {
+      // tileX/tileY is the centre tile of the 3x3 footprint.
       const { x, y } = tileToWorld(plot.tileX, plot.tileY);
       const sprite = this.add.sprite(x, y, "plot_marker");
-      sprite.setOrigin(0.5, 0.75);
+      sprite.setOrigin(0.5, 0.629);
       sprite.setDepth(820);
       const label = this.add
-        .text(x, y - 50, "For Sale", {
+        .text(x, y - 80, "For Sale", {
           fontFamily: '"Fredoka", "Nunito", sans-serif',
           fontSize: "10px",
           fontStyle: "bold",
@@ -779,10 +788,10 @@ export class GameScene extends Phaser.Scene {
         continue;
       }
       const progress = farmGrowthProgress(plot.plantedAt, plot.readyAt, now);
-      const width = 34;
+      const width = 44;
       const height = 5;
       const x = plot.worldX - width / 2;
-      const y = plot.worldY - 26;
+      const y = plot.worldY - 44;
       plot.barBg.clear();
       plot.barFill.clear();
       plot.barBg.fillStyle(0xfff9f0, 1).fillRoundedRect(x, y, width, height, 2);
@@ -1080,6 +1089,44 @@ export class GameScene extends Phaser.Scene {
       duration: 800,
       ease: "Cubic.easeOut",
       onComplete: () => text.destroy(),
+    });
+  }
+
+  private findRenderedPlayerByName(playerName: string): RenderedPlayer | null {
+    if (this.localAvatar?.label.text === playerName) return this.localAvatar;
+    for (const rendered of this.renderedPlayers.values()) {
+      if (rendered.label.text === playerName) return rendered;
+    }
+    return null;
+  }
+
+  private showEmote(playerName: string, emoji: string) {
+    const rendered = this.findRenderedPlayerByName(playerName);
+    if (!rendered) return;
+
+    const x = rendered.sprite.x;
+    const y = rendered.sprite.y - 58;
+    const bubble = this.add
+      .text(x, y, emoji, { fontFamily: '"Noto Color Emoji", "Segoe UI Emoji", sans-serif', fontSize: "26px" })
+      .setOrigin(0.5, 1)
+      .setDepth(1002)
+      .setScale(0.4);
+
+    this.tweens.add({
+      targets: bubble,
+      scale: 1,
+      y: y - 8,
+      duration: 220,
+      ease: "Back.easeOut",
+    });
+    this.tweens.add({
+      targets: bubble,
+      alpha: 0,
+      y: y - 22,
+      delay: 1500,
+      duration: 600,
+      ease: "Cubic.easeIn",
+      onComplete: () => bubble.destroy(),
     });
   }
 
