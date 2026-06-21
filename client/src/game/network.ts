@@ -10,6 +10,7 @@ import {
   JoinOptions,
   InventoryResultPayload,
   InventoryStatePayload,
+  CraftResultPayload,
   MobHealthPayload,
   normalizeCharacterAppearance,
   PlayerDamagePayload,
@@ -52,6 +53,7 @@ type MobHealthListener = (payload: MobHealthPayload) => void;
 type AttackResultListener = (payload: AttackResultPayload) => void;
 type InventoryListener = (state: InventoryStatePayload) => void;
 type InventoryResultListener = (payload: InventoryResultPayload) => void;
+type CraftResultListener = (payload: CraftResultPayload) => void;
 type ShopOpenListener = (payload: ShopOpenPayload) => void;
 type ShopResultListener = (payload: ShopResultPayload) => void;
 type MarketResultListener = (payload: MarketResultPayload) => void;
@@ -83,6 +85,7 @@ export class NetworkManager {
   private attackResultListeners = new Set<AttackResultListener>();
   private inventoryListeners = new Set<InventoryListener>();
   private inventoryResultListeners = new Set<InventoryResultListener>();
+  private craftResultListeners = new Set<CraftResultListener>();
   private shopOpenListeners = new Set<ShopOpenListener>();
   private shopResultListeners = new Set<ShopResultListener>();
   private marketResultListeners = new Set<MarketResultListener>();
@@ -282,6 +285,10 @@ export class NetworkManager {
     this.room?.send("equipItem", { itemId });
   }
 
+  sendCraft(recipeId: string) {
+    this.room?.send("craft", { recipeId });
+  }
+
   sendRequestRespawn(payGold: boolean) {
     this.room?.send("requestRespawn", { payGold });
   }
@@ -427,6 +434,11 @@ export class NetworkManager {
   onInventoryResult(listener: InventoryResultListener) {
     this.inventoryResultListeners.add(listener);
     return () => this.inventoryResultListeners.delete(listener);
+  }
+
+  onCraftResult(listener: CraftResultListener) {
+    this.craftResultListeners.add(listener);
+    return () => this.craftResultListeners.delete(listener);
   }
 
   onShopOpen(listener: ShopOpenListener) {
@@ -618,6 +630,17 @@ export class NetworkManager {
         }
       }
       for (const listener of this.inventoryResultListeners) {
+        listener(payload);
+      }
+    });
+    this.room.onMessage("craftResult", (payload: CraftResultPayload) => {
+      if (payload.inventory) {
+        this.latestInventory = payload.inventory;
+        for (const listener of this.inventoryListeners) {
+          listener(payload.inventory);
+        }
+      }
+      for (const listener of this.craftResultListeners) {
         listener(payload);
       }
     });

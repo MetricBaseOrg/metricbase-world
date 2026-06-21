@@ -1,5 +1,36 @@
 # Browser-based isometric MMO — full build plan
 
+> The sections below are the original full-scope vision. The list here tracks
+> what is actually live in MetricBase World today.
+
+## 0. Implementation status (live build)
+
+Stack as shipped: Phaser 3 + React (Vite) client on Vercel, Node + Colyseus
+server on Railway, Neon PostgreSQL, Solana token gate/market.
+
+### Done
+
+- Multiplayer movement (authoritative server + client prediction), zone transfer
+  (hub ↔ wilderness), chat, quests, combat vs. mobs, inventory, equipment.
+- Solana wallet login + token gate (fails open on RPC errors), peer-to-peer gold
+  market (gold ↔ SPL token), Pip's gold shop.
+- Chibi avatar art + animations (idle/walk/chop/fish), iso-cube tiles, redesigned
+  props/NPCs, procedural background music + a full SFX set.
+- **Everyday loop — Gather:** Woodcutting, Mining, Fishing (shared gather-session
+  system; nodes, items, skill XP, HUD gauges, art, FX/SFX).
+- **Everyday loop — Craft:** workbench recipes (planks, copper bars, cooked fish,
+  copper dagger) via the `C` / 🔨 Crafting panel.
+- **Everyday loop — Trade:** sell gathered/crafted mats to Pip; P2P gold market.
+
+### Next (roadmap)
+
+- Farming (till/plant/grow/harvest — time-based growth cycle).
+- Deeper crafting tiers + tool/gear progression that boosts gather speed.
+- **Housing:** buy a land plot, place a house/shop, persistent ownership + build UI.
+- More zones, NPCs, and quests around the loop.
+
+---
+
 ## 1. Vision, scope, and constraints
 
 - **Core pitch:** Browser-native isometric MMO with persistent world, real-time multiplayer, and live economy.

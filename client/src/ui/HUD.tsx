@@ -218,7 +218,7 @@ export function HUD({ onLeave }: HUDProps) {
 
           {!mobileLayout && (
             <div className="chibi-key-hint chibi-key-hint--desktop">
-              WASD move · E interact · Space attack/chop · F chop · G fish · I inventory
+              WASD move · E interact · Space attack/chop · F chop · G fish · I inventory · C craft
             </div>
           )}
 

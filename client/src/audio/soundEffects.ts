@@ -35,7 +35,8 @@ export type SfxType =
   | "knockout"
   | "wood_gather"
   | "mine_hit"
-  | "ore_gather";
+  | "ore_gather"
+  | "craft";
 
 const MASTER_VOLUME = 0.32;
 const MUTE_STORAGE_KEY = "metricbase-sfx-muted";
@@ -260,6 +261,14 @@ export function playSfx(type: SfxType): void {
       playTone(ctx, masterGain, now, 520, "square", 0.05, 0.12);
       playTone(ctx, masterGain, now + 0.05, 392, "square", 0.08, 0.12);
       playNoiseBurst(ctx, masterGain, now, 0.05, 0.06);
+      break;
+    case "craft":
+      // anvil double-clink then a bright finish chime
+      playTone(ctx, masterGain, now, 880, "square", 0.04, 0.12);
+      playNoiseBurst(ctx, masterGain, now, 0.04, 0.06);
+      playTone(ctx, masterGain, now + 0.11, 988, "square", 0.04, 0.12);
+      playNoiseBurst(ctx, masterGain, now + 0.11, 0.04, 0.06);
+      playTone(ctx, masterGain, now + 0.24, 1318, "triangle", 0.12, 0.16);
       break;
   }
 }

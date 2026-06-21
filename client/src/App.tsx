@@ -9,6 +9,7 @@ import { networkManager } from "./game/network";
 import { clearStoredAccessToken, getValidWalletSession } from "./wallet/tokenGate";
 import { useGameStore } from "./store/gameStore";
 import { ChatPanel } from "./ui/ChatPanel";
+import { CraftPanel } from "./ui/CraftPanel";
 import { DeathOverlay } from "./ui/DeathOverlay";
 import { HUD } from "./ui/HUD";
 import { LoginOverlay } from "./ui/LoginOverlay";
@@ -244,6 +245,7 @@ export function App() {
     setShopOpen(false);
     setPlayerGold(0);
     const store = useGameStore.getState();
+    store.setCraftOpen(false);
     store.setPlayerVitals(40, 40);
     store.setProfile(store.playerLevel, store.playerXp, 0, 40, 40, null, false, null);
     store.setSkillState(1, 0, 1, 0, 1, 0);
@@ -258,6 +260,7 @@ export function App() {
       {joined && <HUD onLeave={() => void handleLeave()} />}
       {joined && <QuestPanel />}
       {joined && <InventoryPanel />}
+      {joined && <CraftPanel />}
       {joined && <InventoryHotkey />}
       {joined && (
         <ErrorBoundary label="Shop">

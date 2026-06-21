@@ -33,6 +33,7 @@ interface GameStore {
   questState: QuestStatePayload;
   inventory: InventoryStatePayload;
   inventoryOpen: boolean;
+  craftOpen: boolean;
   shop: ShopOpenPayload | null;
   shopOpen: boolean;
   setPlayerName: (name: string) => void;
@@ -70,6 +71,8 @@ interface GameStore {
   setInventory: (inventory: InventoryStatePayload) => void;
   setInventoryOpen: (open: boolean) => void;
   toggleInventoryOpen: () => void;
+  setCraftOpen: (open: boolean) => void;
+  toggleCraftOpen: () => void;
   setShop: (shop: ShopOpenPayload | null) => void;
   setShopOpen: (open: boolean) => void;
 }
@@ -101,6 +104,7 @@ export const useGameStore = create<GameStore>((set) => ({
   questState: { active: [], completed: [] },
   inventory: { items: [], capacity: 16 },
   inventoryOpen: false,
+  craftOpen: false,
   shop: null,
   shopOpen: false,
   setPlayerName: (name) => set({ playerName: name }),
@@ -155,8 +159,11 @@ export const useGameStore = create<GameStore>((set) => ({
   clearChat: () => set({ chatMessages: [] }),
   setQuestState: (questState) => set({ questState }),
   setInventory: (inventory) => set({ inventory }),
-  setInventoryOpen: (inventoryOpen) => set({ inventoryOpen }),
-  toggleInventoryOpen: () => set((state) => ({ inventoryOpen: !state.inventoryOpen })),
+  setInventoryOpen: (inventoryOpen) => set({ inventoryOpen, craftOpen: false }),
+  toggleInventoryOpen: () =>
+    set((state) => ({ inventoryOpen: !state.inventoryOpen, craftOpen: false })),
+  setCraftOpen: (craftOpen) => set({ craftOpen, inventoryOpen: false }),
+  toggleCraftOpen: () => set((state) => ({ craftOpen: !state.craftOpen, inventoryOpen: false })),
   setShop: (shop) => set({ shop }),
   setShopOpen: (shopOpen) => set({ shopOpen }),
 }));

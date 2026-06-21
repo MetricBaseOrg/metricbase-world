@@ -18,6 +18,9 @@ import {
   buildShopOpenPayload,
   getItemDefinition,
   getItemQuantity,
+  getConsumableHeal,
+  getRecipe,
+  ITEMS,
   getShopByNpcId,
   getShopDefinition,
   getZoneConfig,
@@ -210,6 +213,10 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
     this.onMessage("equipItem", (client, message: { itemId?: string | null }) => {
       void this.handleEquipItem(client, message.itemId ?? null);
+    });
+
+    this.onMessage("craft", (client, message: { recipeId?: string }) => {
+      void this.handleCraft(client, message.recipeId ?? "");
     });
 
     this.onMessage("requestRespawn", (client, message: { payGold?: boolean }) => {
@@ -1364,9 +1371,11 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       return;
     }
 
+    const healAmount = getConsumableHeal(itemId) || POTION_HEAL_AMOUNT;
     const maxHp = getPlayerMaxHp(player.level);
-    const healed = Math.min(POTION_HEAL_AMOUNT, maxHp - (this.playerHp.get(player.name) ?? maxHp));
-    const nextHp = Math.min(maxHp, (this.playerHp.get(player.name) ?? maxHp) + POTION_HEAL_AMOUNT);
+    const currentHp = this.playerHp.get(player.name) ?? maxHp;
+    const healed = Math.min(healAmount, maxHp - currentHp);
+    const nextHp = Math.min(maxHp, currentHp + healAmount);
     this.playerHp.set(player.name, nextHp);
     this.inventories.set(player.name, inventory);
     this.sendProfile(client, player);
@@ -1379,8 +1388,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       senderName: "Item",
       body:
         healed > 0
-          ? `${player.name} drank a Health Potion (+${healed} HP).`
-          : `${player.name} drank a Health Potion (already at full HP).`,
+          ? `${player.name} used ${item.name} (+${healed} HP).`
+          : `${player.name} used ${item.name} (already at full HP).`,
       sentAt: Date.now(),
     });
 
@@ -1392,6 +1401,70 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       ),
       hp: nextHp,
       maxHp,
+    });
+    await this.persistPlayer(player);
+  }
+
+  private async handleCraft(client: Client, recipeId: string) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+
+    const recipe = getRecipe(recipeId);
+    if (!recipe) {
+      client.send("craftResult", { ok: false, error: "Unknown recipe." });
+      return;
+    }
+
+    let inventory = this.inventories.get(player.name) ?? [];
+    const weaponId = this.playerEquipment.get(player.name)?.weaponId ?? null;
+
+    // Verify the player has every ingredient before consuming anything.
+    for (const input of recipe.inputs) {
+      if (getItemQuantity(inventory, input.itemId) < input.quantity) {
+        const def = ITEMS[input.itemId];
+        client.send("craftResult", {
+          ok: false,
+          recipeId,
+          error: `Need ${input.quantity}x ${def?.name ?? input.itemId}.`,
+          inventory: buildInventoryPayload(inventory, weaponId),
+        });
+        return;
+      }
+    }
+
+    // Make sure there is room for the output (non-stackables need a free slot).
+    const projected = addItemToInventory(inventory, recipe.output.itemId, recipe.output.quantity);
+    if (projected.added <= 0) {
+      client.send("craftResult", {
+        ok: false,
+        recipeId,
+        error: "Your bag is full.",
+        inventory: buildInventoryPayload(inventory, weaponId),
+      });
+      return;
+    }
+
+    for (const input of recipe.inputs) {
+      inventory = removeItemFromInventory(inventory, input.itemId, input.quantity).inventory;
+    }
+    inventory = addItemToInventory(inventory, recipe.output.itemId, recipe.output.quantity).inventory;
+    this.inventories.set(player.name, inventory);
+    this.sendInventory(client, player.name);
+
+    const outputName = ITEMS[recipe.output.itemId]?.name ?? recipe.output.itemId;
+    this.broadcastChat({
+      id: crypto.randomUUID(),
+      channel: "system",
+      senderId: "system",
+      senderName: "Crafting",
+      body: `${player.name} crafted ${recipe.output.quantity}x ${outputName}.`,
+      sentAt: Date.now(),
+    });
+
+    client.send("craftResult", {
+      ok: true,
+      recipeId,
+      inventory: buildInventoryPayload(inventory, weaponId),
     });
     await this.persistPlayer(player);
   }

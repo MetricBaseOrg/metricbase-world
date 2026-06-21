@@ -26,6 +26,7 @@ export function TouchControls() {
   const inventoryOpen = useGameStore((state) => state.inventoryOpen);
   const knockedOut = useGameStore((state) => state.knockedOut);
   const toggleInventoryOpen = useGameStore((state) => state.toggleInventoryOpen);
+  const toggleCraftOpen = useGameStore((state) => state.toggleCraftOpen);
   const activeDirections = useRef(new Set<Direction>());
 
   const syncAxis = useCallback(() => {
@@ -134,6 +135,15 @@ export function TouchControls() {
           aria-label="Inventory"
         >
           🎒
+        </button>
+        <button
+          type="button"
+          className="chibi-btn chibi-btn--gold chibi-action-btn chibi-action-btn--icon"
+          onPointerDown={(event) => event.preventDefault()}
+          onClick={() => toggleCraftOpen()}
+          aria-label="Crafting"
+        >
+          🔨
         </button>
       </div>
     </div>

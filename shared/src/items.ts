@@ -104,7 +104,49 @@ export const ITEMS: Record<string, ItemDefinition> = {
     maxStack: 1,
     kind: "weapon",
   },
+  item_plank: {
+    id: "item_plank",
+    name: "Wooden Plank",
+    description: "Smoothed timber. A building block for tools and gear.",
+    stackable: true,
+    maxStack: 99,
+    kind: "material",
+  },
+  item_copper_bar: {
+    id: "item_copper_bar",
+    name: "Copper Bar",
+    description: "Smelted copper, ready for the forge.",
+    stackable: true,
+    maxStack: 99,
+    kind: "material",
+  },
+  item_cooked_fish: {
+    id: "item_cooked_fish",
+    name: "Cooked Fish",
+    description: "A hearty grilled fish. Restores 40 HP when eaten.",
+    stackable: true,
+    maxStack: 20,
+    kind: "consumable",
+  },
+  item_copper_dagger: {
+    id: "item_copper_dagger",
+    name: "Copper Dagger",
+    description: "A keen crafted blade. +18 attack damage when equipped.",
+    stackable: false,
+    maxStack: 1,
+    kind: "weapon",
+  },
 };
+
+/** HP restored by each consumable when used. */
+export const CONSUMABLE_HEAL: Record<string, number> = {
+  item_health_potion: 25,
+  item_cooked_fish: 40,
+};
+
+export function getConsumableHeal(itemId: string): number {
+  return CONSUMABLE_HEAL[itemId] ?? 0;
+}
 
 export const EMPTY_INVENTORY: InventoryEntry[] = [];
 
