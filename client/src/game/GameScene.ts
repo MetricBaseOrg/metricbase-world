@@ -552,7 +552,11 @@ export class GameScene extends Phaser.Scene {
         const tileIndex = ground[y][x];
         const { x: worldX, y: worldY } = tileToWorld(x, y);
         const tile = this.add.image(worldX, worldY, "tileset");
-        tile.setOrigin(0.5, 0.5);
+        // Anchor the tile's top-face CENTER on the world point so entities
+        // (placed at tileToWorld) stand centered on the tile rather than at
+        // its front edge. The top face sits in the upper third of the cube
+        // frame (TILE_HEIGHT/2 over TILE_HEIGHT*1.5 = 1/3).
+        tile.setOrigin(0.5, 1 / 3);
         tile.setDepth(x + y);
         tile.setFrame(tileIndex);
         this.mapTiles.push(tile);
