@@ -15,7 +15,7 @@ export function CircleGauge({
   label,
   detail,
   title,
-  size = 42,
+  size = 36,
   strokeWidth = 4,
   color = "var(--chibi-lavender)",
   trackColor = "var(--chibi-outline-light)",

@@ -528,11 +528,9 @@ export class GameScene extends Phaser.Scene {
         fontFamily: '"Fredoka", "Nunito", sans-serif',
         fontSize: "12px",
         fontStyle: "bold",
-        color: isLocal ? "#e6a800" : "#3d2b1f",
-        stroke: "#fff9f0",
-        strokeThickness: 4,
-        backgroundColor: isLocal ? "#fff3d6" : "#ffffff",
-        padding: { x: 6, y: 3 },
+        color: isLocal ? "#ffd24a" : "#ffffff",
+        stroke: "#2a1d12",
+        strokeThickness: 4.5,
       })
       .setOrigin(0.5, 1)
       .setDepth(1001);
@@ -668,23 +666,14 @@ export class GameScene extends Phaser.Scene {
           fontStyle: "bold",
           color:
             npc.id === SLIME_BRUTE_NPC_ID
-              ? "#15803d"
+              ? "#4ade80"
               : npc.id === WILD_SLIME_NPC_ID
-                ? "#16a34a"
+                ? "#86efac"
                 : isCombat
-                  ? "#e67e22"
-                  : "#7c3aed",
-          stroke: "#fff9f0",
-          strokeThickness: 4,
-          backgroundColor:
-            npc.id === SLIME_BRUTE_NPC_ID
-              ? "#bbf7d0"
-              : npc.id === WILD_SLIME_NPC_ID
-                ? "#dcfce7"
-                : isCombat
-                  ? "#fff3d6"
-                  : "#f3ebff",
-          padding: { x: 6, y: 3 },
+                  ? "#fbbf24"
+                  : "#c4b5fd",
+          stroke: "#2a1d12",
+          strokeThickness: 4.5,
         })
         .setOrigin(0.5, 1)
         .setDepth(901);
@@ -727,8 +716,7 @@ export class GameScene extends Phaser.Scene {
       const texture = kind === "rock" ? "rock" : kind === "fish" ? "fishspot" : "tree";
       const originY = kind === "rock" ? 0.86 : kind === "fish" ? 0.82 : 0.94;
       const labelOffset = kind === "rock" ? 34 : kind === "fish" ? 30 : 54;
-      const labelColor = kind === "rock" ? "#6b5238" : kind === "fish" ? "#1f6f9e" : "#2e7d32";
-      const labelBg = kind === "rock" ? "#ece3d6" : kind === "fish" ? "#d6eefc" : "#dcfce7";
+      const labelColor = kind === "rock" ? "#e6d6b8" : kind === "fish" ? "#a7dcff" : "#9be870";
 
       const sprite = this.add.sprite(x, y, texture);
       sprite.setOrigin(0.5, originY);
@@ -741,10 +729,8 @@ export class GameScene extends Phaser.Scene {
           fontSize: "11px",
           fontStyle: "bold",
           color: labelColor,
-          stroke: "#fff9f0",
-          strokeThickness: 4,
-          backgroundColor: labelBg,
-          padding: { x: 5, y: 2 },
+          stroke: "#2a1d12",
+          strokeThickness: 4.5,
         })
         .setOrigin(0.5, 1)
         .setDepth(851);
