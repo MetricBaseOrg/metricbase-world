@@ -329,13 +329,6 @@ export class GameScene extends Phaser.Scene {
     cam.stopFollow();
 
     if (local) {
-      for (const [sessionId, rendered] of this.renderedPlayers.entries()) {
-        if (rendered === local) {
-          this.localSessionId = sessionId;
-          break;
-        }
-      }
-
       this.centerCameraOn(local.sprite.x, local.sprite.y);
       return;
     }
@@ -959,22 +952,33 @@ export class GameScene extends Phaser.Scene {
   private startChopAnimation(playerName: string, resourceId: string, endsAt: number) {
     const resource = this.renderedResources.find((entry) => entry.id === resourceId);
     const durationMs = Math.max(0, endsAt - Date.now());
-    for (const [, rendered] of this.renderedPlayers) {
-      if (rendered.label.text !== playerName) continue;
-      const direction = resource
-        ? directionTowardTarget(
-            rendered.sprite.x,
-            rendered.sprite.y,
-            resource.worldX,
-            resource.worldY,
-            rendered.direction,
-          )
-        : rendered.direction;
-      this.setPlayerAction(rendered, "chop", direction, durationMs);
-      if (playerName === useGameStore.getState().playerName) {
-        this.localChoppingUntil = endsAt;
+
+    let rendered: RenderedPlayer | null = null;
+    if (this.localAvatar?.label.text === playerName) {
+      rendered = this.localAvatar;
+    } else {
+      for (const [, r] of this.renderedPlayers) {
+        if (r.label.text === playerName) {
+          rendered = r;
+          break;
+        }
       }
-      break;
+    }
+
+    if (!rendered) return;
+
+    const direction = resource
+      ? directionTowardTarget(
+          rendered.sprite.x,
+          rendered.sprite.y,
+          resource.worldX,
+          resource.worldY,
+          rendered.direction,
+        )
+      : rendered.direction;
+    this.setPlayerAction(rendered, "chop", direction, durationMs);
+    if (playerName === useGameStore.getState().playerName) {
+      this.localChoppingUntil = endsAt;
     }
   }
 
@@ -1153,11 +1157,7 @@ export class GameScene extends Phaser.Scene {
 
   private interpolateRemotePlayers() {
     const alpha = 0.25;
-    const localPlayer = this.findLocalPlayer();
-
     for (const [, rendered] of this.renderedPlayers) {
-      if (localPlayer !== null && rendered === localPlayer) continue;
-
       const x = Math.round(Phaser.Math.Linear(rendered.sprite.x, rendered.targetX, alpha));
       const y = Math.round(Phaser.Math.Linear(rendered.sprite.y, rendered.targetY, alpha));
       rendered.sprite.setPosition(x, y);
