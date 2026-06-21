@@ -64,6 +64,14 @@ export const ITEMS: Record<string, ItemDefinition> = {
     maxStack: 99,
     kind: "material",
   },
+  item_ore: {
+    id: "item_ore",
+    name: "Copper Ore",
+    description: "Chunks of raw copper from the rocks. Pip buys these for the forge.",
+    stackable: true,
+    maxStack: 99,
+    kind: "material",
+  },
   item_slime_gel: {
     id: "item_slime_gel",
     name: "Slime Gel",

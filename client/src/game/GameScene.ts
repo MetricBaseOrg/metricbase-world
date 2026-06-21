@@ -75,6 +75,7 @@ interface RenderedNpc {
 
 interface RenderedResource {
   id: string;
+  kind: "tree" | "rock";
   sprite: Phaser.GameObjects.Sprite;
   label: Phaser.GameObjects.Text;
   worldX: number;
@@ -112,7 +113,6 @@ export class GameScene extends Phaser.Scene {
   private lastFootstepAt = 0;
   private chopHitTimer: Phaser.Time.TimerEvent | null = null;
   private cameraFollowSprite: Phaser.GameObjects.Sprite | null = null;
-  private debugText: Phaser.GameObjects.Text | null = null;
 
   constructor() {
     super("GameScene");
@@ -129,17 +129,6 @@ export class GameScene extends Phaser.Scene {
     // Re-sync once layout has settled, in case the canvas mounted before the
     // container reached its final size.
     this.time.delayedCall(60, () => this.handleViewportResize());
-
-    this.debugText = this.add
-      .text(6, 170, "", {
-        fontFamily: "monospace",
-        fontSize: "13px",
-        color: "#101010",
-        backgroundColor: "rgba(255,255,255,0.85)",
-        padding: { x: 5, y: 4 },
-      })
-      .setScrollFactor(0)
-      .setDepth(100000);
 
     if (this.input.keyboard) {
       this.cursors = this.input.keyboard.createCursorKeys();
@@ -204,9 +193,10 @@ export class GameScene extends Phaser.Scene {
         chopDurationMs: payload.durationMs,
       });
       this.startChopAnimation(payload.playerName, payload.resourceId, payload.endsAt);
-      playSfx("chop_swing");
+      const isRock = this.resourceKind(payload.resourceId) === "rock";
+      playSfx(isRock ? "mine_hit" : "chop_swing");
       if (payload.playerName === useGameStore.getState().playerName) {
-        this.startLocalChopHits(payload.endsAt);
+        this.startLocalChopHits(payload.endsAt, isRock);
       }
     });
 
@@ -250,7 +240,7 @@ export class GameScene extends Phaser.Scene {
       if (isLocalChopper) {
         this.localChoppingUntil = 0;
         this.stopLocalChopHits();
-        playSfx("wood_gather");
+        playSfx(payload.skill === "mining" ? "ore_gather" : "wood_gather");
       }
       if (payload.depleted) {
         playSfx("chop_fell");
@@ -333,35 +323,6 @@ export class GameScene extends Phaser.Scene {
     this.applyKnockedOutVisuals();
     this.redrawActiveChopBars();
     this.updatePlayerAnimations();
-    this.updateDebugReadout();
-  }
-
-  private updateDebugReadout() {
-    if (!this.debugText) return;
-    const cam = this.cameras.main;
-    const local = this.findLocalPlayer();
-    const canvas = this.game.canvas;
-    const playerScreenX = local ? (local.sprite.x - cam.scrollX) * cam.zoom : 0;
-    const playerScreenY = local ? (local.sprite.y - cam.scrollY) * cam.zoom : 0;
-    const uiTyping = isUiTypingActive();
-    const knockedOut = useGameStore.getState().knockedOut;
-    const chopping = Date.now() < this.localChoppingUntil;
-    const ax = this.getAxisInput();
-    const ay = this.getAxisInputY();
-    this.debugText.setText(
-      [
-        `cam ${Math.round(cam.width)}x${Math.round(cam.height)} zoom ${cam.zoom}`,
-        `scroll ${Math.round(cam.scrollX)},${Math.round(cam.scrollY)} follow ${this.cameraFollowSprite ? "Y" : "N"}`,
-        `game ${Math.round(this.scale.gameSize.width)}x${Math.round(this.scale.gameSize.height)} disp ${Math.round(this.scale.displaySize.width)}x${Math.round(this.scale.displaySize.height)}`,
-        `canvas ${canvas.width}x${canvas.height} css ${canvas.clientWidth}x${canvas.clientHeight}`,
-        `win ${window.innerWidth}x${window.innerHeight} dpr ${window.devicePixelRatio}`,
-        `player world ${local ? `${Math.round(local.sprite.x)},${Math.round(local.sprite.y)}` : "NONE"}`,
-        `player screen ${Math.round(playerScreenX)},${Math.round(playerScreenY)}`,
-        `input ${ax},${ay} sent ${this.lastSentInput.dx},${this.lastSentInput.dy}`,
-        `blocked typing:${uiTyping ? 1 : 0} ko:${knockedOut ? 1 : 0} chop:${chopping ? 1 : 0}`,
-        `session ${networkManager.sessionId ?? "none"} conn ${networkManager.isConnected ? 1 : 0}`,
-      ].join("\n"),
-    );
   }
 
   private findLocalPlayer(): RenderedPlayer | null {
@@ -756,21 +717,22 @@ export class GameScene extends Phaser.Scene {
       const { x, y } = tileToWorld(resource.tileX, resource.tileY);
       const saved = networkManager.getResourceHealth(resource.id);
       const available = saved?.available ?? true;
+      const isRock = resource.kind === "rock";
 
-      const sprite = this.add.sprite(x, y, "tree");
-      sprite.setOrigin(0.5, 0.94);
+      const sprite = this.add.sprite(x, y, isRock ? "rock" : "tree");
+      sprite.setOrigin(0.5, isRock ? 0.86 : 0.94);
       sprite.setDepth(850);
       sprite.setAlpha(available ? 1 : 0.35);
 
       const label = this.add
-        .text(x, y - 54, resource.name, {
+        .text(x, y - (isRock ? 34 : 54), resource.name, {
           fontFamily: '"Fredoka", "Nunito", sans-serif',
           fontSize: "11px",
           fontStyle: "bold",
-          color: "#2e7d32",
+          color: isRock ? "#6b5238" : "#2e7d32",
           stroke: "#fff9f0",
           strokeThickness: 4,
-          backgroundColor: "#dcfce7",
+          backgroundColor: isRock ? "#ece3d6" : "#dcfce7",
           padding: { x: 5, y: 2 },
         })
         .setOrigin(0.5, 1)
@@ -781,6 +743,7 @@ export class GameScene extends Phaser.Scene {
 
       const rendered: RenderedResource = {
         id: resource.id,
+        kind: isRock ? "rock" : "tree",
         sprite,
         label,
         worldX: x,
@@ -1070,9 +1033,13 @@ export class GameScene extends Phaser.Scene {
     this.time.delayedCall(AVATAR_ACTION_DURATIONS_MS.fish - 250, () => playSfx("fish_catch"));
   }
 
-  private startLocalChopHits(endsAt: number) {
+  private resourceKind(resourceId: string): "tree" | "rock" {
+    return this.renderedResources.find((entry) => entry.id === resourceId)?.kind ?? "tree";
+  }
+
+  private startLocalChopHits(endsAt: number, isRock = false) {
     this.stopLocalChopHits();
-    // Rhythmic axe-impact thuds for the duration of the chop.
+    // Rhythmic impact sounds for the duration of the gather.
     this.chopHitTimer = this.time.addEvent({
       delay: 360,
       loop: true,
@@ -1081,7 +1048,7 @@ export class GameScene extends Phaser.Scene {
           this.stopLocalChopHits();
           return;
         }
-        playSfx("chop_hit");
+        playSfx(isRock ? "mine_hit" : "chop_hit");
       },
     });
   }

@@ -31,6 +31,7 @@ export class BootScene extends Phaser.Scene {
     this.createSlimeTexture();
     this.createBruteTexture();
     this.createTreeTexture();
+    this.createRockTexture();
   }
 
   create() {
@@ -409,6 +410,59 @@ export class BootScene extends Phaser.Scene {
     g.fillStyle(0xc0392b, 1).fillCircle(cx, feetY - 11, 1.2);
 
     g.generateTexture("dummy", 40, 54);
+    g.destroy();
+  }
+
+  private createRockTexture() {
+    const g = this.make.graphics({ x: 0, y: 0 });
+    const cx = 21;
+    const baseY = 34;
+
+    g.fillStyle(0x2a1d12, 0.22).fillEllipse(cx, baseY + 4, 30, 9);
+    // boulder body
+    g.fillStyle(0x8a8f98, 1);
+    g.beginPath();
+    g.moveTo(cx - 14, baseY);
+    g.lineTo(cx - 10, baseY - 14);
+    g.lineTo(cx - 2, baseY - 18);
+    g.lineTo(cx + 8, baseY - 15);
+    g.lineTo(cx + 14, baseY - 4);
+    g.lineTo(cx + 12, baseY);
+    g.closePath();
+    g.fillPath();
+    g.lineStyle(2, OUTLINE, 1);
+    g.beginPath();
+    g.moveTo(cx - 14, baseY);
+    g.lineTo(cx - 10, baseY - 14);
+    g.lineTo(cx - 2, baseY - 18);
+    g.lineTo(cx + 8, baseY - 15);
+    g.lineTo(cx + 14, baseY - 4);
+    g.lineTo(cx + 12, baseY);
+    g.closePath();
+    g.strokePath();
+    // top highlight facet
+    g.fillStyle(0xb6bcc4, 1);
+    g.beginPath();
+    g.moveTo(cx - 8, baseY - 12);
+    g.lineTo(cx - 1, baseY - 16);
+    g.lineTo(cx + 4, baseY - 11);
+    g.lineTo(cx - 3, baseY - 8);
+    g.closePath();
+    g.fillPath();
+    // shaded facet
+    g.fillStyle(0x6b7079, 1);
+    g.beginPath();
+    g.moveTo(cx + 4, baseY - 11);
+    g.lineTo(cx + 12, baseY - 4);
+    g.lineTo(cx + 10, baseY);
+    g.lineTo(cx + 2, baseY);
+    g.closePath();
+    g.fillPath();
+    // copper ore specks
+    g.fillStyle(0xd98c4a, 1).fillCircle(cx - 4, baseY - 6, 1.8).fillCircle(cx + 6, baseY - 8, 1.5);
+    g.fillStyle(0xf0a868, 1).fillCircle(cx - 4, baseY - 6.6, 0.7).fillCircle(cx + 6, baseY - 8.6, 0.6);
+
+    g.generateTexture("rock", 44, 44);
     g.destroy();
   }
 

@@ -1,4 +1,10 @@
-import { GAME_VERSION, getItemDefinition, woodcuttingXpProgress, xpProgress } from "@metricbase/shared";
+import {
+  GAME_VERSION,
+  getItemDefinition,
+  miningXpProgress,
+  woodcuttingXpProgress,
+  xpProgress,
+} from "@metricbase/shared";
 import { useState } from "react";
 import { isSoundEnabled, playSfx, setSoundEnabled } from "../audio/soundEffects";
 import { isMusicEnabled, setMusicEnabled } from "../audio/backgroundMusic";
@@ -32,9 +38,14 @@ export function HUD({ onLeave }: HUDProps) {
     questState,
     woodcuttingLevel,
     woodcuttingXp,
+    miningLevel,
+    miningXp,
   } = useGameStore();
   const progress = xpProgress(playerXp, playerLevel);
   const xpRatio = progress.required > 0 ? progress.current / progress.required : 0;
+  const miningProgress = miningXpProgress(miningXp, miningLevel);
+  const miningRatio =
+    miningProgress.required > 0 ? miningProgress.current / miningProgress.required : 0;
   const woodcuttingProgress = woodcuttingXpProgress(woodcuttingXp, woodcuttingLevel);
   const woodcuttingRatio =
     woodcuttingProgress.required > 0
@@ -113,6 +124,15 @@ export function HUD({ onLeave }: HUDProps) {
                 color="#43a047"
               />
               <span className="chibi-hud-gauge-caption">Wood</span>
+            </div>
+            <div className="chibi-hud-gauge-item">
+              <CircleGauge
+                value={miningRatio}
+                label={`${miningLevel}`}
+                title={`Mining ${miningProgress.current} / ${miningProgress.required} XP`}
+                color="#b0833a"
+              />
+              <span className="chibi-hud-gauge-caption">Mining</span>
             </div>
           </div>
 

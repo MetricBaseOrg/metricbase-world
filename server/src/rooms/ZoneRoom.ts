@@ -28,6 +28,10 @@ import {
   normalizeInventory,
   normalizeSkills,
   woodcuttingLevelFromXp,
+  miningLevelFromXp,
+  computeMineDurationMs,
+  type GatherSkill,
+  type ZoneResourceNode,
   MIN_TOKEN_UI_AMOUNT,
   PORTAL_TRIGGER_RANGE,
   levelFromXp,
@@ -1478,37 +1482,41 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       const chopper = chopperSession
         ? this.state.players.get(chopperSession)?.name
         : undefined;
+      const gatherSkill = this.gatherInfo(resource).skill;
       client.send("chopResult", {
         resourceId,
         available: false,
         depleted: true,
         skillXpGained: 0,
-        woodcuttingLevel: woodcuttingLevelFromXp(
-          (this.playerSkills.get(player.name) ?? normalizeSkills()).woodcutting,
-        ),
+        woodcuttingLevel: this.skillLevelFor(player.name, gatherSkill),
+        skill: gatherSkill,
+        skillLevel: this.skillLevelFor(player.name, gatherSkill),
         ok: false,
-        error: chopper ? `${chopper} is already chopping this tree.` : "This tree is unavailable.",
+        error: chopper
+          ? `${chopper} is already working this ${resource.name}.`
+          : `${resource.name} is unavailable.`,
       });
       return;
     }
 
-    const skills = this.playerSkills.get(player.name) ?? normalizeSkills();
-    const woodcuttingLevel = woodcuttingLevelFromXp(skills.woodcutting);
-    const requiredLevel = resource.woodcutting.requiredLevel ?? 1;
-    if (woodcuttingLevel < requiredLevel) {
+    const gather = this.gatherInfo(resource);
+    const skillLevel = this.skillLevelFor(player.name, gather.skill);
+    if (skillLevel < gather.requiredLevel) {
       client.send("chopResult", {
         resourceId,
         available: true,
         depleted: false,
         skillXpGained: 0,
-        woodcuttingLevel,
+        woodcuttingLevel: skillLevel,
+        skill: gather.skill,
+        skillLevel,
         ok: false,
-        error: `Woodcutting level ${requiredLevel} required.`,
+        error: `${gather.label} level ${gather.requiredLevel} required.`,
       });
       return;
     }
 
-    const durationMs = computeChopDurationMs(resource.woodcutting.treeLevel, woodcuttingLevel);
+    const durationMs = gather.durationMs(skillLevel);
     const startedAt = now;
     const endsAt = now + durationMs;
 
@@ -1598,22 +1606,19 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     player: InstanceType<typeof PlayerSchema>,
     now: number,
   ) {
+    const gather = this.gatherInfo(resource);
+
     this.activeChopSessions.delete(sessionId);
     this.resourceChopper.delete(session.resourceId);
-    this.resourceRespawnAt.set(session.resourceId, now + resource.woodcutting.respawnMs);
+    this.resourceRespawnAt.set(session.resourceId, now + gather.respawnMs);
 
     const client = this.clients.find((entry) => entry.sessionId === sessionId);
     if (client) {
-      await this.grantLoot(
-        client,
-        player.name,
-        resource.woodcutting.lootItemId,
-        resource.woodcutting.lootQuantity,
-      );
+      await this.grantLoot(client, player.name, gather.lootItemId, gather.lootQuantity);
     }
 
-    const skillXpGained = resource.woodcutting.skillXp;
-    const { newLevel, leveledUp } = this.grantWoodcuttingXp(player.name, skillXpGained);
+    const skillXpGained = gather.skillXp;
+    const { newLevel, leveledUp } = this.grantSkillXp(player.name, gather.skill, skillXpGained);
     if (client) {
       this.sendSkillState(client, player.name);
     }
@@ -1623,8 +1628,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         id: crypto.randomUUID(),
         channel: "system",
         senderId: "system",
-        senderName: "Woodcutting",
-        body: `${player.name} reached Woodcutting level ${newLevel}!`,
+        senderName: gather.label,
+        body: `${player.name} reached ${gather.label} level ${newLevel}!`,
         sentAt: now,
       });
       await this.persistPlayer(player);
@@ -1634,8 +1639,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       id: crypto.randomUUID(),
       channel: "system",
       senderId: "system",
-      senderName: "Woodcutting",
-      body: `${player.name} felled ${resource.name} (+${skillXpGained} Woodcutting XP).`,
+      senderName: gather.label,
+      body: `${player.name} ${gather.verb} ${resource.name} (+${skillXpGained} ${gather.label} XP).`,
       sentAt: now,
     });
 
@@ -1645,6 +1650,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       depleted: true,
       skillXpGained,
       woodcuttingLevel: newLevel,
+      skill: gather.skill,
+      skillLevel: newLevel,
       playerName: session.playerName,
       ok: true,
     });
@@ -1684,15 +1691,62 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     };
   }
 
-  private grantWoodcuttingXp(playerName: string, amount: number) {
-    const skills = this.playerSkills.get(playerName) ?? normalizeSkills();
-    const previousLevel = woodcuttingLevelFromXp(skills.woodcutting);
-    const updated = {
-      ...skills,
-      woodcutting: skills.woodcutting + amount,
+  /** Resolve the active gather skill + tuning for a resource node. */
+  private gatherInfo(resource: ZoneResourceNode) {
+    if (resource.kind === "rock" && resource.mining) {
+      const m = resource.mining;
+      return {
+        skill: "mining" as GatherSkill,
+        label: "Mining",
+        verb: "mined",
+        requiredLevel: m.requiredLevel ?? 1,
+        nodeLevel: m.rockLevel,
+        skillXp: m.skillXp,
+        respawnMs: m.respawnMs,
+        lootItemId: m.lootItemId,
+        lootQuantity: m.lootQuantity,
+        durationMs: (lvl: number) => computeMineDurationMs(m.rockLevel, lvl),
+      };
+    }
+    const w = resource.woodcutting ?? {
+      treeLevel: 1,
+      skillXp: 0,
+      respawnMs: 30_000,
+      lootItemId: "item_wood",
+      lootQuantity: 1,
     };
+    return {
+      skill: "woodcutting" as GatherSkill,
+      label: "Woodcutting",
+      verb: "felled",
+      requiredLevel: w.requiredLevel ?? 1,
+      nodeLevel: w.treeLevel,
+      skillXp: w.skillXp,
+      respawnMs: w.respawnMs,
+      lootItemId: w.lootItemId,
+      lootQuantity: w.lootQuantity,
+      durationMs: (lvl: number) => computeChopDurationMs(w.treeLevel, lvl),
+    };
+  }
+
+  private skillLevelFor(playerName: string, skill: GatherSkill): number {
+    const skills = this.playerSkills.get(playerName) ?? normalizeSkills();
+    return skill === "mining"
+      ? miningLevelFromXp(skills.mining)
+      : woodcuttingLevelFromXp(skills.woodcutting);
+  }
+
+  private grantWoodcuttingXp(playerName: string, amount: number) {
+    return this.grantSkillXp(playerName, "woodcutting", amount);
+  }
+
+  private grantSkillXp(playerName: string, skill: GatherSkill, amount: number) {
+    const skills = this.playerSkills.get(playerName) ?? normalizeSkills();
+    const levelFn = skill === "mining" ? miningLevelFromXp : woodcuttingLevelFromXp;
+    const previousLevel = levelFn(skills[skill]);
+    const updated = { ...skills, [skill]: skills[skill] + amount };
     this.playerSkills.set(playerName, updated);
-    const newLevel = woodcuttingLevelFromXp(updated.woodcutting);
+    const newLevel = levelFn(updated[skill]);
     return {
       updated,
       previousLevel,

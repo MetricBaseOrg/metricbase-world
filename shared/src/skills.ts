@@ -1,6 +1,8 @@
 export const SKILL_WOODCUTTING = "woodcutting";
+export const SKILL_MINING = "mining";
 
 export const CHOP_RANGE = 80;
+export const MINE_RANGE = 80;
 
 /** Base chop time per tree level (level-1 trees take 60 seconds at Woodcutting 1). */
 export const WOODCUTTING_CHOP_BASE_MS = 60_000;
@@ -22,6 +24,11 @@ export function computeChopDurationMs(treeLevel: number, woodcuttingLevel: numbe
   return Math.round(baseMs * multiplier);
 }
 
+/** Mining shares woodcutting's timing curve (rocks are tougher per level). */
+export function computeMineDurationMs(rockLevel: number, miningLevel: number): number {
+  return computeChopDurationMs(rockLevel, miningLevel);
+}
+
 /** Cumulative woodcutting XP required to reach each level (index = level - 1). */
 export const WOODCUTTING_LEVEL_XP_THRESHOLDS = [
   0, 50, 120, 220, 360, 550, 800, 1100, 1500, 2000, 2600,
@@ -29,6 +36,7 @@ export const WOODCUTTING_LEVEL_XP_THRESHOLDS = [
 
 export interface SkillXpMap {
   woodcutting: number;
+  mining: number;
 }
 
 export interface WoodcuttingSkillView {
@@ -36,12 +44,18 @@ export interface WoodcuttingSkillView {
   xp: number;
 }
 
+/** A generic level/xp view for any gathering skill. */
+export type SkillView = WoodcuttingSkillView;
+
 export interface SkillStatePayload {
   woodcutting: WoodcuttingSkillView;
+  /** Optional so older clients/payloads keep type-checking. */
+  mining?: SkillView;
 }
 
 export const EMPTY_SKILLS: SkillXpMap = {
   woodcutting: 0,
+  mining: 0,
 };
 
 export function woodcuttingLevelFromXp(xp: number): number {
@@ -68,25 +82,34 @@ export function woodcuttingXpProgress(
   };
 }
 
+/** Mining shares the woodcutting XP curve. */
+export const miningLevelFromXp = woodcuttingLevelFromXp;
+export const miningXpProgress = woodcuttingXpProgress;
+
+function normalizeXpValue(value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0 ? Math.floor(value) : 0;
+}
+
 export function normalizeSkills(raw?: Partial<SkillXpMap> | null): SkillXpMap {
   if (!raw || typeof raw !== "object") {
     return { ...EMPTY_SKILLS };
   }
 
-  const woodcutting =
-    typeof raw.woodcutting === "number" && Number.isFinite(raw.woodcutting) && raw.woodcutting >= 0
-      ? Math.floor(raw.woodcutting)
-      : 0;
-
-  return { woodcutting };
+  return {
+    woodcutting: normalizeXpValue(raw.woodcutting),
+    mining: normalizeXpValue(raw.mining),
+  };
 }
 
 export function buildSkillStatePayload(skills: SkillXpMap): SkillStatePayload {
-  const xp = skills.woodcutting;
   return {
     woodcutting: {
-      level: woodcuttingLevelFromXp(xp),
-      xp,
+      level: woodcuttingLevelFromXp(skills.woodcutting),
+      xp: skills.woodcutting,
+    },
+    mining: {
+      level: miningLevelFromXp(skills.mining),
+      xp: skills.mining,
     },
   };
 }

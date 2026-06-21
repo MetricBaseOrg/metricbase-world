@@ -7,13 +7,28 @@ export interface WoodcuttingConfig {
   lootQuantity: number;
 }
 
+export interface MiningConfig {
+  rockLevel: number;
+  requiredLevel?: number;
+  skillXp: number;
+  respawnMs: number;
+  lootItemId: string;
+  lootQuantity: number;
+}
+
+export type ResourceKind = "tree" | "rock";
+export type GatherSkill = "woodcutting" | "mining";
+
 export interface ZoneResourceNode {
   id: string;
   name: string;
   tileX: number;
   tileY: number;
-  kind: "tree";
-  woodcutting: WoodcuttingConfig;
+  kind: ResourceKind;
+  /** Present on tree nodes. */
+  woodcutting?: WoodcuttingConfig;
+  /** Present on rock nodes. */
+  mining?: MiningConfig;
 }
 
 export interface ResourceHealthPayload {
@@ -45,6 +60,10 @@ export interface ChopResultPayload {
   depleted: boolean;
   skillXpGained: number;
   woodcuttingLevel: number;
+  /** Which gathering skill this node trains. Defaults to woodcutting. */
+  skill?: GatherSkill;
+  /** Resulting level of the trained skill (mirrors woodcuttingLevel for rocks). */
+  skillLevel?: number;
   playerName?: string;
   ok?: boolean;
   error?: string;

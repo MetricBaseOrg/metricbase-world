@@ -33,7 +33,9 @@ export type SfxType =
   | "notify"
   | "equip"
   | "knockout"
-  | "wood_gather";
+  | "wood_gather"
+  | "mine_hit"
+  | "ore_gather";
 
 const MASTER_VOLUME = 0.32;
 const MUTE_STORAGE_KEY = "metricbase-sfx-muted";
@@ -247,6 +249,17 @@ export function playSfx(type: SfxType): void {
       playTone(ctx, masterGain, now, 240, "triangle", 0.05, 0.14);
       playTone(ctx, masterGain, now + 0.04, 180, "triangle", 0.07, 0.12);
       playNoiseBurst(ctx, masterGain, now, 0.04, 0.05);
+      break;
+    case "mine_hit":
+      // metallic pick-on-stone clink
+      playTone(ctx, masterGain, now, 1400, "square", 0.03, 0.08);
+      playTone(ctx, masterGain, now + 0.005, 320, "square", 0.05, 0.12);
+      playNoiseBurst(ctx, masterGain, now, 0.05, 0.09);
+      break;
+    case "ore_gather":
+      playTone(ctx, masterGain, now, 520, "square", 0.05, 0.12);
+      playTone(ctx, masterGain, now + 0.05, 392, "square", 0.08, 0.12);
+      playNoiseBurst(ctx, masterGain, now, 0.05, 0.06);
       break;
   }
 }
