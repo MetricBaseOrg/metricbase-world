@@ -1052,7 +1052,7 @@ export class GameScene extends Phaser.Scene {
         rendered.poseStartedAt = now;
       }
 
-      const frame = playAction === "walk" ? 0 : getAnimFrame(playAction, now - rendered.poseStartedAt);
+      const frame = getAnimFrame(playAction, now - rendered.poseStartedAt);
       const textureKey = getAvatarTextureKey(
         rendered.appearance,
         playDirection,

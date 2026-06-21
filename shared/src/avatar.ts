@@ -20,14 +20,14 @@ export const AVATAR_DIRECTIONS: AvatarDirection[] = [
 export const AVATAR_ACTIONS: AvatarAction[] = ["idle", "walk", "chop", "fish"];
 
 export const AVATAR_ACTION_FRAMES: Record<AvatarAction, number> = {
-  idle: 1,
+  idle: 2,
   walk: 4,
   chop: 3,
   fish: 4,
 };
 
 export const AVATAR_ACTION_FRAME_RATES: Record<AvatarAction, number> = {
-  idle: 3,
+  idle: 2,
   walk: 9,
   chop: 10,
   fish: 5,

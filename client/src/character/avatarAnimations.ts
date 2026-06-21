@@ -36,7 +36,7 @@ function ensureFrameTexture(
   try {
     const canvas = renderAvatarPoseCanvas(appearance, { direction, action, frame });
     scene.textures.addCanvas(key, canvas);
-    scene.textures.get(key).setFilter(Phaser.Textures.FilterMode.NEAREST);
+    scene.textures.get(key).setFilter(Phaser.Textures.FilterMode.LINEAR);
     return key;
   } catch (error) {
     console.warn("Avatar texture generation failed, using fallback sprite.", error);
