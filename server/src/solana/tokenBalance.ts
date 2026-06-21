@@ -72,3 +72,46 @@ export async function walletMeetsTokenGate(wallet: string): Promise<boolean> {
   const balance = await getWalletTokenBalance(wallet);
   return balance >= minUiAmount;
 }
+
+export interface TokenGateResult {
+  allowed: boolean;
+  reason: string;
+}
+
+// Wallets that recently cleared the gate, so transient RPC failures and
+// frequent re-joins (zone transfers) don't repeatedly hit the chain or, worse,
+// lock a valid holder out when an RPC call hiccups.
+const gatePassCache = new Map<string, number>();
+const GATE_PASS_TTL_MS = 10 * 60 * 1000;
+const GATE_FAILOPEN_TTL_MS = 60 * 1000;
+
+/**
+ * Decide whether a wallet may enter. A *confirmed* balance below the threshold
+ * is rejected; an RPC error (couldn't determine the balance) fails OPEN, since
+ * the caller already proved holdings to obtain their signed session token and
+ * locking everyone out on a flaky RPC is far worse than the rare stale check.
+ */
+export async function checkWalletTokenGate(wallet: string): Promise<TokenGateResult> {
+  const cachedUntil = gatePassCache.get(wallet);
+  if (cachedUntil && cachedUntil > Date.now()) {
+    return { allowed: true, reason: "cached" };
+  }
+
+  const minUiAmount = Number(process.env.MIN_TOKEN_UI_AMOUNT ?? MIN_TOKEN_UI_AMOUNT);
+
+  try {
+    const balance = await getWalletTokenBalance(wallet);
+    if (balance >= minUiAmount) {
+      gatePassCache.set(wallet, Date.now() + GATE_PASS_TTL_MS);
+      return { allowed: true, reason: `balance ${balance}` };
+    }
+    return { allowed: false, reason: `balance ${balance} < ${minUiAmount}` };
+  } catch (error) {
+    console.warn(
+      `[tokenGate] balance lookup failed for ${wallet}; allowing entry on valid session.`,
+      error,
+    );
+    gatePassCache.set(wallet, Date.now() + GATE_FAILOPEN_TTL_MS);
+    return { allowed: true, reason: "rpc-error-fail-open" };
+  }
+}

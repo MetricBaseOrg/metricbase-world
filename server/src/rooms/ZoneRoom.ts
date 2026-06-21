@@ -70,7 +70,7 @@ import {
   saveCharacter,
 } from "../db/characters.js";
 import { isWalkable } from "../map/collision.js";
-import { walletMeetsTokenGate } from "../solana/tokenBalance.js";
+import { checkWalletTokenGate } from "../solana/tokenBalance.js";
 import {
   acceptBidOrder,
   buildMarketState,
@@ -224,8 +224,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       throw new ServerError(403, "Connect your wallet and verify token holdings to play.");
     }
 
-    const meetsGate = await walletMeetsTokenGate(payload.wallet);
-    if (!meetsGate) {
+    const gate = await checkWalletTokenGate(payload.wallet);
+    if (!gate.allowed) {
       throw new ServerError(
         403,
         `You need at least ${process.env.MIN_TOKEN_UI_AMOUNT ?? MIN_TOKEN_UI_AMOUNT} MetricBase tokens to enter.`,
