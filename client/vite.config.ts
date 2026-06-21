@@ -9,6 +9,10 @@ export default defineConfig({
       "@metricbase/shared": path.resolve(__dirname, "../shared/src/index.ts"),
     },
   },
+  build: {
+    outDir: "../dist",
+    emptyOutDir: true,
+  },
   server: {
     port: 5173,
     proxy: {
