@@ -18,6 +18,8 @@ server on Railway, Neon PostgreSQL, Solana token gate/market.
   props/NPCs, procedural background music + a full SFX set.
 - **Everyday loop — Gather:** Woodcutting, Mining, Fishing (shared gather-session
   system; nodes, items, skill XP, HUD gauges, art, FX/SFX).
+- **Everyday loop — Farming:** tilled plots with a real-time growth cycle (plant
+  seed → grow → harvest crop + Farming XP), live growth bars, Wheat→Bread.
 - **Everyday loop — Craft:** workbench recipes (planks, copper bars, cooked fish,
   copper dagger) via the `C` / 🔨 Crafting panel.
 - **Everyday loop — Trade:** sell gathered/crafted mats to Pip; P2P gold market
@@ -30,9 +32,9 @@ server on Railway, Neon PostgreSQL, Solana token gate/market.
 
 ### Next (roadmap)
 
-- Farming (till/plant/grow/harvest — time-based growth cycle).
-- Deeper crafting tiers + tool/gear progression that boosts gather speed.
 - **Housing:** buy a land plot, place a house/shop, persistent ownership + build UI.
+- Deeper crafting tiers + tool/gear progression that boosts gather speed.
+- Persist farm-plot state to the DB (currently in-memory per room).
 - More zones, NPCs, and quests around the loop.
 
 ---
