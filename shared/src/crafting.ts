@@ -128,6 +128,33 @@ export const CRAFT_RECIPES: CraftRecipe[] = [
     output: { itemId: "item_iron_pickaxe", quantity: 1 },
     goldCost: 60,
   },
+  {
+    id: "craft_hardwood_plank",
+    name: "Hardwood Plank",
+    description: "Mill dense hardwood into a reinforced plank.",
+    inputs: [{ itemId: "item_hardwood", quantity: 2 }],
+    output: { itemId: "item_hardwood_plank", quantity: 1 },
+    goldCost: 4,
+  },
+  {
+    id: "craft_grilled_salmon",
+    name: "Grilled Salmon",
+    description: "Grill a prized salmon into a hearty meal (+60 HP).",
+    inputs: [{ itemId: "item_salmon", quantity: 1 }],
+    output: { itemId: "item_grilled_salmon", quantity: 1 },
+    goldCost: 2,
+  },
+  {
+    id: "craft_pro_rod",
+    name: "Angler's Pro Rod",
+    description: "Assemble a master rod from hardwood and iron. Reels in catches 50% faster.",
+    inputs: [
+      { itemId: "item_hardwood_plank", quantity: 2 },
+      { itemId: "item_iron_bar", quantity: 2 },
+    ],
+    output: { itemId: "item_pro_rod", quantity: 1 },
+    goldCost: 70,
+  },
 ];
 
 export function getRecipe(recipeId: string): CraftRecipe | undefined {

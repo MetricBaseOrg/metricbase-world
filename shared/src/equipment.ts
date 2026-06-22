@@ -20,6 +20,7 @@ export const ITEM_COPPER_PICKAXE = "item_copper_pickaxe";
 export const ITEM_FISHING_ROD = "item_fishing_rod";
 export const ITEM_IRON_AXE = "item_iron_axe";
 export const ITEM_IRON_PICKAXE = "item_iron_pickaxe";
+export const ITEM_PRO_ROD = "item_pro_rod";
 
 export interface ToolGatherBonus {
   /** Which gather skill this tool accelerates. */
@@ -35,6 +36,7 @@ export const TOOL_GATHER: Record<string, ToolGatherBonus> = {
   [ITEM_FISHING_ROD]: { skill: "fishing", speedMultiplier: 0.7 },
   [ITEM_IRON_AXE]: { skill: "woodcutting", speedMultiplier: 0.5 },
   [ITEM_IRON_PICKAXE]: { skill: "mining", speedMultiplier: 0.5 },
+  [ITEM_PRO_ROD]: { skill: "fishing", speedMultiplier: 0.5 },
 };
 
 /**

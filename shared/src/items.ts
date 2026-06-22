@@ -217,6 +217,46 @@ export const ITEMS: Record<string, ItemDefinition> = {
     maxStack: 1,
     kind: "tool",
   },
+  item_hardwood: {
+    id: "item_hardwood",
+    name: "Hardwood",
+    description: "Dense timber from an old hardwood tree. Mills into reinforced planks.",
+    stackable: true,
+    maxStack: 99,
+    kind: "material",
+  },
+  item_hardwood_plank: {
+    id: "item_hardwood_plank",
+    name: "Hardwood Plank",
+    description: "A reinforced plank. The backbone of master-tier gear.",
+    stackable: true,
+    maxStack: 99,
+    kind: "material",
+  },
+  item_salmon: {
+    id: "item_salmon",
+    name: "Prized Salmon",
+    description: "A prized catch from the deep pools. Grills into a hearty meal.",
+    stackable: true,
+    maxStack: 99,
+    kind: "material",
+  },
+  item_grilled_salmon: {
+    id: "item_grilled_salmon",
+    name: "Grilled Salmon",
+    description: "A rich, flaky fillet. Restores 60 HP when eaten.",
+    stackable: true,
+    maxStack: 20,
+    kind: "consumable",
+  },
+  item_pro_rod: {
+    id: "item_pro_rod",
+    name: "Angler's Pro Rod",
+    description: "A master angler's rod of hardwood and iron. Reels in catches 50% faster when equipped.",
+    stackable: false,
+    maxStack: 1,
+    kind: "tool",
+  },
 };
 
 /** HP restored by each consumable when used. */
@@ -224,6 +264,7 @@ export const CONSUMABLE_HEAL: Record<string, number> = {
   item_health_potion: 25,
   item_cooked_fish: 40,
   item_bread: 30,
+  item_grilled_salmon: 60,
 };
 
 export function getConsumableHeal(itemId: string): number {

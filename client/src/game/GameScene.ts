@@ -1013,10 +1013,14 @@ export class GameScene extends Phaser.Scene {
       // Fish ripples lie flat on the water; everything else sorts by position.
       sprite.setDepth(kind === "fish" ? y - 4 : y);
       sprite.setAlpha(available ? 1 : 0.35);
-      // Iron deposits read as a colder, steel-blue rock to distinguish them
-      // from the copper-toned starter rocks.
+      // Tier-2 nodes get a distinct tint so they read apart from starter nodes:
+      // steel-blue iron deposits, deep-green hardwoods, and rosy deep pools.
       if (kind === "rock" && resource.mining?.lootItemId === "item_iron_ore") {
         sprite.setTint(0x9fb6c8);
+      } else if (kind === "tree" && resource.woodcutting?.lootItemId === "item_hardwood") {
+        sprite.setTint(0x8aa55a);
+      } else if (kind === "fish" && resource.fishing?.lootItemId === "item_salmon") {
+        sprite.setTint(0xffb0c0);
       }
 
       const label = this.add
