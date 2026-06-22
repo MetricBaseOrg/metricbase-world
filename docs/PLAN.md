@@ -53,9 +53,10 @@ server on Railway, Neon PostgreSQL, Solana token gate/market.
 ### Next (roadmap)
 
 - Housing depth: customize/decorate interiors; shop signage/stalls.
-- ✅ Tool/gear progression that boosts gather speed (Copper Axe/Pickaxe/Fishing
-  Rod — equip into the tool slot for 30% faster gathering). Next: deeper crafting
-  tiers (iron/steel) and tools that also raise yield or unlock higher nodes.
+- ✅ Tool/gear progression that boosts gather speed — copper tools (30% faster)
+  and an **iron tier**: Iron Deposits (Mining 3) → Iron Ore → Iron Bars → Iron
+  Axe/Pickaxe (50% faster). Next: steel tier, tools that raise *yield*, and
+  higher-level tree/fish nodes to match iron mining.
 - Persist farm-plot state to the DB (currently in-memory per room).
 - More zones, NPCs, quests, and recipes around the loop.
 

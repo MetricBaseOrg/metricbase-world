@@ -98,6 +98,36 @@ export const CRAFT_RECIPES: CraftRecipe[] = [
     output: { itemId: "item_fishing_rod", quantity: 1 },
     goldCost: 25,
   },
+  {
+    id: "craft_iron_bar",
+    name: "Iron Bar",
+    description: "Smelt iron ore into a workable bar.",
+    inputs: [{ itemId: "item_iron_ore", quantity: 2 }],
+    output: { itemId: "item_iron_bar", quantity: 1 },
+    goldCost: 5,
+  },
+  {
+    id: "craft_iron_axe",
+    name: "Iron Axe",
+    description: "Forge a hardened axe. Chops trees 50% faster when equipped.",
+    inputs: [
+      { itemId: "item_plank", quantity: 2 },
+      { itemId: "item_iron_bar", quantity: 3 },
+    ],
+    output: { itemId: "item_iron_axe", quantity: 1 },
+    goldCost: 60,
+  },
+  {
+    id: "craft_iron_pickaxe",
+    name: "Iron Pickaxe",
+    description: "Forge a hardened pick. Mines rocks 50% faster when equipped.",
+    inputs: [
+      { itemId: "item_plank", quantity: 2 },
+      { itemId: "item_iron_bar", quantity: 3 },
+    ],
+    output: { itemId: "item_iron_pickaxe", quantity: 1 },
+    goldCost: 60,
+  },
 ];
 
 export function getRecipe(recipeId: string): CraftRecipe | undefined {

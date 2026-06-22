@@ -11,6 +11,7 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Iron tier** — Higher-level **Iron Deposits** (rock nodes) in the Wilderness require **Mining 3** and drop **Iron Ore**. Smelt it into **Iron Bars**, then forge an **Iron Axe** or **Iron Pickaxe** that gather **50% faster** (vs. 30% for copper tools). Pip buys iron ore (18g) and bars (30g). Iron deposits render with a cold steel-blue tint to stand apart from copper rocks.
 - **Tools & gather-speed progression** — Craft a **Copper Axe**, **Copper Pickaxe**, or **Sturdy Fishing Rod** (planks + copper bars at the workbench). Equip one into the new **tool slot** (separate from your weapon) to gather its matching resource **30% faster**. Tool choice persists with your character (JSONB `equipment`, no migration). Shown in the HUD (🛠️) and Inventory.
 - **Leaderboard** — 🏆 panel (top-centre) with top-10 by combat **Level**, **Richest** (gold), and total **Skills** (sum of gather levels). DB-backed, cached 60s, probe accounts filtered.
 - **Player-run shops** — Build a **Shop**, stock items from your inventory at your own prices; visitors buy (quantity / buy-all, server partial-fills). Sales accrue plot **earnings** the owner collects on a visit. Listings + earnings persisted as JSONB on `land_plots`.

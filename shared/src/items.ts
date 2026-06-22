@@ -185,6 +185,38 @@ export const ITEMS: Record<string, ItemDefinition> = {
     maxStack: 1,
     kind: "tool",
   },
+  item_iron_ore: {
+    id: "item_iron_ore",
+    name: "Iron Ore",
+    description: "Dense ore from a deep iron deposit. Smelt it into iron bars.",
+    stackable: true,
+    maxStack: 99,
+    kind: "material",
+  },
+  item_iron_bar: {
+    id: "item_iron_bar",
+    name: "Iron Bar",
+    description: "Smelted iron, ready to forge into hardier tools.",
+    stackable: true,
+    maxStack: 99,
+    kind: "material",
+  },
+  item_iron_axe: {
+    id: "item_iron_axe",
+    name: "Iron Axe",
+    description: "A hardened felling axe. Chops trees 50% faster when equipped.",
+    stackable: false,
+    maxStack: 1,
+    kind: "tool",
+  },
+  item_iron_pickaxe: {
+    id: "item_iron_pickaxe",
+    name: "Iron Pickaxe",
+    description: "A hardened mining pick. Mines rocks 50% faster when equipped.",
+    stackable: false,
+    maxStack: 1,
+    kind: "tool",
+  },
 };
 
 /** HP restored by each consumable when used. */

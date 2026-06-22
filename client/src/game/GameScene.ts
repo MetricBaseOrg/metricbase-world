@@ -1013,6 +1013,11 @@ export class GameScene extends Phaser.Scene {
       // Fish ripples lie flat on the water; everything else sorts by position.
       sprite.setDepth(kind === "fish" ? y - 4 : y);
       sprite.setAlpha(available ? 1 : 0.35);
+      // Iron deposits read as a colder, steel-blue rock to distinguish them
+      // from the copper-toned starter rocks.
+      if (kind === "rock" && resource.mining?.lootItemId === "item_iron_ore") {
+        sprite.setTint(0x9fb6c8);
+      }
 
       const label = this.add
         .text(x, y - labelOffset, resource.name, {
