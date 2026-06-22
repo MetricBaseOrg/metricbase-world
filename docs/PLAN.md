@@ -71,8 +71,11 @@ server on Railway, Neon PostgreSQL, Solana token gate/market.
   and an **iron tier**: Iron Deposits (Mining 3) → Iron Ore → Iron Bars → Iron
   Axe/Pickaxe (50% faster). All three gather skills now have a tier-2 node:
   Hardwood (Woodcutting 3) and Deep Pool salmon (Fishing 3), feeding Hardwood
-  Planks, Grilled Salmon, and the Angler's Pro Rod (50% faster fishing). Next:
-  steel tier and tools that raise *yield* (bonus loot) rather than just speed.
+  Planks, Grilled Salmon, and the Angler's Pro Rod (50% faster fishing).
+  ✅ Steel tier raises *yield*: Steel Bars (iron + hardwood) forge a Steel
+  Axe/Pickaxe and Trawler's Net — 50% faster *and* a 40% chance of a bonus drop
+  (`getToolYieldBonus`, rolled in `completeChop`). Next: rare/uncommon resource
+  drops and gear with combat stat rolls.
 - ✅ Persist farm-plot state to the DB (process-global `farm_plots` registry;
   crops keep growing across restarts).
 - More zones, NPCs, quests, and recipes around the loop.

@@ -64,6 +64,7 @@ export const SHOPS: Record<string, ShopDefinition> = {
       item_ore: 9,
       item_iron_ore: 18,
       item_iron_bar: 30,
+      item_steel_bar: 48,
       item_fish: 8,
       item_salmon: 16,
       item_wheat: 7,

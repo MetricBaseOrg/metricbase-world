@@ -21,12 +21,17 @@ export const ITEM_FISHING_ROD = "item_fishing_rod";
 export const ITEM_IRON_AXE = "item_iron_axe";
 export const ITEM_IRON_PICKAXE = "item_iron_pickaxe";
 export const ITEM_PRO_ROD = "item_pro_rod";
+export const ITEM_STEEL_AXE = "item_steel_axe";
+export const ITEM_STEEL_PICKAXE = "item_steel_pickaxe";
+export const ITEM_HARVEST_NET = "item_harvest_net";
 
 export interface ToolGatherBonus {
   /** Which gather skill this tool accelerates. */
   skill: GatherSkill;
   /** Multiplier applied to gather duration (0.7 = 30% faster). */
   speedMultiplier: number;
+  /** Chance (0–1) of yielding one bonus loot item per gather. Defaults to 0. */
+  yieldBonus?: number;
 }
 
 /** Equipped tools cut gather time for their matching skill. */
@@ -37,6 +42,10 @@ export const TOOL_GATHER: Record<string, ToolGatherBonus> = {
   [ITEM_IRON_AXE]: { skill: "woodcutting", speedMultiplier: 0.5 },
   [ITEM_IRON_PICKAXE]: { skill: "mining", speedMultiplier: 0.5 },
   [ITEM_PRO_ROD]: { skill: "fishing", speedMultiplier: 0.5 },
+  // Steel tier: same speed as iron, but a strong chance of a bonus drop.
+  [ITEM_STEEL_AXE]: { skill: "woodcutting", speedMultiplier: 0.5, yieldBonus: 0.4 },
+  [ITEM_STEEL_PICKAXE]: { skill: "mining", speedMultiplier: 0.5, yieldBonus: 0.4 },
+  [ITEM_HARVEST_NET]: { skill: "fishing", speedMultiplier: 0.5, yieldBonus: 0.4 },
 };
 
 /**
@@ -50,6 +59,19 @@ export function getToolSpeedMultiplier(
   if (!toolId) return 1;
   const bonus = TOOL_GATHER[toolId];
   return bonus && bonus.skill === skill ? bonus.speedMultiplier : 1;
+}
+
+/**
+ * Chance (0–1) the equipped tool yields one bonus loot item for `skill`.
+ * Returns 0 when no matching tool is equipped or the tool has no yield bonus.
+ */
+export function getToolYieldBonus(
+  toolId: string | null | undefined,
+  skill: GatherSkill,
+): number {
+  if (!toolId) return 0;
+  const bonus = TOOL_GATHER[toolId];
+  return bonus && bonus.skill === skill ? bonus.yieldBonus ?? 0 : 0;
 }
 
 export interface PlayerEquipment {

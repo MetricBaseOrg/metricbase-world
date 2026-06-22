@@ -67,6 +67,7 @@ import {
   isCollectObjectiveMet,
   normalizeEquipment,
   getToolSpeedMultiplier,
+  getToolYieldBonus,
   type PlayerEquipment,
   PLAYER_SPEED,
   POTION_HEAL_AMOUNT,
@@ -1983,9 +1984,15 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     this.resourceChopper.delete(session.resourceId);
     this.resourceRespawnAt.set(session.resourceId, now + gather.respawnMs);
 
+    // Steel-tier tools roll for a bonus drop on top of the node's base yield.
+    const toolId = this.playerEquipment.get(player.name)?.toolId;
+    const bonusYield =
+      Math.random() < getToolYieldBonus(toolId, gather.skill) ? 1 : 0;
+    const lootQuantity = gather.lootQuantity + bonusYield;
+
     const client = this.clients.find((entry) => entry.sessionId === sessionId);
     if (client) {
-      await this.grantLoot(client, player.name, gather.lootItemId, gather.lootQuantity);
+      await this.grantLoot(client, player.name, gather.lootItemId, lootQuantity);
     }
 
     const skillXpGained = gather.skillXp;
@@ -2011,7 +2018,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       channel: "system",
       senderId: "system",
       senderName: gather.label,
-      body: `${player.name} ${gather.verb} ${resource.name} (+${skillXpGained} ${gather.label} XP).`,
+      body: `${player.name} ${gather.verb} ${resource.name} (+${skillXpGained} ${gather.label} XP)${bonusYield > 0 ? " — bonus haul!" : ""}.`,
       sentAt: now,
     });
 

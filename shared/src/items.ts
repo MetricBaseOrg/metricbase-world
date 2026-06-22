@@ -257,6 +257,38 @@ export const ITEMS: Record<string, ItemDefinition> = {
     maxStack: 1,
     kind: "tool",
   },
+  item_steel_bar: {
+    id: "item_steel_bar",
+    name: "Steel Bar",
+    description: "Iron tempered with charred hardwood into tough steel. The core of master-tier tools.",
+    stackable: true,
+    maxStack: 99,
+    kind: "material",
+  },
+  item_steel_axe: {
+    id: "item_steel_axe",
+    name: "Steel Axe",
+    description: "A master felling axe. Chops 50% faster and often yields an extra log.",
+    stackable: false,
+    maxStack: 1,
+    kind: "tool",
+  },
+  item_steel_pickaxe: {
+    id: "item_steel_pickaxe",
+    name: "Steel Pickaxe",
+    description: "A master mining pick. Mines 50% faster and often yields an extra ore.",
+    stackable: false,
+    maxStack: 1,
+    kind: "tool",
+  },
+  item_harvest_net: {
+    id: "item_harvest_net",
+    name: "Trawler's Net",
+    description: "A weighted steel-rigged net. Reels in 50% faster and often lands an extra catch.",
+    stackable: false,
+    maxStack: 1,
+    kind: "tool",
+  },
 };
 
 /** HP restored by each consumable when used. */

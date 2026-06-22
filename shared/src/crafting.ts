@@ -155,6 +155,50 @@ export const CRAFT_RECIPES: CraftRecipe[] = [
     output: { itemId: "item_pro_rod", quantity: 1 },
     goldCost: 70,
   },
+  {
+    id: "craft_steel_bar",
+    name: "Steel Bar",
+    description: "Temper iron with charred hardwood into tough steel.",
+    inputs: [
+      { itemId: "item_iron_bar", quantity: 2 },
+      { itemId: "item_hardwood_plank", quantity: 1 },
+    ],
+    output: { itemId: "item_steel_bar", quantity: 1 },
+    goldCost: 8,
+  },
+  {
+    id: "craft_steel_axe",
+    name: "Steel Axe",
+    description: "Forge a master axe. Chops 50% faster and often yields a bonus log.",
+    inputs: [
+      { itemId: "item_hardwood_plank", quantity: 1 },
+      { itemId: "item_steel_bar", quantity: 3 },
+    ],
+    output: { itemId: "item_steel_axe", quantity: 1 },
+    goldCost: 110,
+  },
+  {
+    id: "craft_steel_pickaxe",
+    name: "Steel Pickaxe",
+    description: "Forge a master pick. Mines 50% faster and often yields a bonus ore.",
+    inputs: [
+      { itemId: "item_hardwood_plank", quantity: 1 },
+      { itemId: "item_steel_bar", quantity: 3 },
+    ],
+    output: { itemId: "item_steel_pickaxe", quantity: 1 },
+    goldCost: 110,
+  },
+  {
+    id: "craft_harvest_net",
+    name: "Trawler's Net",
+    description: "Rig a weighted steel net. Reels in 50% faster and often lands a bonus catch.",
+    inputs: [
+      { itemId: "item_hardwood_plank", quantity: 2 },
+      { itemId: "item_steel_bar", quantity: 3 },
+    ],
+    output: { itemId: "item_harvest_net", quantity: 1 },
+    goldCost: 120,
+  },
 ];
 
 export function getRecipe(recipeId: string): CraftRecipe | undefined {
