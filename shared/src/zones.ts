@@ -2,6 +2,7 @@ import type { NpcCombatConfig } from "./combat.js";
 import type { FarmPlotNode } from "./farming.js";
 import type { LandPlotNode } from "./housing.js";
 import type { ZoneResourceNode } from "./resources.js";
+import type { BillboardNode } from "./stats.js";
 
 export const ZONE_HUB = "zone_hub";
 export const ZONE_WILDERNESS = "zone_wilderness";
@@ -42,6 +43,7 @@ export interface ZoneConfig {
   resources?: ZoneResourceNode[];
   farmPlots?: FarmPlotNode[];
   landPlots?: LandPlotNode[];
+  billboards?: BillboardNode[];
 }
 
 export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
@@ -189,6 +191,7 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
       { id: "hub_land_2", tileX: 18, tileY: 17 },
       { id: "hub_land_3", tileX: 21, tileY: 18 },
     ],
+    billboards: [{ id: "hub_billboard", tileX: 12, tileY: 7 }],
   },
   [ZONE_WILDERNESS]: {
     id: ZONE_WILDERNESS,

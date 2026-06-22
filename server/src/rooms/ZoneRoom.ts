@@ -44,6 +44,7 @@ import {
   type GatherSkill,
   type FarmPlotState,
   type LandPlotState,
+  type WorldStatsPayload,
   type StructureType,
   type ZoneResourceNode,
   MIN_TOKEN_UI_AMOUNT,
@@ -89,6 +90,7 @@ import {
 } from "../db/characters.js";
 import { isWalkable } from "../map/collision.js";
 import { checkWalletTokenGate } from "../solana/tokenBalance.js";
+import { getCachedHolderCount } from "../solana/holderCount.js";
 import {
   acceptBidOrder,
   buildMarketState,
@@ -163,6 +165,11 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     }
 
     this.setSimulationInterval((deltaTime) => this.tick(deltaTime), 1000 / TICK_RATE);
+
+    // Push refreshed world stats (holder count may update in the background).
+    this.clock.setInterval(() => {
+      if (this.state.players.size > 0) this.broadcast("worldStats", this.buildWorldStats());
+    }, 60_000);
 
     this.onMessage("input", (client, message: PendingInput) => {
       this.inputs.set(client.sessionId, {
@@ -384,6 +391,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     this.sendSkillState(client, player.name);
     client.send("farmState", this.buildFarmState());
     client.send("housingState", this.buildHousingState());
+    this.broadcast("worldStats", this.buildWorldStats());
 
     this.broadcastChat({
       id: crypto.randomUUID(),
@@ -434,6 +442,11 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     this.attackCooldowns.delete(client.sessionId);
     this.cancelChopSession(client.sessionId, "left");
     this.transferring.delete(client.sessionId);
+    this.broadcast("worldStats", this.buildWorldStats());
+  }
+
+  private buildWorldStats(): WorldStatsPayload {
+    return { baseHolders: getCachedHolderCount(), online: this.state.players.size };
   }
 
   private tick(deltaTime: number) {

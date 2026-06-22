@@ -132,6 +132,9 @@ export class GameScene extends Phaser.Scene {
   private renderedResources: RenderedResource[] = [];
   private renderedFarmPlots = new Map<string, RenderedFarmPlot>();
   private renderedLandPlots = new Map<string, RenderedLandPlot>();
+  private billboardTexts: Phaser.GameObjects.GameObject[] = [];
+  private billboardHoldersText: Phaser.GameObjects.Text | null = null;
+  private billboardOnlineText: Phaser.GameObjects.Text | null = null;
   private interactKey: Phaser.Input.Keyboard.Key | null = null;
   private attackKey: Phaser.Input.Keyboard.Key | null = null;
   private chopKey: Phaser.Input.Keyboard.Key | null = null;
@@ -219,6 +222,10 @@ export class GameScene extends Phaser.Scene {
     const unsubscribeEmote = networkManager.onEmote((payload) => {
       const emote = getEmote(payload.emoteId);
       if (emote) this.showEmote(payload.playerName, emote.emoji);
+    });
+
+    const unsubscribeWorldStats = networkManager.onWorldStats((payload) => {
+      this.applyWorldStats(payload);
     });
 
     const unsubscribeFarmResult = networkManager.onFarmResult((payload) => {
@@ -325,12 +332,14 @@ export class GameScene extends Phaser.Scene {
       unsubscribeFarmResult();
       unsubscribeHousingState();
       unsubscribeEmote();
+      unsubscribeWorldStats();
       this.stopLocalChopHits();
       this.clearMap();
       this.clearNpcs();
       this.clearResources();
       this.clearFarmPlots();
       this.clearLandPlots();
+      this.clearBillboards();
       this.destroyLocalAvatar();
       this.renderedPlayers.forEach((entry) => {
         entry.sprite.destroy();
@@ -635,6 +644,7 @@ export class GameScene extends Phaser.Scene {
     this.clearResources();
     this.clearFarmPlots();
     this.clearLandPlots();
+    this.clearBillboards();
 
     const ground = buildZoneMap(zoneId);
 
@@ -658,6 +668,81 @@ export class GameScene extends Phaser.Scene {
     this.renderResources(zoneId);
     this.renderFarmPlots(zoneId);
     this.renderLandPlots(zoneId);
+    this.renderBillboards(zoneId);
+  }
+
+  private renderBillboards(zoneId: string) {
+    const config = getZoneConfig(zoneId);
+    for (const node of config.billboards ?? []) {
+      const { x, y } = tileToWorld(node.tileX, node.tileY);
+      const sprite = this.add.sprite(x, y, "billboard").setOrigin(0.5, 0.92).setDepth(815);
+      const top = y - 124 * 0.92;
+      const header = this.add
+        .text(x, top + 24, "METRICBASE WORLD", {
+          fontFamily: '"Fredoka", "Nunito", sans-serif',
+          fontSize: "11px",
+          fontStyle: "bold",
+          color: "#ffffff",
+          stroke: "#23456e",
+          strokeThickness: 3,
+        })
+        .setOrigin(0.5)
+        .setDepth(816);
+      const holdersLabel = this.add
+        .text(x, top + 44, "$BASE HOLDERS", {
+          fontFamily: '"Fredoka", "Nunito", sans-serif',
+          fontSize: "9px",
+          fontStyle: "bold",
+          color: "#8a6d3b",
+        })
+        .setOrigin(0.5)
+        .setDepth(816);
+      const holdersValue = this.add
+        .text(x, top + 56, "—", {
+          fontFamily: '"Fredoka", "Nunito", sans-serif',
+          fontSize: "15px",
+          fontStyle: "bold",
+          color: "#2a1d12",
+        })
+        .setOrigin(0.5)
+        .setDepth(816);
+      const onlineLabel = this.add
+        .text(x, top + 72, "PLAYERS ONLINE", {
+          fontFamily: '"Fredoka", "Nunito", sans-serif',
+          fontSize: "9px",
+          fontStyle: "bold",
+          color: "#3f7a4a",
+        })
+        .setOrigin(0.5)
+        .setDepth(816);
+      const onlineValue = this.add
+        .text(x, top + 84, "—", {
+          fontFamily: '"Fredoka", "Nunito", sans-serif',
+          fontSize: "15px",
+          fontStyle: "bold",
+          color: "#2a1d12",
+        })
+        .setOrigin(0.5)
+        .setDepth(816);
+      this.billboardHoldersText = holdersValue;
+      this.billboardOnlineText = onlineValue;
+      this.billboardTexts.push(sprite, header, holdersLabel, holdersValue, onlineLabel, onlineValue);
+    }
+    this.applyWorldStats(networkManager.getWorldStats());
+  }
+
+  private clearBillboards() {
+    for (const obj of this.billboardTexts) obj.destroy();
+    this.billboardTexts = [];
+    this.billboardHoldersText = null;
+    this.billboardOnlineText = null;
+  }
+
+  private applyWorldStats(payload: { baseHolders: number | null; online: number }) {
+    this.billboardHoldersText?.setText(
+      payload.baseHolders === null ? "—" : payload.baseHolders.toLocaleString(),
+    );
+    this.billboardOnlineText?.setText(payload.online.toLocaleString());
   }
 
   private renderFarmPlots(zoneId: string) {

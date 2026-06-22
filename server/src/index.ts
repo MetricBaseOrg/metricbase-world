@@ -10,6 +10,7 @@ import { tokenShopRouter } from "./api/tokenShop.js";
 import { initDatabase } from "./db/pool.js";
 import { initSellPressure } from "./market/sellPressure.js";
 import { initLandRegistry } from "./housing/landRegistry.js";
+import { getBaseHolderCount } from "./solana/holderCount.js";
 import { ZoneRoom } from "./rooms/ZoneRoom.js";
 
 const PORT = Number(process.env.PORT ?? 2567);
@@ -20,7 +21,14 @@ app.use(cors({ origin: true }));
 app.use(express.json());
 
 app.get("/health", (_req, res) => {
-  res.json({ status: "ok", version: "0.7.0", farming: true, housing: true, emotes: true });
+  res.json({
+    status: "ok",
+    version: "0.8.0",
+    farming: true,
+    housing: true,
+    emotes: true,
+    billboard: true,
+  });
 });
 
 app.use("/api", authRouter);
@@ -40,6 +48,10 @@ gameServer.define(ZONE_GROTTO, ZoneRoom, { zoneId: ZONE_GROTTO });
 await initDatabase();
 await initSellPressure();
 await initLandRegistry();
+
+// Warm + periodically refresh the live $BASE holder count for the billboard.
+void getBaseHolderCount();
+setInterval(() => void getBaseHolderCount(), 5 * 60 * 1000).unref();
 
 httpServer.listen(PORT, () => {
   console.log(`MetricBase game server listening on ws://localhost:${PORT}`);

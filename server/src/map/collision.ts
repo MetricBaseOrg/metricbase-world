@@ -1,8 +1,10 @@
 import {
   buildZoneMap,
+  getZoneConfig,
   isBlockingTile,
   MAP_HEIGHT,
   MAP_WIDTH,
+  TILE_WALL,
   worldToTile,
 } from "@metricbase/shared";
 
@@ -13,6 +15,21 @@ function getCollisionGrid(zoneId: string): number[][] {
   if (cached) return cached;
 
   const map = buildZoneMap(zoneId);
+
+  // Buildings occupy a solid 3x3 footprint centred on their plot tile, so
+  // players can't walk through a house or shop (or onto a reserved plot).
+  for (const plot of getZoneConfig(zoneId).landPlots ?? []) {
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        const x = plot.tileX + dx;
+        const y = plot.tileY + dy;
+        if (x >= 0 && y >= 0 && x < MAP_WIDTH && y < MAP_HEIGHT) {
+          map[y][x] = TILE_WALL;
+        }
+      }
+    }
+  }
+
   collisionCache.set(zoneId, map);
   return map;
 }

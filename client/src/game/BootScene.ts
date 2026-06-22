@@ -35,6 +35,7 @@ export class BootScene extends Phaser.Scene {
     this.createFishSpotTexture();
     this.createFarmPlotTextures();
     this.createHousingTextures();
+    this.createBillboardTexture();
   }
 
   create() {
@@ -742,6 +743,37 @@ export class BootScene extends Phaser.Scene {
     g.fillStyle(0x4caf50, 1).fillRoundedRect(cx - 15, baseY - 52, 30, 4, 1.5);
     g.fillStyle(0x4caf50, 1).fillRoundedRect(cx - 15, baseY - 45, 20, 4, 1.5);
     g.generateTexture("plot_marker", W, H);
+    g.destroy();
+  }
+
+  private createBillboardTexture() {
+    // A community noticeboard. Live numbers are drawn as text on top in-scene;
+    // this is just the wooden frame + header banner.
+    const W = 150;
+    const H = 124;
+    const cx = W / 2;
+    const g = this.make.graphics({ x: 0, y: 0 });
+
+    g.fillStyle(0x2a1d12, 0.2).fillEllipse(cx, H - 4, 96, 12);
+    // posts
+    for (const px of [cx - 42, cx + 34]) {
+      g.fillStyle(0x8a5a33, 1).fillRoundedRect(px, 56, 8, 62, 2);
+      g.lineStyle(2, OUTLINE, 1).strokeRoundedRect(px, 56, 8, 62, 2);
+    }
+    // board
+    g.fillStyle(0xf6ecd6, 1).fillRoundedRect(8, 6, W - 16, 86, 9);
+    g.lineStyle(3, OUTLINE, 1).strokeRoundedRect(8, 6, W - 16, 86, 9);
+    // header banner
+    g.fillStyle(0x4f8cff, 1).fillRoundedRect(14, 12, W - 28, 24, 6);
+    g.lineStyle(2, OUTLINE, 1).strokeRoundedRect(14, 12, W - 28, 24, 6);
+    // a faint divider between the two stats
+    g.lineStyle(1.5, 0xd8c39a, 1);
+    g.beginPath();
+    g.moveTo(18, 64);
+    g.lineTo(W - 18, 64);
+    g.strokePath();
+
+    g.generateTexture("billboard", W, H);
     g.destroy();
   }
 

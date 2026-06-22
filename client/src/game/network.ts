@@ -16,6 +16,7 @@ import {
   HousingStatePayload,
   HousingResultPayload,
   EmotePayload,
+  WorldStatsPayload,
   MobHealthPayload,
   normalizeCharacterAppearance,
   PlayerDamagePayload,
@@ -64,6 +65,7 @@ type FarmResultListener = (payload: FarmResultPayload) => void;
 type HousingStateListener = (payload: HousingStatePayload) => void;
 type HousingResultListener = (payload: HousingResultPayload) => void;
 type EmoteListener = (payload: EmotePayload) => void;
+type WorldStatsListener = (payload: WorldStatsPayload) => void;
 type ShopOpenListener = (payload: ShopOpenPayload) => void;
 type ShopResultListener = (payload: ShopResultPayload) => void;
 type MarketResultListener = (payload: MarketResultPayload) => void;
@@ -103,6 +105,8 @@ export class NetworkManager {
   private housingResultListeners = new Set<HousingResultListener>();
   private latestHousingState: HousingStatePayload = { plots: [] };
   private emoteListeners = new Set<EmoteListener>();
+  private worldStatsListeners = new Set<WorldStatsListener>();
+  private latestWorldStats: WorldStatsPayload = { baseHolders: null, online: 0 };
   private shopOpenListeners = new Set<ShopOpenListener>();
   private shopResultListeners = new Set<ShopResultListener>();
   private marketResultListeners = new Set<MarketResultListener>();
@@ -505,6 +509,15 @@ export class NetworkManager {
     return () => this.emoteListeners.delete(listener);
   }
 
+  onWorldStats(listener: WorldStatsListener) {
+    this.worldStatsListeners.add(listener);
+    return () => this.worldStatsListeners.delete(listener);
+  }
+
+  getWorldStats(): WorldStatsPayload {
+    return this.latestWorldStats;
+  }
+
   onShopOpen(listener: ShopOpenListener) {
     this.shopOpenListeners.add(listener);
     return () => this.shopOpenListeners.delete(listener);
@@ -738,6 +751,12 @@ export class NetworkManager {
     });
     this.room.onMessage("emote", (payload: EmotePayload) => {
       for (const listener of this.emoteListeners) {
+        listener(payload);
+      }
+    });
+    this.room.onMessage("worldStats", (payload: WorldStatsPayload) => {
+      this.latestWorldStats = payload;
+      for (const listener of this.worldStatsListeners) {
         listener(payload);
       }
     });
