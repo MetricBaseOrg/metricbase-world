@@ -26,6 +26,7 @@ export function PlayerShopPanel() {
   const [stockItem, setStockItem] = useState("");
   const [stockQty, setStockQty] = useState(1);
   const [stockPrice, setStockPrice] = useState(10);
+  const [buyQty, setBuyQty] = useState<Record<string, number>>({});
 
   useEffect(() => {
     if (!open) return;
@@ -111,15 +112,46 @@ export function PlayerShopPanel() {
                 Take back
               </button>
             ) : (
-              <button
-                type="button"
-                className="chibi-btn chibi-btn--primary"
-                style={{ padding: "6px 10px", fontSize: "0.78rem" }}
-                disabled={playerGold < listing.price}
-                onClick={() => networkManager.sendShopBuyListing(plotId, listing.itemId, 1)}
-              >
-                Buy 🪙{listing.price}
-              </button>
+              (() => {
+                const qty = Math.min(Math.max(1, buyQty[listing.itemId] ?? 1), listing.quantity);
+                return (
+                  <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                    <input
+                      type="number"
+                      min={1}
+                      max={listing.quantity}
+                      value={qty}
+                      onChange={(e) =>
+                        setBuyQty((m) => ({ ...m, [listing.itemId]: Number(e.target.value) || 1 }))
+                      }
+                      className="chibi-input"
+                      style={{ width: 44, padding: "4px 6px" }}
+                      aria-label="Quantity to buy"
+                    />
+                    <button
+                      type="button"
+                      className="chibi-btn chibi-btn--primary"
+                      style={{ padding: "6px 8px", fontSize: "0.76rem" }}
+                      disabled={playerGold < listing.price}
+                      onClick={() => networkManager.sendShopBuyListing(plotId, listing.itemId, qty)}
+                    >
+                      Buy 🪙{qty * listing.price}
+                    </button>
+                    <button
+                      type="button"
+                      className="chibi-btn chibi-btn--ghost"
+                      style={{ padding: "6px 8px", fontSize: "0.72rem" }}
+                      disabled={playerGold < listing.price}
+                      onClick={() =>
+                        networkManager.sendShopBuyListing(plotId, listing.itemId, listing.quantity)
+                      }
+                      title="Buy as many as you can afford"
+                    >
+                      All
+                    </button>
+                  </div>
+                );
+              })()
             )}
           </div>
         ))}

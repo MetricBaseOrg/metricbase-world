@@ -8,7 +8,7 @@ const MEDALS = ["🥇", "🥈", "🥉"];
 
 export function LeaderboardPanel() {
   const [open, setOpen] = useState(false);
-  const [tab, setTab] = useState<"level" | "gold">("level");
+  const [tab, setTab] = useState<"level" | "gold" | "skill">("level");
   const [data, setData] = useState<LeaderboardPayload | null>(null);
   const playerName = useGameStore((s) => s.playerName);
 
@@ -23,7 +23,8 @@ export function LeaderboardPanel() {
     };
   }, [open]);
 
-  const rows: LeaderboardEntry[] = (tab === "level" ? data?.topLevel : data?.topGold) ?? [];
+  const rows: LeaderboardEntry[] =
+    (tab === "level" ? data?.topLevel : tab === "gold" ? data?.topGold : data?.topSkill) ?? [];
 
   return (
     <div className="chibi-leaderboard">
@@ -58,6 +59,14 @@ export function LeaderboardPanel() {
             >
               Richest
             </button>
+            <button
+              type="button"
+              className={`chibi-btn ${tab === "skill" ? "chibi-btn--primary" : "chibi-btn--ghost"}`}
+              style={{ flex: 1, padding: "4px 6px", fontSize: "0.72rem" }}
+              onClick={() => setTab("skill")}
+            >
+              Skills
+            </button>
           </div>
           {rows.length === 0 && (
             <div className="chibi-text-muted" style={{ fontSize: "0.76rem", textAlign: "center", padding: "6px 0" }}>
@@ -75,7 +84,11 @@ export function LeaderboardPanel() {
                 {entry.name}
               </span>
               <span className="chibi-who-lvl">
-                {tab === "level" ? `Lv ${entry.level}` : `🪙 ${entry.gold.toLocaleString()}`}
+                {tab === "level"
+                  ? `Lv ${entry.level}`
+                  : tab === "gold"
+                    ? `🪙 ${entry.gold.toLocaleString()}`
+                    : `⛏️ ${entry.skill ?? 0}`}
               </span>
             </div>
           ))}

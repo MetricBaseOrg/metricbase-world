@@ -5,9 +5,12 @@ export interface LeaderboardEntry {
   name: string;
   level: number;
   gold: number;
+  /** Total gathering-skill level (only set on the skill board). */
+  skill?: number;
 }
 
 export interface LeaderboardPayload {
   topLevel: LeaderboardEntry[];
   topGold: LeaderboardEntry[];
+  topSkill: LeaderboardEntry[];
 }

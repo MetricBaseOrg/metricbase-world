@@ -105,6 +105,16 @@ export const fishingXpProgress = woodcuttingXpProgress;
 export const farmingLevelFromXp = woodcuttingLevelFromXp;
 export const farmingXpProgress = woodcuttingXpProgress;
 
+/** Sum of every gathering skill level — used for the skill leaderboard. */
+export function totalSkillLevel(skills: SkillXpMap): number {
+  return (
+    woodcuttingLevelFromXp(skills.woodcutting) +
+    miningLevelFromXp(skills.mining) +
+    fishingLevelFromXp(skills.fishing) +
+    farmingLevelFromXp(skills.farming)
+  );
+}
+
 function normalizeXpValue(value: unknown): number {
   return typeof value === "number" && Number.isFinite(value) && value >= 0 ? Math.floor(value) : 0;
 }
