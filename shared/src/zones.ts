@@ -7,6 +7,7 @@ import type { BillboardNode } from "./stats.js";
 export const ZONE_HUB = "zone_hub";
 export const ZONE_WILDERNESS = "zone_wilderness";
 export const ZONE_GROTTO = "zone_grotto";
+export const ZONE_INTERIOR = "zone_interior";
 
 export const MAX_PLAYERS_PER_ZONE = 20;
 
@@ -58,6 +59,12 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
         tileY: 12,
         targetZone: ZONE_WILDERNESS,
         label: "Wilderness Gate",
+      },
+      {
+        tileX: 9,
+        tileY: 8,
+        targetZone: ZONE_INTERIOR,
+        label: "Community Lodge",
       },
     ],
     npcs: [
@@ -434,6 +441,30 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
         tileY: 16,
         dialogue: "GLORP! A massive slime blocks the cavern.",
         combat: { maxHp: 150, rewardXp: 55, respawnMs: 20_000 },
+      },
+    ],
+  },
+  [ZONE_INTERIOR]: {
+    id: ZONE_INTERIOR,
+    roomName: ZONE_INTERIOR,
+    displayName: "Community Lodge",
+    spawnTile: { x: 11, y: 9 },
+    portals: [
+      {
+        tileX: 11,
+        tileY: 15,
+        targetZone: ZONE_HUB,
+        label: "Lodge Exit",
+      },
+    ],
+    npcs: [
+      {
+        id: "lodge_keeper",
+        name: "Hearth",
+        tileX: 11,
+        tileY: 7,
+        dialogue:
+          "Welcome to the Community Lodge — a warm indoor place to gather with other adventurers. Step on the rug by the south door to head back out.",
       },
     ],
   },

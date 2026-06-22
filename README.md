@@ -128,6 +128,7 @@ shared/   Zone maps, protocol types
 - [x] Housing depth — repaint your house/shop roof (6 colors, persisted)
 - [x] Housing depth — name your building (custom shop sign, persisted)
 - [x] Housing depth — decorate your plot corners with props (persisted)
+- [x] Walk-in interiors — shared networked Community Lodge zone (enter from the hub)
 - [x] Merchant shop (Pip) and soft currency (gold)
 - [x] Peer-to-peer gold market (MetricBase SPL)
 - [x] Knockout respawn (100g or 30 min wait)

@@ -75,6 +75,22 @@ export function buildHubMap(): GroundLayer {
 
   // Gate to the Wilderness.
   stampPortal(layer, 20, 12);
+  // Doorway into the Community Lodge interior (NW of the plaza).
+  stampPortal(layer, 9, 8);
+
+  return layer;
+}
+
+export function buildInteriorMap(): GroundLayer {
+  // Everything is solid wall except a carved-out stone-floored room, so the
+  // player is enclosed indoors.
+  const layer = createEmptyLayer();
+  fillRect(layer, 0, 0, MAP_WIDTH - 1, MAP_HEIGHT - 1, TILE_WALL);
+  // Cosy room floor.
+  fillRect(layer, 7, 6, 16, 15, TILE_STONE);
+  // Exit doormat near the south wall (well clear of the spawn so you don't
+  // immediately bounce back out).
+  stampPortal(layer, 11, 15);
 
   return layer;
 }
@@ -125,6 +141,7 @@ export const ZONE_MAP_BUILDERS: Record<string, () => GroundLayer> = {
   zone_hub: buildHubMap,
   zone_wilderness: buildWildernessMap,
   zone_grotto: buildGrottoMap,
+  zone_interior: buildInteriorMap,
 };
 
 export function buildZoneMap(zoneId: string): GroundLayer {

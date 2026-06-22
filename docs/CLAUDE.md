@@ -51,7 +51,7 @@ Browser
 
 ### Server
 
-`server/src/rooms/ZoneRoom.ts` is the core. One `ZoneRoom` instance per active zone (hub, wilderness, grotto). It:
+`server/src/rooms/ZoneRoom.ts` is the core. One `ZoneRoom` instance per active zone (hub, wilderness, grotto, interior lodge). It:
 - Runs an authoritative tick loop at `TICK_RATE` (defined in shared)
 - Handles messages: `input`, `chat`, `interact`, `attack`, `chop` (gather any resource node), `farmInteract`, `useItem`, `equipItem`, `craft`, `shopBuy`, `shopSell`, `marketPlace/Cancel/FillAsk/AcceptBid/PayBid/Refresh`, `housingBuy`, `shopStock`/`shopUnstock`/`shopBuyListing`/`shopCollect` (player-run shops), `emote`, `requestLeaderboard`, `linkWallet`, `requestRespawn`. Broadcasts `worldStats` (holder count + online) on join/leave + each minute.
 - Persists characters to PostgreSQL on leave, portal transfer, and after significant events

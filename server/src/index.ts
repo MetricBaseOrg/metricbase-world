@@ -1,6 +1,6 @@
 import { Server } from "@colyseus/core";
 import { WebSocketTransport } from "@colyseus/ws-transport";
-import { ZONE_GROTTO, ZONE_HUB, ZONE_WILDERNESS } from "@metricbase/shared";
+import { ZONE_GROTTO, ZONE_HUB, ZONE_INTERIOR, ZONE_WILDERNESS } from "@metricbase/shared";
 import cors from "cors";
 import express from "express";
 import { createServer } from "node:http";
@@ -45,6 +45,7 @@ const gameServer = new Server({
 gameServer.define(ZONE_HUB, ZoneRoom, { zoneId: ZONE_HUB });
 gameServer.define(ZONE_WILDERNESS, ZoneRoom, { zoneId: ZONE_WILDERNESS });
 gameServer.define(ZONE_GROTTO, ZoneRoom, { zoneId: ZONE_GROTTO });
+gameServer.define(ZONE_INTERIOR, ZoneRoom, { zoneId: ZONE_INTERIOR });
 
 await initDatabase();
 await initSellPressure();
