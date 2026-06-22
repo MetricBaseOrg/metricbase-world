@@ -638,6 +638,20 @@ export class BootScene extends Phaser.Scene {
       g.strokePath();
     };
 
+    // Window panes: a cross of mullions across a window quad [bl, br, tr, tl].
+    const mid = (a: P, b: P): P => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+    const windowPanes = (g: Phaser.GameObjects.Graphics, q: P[]) => {
+      g.lineStyle(1.5, OUTLINE, 0.85);
+      g.beginPath();
+      g.moveTo(...mid(q[0], q[1]));
+      g.lineTo(...mid(q[3], q[2]));
+      g.strokePath();
+      g.beginPath();
+      g.moveTo(...mid(q[0], q[3]));
+      g.lineTo(...mid(q[1], q[2]));
+      g.strokePath();
+    };
+
     const building = (
       g: Phaser.GameObjects.Graphics,
       roofColor: number,
@@ -684,6 +698,7 @@ export class BootScene extends Phaser.Scene {
       })();
       poly(gg, seWin, 0xbfe3ff);
       outline(gg, seWin);
+      windowPanes(gg, seWin);
       const wbl = lerp(fW, fS, 0.32);
       const wbr = lerp(fW, fS, 0.56);
       const win: P[] = [
@@ -694,6 +709,7 @@ export class BootScene extends Phaser.Scene {
       ];
       poly(gg, win, 0xbfe3ff);
       outline(gg, win);
+      windowPanes(gg, win);
     });
     g.generateTexture("house", W, H);
     g.destroy();

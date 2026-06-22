@@ -35,7 +35,6 @@ export function HUD({ onLeave }: HUDProps) {
     equippedWeaponId,
     walletAddress,
     connected,
-    playerCount,
     zoneName,
     questState,
     woodcuttingLevel,
@@ -188,7 +187,6 @@ export function HUD({ onLeave }: HUDProps) {
             <span className={`chibi-badge ${connected ? "chibi-badge--online" : "chibi-badge--offline"}`}>
               {connected ? "Online" : "Connecting"}
             </span>
-            <span className="chibi-stat-pill">👥 {playerCount}</span>
             <button
               type="button"
               className="chibi-btn chibi-btn--ghost"
