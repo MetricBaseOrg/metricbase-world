@@ -95,6 +95,16 @@ ALTER TABLE land_plots ADD COLUMN IF NOT EXISTS sign VARCHAR(24);
 -- Corner decoration props (housing depth). JSON array of prop ids / nulls.
 ALTER TABLE land_plots ADD COLUMN IF NOT EXISTS decor JSONB NOT NULL DEFAULT '[]'::jsonb;
 
+-- Guilds: persistent player organizations. Members stored as a JSON name array.
+CREATE TABLE IF NOT EXISTS guilds (
+  id VARCHAR(64) PRIMARY KEY,
+  name VARCHAR(24) UNIQUE NOT NULL,
+  tag VARCHAR(4) UNIQUE NOT NULL,
+  leader_name VARCHAR(16) NOT NULL,
+  members JSONB NOT NULL DEFAULT '[]'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 -- Active (planted) farm plots. One row per growing crop; the row is deleted on
 -- harvest. Growth is time-based (planted_at/ready_at are epoch millis), so crops
 -- keep maturing across server restarts.

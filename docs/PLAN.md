@@ -58,6 +58,9 @@ server on Railway, Neon PostgreSQL, Solana token gate/market.
   Lodge zone entered from the hub (others visible inside). Next: per-plot-private
   interiors and player-placeable interior furniture (the lodge ships with a
   reusable static zone scenery system today).
+- ✅ Guilds: found (1000g sink) / join / leave, tags on nameplates, roster panel,
+  persisted in a process-global registry + `guilds` table. Next: guild chat
+  (cross-zone) and transient parties.
 - ✅ Tool/gear progression that boosts gather speed — copper tools (30% faster)
   and an **iron tier**: Iron Deposits (Mining 3) → Iron Ore → Iron Bars → Iron
   Axe/Pickaxe (50% faster). All three gather skills now have a tier-2 node:

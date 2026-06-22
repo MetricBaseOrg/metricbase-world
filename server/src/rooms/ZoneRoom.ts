@@ -43,6 +43,9 @@ import {
   isValidDecorId,
   sanitizeSign,
   structureLabel,
+  GUILD_CREATE_COST,
+  sanitizeGuildName,
+  sanitizeGuildTag,
   MAX_SHOP_LISTINGS,
   getEmote,
   EMOTE_COOLDOWN_MS,
@@ -124,6 +127,13 @@ import {
   markReadyBroadcast,
   plantFarmPlot,
 } from "../farming/farmRegistry.js";
+import {
+  buildGuildStatePayload,
+  createGuild,
+  joinGuild,
+  leaveGuild,
+  tagForMember,
+} from "../guild/guildRegistry.js";
 
 interface PendingInput {
   dx: number;
@@ -297,6 +307,23 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       },
     );
 
+    this.onMessage("guildCreate", (client, message: { name?: string; tag?: string }) => {
+      void this.handleGuildCreate(client, message.name ?? "", message.tag ?? "");
+    });
+
+    this.onMessage("guildJoin", (client, message: { guildId?: string }) => {
+      this.handleGuildJoin(client, message.guildId ?? "");
+    });
+
+    this.onMessage("guildLeave", (client) => {
+      this.handleGuildLeave(client);
+    });
+
+    this.onMessage("requestGuilds", (client) => {
+      const player = this.state.players.get(client.sessionId);
+      if (player) client.send("guildState", buildGuildStatePayload(player.name));
+    });
+
     this.onMessage("emote", (client, message: { emoteId?: string }) => {
       this.handleEmote(client, message.emoteId ?? "");
     });
@@ -406,6 +433,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     player.outfitColor = appearance.outfitColor;
     player.hairStyle = appearance.hairStyle;
     player.outfitStyle = appearance.outfitStyle;
+    player.guildTag = tagForMember(name);
 
     const maxHp = getPlayerMaxHp(player.level);
     const spawn = tileToWorld(this.zoneConfig.spawnTile.x, this.zoneConfig.spawnTile.y);
@@ -2451,6 +2479,78 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     setPlotDecor(plotId, slot, propId);
     this.broadcastHousingState();
     client.send("housingResult", { ok: true, plotId, ownerName: player.name });
+  }
+
+  private async handleGuildCreate(client: Client, rawName: string, rawTag: string) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+
+    const name = sanitizeGuildName(rawName);
+    const tag = sanitizeGuildTag(rawTag);
+    const gold = this.playerGold.get(player.name) ?? STARTING_GOLD;
+    if (gold < GUILD_CREATE_COST) {
+      client.send("guildResult", {
+        ok: false,
+        gold,
+        error: `Founding a guild costs ${GUILD_CREATE_COST} gold.`,
+      });
+      return;
+    }
+
+    const result = createGuild(name, tag, player.name);
+    if (!result.ok) {
+      client.send("guildResult", { ok: false, error: result.error });
+      return;
+    }
+
+    const nextGold = gold - GUILD_CREATE_COST;
+    this.playerGold.set(player.name, nextGold);
+    player.guildTag = tagForMember(player.name);
+    this.sendProfile(client, player);
+    client.send("guildResult", { ok: true, gold: nextGold });
+    client.send("guildState", buildGuildStatePayload(player.name));
+
+    this.broadcastChat({
+      id: crypto.randomUUID(),
+      channel: "system",
+      senderId: "system",
+      senderName: "Guild",
+      body: `${player.name} founded the guild [${tag}] ${name}!`,
+      sentAt: Date.now(),
+    });
+    await this.persistPlayer(player);
+  }
+
+  private handleGuildJoin(client: Client, guildId: string) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+
+    const result = joinGuild(player.name, guildId);
+    if (!result.ok) {
+      client.send("guildResult", { ok: false, error: result.error });
+      return;
+    }
+
+    player.guildTag = tagForMember(player.name);
+    this.sendProfile(client, player);
+    client.send("guildResult", { ok: true });
+    client.send("guildState", buildGuildStatePayload(player.name));
+  }
+
+  private handleGuildLeave(client: Client) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+
+    const result = leaveGuild(player.name);
+    if (!result.ok) {
+      client.send("guildResult", { ok: false, error: result.error });
+      return;
+    }
+
+    player.guildTag = "";
+    this.sendProfile(client, player);
+    client.send("guildResult", { ok: true });
+    client.send("guildState", buildGuildStatePayload(player.name));
   }
 
   private sendSkillState(client: Client, playerName: string) {

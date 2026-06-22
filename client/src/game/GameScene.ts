@@ -123,6 +123,11 @@ interface RenderedResource {
   chopDurationMs?: number;
 }
 
+/** Nameplate text — prefixes the guild tag when the player is in a guild. */
+function nameplateText(player: RemotePlayer): string {
+  return player.guildTag ? `[${player.guildTag}] ${player.name}` : player.name;
+}
+
 export class GameScene extends Phaser.Scene {
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private wasd!: {
@@ -516,6 +521,7 @@ export class GameScene extends Phaser.Scene {
       y: spawn.y,
       level: useGameStore.getState().playerLevel,
       xp: useGameStore.getState().playerXp,
+      guildTag: "",
       appearance: normalizeCharacterAppearance(appearance),
     });
   }
@@ -531,7 +537,7 @@ export class GameScene extends Phaser.Scene {
       existing.targetX = player.x;
       existing.targetY = player.y;
       existing.appearance = player.appearance;
-      existing.label.setText(player.name);
+      existing.label.setText(nameplateText(player));
 
       const moving = this.lastSentInput.dx !== 0 || this.lastSentInput.dy !== 0;
       existing.predicted = moving
@@ -603,7 +609,7 @@ export class GameScene extends Phaser.Scene {
     sprite.setDepth(1000);
 
     const label = this.add
-      .text(player.x, player.y - 42, player.name, {
+      .text(player.x, player.y - 42, nameplateText(player), {
         fontFamily: '"Fredoka", "Nunito", sans-serif',
         fontSize: "12px",
         fontStyle: "bold",
@@ -1700,7 +1706,7 @@ export class GameScene extends Phaser.Scene {
         existing.lastTargetY = existing.targetY;
         existing.targetX = player.x;
         existing.targetY = player.y;
-        existing.label.setText(player.name);
+        existing.label.setText(nameplateText(player));
       }
     }
 

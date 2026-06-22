@@ -136,8 +136,9 @@ shared/   Zone maps, protocol types
 - [x] Sound effects with HUD mute toggle
 - [x] Mobile touch controls + quest log FAB
 - [x] Solana wallet auth + token gate
+- [x] Guilds — found (gold sink) / join / leave, tags on nameplates, roster (persisted)
+- [ ] Guild chat + parties
 - [ ] Redis session layer
 - [ ] Full ability system and class roles
-- [ ] Guilds and parties
 
 See `docs/Game.md` for full gameplay details and `docs/Changelog.md` for release history.

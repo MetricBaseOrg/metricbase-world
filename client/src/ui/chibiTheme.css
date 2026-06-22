@@ -493,6 +493,18 @@ body {
   gap: 6px;
 }
 
+.chibi-guild {
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-210px);
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
 .chibi-who-toggle {
   padding: 6px 14px;
   border: 2px solid #4a3728;
@@ -1030,7 +1042,8 @@ body {
   /* Consolidate secondary toggles into a single right-side FAB rail so the
      top of the screen stays uncluttered and dropdowns never overflow. */
   .chibi-who,
-  .chibi-leaderboard {
+  .chibi-leaderboard,
+  .chibi-guild {
     left: auto;
     right: max(10px, var(--chibi-safe-right));
     transform: none;
@@ -1045,12 +1058,16 @@ body {
     top: calc(var(--chibi-rail-top) + var(--chibi-fab-step));
   }
 
-  .chibi-chat-fab {
+  .chibi-guild {
     top: calc(var(--chibi-rail-top) + var(--chibi-fab-step) * 2);
   }
 
-  .chibi-quest-fab {
+  .chibi-chat-fab {
     top: calc(var(--chibi-rail-top) + var(--chibi-fab-step) * 3);
+  }
+
+  .chibi-quest-fab {
+    top: calc(var(--chibi-rail-top) + var(--chibi-fab-step) * 4);
   }
 
   .chibi-action-pad {

@@ -15,6 +15,8 @@ import {
   FarmResultPayload,
   HousingStatePayload,
   HousingResultPayload,
+  GuildStatePayload,
+  GuildResultPayload,
   PlayerShopResultPayload,
   LeaderboardPayload,
   EmotePayload,
@@ -46,6 +48,7 @@ export interface RemotePlayer {
   y: number;
   level: number;
   xp: number;
+  guildTag: string;
   appearance: CharacterAppearance;
 }
 
@@ -81,6 +84,8 @@ type ChopResultListener = (payload: ChopResultPayload) => void;
 type ChopStartListener = (payload: ChopStartPayload) => void;
 type ChopCancelListener = (payload: ChopCancelPayload) => void;
 type SkillStateListener = (payload: SkillStatePayload) => void;
+type GuildStateListener = (payload: GuildStatePayload) => void;
+type GuildResultListener = (payload: GuildResultPayload) => void;
 
 export class NetworkManager {
   private client: Client | null = null;
@@ -124,6 +129,9 @@ export class NetworkManager {
   private chopStartListeners = new Set<ChopStartListener>();
   private chopCancelListeners = new Set<ChopCancelListener>();
   private skillStateListeners = new Set<SkillStateListener>();
+  private guildStateListeners = new Set<GuildStateListener>();
+  private guildResultListeners = new Set<GuildResultListener>();
+  private latestGuildState: GuildStatePayload = { myGuild: null, guilds: [] };
   private latestQuestState: QuestStatePayload = { active: [], completed: [] };
   private latestInventory: InventoryStatePayload = { items: [], capacity: 16 };
   private latestSkillState: SkillStatePayload = { woodcutting: { level: 1, xp: 0 } };
@@ -340,6 +348,26 @@ export class NetworkManager {
     this.room?.send("housingDecorate", { plotId, slot, propId });
   }
 
+  sendGuildCreate(name: string, tag: string) {
+    this.room?.send("guildCreate", { name, tag });
+  }
+
+  sendGuildJoin(guildId: string) {
+    this.room?.send("guildJoin", { guildId });
+  }
+
+  sendGuildLeave() {
+    this.room?.send("guildLeave", {});
+  }
+
+  requestGuilds() {
+    this.room?.send("requestGuilds", {});
+  }
+
+  getGuildState(): GuildStatePayload {
+    return this.latestGuildState;
+  }
+
   sendEmote(emoteId: string) {
     this.room?.send("emote", { emoteId });
   }
@@ -363,6 +391,17 @@ export class NetworkManager {
   onPlayerShopResult(listener: PlayerShopResultListener) {
     this.playerShopResultListeners.add(listener);
     return () => this.playerShopResultListeners.delete(listener);
+  }
+
+  onGuildState(listener: GuildStateListener) {
+    this.guildStateListeners.add(listener);
+    listener(this.latestGuildState);
+    return () => this.guildStateListeners.delete(listener);
+  }
+
+  onGuildResult(listener: GuildResultListener) {
+    this.guildResultListeners.add(listener);
+    return () => this.guildResultListeners.delete(listener);
   }
 
   requestLeaderboard() {
@@ -818,6 +857,17 @@ export class NetworkManager {
         listener(payload);
       }
     });
+    this.room.onMessage("guildState", (payload: GuildStatePayload) => {
+      this.latestGuildState = payload;
+      for (const listener of this.guildStateListeners) {
+        listener(payload);
+      }
+    });
+    this.room.onMessage("guildResult", (payload: GuildResultPayload) => {
+      for (const listener of this.guildResultListeners) {
+        listener(payload);
+      }
+    });
     this.room.onMessage("shopOpen", (payload: ShopOpenPayload) => {
       for (const listener of this.shopOpenListeners) {
         listener(payload);
@@ -1033,6 +1083,7 @@ export class NetworkManager {
       y: player.y,
       level: player.level,
       xp: player.xp ?? 0,
+      guildTag: player.guildTag ?? "",
       appearance: normalizeCharacterAppearance({
         bodyColor: player.bodyColor,
         hairColor: player.hairColor,
