@@ -38,6 +38,7 @@ import {
   DEFAULT_FARM_SEED,
   PLOT_PRICE,
   HOUSE_RANGE,
+  isValidRoofId,
   structureLabel,
   MAX_SHOP_LISTINGS,
   getEmote,
@@ -108,6 +109,7 @@ import {
   buildLandPlotStates,
   claimPlot,
   getPlotOwner,
+  setPlotRoof,
   updatePlotShop,
 } from "../housing/landRegistry.js";
 import {
@@ -270,6 +272,13 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         message.structure === "shop" ? "shop" : "house",
       );
     });
+
+    this.onMessage(
+      "housingCustomize",
+      (client, message: { plotId?: string; roof?: string | null }) => {
+        void this.handleHousingCustomize(client, message.plotId ?? "", message.roof ?? null);
+      },
+    );
 
     this.onMessage("emote", (client, message: { emoteId?: string }) => {
       this.handleEmote(client, message.emoteId ?? "");
@@ -2361,6 +2370,27 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       ownerName: player.name,
     });
     await this.persistPlayer(player);
+  }
+
+  private handleHousingCustomize(client: Client, plotId: string, roof: string | null) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !plotId) return;
+
+    const owner = getPlotOwner(plotId);
+    if (!owner || owner.ownerName !== player.name) {
+      client.send("housingResult", { ok: false, plotId, error: "You don't own this plot." });
+      return;
+    }
+
+    // null clears back to the default colour; otherwise must be a known palette id.
+    if (roof !== null && !isValidRoofId(roof)) {
+      client.send("housingResult", { ok: false, plotId, error: "Unknown paint colour." });
+      return;
+    }
+
+    setPlotRoof(plotId, roof);
+    this.broadcastHousingState();
+    client.send("housingResult", { ok: true, plotId, ownerName: player.name });
   }
 
   private sendSkillState(client: Client, playerName: string) {

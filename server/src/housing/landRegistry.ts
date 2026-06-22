@@ -28,10 +28,19 @@ export function claimPlot(
     ownerWallet,
     ownerName,
     structure,
+    roof: null,
     listings: [],
     earnings: 0,
   };
   plots.set(plotId, record);
+  void saveLandPlot(record);
+}
+
+/** Repaint an owned plot's roof, persisting the change. */
+export function setPlotRoof(plotId: string, roof: string | null): void {
+  const record = plots.get(plotId);
+  if (!record) return;
+  record.roof = roof;
   void saveLandPlot(record);
 }
 
@@ -53,6 +62,7 @@ export function buildLandPlotStates(plotIds: string[]): LandPlotState[] {
       plotId,
       ownerName: owned.ownerName,
       structure: owned.structure,
+      roof: owned.roof ?? undefined,
       listings: owned.listings,
       earnings: owned.earnings,
     };

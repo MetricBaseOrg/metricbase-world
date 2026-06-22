@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import { TILE_HEIGHT, TILE_WIDTH } from "@metricbase/shared";
+import { ROOF_COLORS, TILE_HEIGHT, TILE_WIDTH } from "@metricbase/shared";
 import { TILESET_COLUMNS } from "./mapData";
 
 const OUTLINE = 0x3a2a1e;
@@ -675,9 +675,8 @@ export class BootScene extends Phaser.Scene {
       accent(g);
     };
 
-    // House — blue roof + windows.
-    let g = this.make.graphics({ x: 0, y: 0 });
-    building(g, 0x4f8cff, 0x3a6fd0, (gg) => {
+    // House accent — door + a window on each visible wall.
+    const houseAccent = (gg: Phaser.GameObjects.Graphics) => {
       // door on the SE wall
       const dbl = lerp(fS, fE, 0.38);
       const dbr = lerp(fS, fE, 0.6);
@@ -710,14 +709,10 @@ export class BootScene extends Phaser.Scene {
       poly(gg, win, 0xbfe3ff);
       outline(gg, win);
       windowPanes(gg, win);
-    });
-    g.generateTexture("house", W, H);
-    g.destroy();
+    };
 
-    // Shop — warm roof, striped awning over the SE wall, coin sign.
-    g = this.make.graphics({ x: 0, y: 0 });
-    building(g, 0xe07a3c, 0xb85f2a, (gg) => {
-      // door
+    // Shop accent — door, striped awning over the SE wall, coin sign.
+    const shopAccent = (gg: Phaser.GameObjects.Graphics) => {
       const dbl = lerp(fS, fE, 0.34);
       const dbr = lerp(fS, fE, 0.56);
       const door: P[] = [dbl, dbr, [dbr[0], dbr[1] - 28], [dbl[0], dbl[1] - 28]];
@@ -745,12 +740,27 @@ export class BootScene extends Phaser.Scene {
       ]);
       gg.fillStyle(0xf2c94c, 1).fillCircle(tE[0] - 6, tE[1] - 8, 7);
       gg.lineStyle(2, OUTLINE, 1).strokeCircle(tE[0] - 6, tE[1] - 8, 7);
-    });
-    g.generateTexture("shop", W, H);
-    g.destroy();
+    };
+
+    const bakeBuilding = (key: string, roof: number, roofDark: number, accent: typeof houseAccent) => {
+      const bg = this.make.graphics({ x: 0, y: 0 });
+      building(bg, roof, roofDark, accent);
+      bg.generateTexture(key, W, H);
+      bg.destroy();
+    };
+
+    // Base textures: House (blue roof) and Shop (warm roof).
+    bakeBuilding("house", 0x4f8cff, 0x3a6fd0, houseAccent);
+    bakeBuilding("shop", 0xe07a3c, 0xb85f2a, shopAccent);
+
+    // Roof-paint variants ("house_<id>" / "shop_<id>") for housing customization.
+    for (const color of ROOF_COLORS) {
+      bakeBuilding(`house_${color.id}`, color.roof, color.roofDark, houseAccent);
+      bakeBuilding(`shop_${color.id}`, color.roof, color.roofDark, shopAccent);
+    }
 
     // Empty plot — iso dirt diamond + a "for sale" signpost.
-    g = this.make.graphics({ x: 0, y: 0 });
+    const g = this.make.graphics({ x: 0, y: 0 });
     g.fillStyle(0x2a1d12, 0.16).fillEllipse(cx, baseY + hh + 2, hw * 2, 9);
     poly(g, [[cx, baseY - hh], fE, fS, fW], 0x9b8a6a);
     outline(g, [[cx, baseY - hh], fE, fS, fW]);

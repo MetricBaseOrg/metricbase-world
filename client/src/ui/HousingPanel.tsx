@@ -1,4 +1,4 @@
-import { PLOT_PRICE, structureLabel } from "@metricbase/shared";
+import { PLOT_PRICE, ROOF_COLORS, structureLabel } from "@metricbase/shared";
 import { useState } from "react";
 import { playSfx } from "../audio/soundEffects";
 import { networkManager } from "../game/network";
@@ -26,6 +26,12 @@ export function HousingPanel() {
     playSfx("ui_close");
     setHousingOpen(false);
     setError(null);
+  };
+
+  const paint = (roof: string | null) => {
+    if (!plotId) return;
+    playSfx("ui_click");
+    networkManager.sendHousingCustomize(plotId, roof);
   };
 
   const buy = async (structure: "house" | "shop") => {
@@ -68,9 +74,30 @@ export function HousingPanel() {
           </div>
           <div className="chibi-text-muted" style={{ marginTop: 6, fontSize: "0.82rem" }}>
             {isMine
-              ? "This plot is yours. More building options are coming soon."
+              ? "This plot is yours. Repaint the roof to make it your own."
               : "This plot is already owned by another resident."}
           </div>
+
+          {isMine && (
+            <div style={{ marginTop: 12 }}>
+              <div className="chibi-label" style={{ marginBottom: 6 }}>
+                Roof paint
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                {ROOF_COLORS.map((color) => (
+                  <button
+                    key={color.id}
+                    type="button"
+                    className={`chibi-swatch${plot?.roof === color.id ? " active" : ""}`}
+                    style={{ background: `#${color.roof.toString(16).padStart(6, "0")}` }}
+                    title={color.name}
+                    aria-label={`Paint roof ${color.name}`}
+                    onClick={() => paint(color.id)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       ) : (
         <>

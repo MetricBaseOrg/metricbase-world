@@ -828,7 +828,10 @@ export class GameScene extends Phaser.Scene {
       const plot = this.renderedLandPlots.get(state.plotId);
       if (!plot) continue;
       const owned = state.structure !== "none";
-      plot.sprite.setTexture(owned ? (state.structure === "shop" ? "shop" : "house") : "plot_marker");
+      const base = owned ? (state.structure === "shop" ? "shop" : "house") : "plot_marker";
+      // Use the painted roof variant when the owner has chosen one.
+      const variant = owned && state.roof ? `${base}_${state.roof}` : base;
+      plot.sprite.setTexture(this.textures.exists(variant) ? variant : base);
       plot.sprite.setDepth(plot.worldY);
       if (owned && state.ownerName) {
         plot.label.setText(`${state.ownerName}'s ${structureLabel(state.structure)}`);

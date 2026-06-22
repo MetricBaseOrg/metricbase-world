@@ -21,9 +21,38 @@ export interface LandPlotState {
   plotId: string;
   ownerName?: string;
   structure: StructureType;
+  /** Chosen roof-paint palette id (see ROOF_COLORS); absent = default colour. */
+  roof?: string;
   listings?: ShopListing[];
   /** Uncollected gold from sales (only meaningful to the owner). */
   earnings?: number;
+}
+
+/** A roof paint option owners can apply to their house or shop. */
+export interface RoofColor {
+  id: string;
+  name: string;
+  /** Main roof fill + the darker shaded slope, used by the building art. */
+  roof: number;
+  roofDark: number;
+}
+
+export const ROOF_COLORS: RoofColor[] = [
+  { id: "blue", name: "Sky", roof: 0x4f8cff, roofDark: 0x3a6fd0 },
+  { id: "red", name: "Rose", roof: 0xe24b6b, roofDark: 0xb83250 },
+  { id: "green", name: "Leaf", roof: 0x49b265, roofDark: 0x368049 },
+  { id: "purple", name: "Plum", roof: 0xa66bd6, roofDark: 0x8049b0 },
+  { id: "teal", name: "Teal", roof: 0x35b0a8, roofDark: 0x238079 },
+  { id: "gold", name: "Amber", roof: 0xe6a800, roofDark: 0xb88300 },
+];
+
+export function getRoofColor(id: string | null | undefined): RoofColor | undefined {
+  if (!id) return undefined;
+  return ROOF_COLORS.find((color) => color.id === id);
+}
+
+export function isValidRoofId(id: string | null | undefined): boolean {
+  return !!id && ROOF_COLORS.some((color) => color.id === id);
 }
 
 export interface HousingStatePayload {

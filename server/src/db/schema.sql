@@ -88,6 +88,8 @@ CREATE TABLE IF NOT EXISTS land_plots (
 -- Player-run shop inventory + uncollected earnings (added later).
 ALTER TABLE land_plots ADD COLUMN IF NOT EXISTS listings JSONB NOT NULL DEFAULT '[]'::jsonb;
 ALTER TABLE land_plots ADD COLUMN IF NOT EXISTS earnings INTEGER NOT NULL DEFAULT 0;
+-- Roof-paint customization (housing depth). NULL = default colour.
+ALTER TABLE land_plots ADD COLUMN IF NOT EXISTS roof VARCHAR(16);
 
 -- Active (planted) farm plots. One row per growing crop; the row is deleted on
 -- harvest. Growth is time-based (planted_at/ready_at are epoch millis), so crops

@@ -135,7 +135,9 @@ authoritative server and rendered by the client.
   as JSONB on `land_plots`. A built shop's owner stocks items at a price
   (`shopStock`/`shopUnstock`); visitors buy (`shopBuyListing`, server partial-
   fills by gold/stock/space); sales accrue plot `earnings` the owner pulls with
-  `shopCollect`. Only built plots are solid (see collision below).
+  `shopCollect`. Only built plots are solid (see collision below). Owners can
+  repaint the roof (`housingCustomize`, `ROOF_COLORS` palette, persisted `roof`
+  column); the client picks an art-baked `house_<id>`/`shop_<id>` texture variant.
 - **Community** (`shared/src/emotes.ts`, `shared/src/stats.ts`): `emote`
   broadcasts an emoji bubble to the zone; the WhoPanel lists who's online; the
   hub **billboard** shows the live `$BASE` holder count

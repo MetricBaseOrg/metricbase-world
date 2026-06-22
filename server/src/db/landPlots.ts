@@ -7,6 +7,8 @@ export interface StoredLandPlot {
   ownerWallet: string | null;
   ownerName: string;
   structure: StructureType;
+  /** Chosen roof-paint palette id, or null for the default colour. */
+  roof: string | null;
   listings: ShopListing[];
   earnings: number;
 }
@@ -29,10 +31,11 @@ export async function loadLandPlots(): Promise<StoredLandPlot[]> {
       owner_wallet: string | null;
       owner_name: string;
       structure: string;
+      roof: string | null;
       listings: unknown;
       earnings: number | null;
     }>(
-      "SELECT plot_id, zone_id, owner_wallet, owner_name, structure, listings, earnings FROM land_plots",
+      "SELECT plot_id, zone_id, owner_wallet, owner_name, structure, roof, listings, earnings FROM land_plots",
     );
     return res.rows.map((row) => ({
       plotId: row.plot_id,
@@ -40,6 +43,7 @@ export async function loadLandPlots(): Promise<StoredLandPlot[]> {
       ownerWallet: row.owner_wallet,
       ownerName: row.owner_name,
       structure: (row.structure as StructureType) ?? "house",
+      roof: row.roof,
       listings: normalizeListings(row.listings),
       earnings: row.earnings ?? 0,
     }));
@@ -54,18 +58,19 @@ export async function saveLandPlot(plot: StoredLandPlot): Promise<void> {
   if (!pool) return;
   try {
     await pool.query(
-      `INSERT INTO land_plots (plot_id, zone_id, owner_wallet, owner_name, structure, listings, earnings)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `INSERT INTO land_plots (plot_id, zone_id, owner_wallet, owner_name, structure, roof, listings, earnings)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        ON CONFLICT (plot_id)
        DO UPDATE SET owner_wallet = EXCLUDED.owner_wallet, owner_name = EXCLUDED.owner_name,
-                     structure = EXCLUDED.structure, listings = EXCLUDED.listings,
-                     earnings = EXCLUDED.earnings`,
+                     structure = EXCLUDED.structure, roof = EXCLUDED.roof,
+                     listings = EXCLUDED.listings, earnings = EXCLUDED.earnings`,
       [
         plot.plotId,
         plot.zoneId,
         plot.ownerWallet,
         plot.ownerName,
         plot.structure,
+        plot.roof,
         JSON.stringify(plot.listings ?? []),
         plot.earnings ?? 0,
       ],
