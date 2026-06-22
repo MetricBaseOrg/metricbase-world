@@ -675,7 +675,7 @@ export class GameScene extends Phaser.Scene {
     const config = getZoneConfig(zoneId);
     for (const node of config.billboards ?? []) {
       const { x, y } = tileToWorld(node.tileX, node.tileY);
-      const sprite = this.add.sprite(x, y, "billboard").setOrigin(0.5, 0.92).setDepth(815);
+      const sprite = this.add.sprite(x, y, "billboard").setOrigin(0.5, 0.92).setDepth(y);
       const top = y - 124 * 0.92;
       const header = this.add
         .text(x, top + 24, "METRICBASE WORLD", {
@@ -687,7 +687,7 @@ export class GameScene extends Phaser.Scene {
           strokeThickness: 3,
         })
         .setOrigin(0.5)
-        .setDepth(816);
+        .setDepth(y + 1);
       const holdersLabel = this.add
         .text(x, top + 44, "$BASE HOLDERS", {
           fontFamily: '"Fredoka", "Nunito", sans-serif',
@@ -696,7 +696,7 @@ export class GameScene extends Phaser.Scene {
           color: "#8a6d3b",
         })
         .setOrigin(0.5)
-        .setDepth(816);
+        .setDepth(y + 1);
       const holdersValue = this.add
         .text(x, top + 56, "—", {
           fontFamily: '"Fredoka", "Nunito", sans-serif',
@@ -705,7 +705,7 @@ export class GameScene extends Phaser.Scene {
           color: "#2a1d12",
         })
         .setOrigin(0.5)
-        .setDepth(816);
+        .setDepth(y + 1);
       const onlineLabel = this.add
         .text(x, top + 72, "PLAYERS ONLINE", {
           fontFamily: '"Fredoka", "Nunito", sans-serif',
@@ -714,7 +714,7 @@ export class GameScene extends Phaser.Scene {
           color: "#3f7a4a",
         })
         .setOrigin(0.5)
-        .setDepth(816);
+        .setDepth(y + 1);
       const onlineValue = this.add
         .text(x, top + 84, "—", {
           fontFamily: '"Fredoka", "Nunito", sans-serif',
@@ -723,7 +723,7 @@ export class GameScene extends Phaser.Scene {
           color: "#2a1d12",
         })
         .setOrigin(0.5)
-        .setDepth(816);
+        .setDepth(y + 1);
       this.billboardHoldersText = holdersValue;
       this.billboardOnlineText = onlineValue;
       this.billboardTexts.push(sprite, header, holdersLabel, holdersValue, onlineLabel, onlineValue);
@@ -752,7 +752,7 @@ export class GameScene extends Phaser.Scene {
       const { x, y } = tileToWorld(plot.tileX + 0.5, plot.tileY + 0.5);
       const sprite = this.add.sprite(x, y, "plot_empty");
       sprite.setOrigin(0.5, 0.526);
-      sprite.setDepth(845);
+      sprite.setDepth(y);
       const label = this.add
         .text(x, y - 44, "Plot", {
           fontFamily: '"Fredoka", "Nunito", sans-serif',
@@ -763,10 +763,10 @@ export class GameScene extends Phaser.Scene {
           strokeThickness: 4,
         })
         .setOrigin(0.5, 1)
-        .setDepth(846)
+        .setDepth(y + 3)
         .setVisible(false);
-      const barBg = this.add.graphics().setDepth(847);
-      const barFill = this.add.graphics().setDepth(848);
+      const barBg = this.add.graphics().setDepth(y + 1);
+      const barFill = this.add.graphics().setDepth(y + 2);
       this.renderedFarmPlots.set(plot.id, {
         id: plot.id,
         sprite,
@@ -798,7 +798,7 @@ export class GameScene extends Phaser.Scene {
       const { x, y } = tileToWorld(plot.tileX, plot.tileY);
       const sprite = this.add.sprite(x, y, "plot_marker");
       sprite.setOrigin(0.5, 0.629);
-      sprite.setDepth(820);
+      sprite.setDepth(y);
       const label = this.add
         .text(x, y - 80, "For Sale", {
           fontFamily: '"Fredoka", "Nunito", sans-serif',
@@ -809,7 +809,7 @@ export class GameScene extends Phaser.Scene {
           strokeThickness: 4,
         })
         .setOrigin(0.5, 1)
-        .setDepth(821);
+        .setDepth(y + 1);
       this.renderedLandPlots.set(plot.id, { id: plot.id, sprite, label, worldX: x, worldY: y });
     }
     this.applyHousingState(networkManager.getHousingState());
@@ -829,7 +829,7 @@ export class GameScene extends Phaser.Scene {
       if (!plot) continue;
       const owned = state.structure !== "none";
       plot.sprite.setTexture(owned ? (state.structure === "shop" ? "shop" : "house") : "plot_marker");
-      plot.sprite.setDepth(owned ? 870 : 820);
+      plot.sprite.setDepth(plot.worldY);
       if (owned && state.ownerName) {
         plot.label.setText(`${state.ownerName}'s ${structureLabel(state.structure)}`);
         plot.label.setColor("#ffffff");
@@ -1010,7 +1010,8 @@ export class GameScene extends Phaser.Scene {
 
       const sprite = this.add.sprite(x, y, texture);
       sprite.setOrigin(0.5, originY);
-      sprite.setDepth(kind === "fish" ? 840 : 850);
+      // Fish ripples lie flat on the water; everything else sorts by position.
+      sprite.setDepth(kind === "fish" ? y - 4 : y);
       sprite.setAlpha(available ? 1 : 0.35);
 
       const label = this.add
@@ -1023,10 +1024,10 @@ export class GameScene extends Phaser.Scene {
           strokeThickness: 4.5,
         })
         .setOrigin(0.5, 1)
-        .setDepth(851);
+        .setDepth(y + 1);
 
-      const chopBarBg = this.add.graphics().setDepth(852);
-      const chopBarFill = this.add.graphics().setDepth(853);
+      const chopBarBg = this.add.graphics().setDepth(y + 2);
+      const chopBarFill = this.add.graphics().setDepth(y + 3);
 
       const rendered: RenderedResource = {
         id: resource.id,

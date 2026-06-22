@@ -64,27 +64,28 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
       {
         id: "hub_guide",
         name: "Aria",
-        tileX: 12,
+        tileX: 10,
         tileY: 10,
         dialogue:
-          "Welcome to MetricBase Hub! Chop the oaks west of town for wood, then sell logs to Pip. Purple tiles lead to the Wilderness.",
+          "Welcome to MetricBase Hub! Chop the oaks in the northwest woods, mine the western quarry, or fish the southeast lake. Sell your haul to Pip. The east gate leads to the Wilderness.",
       },
       {
         id: "hub_merchant",
         name: "Pip",
-        tileX: 16,
-        tileY: 14,
+        tileX: 14,
+        tileY: 13,
         shopId: "pip_general",
         dialogue:
           "Welcome to Pip's Provisions! Trade gold on the open market, or buy gear with in-game gold.",
       },
     ],
+    // Resources sit in themed regions: a NW forest, a W quarry, and the SE lake.
     resources: [
       {
         id: "hub_tree_north",
         name: "Young Oak",
-        tileX: 7,
-        tileY: 8,
+        tileX: 4,
+        tileY: 4,
         kind: "tree",
         woodcutting: {
           treeLevel: 1,
@@ -97,8 +98,8 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
       {
         id: "hub_tree_south",
         name: "Young Oak",
-        tileX: 7,
-        tileY: 16,
+        tileX: 6,
+        tileY: 7,
         kind: "tree",
         woodcutting: {
           treeLevel: 1,
@@ -111,8 +112,8 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
       {
         id: "hub_tree_east",
         name: "Sapling",
-        tileX: 19,
-        tileY: 8,
+        tileX: 8,
+        tileY: 5,
         kind: "tree",
         woodcutting: {
           treeLevel: 1,
@@ -125,8 +126,8 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
       {
         id: "hub_rock_west",
         name: "Copper Rock",
-        tileX: 5,
-        tileY: 6,
+        tileX: 3,
+        tileY: 11,
         kind: "rock",
         mining: {
           rockLevel: 1,
@@ -139,8 +140,8 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
       {
         id: "hub_rock_east",
         name: "Copper Rock",
-        tileX: 20,
-        tileY: 15,
+        tileX: 4,
+        tileY: 14,
         kind: "rock",
         mining: {
           rockLevel: 1,
@@ -153,8 +154,8 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
       {
         id: "hub_fish_north",
         name: "Fishing Spot",
-        tileX: 3,
-        tileY: 4,
+        tileX: 16,
+        tileY: 16,
         kind: "fish",
         fishing: {
           spotLevel: 1,
@@ -167,8 +168,8 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
       {
         id: "hub_fish_east",
         name: "Fishing Spot",
-        tileX: 16,
-        tileY: 5,
+        tileX: 18,
+        tileY: 15,
         kind: "fish",
         fishing: {
           spotLevel: 1,
@@ -179,19 +180,18 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
         },
       },
     ],
-    // Southern village green. Farms are 2x2 (anchored at their top-left tile),
-    // houses are 3x3 (centred on the given tile); spaced so footprints don't overlap.
+    // Farms (2x2, anchored top-left) in the SW field; houses (3x3, centred)
+    // in the NE neighbourhood. Empty plots are open ground — only built homes
+    // become solid.
     farmPlots: [
-      { id: "hub_plot_1", tileX: 2, tileY: 16 },
-      { id: "hub_plot_2", tileX: 5, tileY: 16 },
-      { id: "hub_plot_3", tileX: 8, tileY: 16 },
+      { id: "hub_plot_1", tileX: 3, tileY: 16 },
+      { id: "hub_plot_2", tileX: 6, tileY: 16 },
+      { id: "hub_plot_3", tileX: 4, tileY: 19 },
     ],
-    // Northern neighbourhood on the open green field, flanking the central
-    // avenue that leads up from spawn (3x3 footprints, clear of the obstacles).
     landPlots: [
-      { id: "hub_land_1", tileX: 6, tileY: 4 },
-      { id: "hub_land_2", tileX: 10, tileY: 4 },
-      { id: "hub_land_3", tileX: 14, tileY: 4 },
+      { id: "hub_land_1", tileX: 16, tileY: 4 },
+      { id: "hub_land_2", tileX: 20, tileY: 4 },
+      { id: "hub_land_3", tileX: 18, tileY: 8 },
     ],
     billboards: [{ id: "hub_billboard", tileX: 12, tileY: 7 }],
   },

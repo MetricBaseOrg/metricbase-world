@@ -5,7 +5,7 @@ export const SKILL_FARMING = "farming";
 
 export const CHOP_RANGE = 80;
 export const MINE_RANGE = 80;
-export const FISH_RANGE = 90;
+export const FISH_RANGE = 110;
 export const FARM_RANGE = 120;
 
 /** Base chop time per tree level (level-1 trees take 60 seconds at Woodcutting 1). */

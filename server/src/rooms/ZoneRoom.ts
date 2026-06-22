@@ -88,7 +88,7 @@ import {
   resolveCharacterForJoin,
   saveCharacter,
 } from "../db/characters.js";
-import { isWalkable } from "../map/collision.js";
+import { isWalkable, blockPlotFootprint } from "../map/collision.js";
 import { checkWalletTokenGate } from "../solana/tokenBalance.js";
 import { getCachedHolderCount } from "../solana/holderCount.js";
 import {
@@ -2127,6 +2127,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     this.playerGold.set(player.name, nextGold);
     const wallet = this.getClientWallet(client) ?? this.playerWallets.get(client.sessionId) ?? null;
     claimPlot(plotId, this.zoneConfig.id, player.name, wallet, structure);
+    blockPlotFootprint(this.zoneConfig.id, plot);
     this.sendProfile(client, player);
     this.broadcastHousingState();
 
