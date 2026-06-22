@@ -186,10 +186,12 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
       { id: "hub_plot_2", tileX: 5, tileY: 16 },
       { id: "hub_plot_3", tileX: 8, tileY: 16 },
     ],
+    // Northern neighbourhood on the open green field, flanking the central
+    // avenue that leads up from spawn (3x3 footprints, clear of the obstacles).
     landPlots: [
-      { id: "hub_land_1", tileX: 14, tileY: 17 },
-      { id: "hub_land_2", tileX: 18, tileY: 17 },
-      { id: "hub_land_3", tileX: 21, tileY: 18 },
+      { id: "hub_land_1", tileX: 6, tileY: 4 },
+      { id: "hub_land_2", tileX: 10, tileY: 4 },
+      { id: "hub_land_3", tileX: 14, tileY: 4 },
     ],
     billboards: [{ id: "hub_billboard", tileX: 12, tileY: 7 }],
   },

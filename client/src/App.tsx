@@ -21,6 +21,7 @@ import { QuestPanel } from "./ui/QuestPanel";
 import { ErrorBoundary } from "./ui/ErrorBoundary";
 import { ShopPanel } from "./ui/ShopPanel";
 import { TouchControls } from "./ui/TouchControls";
+import { WhoPanel } from "./ui/WhoPanel";
 
 export function App() {
   const [joined, setJoined] = useState(false);
@@ -285,6 +286,7 @@ export function App() {
         </ErrorBoundary>
       )}
       {joined && <ChatPanel />}
+      {joined && <WhoPanel />}
       {joined && <EmoteBar />}
       {joined && <TouchControls />}
       {joined && <DeathOverlay />}

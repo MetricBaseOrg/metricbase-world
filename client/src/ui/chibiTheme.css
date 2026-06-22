@@ -466,6 +466,86 @@ body {
   background: var(--chibi-gold, #ffe08a);
 }
 
+.chibi-who {
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.chibi-who-toggle {
+  padding: 6px 14px;
+  border: 2px solid #4a3728;
+  border-radius: 999px;
+  background: rgba(255, 249, 240, 0.95);
+  font-family: "Fredoka", "Nunito", sans-serif;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #4a3728;
+  cursor: pointer;
+  box-shadow: 0 3px 9px rgba(0, 0, 0, 0.16);
+}
+
+.chibi-who-toggle.active {
+  background: var(--chibi-gold, #ffe08a);
+}
+
+.chibi-who-list {
+  width: 200px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 8px;
+  background: rgba(255, 249, 240, 0.97);
+  border: 2px solid #4a3728;
+  border-radius: 14px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+}
+
+.chibi-who-title {
+  font-family: "Fredoka", "Nunito", sans-serif;
+  font-size: 0.66rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #8a6d3b;
+  margin-bottom: 6px;
+  text-align: center;
+}
+
+.chibi-who-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-family: "Fredoka", "Nunito", sans-serif;
+  font-size: 0.78rem;
+  color: #3a2a1e;
+}
+
+.chibi-who-row:nth-child(even) {
+  background: rgba(74, 55, 40, 0.06);
+}
+
+.chibi-who-name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chibi-who-lvl {
+  font-weight: 700;
+  color: #c77b25;
+  flex-shrink: 0;
+}
+
 .chibi-stat-pill {
   display: inline-flex;
   align-items: center;
