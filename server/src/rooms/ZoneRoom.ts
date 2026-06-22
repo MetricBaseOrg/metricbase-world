@@ -92,6 +92,7 @@ import {
 import { isWalkable, blockPlotFootprint } from "../map/collision.js";
 import { checkWalletTokenGate } from "../solana/tokenBalance.js";
 import { getCachedHolderCount } from "../solana/holderCount.js";
+import { getLeaderboard } from "../db/leaderboard.js";
 import {
   acceptBidOrder,
   buildMarketState,
@@ -305,6 +306,10 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
     this.onMessage("shopCollect", (client, message: { plotId?: string }) => {
       void this.handleShopCollect(client, message.plotId ?? "");
+    });
+
+    this.onMessage("requestLeaderboard", (client) => {
+      void getLeaderboard().then((payload) => client.send("leaderboard", payload));
     });
 
     this.onMessage("requestRespawn", (client, message: { payGold?: boolean }) => {

@@ -16,6 +16,7 @@ import {
   HousingStatePayload,
   HousingResultPayload,
   PlayerShopResultPayload,
+  LeaderboardPayload,
   EmotePayload,
   WorldStatsPayload,
   MobHealthPayload,
@@ -68,6 +69,7 @@ type HousingResultListener = (payload: HousingResultPayload) => void;
 type EmoteListener = (payload: EmotePayload) => void;
 type WorldStatsListener = (payload: WorldStatsPayload) => void;
 type PlayerShopResultListener = (payload: PlayerShopResultPayload) => void;
+type LeaderboardListener = (payload: LeaderboardPayload) => void;
 type ShopOpenListener = (payload: ShopOpenPayload) => void;
 type ShopResultListener = (payload: ShopResultPayload) => void;
 type MarketResultListener = (payload: MarketResultPayload) => void;
@@ -110,6 +112,7 @@ export class NetworkManager {
   private worldStatsListeners = new Set<WorldStatsListener>();
   private latestWorldStats: WorldStatsPayload = { baseHolders: null, online: 0 };
   private playerShopResultListeners = new Set<PlayerShopResultListener>();
+  private leaderboardListeners = new Set<LeaderboardListener>();
   private shopOpenListeners = new Set<ShopOpenListener>();
   private shopResultListeners = new Set<ShopResultListener>();
   private marketResultListeners = new Set<MarketResultListener>();
@@ -348,6 +351,15 @@ export class NetworkManager {
   onPlayerShopResult(listener: PlayerShopResultListener) {
     this.playerShopResultListeners.add(listener);
     return () => this.playerShopResultListeners.delete(listener);
+  }
+
+  requestLeaderboard() {
+    this.room?.send("requestLeaderboard", {});
+  }
+
+  onLeaderboard(listener: LeaderboardListener) {
+    this.leaderboardListeners.add(listener);
+    return () => this.leaderboardListeners.delete(listener);
   }
 
   getHousingState(): HousingStatePayload {
@@ -786,6 +798,11 @@ export class NetworkManager {
     });
     this.room.onMessage("playerShopResult", (payload: PlayerShopResultPayload) => {
       for (const listener of this.playerShopResultListeners) {
+        listener(payload);
+      }
+    });
+    this.room.onMessage("leaderboard", (payload: LeaderboardPayload) => {
+      for (const listener of this.leaderboardListeners) {
         listener(payload);
       }
     });
