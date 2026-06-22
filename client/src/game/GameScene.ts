@@ -139,6 +139,7 @@ export class GameScene extends Phaser.Scene {
   private renderedResources: RenderedResource[] = [];
   private renderedFarmPlots = new Map<string, RenderedFarmPlot>();
   private renderedLandPlots = new Map<string, RenderedLandPlot>();
+  private renderedScenery: Phaser.GameObjects.Sprite[] = [];
   private billboardTexts: Phaser.GameObjects.GameObject[] = [];
   private billboardHoldersText: Phaser.GameObjects.Text | null = null;
   private billboardOnlineText: Phaser.GameObjects.Text | null = null;
@@ -347,6 +348,7 @@ export class GameScene extends Phaser.Scene {
       this.clearFarmPlots();
       this.clearLandPlots();
       this.clearBillboards();
+      this.clearScenery();
       this.destroyLocalAvatar();
       this.renderedPlayers.forEach((entry) => {
         entry.sprite.destroy();
@@ -652,6 +654,7 @@ export class GameScene extends Phaser.Scene {
     this.clearFarmPlots();
     this.clearLandPlots();
     this.clearBillboards();
+    this.clearScenery();
 
     const ground = buildZoneMap(zoneId);
 
@@ -676,6 +679,26 @@ export class GameScene extends Phaser.Scene {
     this.renderFarmPlots(zoneId);
     this.renderLandPlots(zoneId);
     this.renderBillboards(zoneId);
+    this.renderScenery(zoneId);
+  }
+
+  private renderScenery(zoneId: string) {
+    const config = getZoneConfig(zoneId);
+    for (const node of config.scenery ?? []) {
+      const { x, y } = tileToWorld(node.tileX, node.tileY);
+      const flat = node.flat ?? false;
+      const sprite = this.add.sprite(x, y, `scenery_${node.prop}`).setOrigin(0.5, flat ? 0.5 : 0.92);
+      // Flat props (rugs) sit just above the floor tile but beneath players;
+      // upright furniture depth-sorts by world Y so the player can pass in
+      // front of / behind it.
+      sprite.setDepth(flat ? node.tileX + node.tileY + 0.5 : y);
+      this.renderedScenery.push(sprite);
+    }
+  }
+
+  private clearScenery() {
+    this.renderedScenery.forEach((sprite) => sprite.destroy());
+    this.renderedScenery = [];
   }
 
   private renderBillboards(zoneId: string) {

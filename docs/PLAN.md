@@ -56,7 +56,8 @@ server on Railway, Neon PostgreSQL, Solana token gate/market.
   building names, persisted), and ✅ corner decorations (place props on the four
   plot corners, persisted). ✅ Walk-in interiors: a shared networked Community
   Lodge zone entered from the hub (others visible inside). Next: per-plot-private
-  interiors and placeable interior furniture.
+  interiors and player-placeable interior furniture (the lodge ships with a
+  reusable static zone scenery system today).
 - ✅ Tool/gear progression that boosts gather speed — copper tools (30% faster)
   and an **iron tier**: Iron Deposits (Mining 3) → Iron Ore → Iron Bars → Iron
   Axe/Pickaxe (50% faster). All three gather skills now have a tier-2 node:

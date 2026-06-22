@@ -34,6 +34,17 @@ export interface ZoneNpc {
   combat?: NpcCombatConfig;
 }
 
+/** Decorative, non-interactive scenery (furniture, plants) placed in a zone. */
+export interface SceneryNode {
+  id: string;
+  tileX: number;
+  tileY: number;
+  /** Renders the "scenery_<prop>" texture. */
+  prop: string;
+  /** Flat props (rugs) render beneath players; others depth-sort by position. */
+  flat?: boolean;
+}
+
 export interface ZoneConfig {
   id: string;
   roomName: string;
@@ -45,6 +56,7 @@ export interface ZoneConfig {
   farmPlots?: FarmPlotNode[];
   landPlots?: LandPlotNode[];
   billboards?: BillboardNode[];
+  scenery?: SceneryNode[];
 }
 
 export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
@@ -464,8 +476,23 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
         tileX: 11,
         tileY: 7,
         dialogue:
-          "Welcome to the Community Lodge — a warm indoor place to gather with other adventurers. Step on the rug by the south door to head back out.",
+          "Welcome to the Community Lodge — a warm indoor place to gather with other adventurers. Step on the south doormat to head back out.",
       },
+    ],
+    scenery: [
+      // North wall: a fireplace flanked by bookshelves and plants.
+      { id: "lodge_fire", tileX: 11, tileY: 6, prop: "fireplace" },
+      { id: "lodge_shelf_l", tileX: 8, tileY: 6, prop: "bookshelf" },
+      { id: "lodge_shelf_r", tileX: 14, tileY: 6, prop: "bookshelf" },
+      { id: "lodge_plant_l", tileX: 7, tileY: 6, prop: "plant" },
+      { id: "lodge_plant_r", tileX: 15, tileY: 6, prop: "plant" },
+      // A central rug players walk across.
+      { id: "lodge_rug", tileX: 11, tileY: 11, prop: "rug", flat: true },
+      // Two seating nooks.
+      { id: "lodge_table_l", tileX: 8, tileY: 12, prop: "table" },
+      { id: "lodge_chair_l", tileX: 8, tileY: 13, prop: "chair" },
+      { id: "lodge_table_r", tileX: 14, tileY: 12, prop: "table" },
+      { id: "lodge_chair_r", tileX: 14, tileY: 11, prop: "chair" },
     ],
   },
 };

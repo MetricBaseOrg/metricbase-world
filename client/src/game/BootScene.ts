@@ -36,6 +36,7 @@ export class BootScene extends Phaser.Scene {
     this.createFarmPlotTextures();
     this.createHousingTextures();
     this.createDecorTextures();
+    this.createSceneryTextures();
     this.createBillboardTexture();
   }
 
@@ -838,6 +839,139 @@ export class BootScene extends Phaser.Scene {
     g.fillStyle(0xc89a63, 0.7).fillRect(cx - 5, baseY - 21, 2, 19);
     g.generateTexture("decor_barrel", W, H);
     g.destroy();
+  }
+
+  /** Indoor furniture used to dress interior zones (the Community Lodge). */
+  private createSceneryTextures() {
+    // Rug — a flat patterned mat drawn as an iso diamond (players walk over it).
+    let g = this.make.graphics({ x: 0, y: 0 });
+    {
+      const W = 64;
+      const H = 40;
+      const cx = W / 2;
+      const cy = H / 2;
+      const hw = 28;
+      const hh = 16;
+      const diamond = (col: number, s: number) => {
+        g.fillStyle(col, 1);
+        g.beginPath();
+        g.moveTo(cx, cy - hh * s);
+        g.lineTo(cx + hw * s, cy);
+        g.lineTo(cx, cy + hh * s);
+        g.lineTo(cx - hw * s, cy);
+        g.closePath();
+        g.fillPath();
+      };
+      diamond(0xb5485f, 1);
+      g.lineStyle(2, OUTLINE, 1).strokePoints(
+        [
+          { x: cx, y: cy - hh },
+          { x: cx + hw, y: cy },
+          { x: cx, y: cy + hh },
+          { x: cx - hw, y: cy },
+        ],
+        true,
+      );
+      diamond(0xe7b6c2, 0.62);
+      diamond(0xb5485f, 0.32);
+      g.generateTexture("scenery_rug", W, H);
+      g.destroy();
+    }
+
+    // Fireplace — stone hearth with a glowing fire.
+    g = this.make.graphics({ x: 0, y: 0 });
+    {
+      const W = 40;
+      const H = 46;
+      const cx = W / 2;
+      const baseY = H - 4;
+      g.fillStyle(0x2a1d12, 0.22).fillEllipse(cx, baseY + 2, 30, 6);
+      g.fillStyle(0x9a8f86, 1).fillRoundedRect(cx - 16, baseY - 34, 32, 34, 4);
+      g.lineStyle(2, OUTLINE, 1).strokeRoundedRect(cx - 16, baseY - 34, 32, 34, 4);
+      g.fillStyle(0x3a2a22, 1).fillRoundedRect(cx - 10, baseY - 20, 20, 20, 3);
+      g.lineStyle(2, OUTLINE, 1).strokeRoundedRect(cx - 10, baseY - 20, 20, 20, 3);
+      g.fillStyle(0xff7a1a, 1).fillTriangle(cx - 7, baseY - 1, cx + 7, baseY - 1, cx, baseY - 16);
+      g.fillStyle(0xffd33d, 1).fillTriangle(cx - 4, baseY - 1, cx + 4, baseY - 1, cx, baseY - 11);
+      g.fillStyle(0xc8bcb0, 1).fillRect(cx - 18, baseY - 38, 36, 5);
+      g.lineStyle(2, OUTLINE, 1).strokeRect(cx - 18, baseY - 38, 36, 5);
+      g.generateTexture("scenery_fireplace", W, H);
+      g.destroy();
+    }
+
+    // Bookshelf — tall cabinet with coloured book rows.
+    g = this.make.graphics({ x: 0, y: 0 });
+    {
+      const W = 32;
+      const H = 48;
+      const cx = W / 2;
+      const baseY = H - 4;
+      g.fillStyle(0x2a1d12, 0.22).fillEllipse(cx, baseY + 2, 24, 5);
+      g.fillStyle(0x7a5230, 1).fillRoundedRect(cx - 12, baseY - 40, 24, 40, 3);
+      g.lineStyle(2, OUTLINE, 1).strokeRoundedRect(cx - 12, baseY - 40, 24, 40, 3);
+      const rowColors = [0xd25b5b, 0x4f8cff, 0x49b265, 0xe6a800];
+      for (let r = 0; r < 4; r++) {
+        const ry = baseY - 36 + r * 9;
+        g.fillStyle(0x3a2a1e, 1).fillRect(cx - 10, ry + 7, 20, 1.5);
+        for (let b = 0; b < 4; b++) {
+          g.fillStyle(rowColors[(r + b) % rowColors.length], 1).fillRect(cx - 9 + b * 5, ry, 4, 7);
+        }
+      }
+      g.generateTexture("scenery_bookshelf", W, H);
+      g.destroy();
+    }
+
+    // Potted plant — leafy fronds in a pot.
+    g = this.make.graphics({ x: 0, y: 0 });
+    {
+      const W = 28;
+      const H = 44;
+      const cx = W / 2;
+      const baseY = H - 4;
+      g.fillStyle(0x2a1d12, 0.22).fillEllipse(cx, baseY + 2, 18, 5);
+      g.fillStyle(0xb5743a, 1).fillRoundedRect(cx - 7, baseY - 12, 14, 12, 2);
+      g.lineStyle(2, OUTLINE, 1).strokeRoundedRect(cx - 7, baseY - 12, 14, 12, 2);
+      g.fillStyle(0x2e7d32, 1).fillEllipse(cx, baseY - 22, 18, 18);
+      g.fillStyle(0x3f9d44, 1).fillEllipse(cx - 4, baseY - 27, 8, 10);
+      g.fillStyle(0x81c784, 0.7).fillEllipse(cx + 3, baseY - 24, 5, 7);
+      g.lineStyle(2, OUTLINE, 1).strokeEllipse(cx, baseY - 22, 18, 18);
+      g.generateTexture("scenery_plant", W, H);
+      g.destroy();
+    }
+
+    // Table — round top on a pedestal.
+    g = this.make.graphics({ x: 0, y: 0 });
+    {
+      const W = 34;
+      const H = 32;
+      const cx = W / 2;
+      const baseY = H - 4;
+      g.fillStyle(0x2a1d12, 0.22).fillEllipse(cx, baseY + 2, 22, 5);
+      g.fillStyle(0x8a5a33, 1).fillRect(cx - 2, baseY - 12, 4, 12);
+      g.lineStyle(1.5, OUTLINE, 1).strokeRect(cx - 2, baseY - 12, 4, 12);
+      g.fillStyle(0xb5793f, 1).fillEllipse(cx, baseY - 14, 26, 9);
+      g.lineStyle(2, OUTLINE, 1).strokeEllipse(cx, baseY - 14, 26, 9);
+      g.fillStyle(0xd9a566, 0.6).fillEllipse(cx - 4, baseY - 16, 10, 3);
+      g.generateTexture("scenery_table", W, H);
+      g.destroy();
+    }
+
+    // Chair — a little stool with a backrest.
+    g = this.make.graphics({ x: 0, y: 0 });
+    {
+      const W = 24;
+      const H = 32;
+      const cx = W / 2;
+      const baseY = H - 4;
+      g.fillStyle(0x2a1d12, 0.22).fillEllipse(cx, baseY + 2, 14, 4);
+      g.fillStyle(0x9a6638, 1).fillRoundedRect(cx - 7, baseY - 22, 14, 12, 2);
+      g.lineStyle(2, OUTLINE, 1).strokeRoundedRect(cx - 7, baseY - 22, 14, 12, 2);
+      g.fillStyle(0xb5793f, 1).fillRoundedRect(cx - 8, baseY - 12, 16, 6, 2);
+      g.lineStyle(2, OUTLINE, 1).strokeRoundedRect(cx - 8, baseY - 12, 16, 6, 2);
+      g.fillStyle(0x7a5230, 1).fillRect(cx - 7, baseY - 6, 2.5, 6);
+      g.fillStyle(0x7a5230, 1).fillRect(cx + 4.5, baseY - 6, 2.5, 6);
+      g.generateTexture("scenery_chair", W, H);
+      g.destroy();
+    }
   }
 
   private createBillboardTexture() {
