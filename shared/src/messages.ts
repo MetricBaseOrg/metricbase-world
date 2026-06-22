@@ -1,6 +1,6 @@
 export interface ChatMessagePayload {
   id: string;
-  channel: "zone" | "system";
+  channel: "zone" | "system" | "guild" | "party";
   senderId: string;
   senderName: string;
   body: string;

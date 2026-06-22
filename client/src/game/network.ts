@@ -268,6 +268,10 @@ export class NetworkManager {
     this.room?.send("chat", { body });
   }
 
+  sendGuildChat(body: string) {
+    this.room?.send("guildChat", { body });
+  }
+
   sendInteract(npcId: string) {
     this.room?.send("interact", { npcId });
   }
@@ -1039,6 +1043,7 @@ export class NetworkManager {
         y: Math.round(player.y),
         level: player.level,
         xp: player.xp,
+        guildTag: player.guildTag,
         appearance: player.appearance,
       })),
     );

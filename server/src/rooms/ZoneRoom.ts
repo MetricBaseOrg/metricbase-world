@@ -130,10 +130,12 @@ import {
 import {
   buildGuildStatePayload,
   createGuild,
+  getGuildForMember,
   joinGuild,
   leaveGuild,
   tagForMember,
 } from "../guild/guildRegistry.js";
+import { clearOnline, sendToPlayers, setOnline } from "../social/presence.js";
 
 interface PendingInput {
   dx: number;
@@ -201,6 +203,10 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
     this.onMessage("chat", (client, message: { body?: string }) => {
       void this.handleChat(client, message.body ?? "");
+    });
+
+    this.onMessage("guildChat", (client, message: { body?: string }) => {
+      this.handleGuildChat(client, message.body ?? "");
     });
 
     this.onMessage("interact", (client, message: { npcId?: string }) => {
@@ -469,6 +475,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     }
 
     this.state.players.set(client.sessionId, player);
+    setOnline(player.name, client, (type, payload) => client.send(type, payload));
     this.inputs.set(client.sessionId, { dx: 0, dy: 0 });
     this.questProgress.set(player.name, saved?.questProgress ?? { active: [], objectiveIndex: {}, completed: [] });
     this.inventories.set(player.name, normalizeInventory(saved?.inventory));
@@ -520,6 +527,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     }
 
     if (player) {
+      clearOnline(player.name, client);
       this.questProgress.delete(player.name);
       this.inventories.delete(player.name);
       this.playerGold.delete(player.name);
@@ -2655,6 +2663,35 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       body,
       sentAt: now,
     });
+  }
+
+  private handleGuildChat(client: Client, rawBody: string) {
+    const now = Date.now();
+    const lastSent = this.chatCooldowns.get(client.sessionId) ?? 0;
+    if (now - lastSent < CHAT_COOLDOWN_MS) return;
+
+    const body = rawBody.trim().slice(0, CHAT_MAX_LENGTH);
+    if (!body) return;
+
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+
+    const guild = getGuildForMember(player.name);
+    if (!guild) {
+      client.send("guildResult", { ok: false, error: "You're not in a guild." });
+      return;
+    }
+
+    this.chatCooldowns.set(client.sessionId, now);
+    // Deliver to every online guild member across all zones via presence.
+    sendToPlayers(guild.members, "chat", {
+      id: crypto.randomUUID(),
+      channel: "guild",
+      senderId: client.sessionId,
+      senderName: player.name,
+      body,
+      sentAt: now,
+    } satisfies ChatMessagePayload);
   }
 
   private broadcastChat(message: ChatMessagePayload) {

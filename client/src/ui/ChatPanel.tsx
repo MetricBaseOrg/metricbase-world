@@ -10,12 +10,26 @@ export function ChatPanel() {
   const [draft, setDraft] = useState("");
   const mobileLayout = useMobileLayout();
   const [open, setOpen] = useState(false);
+  const [channel, setChannel] = useState<"zone" | "guild">("zone");
+  const [inGuild, setInGuild] = useState(false);
   const messages = useGameStore((state) => state.chatMessages);
   const listRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!mobileLayout) setOpen(true);
   }, [mobileLayout]);
+
+  useEffect(() => {
+    const unsubscribe = networkManager.onGuildState((state) => setInGuild(!!state.myGuild));
+    return () => {
+      unsubscribe();
+    };
+  }, []);
+
+  // Fall back to zone chat if the player isn't (or is no longer) in a guild.
+  useEffect(() => {
+    if (!inGuild && channel === "guild") setChannel("zone");
+  }, [inGuild, channel]);
 
   useEffect(() => {
     if (listRef.current) {
@@ -28,9 +42,53 @@ export function ChatPanel() {
     const body = draft.trim();
     if (!body) return;
     playSfx("chat_send");
-    networkManager.sendChat(body);
+    if (channel === "guild") {
+      networkManager.sendGuildChat(body);
+    } else {
+      networkManager.sendChat(body);
+    }
     setDraft("");
   };
+
+  const renderMessage = (message: (typeof messages)[number]) => {
+    if (message.channel === "system") {
+      return <span className="chibi-chat-system">{message.body}</span>;
+    }
+    if (message.channel === "guild") {
+      return (
+        <>
+          <span className="chibi-chat-guild">[Guild] {message.senderName}: </span>
+          <span>{message.body}</span>
+        </>
+      );
+    }
+    if (message.channel === "party") {
+      return (
+        <>
+          <span className="chibi-chat-party">[Party] {message.senderName}: </span>
+          <span>{message.body}</span>
+        </>
+      );
+    }
+    return (
+      <>
+        <span className="chibi-chat-name">{message.senderName}: </span>
+        <span>{message.body}</span>
+      </>
+    );
+  };
+
+  const channelToggle = inGuild ? (
+    <button
+      type="button"
+      className={`chibi-btn ${channel === "guild" ? "chibi-btn--mint" : "chibi-btn--secondary"}`}
+      style={{ padding: "0 10px", fontSize: "0.72rem", minHeight: 44 }}
+      onClick={() => setChannel((c) => (c === "guild" ? "zone" : "guild"))}
+      title="Toggle chat channel"
+    >
+      {channel === "guild" ? "Guild" : "Zone"}
+    </button>
+  ) : null;
 
   if (mobileLayout && !open) {
     return (
@@ -77,20 +135,14 @@ export function ChatPanel() {
             ) : (
               messages.map((message) => (
                 <div key={message.id} style={{ marginBottom: 6, fontSize: "0.84rem", lineHeight: 1.45 }}>
-                  {message.channel === "system" ? (
-                    <span className="chibi-chat-system">{message.body}</span>
-                  ) : (
-                    <>
-                      <span className="chibi-chat-name">{message.senderName}: </span>
-                      <span>{message.body}</span>
-                    </>
-                  )}
+                  {renderMessage(message)}
                 </div>
               ))
             )}
           </div>
 
           <form onSubmit={handleSubmit} className="chibi-chat-sheet__form">
+            {channelToggle}
             <input
               className="chibi-input"
               value={draft}
@@ -100,7 +152,7 @@ export function ChatPanel() {
                 networkManager.sendInput(0, 0);
               }}
               onBlur={() => setUiTypingActive(false)}
-              placeholder="Type a message..."
+              placeholder={channel === "guild" ? "Message your guild..." : "Type a message..."}
               style={{ flex: 1, minHeight: 44 }}
             />
             <button
@@ -124,20 +176,14 @@ export function ChatPanel() {
         ) : (
           messages.map((message) => (
             <div key={message.id} style={{ marginBottom: 6, fontSize: "0.84rem", lineHeight: 1.45 }}>
-              {message.channel === "system" ? (
-                <span className="chibi-chat-system">{message.body}</span>
-              ) : (
-                <>
-                  <span className="chibi-chat-name">{message.senderName}: </span>
-                  <span>{message.body}</span>
-                </>
-              )}
+              {renderMessage(message)}
             </div>
           ))
         )}
       </div>
 
       <form onSubmit={handleSubmit} style={{ display: "flex", gap: 8 }}>
+        {channelToggle}
         <input
           className="chibi-input"
           value={draft}
@@ -147,7 +193,7 @@ export function ChatPanel() {
             networkManager.sendInput(0, 0);
           }}
           onBlur={() => setUiTypingActive(false)}
-          placeholder="Press Enter to chat..."
+          placeholder={channel === "guild" ? "Guild chat — press Enter..." : "Press Enter to chat..."}
           style={{ flex: 1 }}
         />
         <button

@@ -966,6 +966,16 @@ body {
   font-weight: 600;
 }
 
+.chibi-chat-guild {
+  color: #2db5ac;
+  font-weight: 800;
+}
+
+.chibi-chat-party {
+  color: var(--chibi-lavender);
+  font-weight: 800;
+}
+
 .chibi-chat-name {
   color: var(--chibi-gold-deep);
   font-weight: 800;
