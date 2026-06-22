@@ -59,7 +59,8 @@ server on Railway, Neon PostgreSQL, Solana token gate/market.
   Hardwood (Woodcutting 3) and Deep Pool salmon (Fishing 3), feeding Hardwood
   Planks, Grilled Salmon, and the Angler's Pro Rod (50% faster fishing). Next:
   steel tier and tools that raise *yield* (bonus loot) rather than just speed.
-- Persist farm-plot state to the DB (currently in-memory per room).
+- ✅ Persist farm-plot state to the DB (process-global `farm_plots` registry;
+  crops keep growing across restarts).
 - More zones, NPCs, quests, and recipes around the loop.
 
 ---

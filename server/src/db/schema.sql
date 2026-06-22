@@ -88,3 +88,16 @@ CREATE TABLE IF NOT EXISTS land_plots (
 -- Player-run shop inventory + uncollected earnings (added later).
 ALTER TABLE land_plots ADD COLUMN IF NOT EXISTS listings JSONB NOT NULL DEFAULT '[]'::jsonb;
 ALTER TABLE land_plots ADD COLUMN IF NOT EXISTS earnings INTEGER NOT NULL DEFAULT 0;
+
+-- Active (planted) farm plots. One row per growing crop; the row is deleted on
+-- harvest. Growth is time-based (planted_at/ready_at are epoch millis), so crops
+-- keep maturing across server restarts.
+CREATE TABLE IF NOT EXISTS farm_plots (
+  plot_id VARCHAR(64) PRIMARY KEY,
+  zone_id VARCHAR(64) NOT NULL,
+  crop_id VARCHAR(64) NOT NULL,
+  seed_id VARCHAR(64) NOT NULL,
+  planter_name VARCHAR(16) NOT NULL,
+  planted_at BIGINT NOT NULL,
+  ready_at BIGINT NOT NULL
+);

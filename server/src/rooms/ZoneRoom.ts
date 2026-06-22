@@ -110,6 +110,13 @@ import {
   getPlotOwner,
   updatePlotShop,
 } from "../housing/landRegistry.js";
+import {
+  getFarmPlot,
+  getFarmPlotsForZone,
+  harvestFarmPlot,
+  markReadyBroadcast,
+  plantFarmPlot,
+} from "../farming/farmRegistry.js";
 
 interface PendingInput {
   dx: number;
@@ -142,18 +149,6 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     { resourceId: string; playerName: string; startedAt: number; endsAt: number; durationMs: number }
   >();
   private playerSkills = new Map<string, ReturnType<typeof normalizeSkills>>();
-  // Active farm plots (empty plots are absent from the map).
-  private farmPlots = new Map<
-    string,
-    {
-      cropId: string;
-      seedId: string;
-      plantedAt: number;
-      readyAt: number;
-      planterName: string;
-      readyBroadcast: boolean;
-    }
-  >();
   private inventories = new Map<string, InventoryEntry[]>();
   private playerEmoteAt = new Map<string, number>();
   private playerGold = new Map<string, number>();
@@ -2008,7 +2003,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   private buildFarmState(): { plots: FarmPlotState[] } {
     const now = Date.now();
     const plots: FarmPlotState[] = (this.zoneConfig.farmPlots ?? []).map((plot) => {
-      const active = this.farmPlots.get(plot.id);
+      const active = getFarmPlot(plot.id);
       if (!active) return { plotId: plot.id, stage: "empty" as const };
       return {
         plotId: plot.id,
@@ -2027,11 +2022,11 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   }
 
   private processFarmGrowth(now: number) {
-    for (const [, plot] of this.farmPlots) {
+    for (const plot of getFarmPlotsForZone(this.zoneConfig.id)) {
       // Broadcast once when a plot first becomes ready so clients flip to the
       // ripe stage without us streaming state every tick.
       if (now >= plot.readyAt && !plot.readyBroadcast) {
-        plot.readyBroadcast = true;
+        markReadyBroadcast(plot.plotId);
         this.broadcastFarmState();
       }
     }
@@ -2051,7 +2046,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     }
 
     const weaponId = this.playerEquipment.get(player.name)?.weaponId ?? null;
-    const active = this.farmPlots.get(plotId);
+    const active = getFarmPlot(plotId);
     const now = Date.now();
 
     if (!active) {
@@ -2071,13 +2066,14 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       inventory = removeItemFromInventory(inventory, crop.seedItemId, 1).inventory;
       this.inventories.set(player.name, inventory);
       this.sendInventory(client, player.name);
-      this.farmPlots.set(plotId, {
+      plantFarmPlot({
+        plotId,
+        zoneId: this.zoneConfig.id,
         cropId: crop.cropItemId,
         seedId: crop.seedItemId,
         plantedAt: now,
         readyAt: now + crop.growMs,
         planterName: player.name,
-        readyBroadcast: false,
       });
       this.broadcastFarmState();
       client.send("farmResult", {
@@ -2102,7 +2098,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     const skillXp = crop?.skillXp ?? 10;
     const { newLevel, leveledUp } = this.grantSkillXp(player.name, "farming", skillXp);
     this.sendSkillState(client, player.name);
-    this.farmPlots.delete(plotId);
+    harvestFarmPlot(plotId);
     this.broadcastFarmState();
 
     const cropName = ITEMS[active.cropId]?.name ?? active.cropId;

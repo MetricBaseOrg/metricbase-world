@@ -124,6 +124,7 @@ shared/   Zone maps, protocol types
 - [x] Craftable tools (axe/pickaxe/rod) — equip for faster gathering
 - [x] Iron tier — Iron Deposits (Mining 3) → ore → bars → iron tools (50% faster)
 - [x] Tier-2 woodcutting & fishing — Hardwood + Deep Pool salmon → planks, food, pro rod
+- [x] Farm plots persist to the DB (crops keep growing across restarts)
 - [x] Merchant shop (Pip) and soft currency (gold)
 - [x] Peer-to-peer gold market (MetricBase SPL)
 - [x] Knockout respawn (100g or 30 min wait)
