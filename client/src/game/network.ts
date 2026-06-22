@@ -332,6 +332,10 @@ export class NetworkManager {
     this.room?.send("housingCustomize", { plotId, roof });
   }
 
+  sendHousingSign(plotId: string, sign: string | null) {
+    this.room?.send("housingCustomize", { plotId, sign });
+  }
+
   sendEmote(emoteId: string) {
     this.room?.send("emote", { emoteId });
   }

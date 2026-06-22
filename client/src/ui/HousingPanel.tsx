@@ -1,5 +1,5 @@
-import { PLOT_PRICE, ROOF_COLORS, structureLabel } from "@metricbase/shared";
-import { useState } from "react";
+import { PLOT_PRICE, ROOF_COLORS, SIGN_MAX_LENGTH, structureLabel } from "@metricbase/shared";
+import { useEffect, useState } from "react";
 import { playSfx } from "../audio/soundEffects";
 import { networkManager } from "../game/network";
 import { useGameStore } from "../store/gameStore";
@@ -14,10 +14,16 @@ export function HousingPanel() {
   const setPlayerGold = useGameStore((state) => state.setPlayerGold);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
-
-  if (!open || !plotId) return null;
+  const [signDraft, setSignDraft] = useState("");
 
   const plot = plots.find((entry) => entry.plotId === plotId);
+
+  // Keep the sign input in sync with the plot's current name when it changes.
+  useEffect(() => {
+    setSignDraft(plot?.sign ?? "");
+  }, [plot?.sign, plotId]);
+
+  if (!open || !plotId) return null;
   const owned = plot && plot.structure !== "none";
   const isMine = owned && plot?.ownerName === playerName;
   const canAfford = playerGold >= PLOT_PRICE;
@@ -32,6 +38,13 @@ export function HousingPanel() {
     if (!plotId) return;
     playSfx("ui_click");
     networkManager.sendHousingCustomize(plotId, roof);
+  };
+
+  const saveSign = () => {
+    if (!plotId) return;
+    playSfx("ui_click");
+    const trimmed = signDraft.trim();
+    networkManager.sendHousingSign(plotId, trimmed.length > 0 ? trimmed : null);
   };
 
   const buy = async (structure: "house" | "shop") => {
@@ -79,24 +92,55 @@ export function HousingPanel() {
           </div>
 
           {isMine && (
-            <div style={{ marginTop: 12 }}>
-              <div className="chibi-label" style={{ marginBottom: 6 }}>
-                Roof paint
-              </div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                {ROOF_COLORS.map((color) => (
-                  <button
-                    key={color.id}
-                    type="button"
-                    className={`chibi-swatch${plot?.roof === color.id ? " active" : ""}`}
-                    style={{ background: `#${color.roof.toString(16).padStart(6, "0")}` }}
-                    title={color.name}
-                    aria-label={`Paint roof ${color.name}`}
-                    onClick={() => paint(color.id)}
+            <>
+              <div style={{ marginTop: 12 }}>
+                <div className="chibi-label" style={{ marginBottom: 6 }}>
+                  Sign
+                </div>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <input
+                    className="chibi-input"
+                    value={signDraft}
+                    maxLength={SIGN_MAX_LENGTH}
+                    placeholder={`${playerName}'s ${structureLabel(plot?.structure ?? "house")}`}
+                    onChange={(e) => setSignDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") saveSign();
+                    }}
+                    style={{ flex: 1 }}
+                    aria-label="Building sign name"
                   />
-                ))}
+                  <button
+                    type="button"
+                    className="chibi-btn chibi-btn--mint"
+                    onClick={saveSign}
+                    disabled={(signDraft.trim() || null) === (plot?.sign ?? null)}
+                    style={{ padding: "8px 12px", fontSize: "0.78rem" }}
+                  >
+                    Save
+                  </button>
+                </div>
               </div>
-            </div>
+
+              <div style={{ marginTop: 12 }}>
+                <div className="chibi-label" style={{ marginBottom: 6 }}>
+                  Roof paint
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  {ROOF_COLORS.map((color) => (
+                    <button
+                      key={color.id}
+                      type="button"
+                      className={`chibi-swatch${plot?.roof === color.id ? " active" : ""}`}
+                      style={{ background: `#${color.roof.toString(16).padStart(6, "0")}` }}
+                      title={color.name}
+                      aria-label={`Paint roof ${color.name}`}
+                      onClick={() => paint(color.id)}
+                    />
+                  ))}
+                </div>
+              </div>
+            </>
           )}
         </div>
       ) : (

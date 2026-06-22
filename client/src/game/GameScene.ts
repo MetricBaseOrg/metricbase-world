@@ -834,7 +834,8 @@ export class GameScene extends Phaser.Scene {
       plot.sprite.setTexture(this.textures.exists(variant) ? variant : base);
       plot.sprite.setDepth(plot.worldY);
       if (owned && state.ownerName) {
-        plot.label.setText(`${state.ownerName}'s ${structureLabel(state.structure)}`);
+        // Owner-set sign takes precedence over the default "X's House" label.
+        plot.label.setText(state.sign || `${state.ownerName}'s ${structureLabel(state.structure)}`);
         plot.label.setColor("#ffffff");
       } else {
         plot.label.setText("For Sale");

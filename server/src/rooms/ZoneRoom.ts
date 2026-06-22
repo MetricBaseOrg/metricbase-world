@@ -39,6 +39,7 @@ import {
   PLOT_PRICE,
   HOUSE_RANGE,
   isValidRoofId,
+  sanitizeSign,
   structureLabel,
   MAX_SHOP_LISTINGS,
   getEmote,
@@ -110,6 +111,7 @@ import {
   claimPlot,
   getPlotOwner,
   setPlotRoof,
+  setPlotSign,
   updatePlotShop,
 } from "../housing/landRegistry.js";
 import {
@@ -275,8 +277,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
     this.onMessage(
       "housingCustomize",
-      (client, message: { plotId?: string; roof?: string | null }) => {
-        void this.handleHousingCustomize(client, message.plotId ?? "", message.roof ?? null);
+      (client, message: { plotId?: string; roof?: string | null; sign?: string | null }) => {
+        this.handleHousingCustomize(client, message.plotId ?? "", message);
       },
     );
 
@@ -2372,7 +2374,11 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     await this.persistPlayer(player);
   }
 
-  private handleHousingCustomize(client: Client, plotId: string, roof: string | null) {
+  private handleHousingCustomize(
+    client: Client,
+    plotId: string,
+    opts: { roof?: string | null; sign?: string | null },
+  ) {
     const player = this.state.players.get(client.sessionId);
     if (!player || !plotId) return;
 
@@ -2382,13 +2388,21 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       return;
     }
 
-    // null clears back to the default colour; otherwise must be a known palette id.
-    if (roof !== null && !isValidRoofId(roof)) {
-      client.send("housingResult", { ok: false, plotId, error: "Unknown paint colour." });
-      return;
+    if ("roof" in opts) {
+      const roof = opts.roof ?? null;
+      // null clears back to the default colour; otherwise must be a known id.
+      if (roof !== null && !isValidRoofId(roof)) {
+        client.send("housingResult", { ok: false, plotId, error: "Unknown paint colour." });
+        return;
+      }
+      setPlotRoof(plotId, roof);
     }
 
-    setPlotRoof(plotId, roof);
+    if ("sign" in opts) {
+      // sanitizeSign trims/caps and returns null for empty (clears the sign).
+      setPlotSign(plotId, sanitizeSign(opts.sign));
+    }
+
     this.broadcastHousingState();
     client.send("housingResult", { ok: true, plotId, ownerName: player.name });
   }

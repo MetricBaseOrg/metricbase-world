@@ -90,6 +90,8 @@ ALTER TABLE land_plots ADD COLUMN IF NOT EXISTS listings JSONB NOT NULL DEFAULT 
 ALTER TABLE land_plots ADD COLUMN IF NOT EXISTS earnings INTEGER NOT NULL DEFAULT 0;
 -- Roof-paint customization (housing depth). NULL = default colour.
 ALTER TABLE land_plots ADD COLUMN IF NOT EXISTS roof VARCHAR(16);
+-- Owner-set building sign / name (housing depth). NULL = default label.
+ALTER TABLE land_plots ADD COLUMN IF NOT EXISTS sign VARCHAR(24);
 
 -- Active (planted) farm plots. One row per growing crop; the row is deleted on
 -- harvest. Growth is time-based (planted_at/ready_at are epoch millis), so crops

@@ -71,7 +71,7 @@ export function PlayerShopPanel() {
     >
       <div className="chibi-close-row">
         <div className="chibi-title chibi-title--sm chibi-sparkle-title">
-          🏪 {isMine ? "Your Shop" : `${plot.ownerName}'s Shop`}
+          🏪 {plot.sign || (isMine ? "Your Shop" : `${plot.ownerName}'s Shop`)}
         </div>
         <button type="button" className="chibi-btn chibi-btn--ghost" onClick={close} aria-label="Close">
           ×

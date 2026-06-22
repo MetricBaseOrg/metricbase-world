@@ -29,6 +29,7 @@ export function claimPlot(
     ownerName,
     structure,
     roof: null,
+    sign: null,
     listings: [],
     earnings: 0,
   };
@@ -41,6 +42,14 @@ export function setPlotRoof(plotId: string, roof: string | null): void {
   const record = plots.get(plotId);
   if (!record) return;
   record.roof = roof;
+  void saveLandPlot(record);
+}
+
+/** Rename an owned plot's building sign, persisting the change. */
+export function setPlotSign(plotId: string, sign: string | null): void {
+  const record = plots.get(plotId);
+  if (!record) return;
+  record.sign = sign;
   void saveLandPlot(record);
 }
 
@@ -63,6 +72,7 @@ export function buildLandPlotStates(plotIds: string[]): LandPlotState[] {
       ownerName: owned.ownerName,
       structure: owned.structure,
       roof: owned.roof ?? undefined,
+      sign: owned.sign ?? undefined,
       listings: owned.listings,
       earnings: owned.earnings,
     };

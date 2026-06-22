@@ -23,9 +23,31 @@ export interface LandPlotState {
   structure: StructureType;
   /** Chosen roof-paint palette id (see ROOF_COLORS); absent = default colour. */
   roof?: string;
+  /** Owner-set building name shown on the in-world sign; absent = default. */
+  sign?: string;
   listings?: ShopListing[];
   /** Uncollected gold from sales (only meaningful to the owner). */
   earnings?: number;
+}
+
+/** Max characters for an owner-set building sign. */
+export const SIGN_MAX_LENGTH = 20;
+
+/**
+ * Clean an owner-supplied building name: drop ASCII control characters, collapse
+ * runs of whitespace, trim, and cap length. Returns null for an empty result
+ * (which clears the sign back to the default label).
+ */
+export function sanitizeSign(raw: string | null | undefined): string | null {
+  if (typeof raw !== "string") return null;
+  let out = "";
+  for (const ch of raw) {
+    const code = ch.codePointAt(0) ?? 0;
+    if (code < 0x20 || code === 0x7f) continue;
+    out += ch;
+  }
+  out = out.replace(/\s+/g, " ").trim();
+  return out ? out.slice(0, SIGN_MAX_LENGTH) : null;
 }
 
 /** A roof paint option owners can apply to their house or shop. */
