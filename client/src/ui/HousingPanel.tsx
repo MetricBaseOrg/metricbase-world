@@ -1,4 +1,10 @@
-import { PLOT_PRICE, ROOF_COLORS, SIGN_MAX_LENGTH, structureLabel } from "@metricbase/shared";
+import {
+  PLOT_DECORATIONS,
+  PLOT_PRICE,
+  ROOF_COLORS,
+  SIGN_MAX_LENGTH,
+  structureLabel,
+} from "@metricbase/shared";
 import { useEffect, useState } from "react";
 import { playSfx } from "../audio/soundEffects";
 import { networkManager } from "../game/network";
@@ -45,6 +51,12 @@ export function HousingPanel() {
     playSfx("ui_click");
     const trimmed = signDraft.trim();
     networkManager.sendHousingSign(plotId, trimmed.length > 0 ? trimmed : null);
+  };
+
+  const decorate = (slot: number, propId: string | null) => {
+    if (!plotId) return;
+    playSfx("ui_click");
+    networkManager.sendHousingDecorate(plotId, slot, propId);
   };
 
   const buy = async (structure: "house" | "shop") => {
@@ -137,6 +149,33 @@ export function HousingPanel() {
                       aria-label={`Paint roof ${color.name}`}
                       onClick={() => paint(color.id)}
                     />
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ marginTop: 12 }}>
+                <div className="chibi-label" style={{ marginBottom: 6 }}>
+                  Corner decorations
+                </div>
+                <div style={{ display: "grid", gap: 6 }}>
+                  {["NW", "NE", "SW", "SE"].map((corner, slot) => (
+                    <div key={corner} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ width: 28, fontSize: "0.74rem", fontWeight: 700 }}>{corner}</span>
+                      <select
+                        className="chibi-input"
+                        style={{ flex: 1, padding: "6px 8px" }}
+                        value={plot?.decor?.[slot] ?? ""}
+                        onChange={(e) => decorate(slot, e.target.value || null)}
+                        aria-label={`Decoration for ${corner} corner`}
+                      >
+                        <option value="">— Empty —</option>
+                        {PLOT_DECORATIONS.map((prop) => (
+                          <option key={prop.id} value={prop.id}>
+                            {prop.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                   ))}
                 </div>
               </div>

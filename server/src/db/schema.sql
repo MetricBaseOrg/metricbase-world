@@ -92,6 +92,8 @@ ALTER TABLE land_plots ADD COLUMN IF NOT EXISTS earnings INTEGER NOT NULL DEFAUL
 ALTER TABLE land_plots ADD COLUMN IF NOT EXISTS roof VARCHAR(16);
 -- Owner-set building sign / name (housing depth). NULL = default label.
 ALTER TABLE land_plots ADD COLUMN IF NOT EXISTS sign VARCHAR(24);
+-- Corner decoration props (housing depth). JSON array of prop ids / nulls.
+ALTER TABLE land_plots ADD COLUMN IF NOT EXISTS decor JSONB NOT NULL DEFAULT '[]'::jsonb;
 
 -- Active (planted) farm plots. One row per growing crop; the row is deleted on
 -- harvest. Growth is time-based (planted_at/ready_at are epoch millis), so crops

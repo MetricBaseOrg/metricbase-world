@@ -11,6 +11,7 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Housing depth — plot decorations** — Plot owners can place props (Lamp Post, Flower Bed, Topiary, Barrel) on each of their plot's four corners from the 🏠 panel. Decorations render in-world for everyone and persist per plot (new `decor` JSONB column, auto-migrated). Owner-only, server-validated (slot + prop id).
 - **Housing depth — shop signage** — Plot owners can name their building (up to 20 chars) in the 🏠 panel; the custom sign shows on the in-world plot label and as the player-shop title for everyone. Persists on the plot (`sign` column, auto-migrated); server sanitizes + length-caps and validates ownership.
 - **Housing depth — roof paint** — Plot owners can repaint their house or shop roof from a 6-colour palette (Sky/Rose/Leaf/Plum/Teal/Amber) in the 🏠 plot panel. The choice persists on the plot (new `roof` column, auto-migrated) and everyone sees the recoloured building — rendered as art-consistent roof-colour variants (walls/awning unchanged), not a flat tint. Owner-only, validated server-side.
 - **Farm plots persist** — Planted crops now survive server restarts. Farm state moved from per-room memory to a process-global registry backed by a new `farm_plots` table (auto-migrated via `schema.sql`); growth is time-based (`planted_at`/`ready_at` epoch millis), so a crop keeps maturing while the server is down and is ripe when you return. Plant writes a row, harvest deletes it. Mirrors the land-plot / sell-pressure persistence pattern.

@@ -52,9 +52,9 @@ server on Railway, Neon PostgreSQL, Solana token gate/market.
 
 ### Next (roadmap)
 
-- Housing depth: ✅ roof paint (6-colour customization, persisted) and ✅ shop
-  signage (custom building names, persisted). Next: interior decoration and
-  placeable stalls/props.
+- Housing depth: ✅ roof paint (6-colour, persisted), ✅ shop signage (custom
+  building names, persisted), and ✅ corner decorations (place props on the four
+  plot corners, persisted). Next: walk-in interiors.
 - ✅ Tool/gear progression that boosts gather speed — copper tools (30% faster)
   and an **iron tier**: Iron Deposits (Mining 3) → Iron Ore → Iron Bars → Iron
   Axe/Pickaxe (50% faster). All three gather skills now have a tier-2 node:

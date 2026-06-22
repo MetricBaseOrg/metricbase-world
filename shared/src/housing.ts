@@ -25,6 +25,8 @@ export interface LandPlotState {
   roof?: string;
   /** Owner-set building name shown on the in-world sign; absent = default. */
   sign?: string;
+  /** Prop id (or null) for each corner slot; see PLOT_DECORATIONS. */
+  decor?: (string | null)[];
   listings?: ShopListing[];
   /** Uncollected gold from sales (only meaningful to the owner). */
   earnings?: number;
@@ -75,6 +77,41 @@ export function getRoofColor(id: string | null | undefined): RoofColor | undefin
 
 export function isValidRoofId(id: string | null | undefined): boolean {
   return !!id && ROOF_COLORS.some((color) => color.id === id);
+}
+
+/** Number of decoration slots per plot — the four corners of the 3x3 footprint. */
+export const PLOT_DECOR_SLOTS = 4;
+
+/** A decorative prop owners can place at a plot corner. */
+export interface PlotDecoration {
+  id: string;
+  name: string;
+}
+
+export const PLOT_DECORATIONS: PlotDecoration[] = [
+  { id: "lamp", name: "Lamp Post" },
+  { id: "flowers", name: "Flower Bed" },
+  { id: "bush", name: "Topiary" },
+  { id: "barrel", name: "Barrel" },
+];
+
+export function isValidDecorId(id: string | null | undefined): boolean {
+  return !!id && PLOT_DECORATIONS.some((d) => d.id === id);
+}
+
+/**
+ * Coerce stored decor data into a fixed-length slot array of valid prop ids (or
+ * null for an empty corner). Unknown/extra entries become null.
+ */
+export function normalizeDecor(raw: unknown): (string | null)[] {
+  const out: (string | null)[] = new Array(PLOT_DECOR_SLOTS).fill(null);
+  if (Array.isArray(raw)) {
+    for (let i = 0; i < PLOT_DECOR_SLOTS; i++) {
+      const value = raw[i];
+      out[i] = typeof value === "string" && isValidDecorId(value) ? value : null;
+    }
+  }
+  return out;
 }
 
 export interface HousingStatePayload {

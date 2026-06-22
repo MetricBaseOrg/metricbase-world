@@ -18,6 +18,8 @@ import {
   FARM_RANGE,
   farmGrowthProgress,
   HOUSE_RANGE,
+  PLOT_DECOR_SLOTS,
+  isValidDecorId,
   structureLabel,
   getEmote,
   tileToWorld,
@@ -84,6 +86,11 @@ interface RenderedLandPlot {
   label: Phaser.GameObjects.Text;
   worldX: number;
   worldY: number;
+  /** World position of each corner decoration slot. */
+  slotPositions: { x: number; y: number }[];
+  /** Currently-rendered prop id per slot (parallel to slotPositions). */
+  decorIds: (string | null)[];
+  decorSprites: (Phaser.GameObjects.Sprite | null)[];
 }
 
 interface RenderedNpc {
@@ -810,7 +817,24 @@ export class GameScene extends Phaser.Scene {
         })
         .setOrigin(0.5, 1)
         .setDepth(y + 1);
-      this.renderedLandPlots.set(plot.id, { id: plot.id, sprite, label, worldX: x, worldY: y });
+      // Decoration slots sit on the four corners of the 3x3 footprint.
+      const corners: Array<[number, number]> = [
+        [plot.tileX - 1, plot.tileY - 1],
+        [plot.tileX + 1, plot.tileY - 1],
+        [plot.tileX - 1, plot.tileY + 1],
+        [plot.tileX + 1, plot.tileY + 1],
+      ];
+      const slotPositions = corners.map(([tx, ty]) => tileToWorld(tx, ty));
+      this.renderedLandPlots.set(plot.id, {
+        id: plot.id,
+        sprite,
+        label,
+        worldX: x,
+        worldY: y,
+        slotPositions,
+        decorIds: new Array(PLOT_DECOR_SLOTS).fill(null),
+        decorSprites: new Array(PLOT_DECOR_SLOTS).fill(null),
+      });
     }
     this.applyHousingState(networkManager.getHousingState());
   }
@@ -819,6 +843,7 @@ export class GameScene extends Phaser.Scene {
     this.renderedLandPlots.forEach((plot) => {
       plot.sprite.destroy();
       plot.label.destroy();
+      plot.decorSprites.forEach((sprite) => sprite?.destroy());
     });
     this.renderedLandPlots.clear();
   }
@@ -840,6 +865,24 @@ export class GameScene extends Phaser.Scene {
       } else {
         plot.label.setText("For Sale");
         plot.label.setColor("#ffd24a");
+      }
+
+      // Reconcile the four corner decorations (only built plots show props).
+      const decor = state.decor ?? [];
+      for (let slot = 0; slot < PLOT_DECOR_SLOTS; slot++) {
+        const raw = decor[slot];
+        const want = owned && isValidDecorId(raw) ? raw : null;
+        if (plot.decorIds[slot] === want) continue;
+        plot.decorSprites[slot]?.destroy();
+        plot.decorSprites[slot] = null;
+        plot.decorIds[slot] = want;
+        if (want) {
+          const pos = plot.slotPositions[slot];
+          plot.decorSprites[slot] = this.add
+            .sprite(pos.x, pos.y, `decor_${want}`)
+            .setOrigin(0.5, 1)
+            .setDepth(pos.y);
+        }
       }
     }
   }

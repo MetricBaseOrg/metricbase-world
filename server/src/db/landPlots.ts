@@ -1,4 +1,4 @@
-import type { ShopListing, StructureType } from "@metricbase/shared";
+import { normalizeDecor, type ShopListing, type StructureType } from "@metricbase/shared";
 import { getPool } from "./pool.js";
 
 export interface StoredLandPlot {
@@ -11,6 +11,8 @@ export interface StoredLandPlot {
   roof: string | null;
   /** Owner-set building name, or null for the default label. */
   sign: string | null;
+  /** Corner decoration prop ids (fixed-length; null = empty corner). */
+  decor: (string | null)[];
   listings: ShopListing[];
   earnings: number;
 }
@@ -35,10 +37,11 @@ export async function loadLandPlots(): Promise<StoredLandPlot[]> {
       structure: string;
       roof: string | null;
       sign: string | null;
+      decor: unknown;
       listings: unknown;
       earnings: number | null;
     }>(
-      "SELECT plot_id, zone_id, owner_wallet, owner_name, structure, roof, sign, listings, earnings FROM land_plots",
+      "SELECT plot_id, zone_id, owner_wallet, owner_name, structure, roof, sign, decor, listings, earnings FROM land_plots",
     );
     return res.rows.map((row) => ({
       plotId: row.plot_id,
@@ -48,6 +51,7 @@ export async function loadLandPlots(): Promise<StoredLandPlot[]> {
       structure: (row.structure as StructureType) ?? "house",
       roof: row.roof,
       sign: row.sign,
+      decor: normalizeDecor(row.decor),
       listings: normalizeListings(row.listings),
       earnings: row.earnings ?? 0,
     }));
@@ -62,12 +66,12 @@ export async function saveLandPlot(plot: StoredLandPlot): Promise<void> {
   if (!pool) return;
   try {
     await pool.query(
-      `INSERT INTO land_plots (plot_id, zone_id, owner_wallet, owner_name, structure, roof, sign, listings, earnings)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      `INSERT INTO land_plots (plot_id, zone_id, owner_wallet, owner_name, structure, roof, sign, decor, listings, earnings)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
        ON CONFLICT (plot_id)
        DO UPDATE SET owner_wallet = EXCLUDED.owner_wallet, owner_name = EXCLUDED.owner_name,
                      structure = EXCLUDED.structure, roof = EXCLUDED.roof, sign = EXCLUDED.sign,
-                     listings = EXCLUDED.listings, earnings = EXCLUDED.earnings`,
+                     decor = EXCLUDED.decor, listings = EXCLUDED.listings, earnings = EXCLUDED.earnings`,
       [
         plot.plotId,
         plot.zoneId,
@@ -76,6 +80,7 @@ export async function saveLandPlot(plot: StoredLandPlot): Promise<void> {
         plot.structure,
         plot.roof,
         plot.sign,
+        JSON.stringify(plot.decor ?? []),
         JSON.stringify(plot.listings ?? []),
         plot.earnings ?? 0,
       ],

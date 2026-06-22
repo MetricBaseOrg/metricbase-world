@@ -35,6 +35,7 @@ export class BootScene extends Phaser.Scene {
     this.createFishSpotTexture();
     this.createFarmPlotTextures();
     this.createHousingTextures();
+    this.createDecorTextures();
     this.createBillboardTexture();
   }
 
@@ -771,6 +772,71 @@ export class BootScene extends Phaser.Scene {
     g.fillStyle(0x4caf50, 1).fillRoundedRect(cx - 15, baseY - 52, 30, 4, 1.5);
     g.fillStyle(0x4caf50, 1).fillRoundedRect(cx - 15, baseY - 45, 20, 4, 1.5);
     g.generateTexture("plot_marker", W, H);
+    g.destroy();
+  }
+
+  /** Small decorative props players place at the corners of their plot. */
+  private createDecorTextures() {
+    const W = 28;
+    const H = 40;
+    const cx = W / 2;
+    const baseY = H - 4;
+    const shadow = (g: Phaser.GameObjects.Graphics, rx = 9, ry = 3.5) =>
+      g.fillStyle(0x2a1d12, 0.22).fillEllipse(cx, baseY + 2, rx * 2, ry * 2);
+
+    // Lamp post — tall pole with a glowing amber lantern.
+    let g = this.make.graphics({ x: 0, y: 0 });
+    shadow(g, 7, 3);
+    g.fillStyle(0x5a4632, 1).fillRoundedRect(cx - 2, baseY - 30, 4, 30, 1.5);
+    g.lineStyle(1.5, OUTLINE, 1).strokeRoundedRect(cx - 2, baseY - 30, 4, 30, 1.5);
+    g.fillStyle(0x3a2a1e, 1).fillRoundedRect(cx - 7, baseY - 1, 14, 4, 2);
+    g.lineStyle(2, OUTLINE, 1).strokeRoundedRect(cx - 7, baseY - 1, 14, 4, 2);
+    g.fillStyle(0xffe08a, 1).fillRoundedRect(cx - 6, baseY - 40, 12, 12, 3);
+    g.lineStyle(2, OUTLINE, 1).strokeRoundedRect(cx - 6, baseY - 40, 12, 12, 3);
+    g.fillStyle(0xfff6d6, 0.9).fillCircle(cx, baseY - 34, 3);
+    g.generateTexture("decor_lamp", W, H);
+    g.destroy();
+
+    // Flower bed — a soil mound dotted with little blooms.
+    g = this.make.graphics({ x: 0, y: 0 });
+    shadow(g, 10, 4);
+    g.fillStyle(0x6b4a2f, 1).fillEllipse(cx, baseY - 3, 22, 11);
+    g.lineStyle(2, OUTLINE, 1).strokeEllipse(cx, baseY - 3, 22, 11);
+    const blooms: Array<[number, number, number]> = [
+      [cx - 6, baseY - 7, 0xff6b9d],
+      [cx + 1, baseY - 11, 0xffc93c],
+      [cx + 7, baseY - 6, 0x7ed3ff],
+      [cx - 2, baseY - 5, 0xff8a5c],
+    ];
+    for (const [x, y, color] of blooms) {
+      g.fillStyle(0x3f8f4a, 1).fillRect(x - 0.7, y, 1.4, 5);
+      g.fillStyle(color, 1).fillCircle(x, y, 2.6);
+      g.fillStyle(0xfff6d6, 1).fillCircle(x, y, 1);
+    }
+    g.generateTexture("decor_flowers", W, H);
+    g.destroy();
+
+    // Topiary — a rounded shrub in a little pot.
+    g = this.make.graphics({ x: 0, y: 0 });
+    shadow(g, 8, 3.5);
+    g.fillStyle(0xb5743a, 1).fillRoundedRect(cx - 6, baseY - 9, 12, 9, 2);
+    g.lineStyle(2, OUTLINE, 1).strokeRoundedRect(cx - 6, baseY - 9, 12, 9, 2);
+    g.fillStyle(0x2e7d32, 1).fillCircle(cx, baseY - 18, 10);
+    g.fillStyle(0x3f9d44, 1).fillCircle(cx - 3, baseY - 21, 5);
+    g.fillStyle(0x81c784, 0.7).fillCircle(cx - 4, baseY - 22, 2.5);
+    g.lineStyle(2, OUTLINE, 1).strokeCircle(cx, baseY - 18, 10);
+    g.generateTexture("decor_bush", W, H);
+    g.destroy();
+
+    // Barrel — wooden cask with hoop bands.
+    g = this.make.graphics({ x: 0, y: 0 });
+    shadow(g, 8, 3.5);
+    g.fillStyle(0xa9743f, 1).fillRoundedRect(cx - 8, baseY - 22, 16, 22, 5);
+    g.lineStyle(2, OUTLINE, 1).strokeRoundedRect(cx - 8, baseY - 22, 16, 22, 5);
+    g.fillStyle(0x6f4a28, 1).fillRect(cx - 8, baseY - 17, 16, 2.4);
+    g.fillStyle(0x6f4a28, 1).fillRect(cx - 8, baseY - 7, 16, 2.4);
+    g.fillStyle(0xc89a63, 0.7).fillRect(cx - 5, baseY - 21, 2, 19);
+    g.generateTexture("decor_barrel", W, H);
     g.destroy();
   }
 

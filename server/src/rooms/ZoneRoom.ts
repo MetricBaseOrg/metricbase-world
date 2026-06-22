@@ -38,7 +38,9 @@ import {
   DEFAULT_FARM_SEED,
   PLOT_PRICE,
   HOUSE_RANGE,
+  PLOT_DECOR_SLOTS,
   isValidRoofId,
+  isValidDecorId,
   sanitizeSign,
   structureLabel,
   MAX_SHOP_LISTINGS,
@@ -110,6 +112,7 @@ import {
   buildLandPlotStates,
   claimPlot,
   getPlotOwner,
+  setPlotDecor,
   setPlotRoof,
   setPlotSign,
   updatePlotShop,
@@ -279,6 +282,18 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       "housingCustomize",
       (client, message: { plotId?: string; roof?: string | null; sign?: string | null }) => {
         this.handleHousingCustomize(client, message.plotId ?? "", message);
+      },
+    );
+
+    this.onMessage(
+      "housingDecorate",
+      (client, message: { plotId?: string; slot?: number; propId?: string | null }) => {
+        this.handleHousingDecorate(
+          client,
+          message.plotId ?? "",
+          message.slot ?? -1,
+          message.propId ?? null,
+        );
       },
     );
 
@@ -2403,6 +2418,37 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       setPlotSign(plotId, sanitizeSign(opts.sign));
     }
 
+    this.broadcastHousingState();
+    client.send("housingResult", { ok: true, plotId, ownerName: player.name });
+  }
+
+  private handleHousingDecorate(
+    client: Client,
+    plotId: string,
+    slot: number,
+    propId: string | null,
+  ) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !plotId) return;
+
+    const owner = getPlotOwner(plotId);
+    if (!owner || owner.ownerName !== player.name) {
+      client.send("housingResult", { ok: false, plotId, error: "You don't own this plot." });
+      return;
+    }
+
+    if (!Number.isInteger(slot) || slot < 0 || slot >= PLOT_DECOR_SLOTS) {
+      client.send("housingResult", { ok: false, plotId, error: "Invalid decoration slot." });
+      return;
+    }
+
+    // null clears the corner; otherwise must be a known prop id.
+    if (propId !== null && !isValidDecorId(propId)) {
+      client.send("housingResult", { ok: false, plotId, error: "Unknown decoration." });
+      return;
+    }
+
+    setPlotDecor(plotId, slot, propId);
     this.broadcastHousingState();
     client.send("housingResult", { ok: true, plotId, ownerName: player.name });
   }

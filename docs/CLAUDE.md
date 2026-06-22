@@ -139,7 +139,10 @@ authoritative server and rendered by the client.
   repaint the roof (`housingCustomize`, `ROOF_COLORS` palette, persisted `roof`
   column); the client picks an art-baked `house_<id>`/`shop_<id>` texture variant.
   Owners can also name the building (`housingCustomize` `sign`, `sanitizeSign` +
-  persisted `sign` column) — shown on the in-world plot label and shop title.
+  persisted `sign` column) — shown on the in-world plot label and shop title —
+  and place props on the four plot corners (`housingDecorate`,
+  `PLOT_DECORATIONS`, persisted JSONB `decor` column; client renders `decor_<id>`
+  sprites at the corner tiles).
 - **Community** (`shared/src/emotes.ts`, `shared/src/stats.ts`): `emote`
   broadcasts an emoji bubble to the zone; the WhoPanel lists who's online; the
   hub **billboard** shows the live `$BASE` holder count

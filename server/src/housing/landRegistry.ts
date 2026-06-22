@@ -1,4 +1,10 @@
-import type { LandPlotState, ShopListing, StructureType } from "@metricbase/shared";
+import {
+  normalizeDecor,
+  PLOT_DECOR_SLOTS,
+  type LandPlotState,
+  type ShopListing,
+  type StructureType,
+} from "@metricbase/shared";
 import { loadLandPlots, saveLandPlot, type StoredLandPlot } from "../db/landPlots.js";
 
 // Process-global registry of owned land plots, shared across zone rooms and
@@ -30,10 +36,22 @@ export function claimPlot(
     structure,
     roof: null,
     sign: null,
+    decor: normalizeDecor(null),
     listings: [],
     earnings: 0,
   };
   plots.set(plotId, record);
+  void saveLandPlot(record);
+}
+
+/** Set a single corner-decoration slot on an owned plot, persisting the change. */
+export function setPlotDecor(plotId: string, slot: number, propId: string | null): void {
+  const record = plots.get(plotId);
+  if (!record) return;
+  if (!Number.isInteger(slot) || slot < 0 || slot >= PLOT_DECOR_SLOTS) return;
+  const decor = normalizeDecor(record.decor);
+  decor[slot] = propId;
+  record.decor = decor;
   void saveLandPlot(record);
 }
 
@@ -73,6 +91,7 @@ export function buildLandPlotStates(plotIds: string[]): LandPlotState[] {
       structure: owned.structure,
       roof: owned.roof ?? undefined,
       sign: owned.sign ?? undefined,
+      decor: owned.decor,
       listings: owned.listings,
       earnings: owned.earnings,
     };
