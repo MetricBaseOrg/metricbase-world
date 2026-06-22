@@ -51,11 +51,12 @@ Browser
 
 ### Server
 
-`server/src/rooms/ZoneRoom.ts` is the core. One `ZoneRoom` instance per active zone (hub + wilderness). It:
+`server/src/rooms/ZoneRoom.ts` is the core. One `ZoneRoom` instance per active zone (hub, wilderness, grotto). It:
 - Runs an authoritative tick loop at `TICK_RATE` (defined in shared)
-- Handles messages: `input`, `chat`, `interact`, `attack`, `chop` (gather any resource node), `useItem`, `equipItem`, `craft`, `shopBuy`, `shopSell`, `marketPlace/Cancel/FillAsk/AcceptBid/PayBid/Refresh`, `linkWallet`, `requestRespawn`
+- Handles messages: `input`, `chat`, `interact`, `attack`, `chop` (gather any resource node), `farmInteract`, `useItem`, `equipItem`, `craft`, `shopBuy`, `shopSell`, `marketPlace/Cancel/FillAsk/AcceptBid/PayBid/Refresh`, `housingBuy`, `shopStock`/`shopUnstock`/`shopBuyListing`/`shopCollect` (player-run shops), `emote`, `requestLeaderboard`, `linkWallet`, `requestRespawn`. Broadcasts `worldStats` (holder count + online) on join/leave + each minute.
 - Persists characters to PostgreSQL on leave, portal transfer, and after significant events
 - Tracks per-player state in Maps (inventories, gold, quest progress, wallets, gather-skill XP) keyed by player name
+- Process-global registries persist across rooms + restarts: land plots / player shops (`housing/landRegistry.ts`), vendor sell-pressure (`market/sellPressure.ts`)
 
 REST API (`/api`):
 - `authRouter` — Solana wallet challenge/verify, returns JWT access token
@@ -100,8 +101,9 @@ Server reads from `server/.env`:
 
 ## Gameplay systems (the "everyday loop")
 
-The world is built around a **Gather → Craft → Trade** loop. Each piece is pure
-data in `shared/` consumed by the authoritative server and rendered by the client.
+The world is built around a **Gather → Craft → Trade → Build** loop with a
+**Community** layer. Each piece is pure data in `shared/` consumed by the
+authoritative server and rendered by the client.
 
 - **Gathering** (`shared/src/resources.ts`, `shared/src/skills.ts`): resource nodes
   carry a `kind` (`tree` | `rock` | `fish`) plus a per-kind config. Pressing the
@@ -121,10 +123,28 @@ data in `shared/` consumed by the authoritative server and rendered by the clien
   `equipment.ts` weapon-bonus map; crafted food uses the `CONSUMABLE_HEAL` map.
 - **Trade** (`server/src/market/`): Pip's shop buys gathered/crafted materials for
   gold, and the peer-to-peer gold market swaps gold for SPL tokens (below).
+- **Build — Housing & player shops** (`shared/src/housing.ts`,
+  `server/src/housing/landRegistry.ts`): land plots are 3x3 footprints in
+  `zones.ts`; buy one with gold (`housingBuy`) to build a **house** or **shop**.
+  Ownership + shop `listings`/`earnings` are a process-global registry persisted
+  as JSONB on `land_plots`. A built shop's owner stocks items at a price
+  (`shopStock`/`shopUnstock`); visitors buy (`shopBuyListing`, server partial-
+  fills by gold/stock/space); sales accrue plot `earnings` the owner pulls with
+  `shopCollect`. Only built plots are solid (see collision below).
+- **Community** (`shared/src/emotes.ts`, `shared/src/stats.ts`): `emote`
+  broadcasts an emoji bubble to the zone; the WhoPanel lists who's online; the
+  hub **billboard** shows the live `$BASE` holder count
+  (`server/src/solana/holderCount.ts`, `getProgramAccounts`, cached) + players
+  online, pushed via `worldStats`.
+- **Leaderboard** (`shared/src/leaderboard.ts`, `server/src/db/leaderboard.ts`):
+  `requestLeaderboard` → top-10 by Level, gold (Richest), and total gather
+  Skills. DB query cached 60s; deploy/health-probe accounts filtered.
 
 ## Key conventions
 
 - All cross-package game constants (tick rate, movement speed, combat ranges) live in `shared/` — never duplicate them in client or server.
-- Zone configuration (NPC placement, portals, spawn points) is pure data in `shared/src/zones.ts`.
+- Zone configuration (NPC placement, portals, spawn points, resources, farm/land plots, billboards) is pure data in `shared/src/zones.ts`; tile maps are hand-authored region layouts in `shared/src/maps.ts`.
 - The server is the authority: client sends input direction only; server moves players and validates all economy actions.
 - Character state in `ZoneRoom` is keyed by **player name** (not session ID), because sessions reset on zone transfer.
+- **Collision** (`shared/src/maps.ts` `isBlockingTile` + `server/src/map/collision.ts`): walls **and water** block movement; an owned plot's 3x3 footprint is stamped solid (empty/for-sale plots stay walkable). Movement samples a 2x2 footprint, so keep a 1-tile buffer from water/walls.
+- **Iso depth**: tiles use `depth = tileX+tileY`; all scenery, players, and NPCs use `depth = worldY` (their feet/anchor Y) so objects sort by position and occlude correctly. Buildings are drawn in `BootScene` from polygons (gable roof = ridge + two slopes + gable end).

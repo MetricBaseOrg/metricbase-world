@@ -27,20 +27,35 @@ server on Railway, Neon PostgreSQL, Solana token gate/market.
   transfers).
 - **Everyday loop — Build (Housing):** buy a land plot with gold (the biggest
   sink), build a house or shop, persistent ownership with your name on it.
+- **Player-run shops:** a built **Shop** can be stocked from the owner's
+  inventory at chosen prices; anyone buys (with quantity / buy-all). Sales
+  accrue gold as plot **earnings** the owner collects on their next visit
+  (sidesteps paying offline/cross-zone owners). Listings + earnings persisted
+  as JSONB on `land_plots`.
+- **Everyday loop — Community:** **emotes** (emoji bubble broadcast to the
+  zone), a **/who online roster** (names + levels), and a hub **billboard**
+  showing the live on-chain **$BASE holder count** + players online.
+- **Leaderboard:** top-10 by combat **Level**, **Richest** (gold), and total
+  **Skills** (sum of gather levels). Server-cached DB query, probe accounts
+  filtered out.
 - **Economy v1 (sustainability):** dynamic vendor prices — Pip pays less for a
   material as it's sold (supply saturation, decays over time, 40% floor) to cap
   the gold faucet; crafting forge fees + 4% market trade fee + 500g land plots
   as gold sinks. Tuning in `shared/src/economy.ts`.
-- **Iso art + OG card:** buildings/plots drawn in tile-matching isometric
-  perspective; social card at `client/public/metricbase-world.png`.
+- **World + iso art:** hand-authored hub with themed regions (NW forest, W
+  quarry, central plaza, NE neighbourhood, SW farmland, SE lake); **water is
+  impassable** (fish from the shore). Buildings are isometric (gable roofs);
+  scenery, players, and NPCs **depth-sort by world Y** (you're occluded behind
+  tall objects). **Building collision**: only *built* houses/shops are solid —
+  empty plots are open ground. OG social card at
+  `client/public/metricbase-world.png`.
 
 ### Next (roadmap)
 
-- Housing depth: customize/decorate interiors, player shops that actually sell.
+- Housing depth: customize/decorate interiors; shop signage/stalls.
 - Deeper crafting tiers + tool/gear progression that boosts gather speed.
 - Persist farm-plot state to the DB (currently in-memory per room).
-- Iso pass for the remaining billboard props (trees/rocks/mobs) if desired.
-- More zones, NPCs, and quests around the loop.
+- More zones, NPCs, quests, and recipes around the loop.
 
 ---
 

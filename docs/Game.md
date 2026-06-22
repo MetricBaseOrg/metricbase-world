@@ -12,7 +12,11 @@ The long-term goal (see `PLAN.md`) is a zero-install MMO with:
 - Optional Solana token integration for in-game economy
 - Horizontally scalable infrastructure
 
-The current build is **Milestone 2** — a playable multiplayer prototype with combat, inventory, quests, shop, peer-to-peer gold market, knockout respawn, and three explorable zones.
+The current build is a playable multiplayer prototype with the full **everyday
+loop** — Gather (woodcutting, mining, fishing, farming), Craft, Trade, and Build
+(housing + player-run shops) — plus combat, quests, a peer-to-peer gold market,
+a Community layer (emotes, online roster, $BASE-holder billboard), a leaderboard,
+and three explorable zones.
 
 ---
 
@@ -33,15 +37,21 @@ The current build is **Milestone 2** — a playable multiplayer prototype with c
 11. **Shop and economy** — Pip's Provisions in the Hub: buy potions and weapons with gold, sell loot. **Gold Market** tab lists peer-to-peer bids and offers for trading in-game gold against MetricBase SPL tokens (on-chain verified).
 12. **Earn XP and level up** — Quests, combat, portal travel, and NPC chat grant experience. Out-of-combat HP regen. Level-ups broadcast to the zone with sound.
 13. **Sound effects** — Procedural Web Audio SFX for combat, shop, market, inventory, chat, quests, and level-up. Mute toggle in the HUD.
-14. **Persist progress** — Character name, zone, position, level, XP, gold, inventory, equipped weapon, quests, knockout timer, and NPC interact cooldowns save to PostgreSQL (Neon).
-15. **Leave World** — Use the HUD button to disconnect and return to the login screen.
+14. **Gather** — Chop trees (**F**), mine rocks, and fish the lake (**G**) — Woodcutting, Mining, and Fishing each level up. Plant and harvest crops on **farm plots** (Farming). Skill gauges show in the HUD.
+15. **Craft** — Open the Crafting panel (**C** / 🔨) to turn materials into planks, copper bars, cooked fish, bread, and a copper dagger (small gold forge fee).
+16. **Build (Housing)** — Buy an empty 3x3 land plot for **500 gold** (press **E** on it) and build a **house** or **shop**. Ownership persists with your name on it; built structures block movement, empty plots don't.
+17. **Player-run shops** — Stock your shop with items from your inventory at prices you set; other players buy them (choose a quantity or "All"). Collect your accrued **earnings** when you visit.
+18. **Community** — Open the 😀 tray to **emote** (everyone nearby sees it), check **who's online** (top-centre), and read the hub **billboard** showing the live **$BASE holder count** and players online.
+19. **Leaderboard** — Open 🏆 to see the top players by **Level**, **Richest** (gold), and **Skills** (total gather levels).
+20. **Persist progress** — Character name, zone, position, level, XP, gold, inventory, equipped weapon, quests, skills, knockout timer, owned plots/shops, and NPC interact cooldowns save to PostgreSQL (Neon).
+21. **Leave World** — Use the HUD button to disconnect and return to the login screen.
 
 ### Zones
 
 | Zone ID | Display Name | Notes |
 |---------|--------------|-------|
-| `zone_hub` | MetricBase Hub | Default spawn; Aria (quests), Pip (shop + market); portal to Wilderness at (20, 12) |
-| `zone_wilderness` | Wilderness | Rook (slime quests), Training Dummy, Wild Slime; portals to Hub (2, 12) and Slime Grotto (22, 14) |
+| `zone_hub` | MetricBase Hub | Themed regions: NW forest (trees), W quarry (rocks), central plaza (Aria, Pip, billboard), NE house neighbourhood, SW farmland, SE lake (fishing). Portal to Wilderness at (20, 12) |
+| `zone_wilderness` | Wilderness | Rook (slime quests), Training Dummy, Wild Slime; a river with stepping-stone crossings; portals to Hub (2, 12) and Slime Grotto (22, 14) |
 | `zone_grotto` | Slime Grotto | Moss (brute quest), Slime Brute boss; portal back to Wilderness at (2, 12) |
 
 ### Combat targets
@@ -71,9 +81,12 @@ The current build is **Milestone 2** — a playable multiplayer prototype with c
 | Input | Action |
 |-------|--------|
 | WASD / Arrow keys | Move (when chat is not focused) |
-| E / Interact button | Talk to nearest NPC; open shop if merchant |
+| E / Interact button | Interact with nearest thing: NPC/shop, farm plot, or land plot/shop |
 | Space / Attack button | Attack nearest hostile NPC |
+| F | Chop/mine the nearest tree or rock |
+| G | Fish at the nearest fishing spot |
 | I | Toggle inventory |
+| C | Toggle the Crafting panel |
 | Chat input | Type messages; movement pauses while typing |
 | Enter | Send chat message |
 | Purple tiles | Zone portal transfer |

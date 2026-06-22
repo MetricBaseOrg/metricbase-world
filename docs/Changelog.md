@@ -11,13 +11,27 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Leaderboard** — 🏆 panel (top-centre) with top-10 by combat **Level**, **Richest** (gold), and total **Skills** (sum of gather levels). DB-backed, cached 60s, probe accounts filtered.
+- **Player-run shops** — Build a **Shop**, stock items from your inventory at your own prices; visitors buy (quantity / buy-all, server partial-fills). Sales accrue plot **earnings** the owner collects on a visit. Listings + earnings persisted as JSONB on `land_plots`.
+- **Housing** — Buy a 3x3 land plot with **500 gold** (a major gold sink) and build a **house** or **shop**; ownership persists with your name on it. Built structures are solid (3x3 collision); empty plots stay walkable.
+- **Community** — **Emotes** (😀 tray → emoji bubble broadcast to the zone), a **/who online roster** (names + levels), and a hub **billboard** showing the live on-chain **$BASE holder count** + players online.
+- **World remap** — Hand-authored hub with themed regions (NW forest, W quarry, central plaza, NE neighbourhood, SW farmland, **SE lake**). **Water is impassable** — fishing spots sit on the lake, fished from the shore. Wilderness gains a river with crossings; grotto gains pools.
+- **Everyday loop — Gather/Craft/Farm** — Mining (Copper Ore), Fishing (River Fish), and Farming (plant → grow → harvest) join Woodcutting; **Crafting** panel (**C** / 🔨) turns materials into planks, bars, food, and a copper dagger.
+- **Economy sustainability** — Dynamic vendor prices (supply saturation decays over time, 40% floor) cap the gold faucet; sinks = crafting forge fees, 4% market fee, 500g land plots.
+- **OG social card** — `client/public/metricbase-world.png` wired as the `og:`/`twitter:` preview image.
 - **Slime Grotto (`zone_grotto`)** — Third zone reachable from Wilderness portal (22, 14). Moss NPC offers grotto quests; **Slime Brute** boss (150 HP, 12 counter damage) drops **Slime Core** (sell at Pip for 25g).
 - **Grotto quest chain** — "Into the Grotto" (visit zone) and "Brute Force" (defeat Slime Brute), continuing after the slime commendation line.
 - **Slime Core item** — New material loot from the Slime Brute.
 - **Mobile quest log** — Floating action button opens a bottom sheet quest panel on small screens; desktop keeps the HUD quest card.
 
+### Changed
+
+- **Isometric buildings + depth sorting** — Houses/shops/farms/plots are true iso art (gable roofs); scenery, players, and NPCs depth-sort by world Y, so you're occluded behind tall objects (e.g. the billboard).
+
 ### Fixed
 
+- **HUD duplicate** — Removed the redundant player-count pill from the HUD (the online roster owns it now); kept the connection status badge.
+- **Gold market on Token-2022** — `$BASE` is a Token-2022 mint; payments use the Token-2022 program + checked transfers (fixes the "wrong amount / IncorrectProgramId" failures).
 - **Death overlay countdown** — Knockout timer now appears immediately on defeat without a browser refresh. Server sets `knockedOutUntil` before profile/damage messages; `playerDamage` includes `knockedOut` + `freeRespawnAt`; client `applyProfilePatch()` preserves knockout state on partial updates.
 
 ### Added (prior unreleased)
