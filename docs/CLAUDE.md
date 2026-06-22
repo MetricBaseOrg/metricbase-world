@@ -56,7 +56,8 @@ Browser
 - Handles messages: `input`, `chat`, `interact`, `attack`, `chop` (gather any resource node), `farmInteract`, `useItem`, `equipItem`, `craft`, `shopBuy`, `shopSell`, `marketPlace/Cancel/FillAsk/AcceptBid/PayBid/Refresh`, `housingBuy`, `shopStock`/`shopUnstock`/`shopBuyListing`/`shopCollect` (player-run shops), `emote`, `requestLeaderboard`, `linkWallet`, `requestRespawn`. Broadcasts `worldStats` (holder count + online) on join/leave + each minute.
 - Persists characters to PostgreSQL on leave, portal transfer, and after significant events
 - Tracks per-player state in Maps (inventories, gold, quest progress, wallets, gather-skill XP) keyed by player name
-- Process-global registries persist across rooms + restarts: land plots / player shops (`housing/landRegistry.ts`), vendor sell-pressure (`market/sellPressure.ts`), planted farm plots (`farming/farmRegistry.ts` → `farm_plots` table), guilds (`guild/guildRegistry.ts` → `guilds` table; members carry the guild tag on `PlayerSchema.guildTag`, set in `onJoin`)
+- Process-global registries persist across rooms + restarts: land plots / player shops (`housing/landRegistry.ts`), vendor sell-pressure (`market/sellPressure.ts`), planted farm plots (`farming/farmRegistry.ts` → `farm_plots` table), guilds (`guild/guildRegistry.ts` → `guilds` table; members carry the guild tag on `PlayerSchema.guildTag`, set in `onJoin`). Transient (in-memory, no DB): parties (`social/partyRegistry.ts`)
+- Cross-zone social delivery: `social/presence.ts` maps online player name → a send fn bound to their current room's client (set in `onJoin`, cleared in `onLeave`). Guild/party chat + party invites/state route through it, so members in different zones still receive them.
 
 REST API (`/api`):
 - `authRouter` — Solana wallet challenge/verify, returns JWT access token

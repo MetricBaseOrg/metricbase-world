@@ -135,7 +135,16 @@ import {
   leaveGuild,
   tagForMember,
 } from "../guild/guildRegistry.js";
-import { clearOnline, sendToPlayers, setOnline } from "../social/presence.js";
+import { clearOnline, isOnline, sendToPlayer, sendToPlayers, setOnline } from "../social/presence.js";
+import {
+  acceptInvite,
+  buildPartyStatePayload,
+  declineInvite,
+  getPartyForMember,
+  invitePlayer,
+  leaveParty,
+  type PartyMutation,
+} from "../social/partyRegistry.js";
 
 interface PendingInput {
   dx: number;
@@ -207,6 +216,31 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
     this.onMessage("guildChat", (client, message: { body?: string }) => {
       this.handleGuildChat(client, message.body ?? "");
+    });
+
+    this.onMessage("partyInvite", (client, message: { targetName?: string }) => {
+      this.handlePartyInvite(client, message.targetName ?? "");
+    });
+
+    this.onMessage("partyAccept", (client) => {
+      this.handlePartyMutation(client, acceptInvite(this.nameFor(client)));
+    });
+
+    this.onMessage("partyDecline", (client) => {
+      declineInvite(this.nameFor(client));
+    });
+
+    this.onMessage("partyLeave", (client) => {
+      this.handlePartyMutation(client, leaveParty(this.nameFor(client)));
+    });
+
+    this.onMessage("requestParty", (client) => {
+      const player = this.state.players.get(client.sessionId);
+      if (player) client.send("partyState", buildPartyStatePayload(player.name));
+    });
+
+    this.onMessage("partyChat", (client, message: { body?: string }) => {
+      this.handlePartyChat(client, message.body ?? "");
     });
 
     this.onMessage("interact", (client, message: { npcId?: string }) => {
@@ -516,6 +550,15 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
     if (player && !isTransferring) {
       await this.persistPlayer(player);
+      // Real disconnect (not a zone transfer): drop them from any party.
+      const partyResult = leaveParty(player.name);
+      if (partyResult.ok) {
+        for (const member of partyResult.notify ?? []) {
+          if (member !== player.name) {
+            sendToPlayer(member, "partyState", buildPartyStatePayload(member));
+          }
+        }
+      }
       this.broadcastChat({
         id: crypto.randomUUID(),
         channel: "system",
@@ -2687,6 +2730,74 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     sendToPlayers(guild.members, "chat", {
       id: crypto.randomUUID(),
       channel: "guild",
+      senderId: client.sessionId,
+      senderName: player.name,
+      body,
+      sentAt: now,
+    } satisfies ChatMessagePayload);
+  }
+
+  private nameFor(client: Client): string {
+    return this.state.players.get(client.sessionId)?.name ?? "";
+  }
+
+  /** Push fresh party state to each affected member and ack the actor. */
+  private handlePartyMutation(client: Client, mutation: PartyMutation) {
+    if (!mutation.ok) {
+      client.send("partyResult", { ok: false, error: mutation.error });
+      return;
+    }
+    for (const member of mutation.notify ?? []) {
+      sendToPlayer(member, "partyState", buildPartyStatePayload(member));
+    }
+    client.send("partyResult", { ok: true });
+  }
+
+  private handlePartyInvite(client: Client, rawTarget: string) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+
+    const target = rawTarget.trim().slice(0, 16);
+    if (!target) return;
+    if (!isOnline(target)) {
+      client.send("partyResult", { ok: false, error: "That player isn't online." });
+      return;
+    }
+
+    const result = invitePlayer(player.name, target);
+    if (!result.ok) {
+      client.send("partyResult", { ok: false, error: result.error });
+      return;
+    }
+
+    sendToPlayer(target, "partyInvite", { fromName: player.name });
+    for (const member of result.notify ?? []) {
+      sendToPlayer(member, "partyState", buildPartyStatePayload(member));
+    }
+    client.send("partyResult", { ok: true });
+  }
+
+  private handlePartyChat(client: Client, rawBody: string) {
+    const now = Date.now();
+    const lastSent = this.chatCooldowns.get(client.sessionId) ?? 0;
+    if (now - lastSent < CHAT_COOLDOWN_MS) return;
+
+    const body = rawBody.trim().slice(0, CHAT_MAX_LENGTH);
+    if (!body) return;
+
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+
+    const party = getPartyForMember(player.name);
+    if (!party) {
+      client.send("partyResult", { ok: false, error: "You're not in a party." });
+      return;
+    }
+
+    this.chatCooldowns.set(client.sessionId, now);
+    sendToPlayers(party.members, "chat", {
+      id: crypto.randomUUID(),
+      channel: "party",
       senderId: client.sessionId,
       senderName: player.name,
       body,

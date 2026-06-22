@@ -17,6 +17,9 @@ import {
   HousingResultPayload,
   GuildStatePayload,
   GuildResultPayload,
+  PartyStatePayload,
+  PartyResultPayload,
+  PartyInvitePayload,
   PlayerShopResultPayload,
   LeaderboardPayload,
   EmotePayload,
@@ -86,6 +89,9 @@ type ChopCancelListener = (payload: ChopCancelPayload) => void;
 type SkillStateListener = (payload: SkillStatePayload) => void;
 type GuildStateListener = (payload: GuildStatePayload) => void;
 type GuildResultListener = (payload: GuildResultPayload) => void;
+type PartyStateListener = (payload: PartyStatePayload) => void;
+type PartyResultListener = (payload: PartyResultPayload) => void;
+type PartyInviteListener = (payload: PartyInvitePayload) => void;
 
 export class NetworkManager {
   private client: Client | null = null;
@@ -132,6 +138,10 @@ export class NetworkManager {
   private guildStateListeners = new Set<GuildStateListener>();
   private guildResultListeners = new Set<GuildResultListener>();
   private latestGuildState: GuildStatePayload = { myGuild: null, guilds: [] };
+  private partyStateListeners = new Set<PartyStateListener>();
+  private partyResultListeners = new Set<PartyResultListener>();
+  private partyInviteListeners = new Set<PartyInviteListener>();
+  private latestPartyState: PartyStatePayload = { party: null };
   private latestQuestState: QuestStatePayload = { active: [], completed: [] };
   private latestInventory: InventoryStatePayload = { items: [], capacity: 16 };
   private latestSkillState: SkillStatePayload = { woodcutting: { level: 1, xp: 0 } };
@@ -372,6 +382,34 @@ export class NetworkManager {
     return this.latestGuildState;
   }
 
+  sendPartyInvite(targetName: string) {
+    this.room?.send("partyInvite", { targetName });
+  }
+
+  sendPartyAccept() {
+    this.room?.send("partyAccept", {});
+  }
+
+  sendPartyDecline() {
+    this.room?.send("partyDecline", {});
+  }
+
+  sendPartyLeave() {
+    this.room?.send("partyLeave", {});
+  }
+
+  sendPartyChat(body: string) {
+    this.room?.send("partyChat", { body });
+  }
+
+  requestParty() {
+    this.room?.send("requestParty", {});
+  }
+
+  getPartyState(): PartyStatePayload {
+    return this.latestPartyState;
+  }
+
   sendEmote(emoteId: string) {
     this.room?.send("emote", { emoteId });
   }
@@ -406,6 +444,22 @@ export class NetworkManager {
   onGuildResult(listener: GuildResultListener) {
     this.guildResultListeners.add(listener);
     return () => this.guildResultListeners.delete(listener);
+  }
+
+  onPartyState(listener: PartyStateListener) {
+    this.partyStateListeners.add(listener);
+    listener(this.latestPartyState);
+    return () => this.partyStateListeners.delete(listener);
+  }
+
+  onPartyResult(listener: PartyResultListener) {
+    this.partyResultListeners.add(listener);
+    return () => this.partyResultListeners.delete(listener);
+  }
+
+  onPartyInvite(listener: PartyInviteListener) {
+    this.partyInviteListeners.add(listener);
+    return () => this.partyInviteListeners.delete(listener);
   }
 
   requestLeaderboard() {
@@ -869,6 +923,22 @@ export class NetworkManager {
     });
     this.room.onMessage("guildResult", (payload: GuildResultPayload) => {
       for (const listener of this.guildResultListeners) {
+        listener(payload);
+      }
+    });
+    this.room.onMessage("partyState", (payload: PartyStatePayload) => {
+      this.latestPartyState = payload;
+      for (const listener of this.partyStateListeners) {
+        listener(payload);
+      }
+    });
+    this.room.onMessage("partyResult", (payload: PartyResultPayload) => {
+      for (const listener of this.partyResultListeners) {
+        listener(payload);
+      }
+    });
+    this.room.onMessage("partyInvite", (payload: PartyInvitePayload) => {
+      for (const listener of this.partyInviteListeners) {
         listener(payload);
       }
     });

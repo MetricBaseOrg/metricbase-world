@@ -137,7 +137,7 @@ shared/   Zone maps, protocol types
 - [x] Mobile touch controls + quest log FAB
 - [x] Solana wallet auth + token gate
 - [x] Guilds — found (gold sink) / join / leave, tags on nameplates, roster (persisted)
-- [ ] Guild chat + parties
+- [x] Guild chat + parties — cross-zone chat channels via a presence bus; invite-based parties
 - [ ] Redis session layer
 - [ ] Full ability system and class roles
 

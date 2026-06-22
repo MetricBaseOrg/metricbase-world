@@ -10,8 +10,9 @@ export function ChatPanel() {
   const [draft, setDraft] = useState("");
   const mobileLayout = useMobileLayout();
   const [open, setOpen] = useState(false);
-  const [channel, setChannel] = useState<"zone" | "guild">("zone");
+  const [channel, setChannel] = useState<"zone" | "guild" | "party">("zone");
   const [inGuild, setInGuild] = useState(false);
+  const [inParty, setInParty] = useState(false);
   const messages = useGameStore((state) => state.chatMessages);
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -20,16 +21,28 @@ export function ChatPanel() {
   }, [mobileLayout]);
 
   useEffect(() => {
-    const unsubscribe = networkManager.onGuildState((state) => setInGuild(!!state.myGuild));
+    const unsubGuild = networkManager.onGuildState((state) => setInGuild(!!state.myGuild));
+    const unsubParty = networkManager.onPartyState((state) => setInParty(!!state.party));
     return () => {
-      unsubscribe();
+      unsubGuild();
+      unsubParty();
     };
   }, []);
 
-  // Fall back to zone chat if the player isn't (or is no longer) in a guild.
+  // Fall back to zone chat if the chosen channel is no longer available.
   useEffect(() => {
-    if (!inGuild && channel === "guild") setChannel("zone");
-  }, [inGuild, channel]);
+    if (channel === "guild" && !inGuild) setChannel("zone");
+    if (channel === "party" && !inParty) setChannel("zone");
+  }, [inGuild, inParty, channel]);
+
+  const channels: Array<"zone" | "guild" | "party"> = [
+    "zone",
+    ...(inGuild ? (["guild"] as const) : []),
+    ...(inParty ? (["party"] as const) : []),
+  ];
+  const cycleChannel = () =>
+    setChannel((c) => channels[(channels.indexOf(c) + 1) % channels.length] ?? "zone");
+  const channelLabel = channel === "guild" ? "Guild" : channel === "party" ? "Party" : "Zone";
 
   useEffect(() => {
     if (listRef.current) {
@@ -44,6 +57,8 @@ export function ChatPanel() {
     playSfx("chat_send");
     if (channel === "guild") {
       networkManager.sendGuildChat(body);
+    } else if (channel === "party") {
+      networkManager.sendPartyChat(body);
     } else {
       networkManager.sendChat(body);
     }
@@ -78,17 +93,18 @@ export function ChatPanel() {
     );
   };
 
-  const channelToggle = inGuild ? (
-    <button
-      type="button"
-      className={`chibi-btn ${channel === "guild" ? "chibi-btn--mint" : "chibi-btn--secondary"}`}
-      style={{ padding: "0 10px", fontSize: "0.72rem", minHeight: 44 }}
-      onClick={() => setChannel((c) => (c === "guild" ? "zone" : "guild"))}
-      title="Toggle chat channel"
-    >
-      {channel === "guild" ? "Guild" : "Zone"}
-    </button>
-  ) : null;
+  const channelToggle =
+    channels.length > 1 ? (
+      <button
+        type="button"
+        className={`chibi-btn ${channel === "zone" ? "chibi-btn--secondary" : "chibi-btn--mint"}`}
+        style={{ padding: "0 10px", fontSize: "0.72rem", minHeight: 44 }}
+        onClick={cycleChannel}
+        title="Switch chat channel"
+      >
+        {channelLabel}
+      </button>
+    ) : null;
 
   if (mobileLayout && !open) {
     return (
@@ -152,7 +168,7 @@ export function ChatPanel() {
                 networkManager.sendInput(0, 0);
               }}
               onBlur={() => setUiTypingActive(false)}
-              placeholder={channel === "guild" ? "Message your guild..." : "Type a message..."}
+              placeholder={channel === "zone" ? "Type a message..." : `Message your ${channelLabel.toLowerCase()}...`}
               style={{ flex: 1, minHeight: 44 }}
             />
             <button
@@ -193,7 +209,7 @@ export function ChatPanel() {
             networkManager.sendInput(0, 0);
           }}
           onBlur={() => setUiTypingActive(false)}
-          placeholder={channel === "guild" ? "Guild chat — press Enter..." : "Press Enter to chat..."}
+          placeholder={channel === "zone" ? "Press Enter to chat..." : `${channelLabel} chat — press Enter...`}
           style={{ flex: 1 }}
         />
         <button

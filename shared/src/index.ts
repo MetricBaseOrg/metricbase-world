@@ -53,6 +53,7 @@ export * from "./economy.js";
 export * from "./farming.js";
 export * from "./housing.js";
 export * from "./guild.js";
+export * from "./party.js";
 export * from "./emotes.js";
 export * from "./stats.js";
 export * from "./leaderboard.js";

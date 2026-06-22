@@ -25,6 +25,7 @@ import { TouchControls } from "./ui/TouchControls";
 import { WhoPanel } from "./ui/WhoPanel";
 import { LeaderboardPanel } from "./ui/LeaderboardPanel";
 import { GuildPanel } from "./ui/GuildPanel";
+import { PartyPanel } from "./ui/PartyPanel";
 
 export function App() {
   const [joined, setJoined] = useState(false);
@@ -294,6 +295,7 @@ export function App() {
       {joined && <WhoPanel />}
       {joined && <LeaderboardPanel />}
       {joined && <GuildPanel />}
+      {joined && <PartyPanel />}
       {joined && <EmoteBar />}
       {joined && <TouchControls />}
       {joined && <DeathOverlay />}
