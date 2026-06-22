@@ -62,8 +62,11 @@ server on Railway, Neon PostgreSQL, Solana token gate/market.
   persisted in a process-global registry + `guilds` table.
 - ✅ Guild chat + ✅ parties (invite/accept/leave, party chat) — both cross-zone
   via a process-global presence bus (`social/presence.ts`). Parties are transient
-  (in-memory); guild chat reaches members in any zone. Next: party combat
-  bonuses / shared quest progress.
+  (in-memory); guild chat reaches members in any zone. ✅ Party combat bonuses:
+  the finisher earns +15% kill XP per nearby party ally (same zone, ~5 tiles) and
+  nearby allies share assist XP + "defeat" quest credit (`partyKillXp` /
+  `partyAssistXp` in `shared/src/party.ts`). Next: party-shared gather/collect
+  progress and shared loot rolls.
 - ✅ Tool/gear progression that boosts gather speed — copper tools (30% faster)
   and an **iron tier**: Iron Deposits (Mining 3) → Iron Ore → Iron Bars → Iron
   Axe/Pickaxe (50% faster). All three gather skills now have a tier-2 node:

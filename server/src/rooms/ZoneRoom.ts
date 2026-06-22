@@ -78,6 +78,9 @@ import {
   RESPAWN_WAIT_MS,
   TRAINING_DUMMY_COUNTER_DAMAGE,
   PlayerSchema,
+  partyAssistXp,
+  partyKillXp,
+  PARTY_ASSIST_RANGE,
   startQuest,
   TICK_RATE,
   tileToWorld,
@@ -816,7 +819,16 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     const defeated = nextHp === 0;
     if (defeated) {
       this.mobRespawnAt.set(npcId, now + npc.combat.respawnMs);
-      this.grantXp(client, player, npc.combat.rewardXp, `defeated ${npc.name}`);
+
+      // Party play: nearby party members fighting in this zone share the spoils.
+      const allies = this.nearbyPartyMembers(player, npcPosition);
+      const baseXp = npc.combat.rewardXp;
+      this.grantXp(client, player, partyKillXp(baseXp, allies.length), `defeated ${npc.name}`);
+      for (const ally of allies) {
+        this.grantXp(ally.client, ally.player, partyAssistXp(baseXp), `assisted vs ${npc.name}`);
+        await this.checkDefeatObjectives(ally.client, ally.player.name, npcId);
+        await this.persistPlayer(ally.player);
+      }
 
       const rewards = getMobRewardConfig(npcId);
       if (rewards && rewards.goldReward > 0) {
@@ -1009,6 +1021,28 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     }
 
     this.sendQuestState(client, playerName);
+  }
+
+  /**
+   * Party members (other than `player`) present in this zone and within
+   * `PARTY_ASSIST_RANGE` of `origin` — i.e. fighting alongside the killer.
+   */
+  private nearbyPartyMembers(
+    player: InstanceType<typeof PlayerSchema>,
+    origin: { x: number; y: number },
+  ): { client: Client; player: InstanceType<typeof PlayerSchema> }[] {
+    const party = getPartyForMember(player.name);
+    if (!party) return [];
+
+    const allies: { client: Client; player: InstanceType<typeof PlayerSchema> }[] = [];
+    for (const [sessionId, other] of this.state.players) {
+      if (other.name === player.name) continue;
+      if (!party.members.includes(other.name)) continue;
+      if (Math.hypot(other.x - origin.x, other.y - origin.y) > PARTY_ASSIST_RANGE) continue;
+      const allyClient = this.clients.find((entry) => entry.sessionId === sessionId);
+      if (allyClient) allies.push({ client: allyClient, player: other });
+    }
+    return allies;
   }
 
   private grantXp(
