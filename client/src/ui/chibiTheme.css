@@ -7,6 +7,9 @@
   --chibi-safe-left: env(safe-area-inset-left, 0px);
   --chibi-ui-gap: 12px;
   --chibi-touch-zone: 88px;
+  --chibi-fab-size: 48px;
+  --chibi-fab-step: 58px;
+  --chibi-rail-top: max(12px, calc(var(--chibi-safe-top) + 8px));
   --chibi-font: "Nunito", system-ui, sans-serif;
   --chibi-font-display: "Fredoka", "Nunito", system-ui, sans-serif;
   --chibi-ink: #3d2b1f;
@@ -505,6 +508,18 @@ body {
 
 .chibi-who-toggle.active {
   background: var(--chibi-gold, #ffe08a);
+}
+
+.chibi-who-toggle--fab {
+  position: relative;
+  width: var(--chibi-fab-size);
+  height: var(--chibi-fab-size);
+  padding: 0;
+  border-width: 3px;
+  border-radius: var(--chibi-radius-pill);
+  font-size: 1.3rem;
+  display: grid;
+  place-items: center;
 }
 
 .chibi-who-list {
@@ -1012,15 +1027,53 @@ body {
     z-index: 23;
   }
 
+  /* Consolidate secondary toggles into a single right-side FAB rail so the
+     top of the screen stays uncluttered and dropdowns never overflow. */
+  .chibi-who,
+  .chibi-leaderboard {
+    left: auto;
+    right: max(10px, var(--chibi-safe-right));
+    transform: none;
+    align-items: flex-end;
+  }
+
+  .chibi-who {
+    top: var(--chibi-rail-top);
+  }
+
+  .chibi-leaderboard {
+    top: calc(var(--chibi-rail-top) + var(--chibi-fab-step));
+  }
+
+  .chibi-chat-fab {
+    top: calc(var(--chibi-rail-top) + var(--chibi-fab-step) * 2);
+  }
+
+  .chibi-quest-fab {
+    top: calc(var(--chibi-rail-top) + var(--chibi-fab-step) * 3);
+  }
+
   .chibi-action-pad {
-    display: flex;
-    flex-direction: row;
-    gap: 6px;
+    display: grid;
+    grid-template-columns: repeat(2, auto);
+    gap: 10px;
+  }
+
+  .chibi-action-btn--icon {
+    width: 56px;
+    height: 56px;
+    min-width: 56px;
+    font-size: 1.4rem;
   }
 
   .chibi-dpad {
-    grid-template-columns: repeat(3, 46px);
-    grid-template-rows: repeat(3, 46px);
+    grid-template-columns: repeat(3, 56px);
+    grid-template-rows: repeat(3, 56px);
+    gap: 6px;
+  }
+
+  .chibi-dpad__btn {
+    font-size: 1.15rem;
   }
 
   .chibi-panel--shop {
@@ -1060,14 +1113,14 @@ body {
 
 @media (max-width: 420px) {
   .chibi-dpad {
-    grid-template-columns: repeat(3, 42px);
-    grid-template-rows: repeat(3, 42px);
+    grid-template-columns: repeat(3, 50px);
+    grid-template-rows: repeat(3, 50px);
   }
 
   .chibi-action-btn--icon {
-    width: 44px;
-    height: 44px;
-    min-width: 44px;
+    width: 50px;
+    height: 50px;
+    min-width: 50px;
   }
 
   .chibi-hud-compact-bar__name {

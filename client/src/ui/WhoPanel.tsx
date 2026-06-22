@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { playSfx } from "../audio/soundEffects";
 import { networkManager } from "../game/network";
+import { useMobileLayout } from "./useMobileLayout";
 
 interface RosterEntry {
   name: string;
@@ -9,6 +10,7 @@ interface RosterEntry {
 }
 
 export function WhoPanel() {
+  const mobileLayout = useMobileLayout();
   const [open, setOpen] = useState(false);
   const [players, setPlayers] = useState<RosterEntry[]>([]);
 
@@ -29,15 +31,24 @@ export function WhoPanel() {
     <div className="chibi-who">
       <button
         type="button"
-        className={`chibi-who-toggle${open ? " active" : ""}`}
-        aria-label="Who's online"
+        className={`chibi-who-toggle${open ? " active" : ""}${mobileLayout ? " chibi-who-toggle--fab" : ""}`}
+        aria-label={`Who's online (${players.length})`}
         onPointerDown={(event) => event.preventDefault()}
         onClick={() => {
           playSfx(open ? "ui_close" : "ui_open");
           setOpen((value) => !value);
         }}
       >
-        👥 {players.length} online
+        {mobileLayout ? (
+          <>
+            👥
+            {players.length > 0 && (
+              <span className="chibi-chat-fab__badge">{players.length}</span>
+            )}
+          </>
+        ) : (
+          <>👥 {players.length} online</>
+        )}
       </button>
       {open && (
         <div className="chibi-who-list">

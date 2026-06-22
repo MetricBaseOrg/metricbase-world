@@ -3,10 +3,12 @@ import { useEffect, useState } from "react";
 import { playSfx } from "../audio/soundEffects";
 import { networkManager } from "../game/network";
 import { useGameStore } from "../store/gameStore";
+import { useMobileLayout } from "./useMobileLayout";
 
 const MEDALS = ["🥇", "🥈", "🥉"];
 
 export function LeaderboardPanel() {
+  const mobileLayout = useMobileLayout();
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<"level" | "gold" | "skill">("level");
   const [data, setData] = useState<LeaderboardPayload | null>(null);
@@ -30,7 +32,7 @@ export function LeaderboardPanel() {
     <div className="chibi-leaderboard">
       <button
         type="button"
-        className={`chibi-who-toggle${open ? " active" : ""}`}
+        className={`chibi-who-toggle${open ? " active" : ""}${mobileLayout ? " chibi-who-toggle--fab" : ""}`}
         aria-label="Leaderboard"
         onPointerDown={(e) => e.preventDefault()}
         onClick={() => {
@@ -38,7 +40,7 @@ export function LeaderboardPanel() {
           setOpen((v) => !v);
         }}
       >
-        🏆 Leaderboard
+        {mobileLayout ? "🏆" : "🏆 Leaderboard"}
       </button>
       {open && (
         <div className="chibi-who-list" style={{ width: 224 }}>
