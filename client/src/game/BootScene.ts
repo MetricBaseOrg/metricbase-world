@@ -610,7 +610,6 @@ export class BootScene extends Phaser.Scene {
     const fE: P = [cx + hw, baseY];
     const fS: P = [cx, baseY + hh];
     const fW: P = [cx - hw, baseY];
-    const tN: P = [cx, baseY - hh - wallH];
     const tE: P = [cx + hw, baseY - wallH];
     const tS: P = [cx, baseY + hh - wallH];
     const tW: P = [cx - hw, baseY - wallH];
@@ -646,11 +645,9 @@ export class BootScene extends Phaser.Scene {
       poly(g, [fS, fE, tE, tS], 0xead9b8);
       outline(g, [fW, fS, tS, tW]);
       outline(g, [fS, fE, tE, tS]);
-      // roof — back faces first, then front. Light comes from the right (SE),
-      // so the SE-facing slope/wall is lighter and the SW side is shaded, to
-      // match the wall shading (otherwise the roof reads as facing the wrong way).
-      poly(g, [tN, tW, apex], roofDark);
-      poly(g, [tN, tE, apex], roofColor);
+      // roof — only the two camera-facing slopes (the back slopes are hidden,
+      // and drawing them poked a stray spike above the apex). Light comes from
+      // the right (SE) so that slope is lighter, matching the wall shading.
       poly(g, [tW, tS, apex], roofDark);
       poly(g, [tS, tE, apex], roofColor);
       outline(g, [tW, apex, tE]);
