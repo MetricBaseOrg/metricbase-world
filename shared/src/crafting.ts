@@ -65,6 +65,39 @@ export const CRAFT_RECIPES: CraftRecipe[] = [
     output: { itemId: "item_copper_dagger", quantity: 1 },
     goldCost: 20,
   },
+  {
+    id: "craft_copper_axe",
+    name: "Copper Axe",
+    description: "Forge a felling axe. Chops trees 30% faster when equipped.",
+    inputs: [
+      { itemId: "item_plank", quantity: 2 },
+      { itemId: "item_copper_bar", quantity: 2 },
+    ],
+    output: { itemId: "item_copper_axe", quantity: 1 },
+    goldCost: 25,
+  },
+  {
+    id: "craft_copper_pickaxe",
+    name: "Copper Pickaxe",
+    description: "Forge a mining pick. Mines rocks 30% faster when equipped.",
+    inputs: [
+      { itemId: "item_plank", quantity: 2 },
+      { itemId: "item_copper_bar", quantity: 2 },
+    ],
+    output: { itemId: "item_copper_pickaxe", quantity: 1 },
+    goldCost: 25,
+  },
+  {
+    id: "craft_fishing_rod",
+    name: "Sturdy Fishing Rod",
+    description: "Assemble a fishing rod. Reels in catches 30% faster when equipped.",
+    inputs: [
+      { itemId: "item_plank", quantity: 3 },
+      { itemId: "item_copper_bar", quantity: 1 },
+    ],
+    output: { itemId: "item_fishing_rod", quantity: 1 },
+    goldCost: 25,
+  },
 ];
 
 export function getRecipe(recipeId: string): CraftRecipe | undefined {

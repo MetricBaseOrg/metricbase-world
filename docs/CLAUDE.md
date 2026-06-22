@@ -116,6 +116,11 @@ authoritative server and rendered by the client.
   To add a gather skill: extend `ResourceKind`/`GatherSkill`, add a node config +
   `gatherInfo()` branch in `ZoneRoom`, a loot item, node art in `BootScene`, and a
   HUD gauge.
+  **Tools** (`shared/src/equipment.ts` `TOOL_GATHER`): a craftable tool (Copper
+  Axe/Pickaxe/Fishing Rod) equipped into the `toolId` slot multiplies gather
+  duration for its matching skill (`getToolSpeedMultiplier`, applied in
+  `handleChop`). Equipment is `{ weaponId, toolId }`, persisted as JSONB; equip is
+  slot-aware (`equipItem { itemId, slot }`).
 - **Crafting** (`shared/src/crafting.ts`): `CRAFT_RECIPES` define inputs → output.
   The `CraftPanel` (open with **C** / 🔨 button) sends a `craft` message; the
   server validates ingredients, consumes them, adds the output, and returns the

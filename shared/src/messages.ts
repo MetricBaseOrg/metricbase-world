@@ -45,6 +45,7 @@ export interface ProfilePayload {
   hp?: number;
   maxHp?: number;
   equippedWeaponId?: string | null;
+  equippedToolId?: string | null;
   knockedOut?: boolean;
   freeRespawnAt?: number | null;
 }

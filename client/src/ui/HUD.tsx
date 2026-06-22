@@ -33,6 +33,7 @@ export function HUD({ onLeave }: HUDProps) {
     playerHp,
     playerMaxHp,
     equippedWeaponId,
+    equippedToolId,
     walletAddress,
     connected,
     zoneName,
@@ -168,6 +169,12 @@ export function HUD({ onLeave }: HUDProps) {
           {equippedWeaponId && (
             <div className="chibi-text-muted" style={{ marginTop: 6, fontSize: "0.72rem" }}>
               ⚔️ {getItemDefinition(equippedWeaponId).name}
+            </div>
+          )}
+
+          {equippedToolId && (
+            <div className="chibi-text-muted" style={{ marginTop: 4, fontSize: "0.72rem" }}>
+              🛠️ {getItemDefinition(equippedToolId).name}
             </div>
           )}
 

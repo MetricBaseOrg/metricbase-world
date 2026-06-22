@@ -7,6 +7,7 @@ import { useGameStore } from "../store/gameStore";
 export function InventoryPanel() {
   const inventory = useGameStore((state) => state.inventory);
   const equippedWeaponId = useGameStore((state) => state.equippedWeaponId);
+  const equippedToolId = useGameStore((state) => state.equippedToolId);
   const open = useGameStore((state) => state.inventoryOpen);
   const setInventoryOpen = useGameStore((state) => state.setInventoryOpen);
   const setInventory = useGameStore((state) => state.setInventory);
@@ -41,10 +42,10 @@ export function InventoryPanel() {
     }
   };
 
-  const handleEquip = async (itemId: string | null) => {
+  const handleEquip = async (itemId: string | null, slot?: "weapon" | "tool") => {
     setPending(true);
     setError(null);
-    networkManager.sendEquipItem(itemId);
+    networkManager.sendEquipItem(itemId, slot);
     const result = await new Promise<{ ok: boolean; error?: string; inventory?: typeof inventory }>((resolve) => {
       const timeout = window.setTimeout(() => resolve({ ok: false, error: "Request timed out." }), 8000);
       const unsubscribe = networkManager.onInventoryResult((payload) => {
@@ -84,7 +85,12 @@ export function InventoryPanel() {
         {inventory.items.length} / {inventory.capacity} slots
         {equippedWeaponId && (
           <span style={{ display: "block", marginTop: 4, color: "var(--chibi-gold-deep)", fontWeight: 700 }}>
-            Equipped: {getItemDefinition(equippedWeaponId).name}
+            ⚔️ {getItemDefinition(equippedWeaponId).name}
+          </span>
+        )}
+        {equippedToolId && (
+          <span style={{ display: "block", marginTop: 4, color: "var(--chibi-mint-deep)", fontWeight: 700 }}>
+            🛠️ {getItemDefinition(equippedToolId).name}
           </span>
         )}
       </div>
@@ -97,7 +103,8 @@ export function InventoryPanel() {
         <div style={{ display: "grid", gap: 8 }}>
           {inventory.items.map((entry) => {
             const item = getItemDefinition(entry.itemId);
-            const isEquipped = equippedWeaponId === entry.itemId;
+            const isEquipped =
+              equippedWeaponId === entry.itemId || equippedToolId === entry.itemId;
             return (
               <div key={entry.itemId} className="chibi-card">
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "flex-start" }}>
@@ -124,12 +131,14 @@ export function InventoryPanel() {
                       Use
                     </button>
                   )}
-                  {item.kind === "weapon" && (
+                  {(item.kind === "weapon" || item.kind === "tool") && (
                     <button
                       type="button"
                       className="chibi-btn chibi-btn--gold"
                       disabled={pending || isEquipped}
-                      onClick={() => void handleEquip(entry.itemId)}
+                      onClick={() =>
+                        void handleEquip(entry.itemId, item.kind === "tool" ? "tool" : "weapon")
+                      }
                       style={{ padding: "6px 10px", fontSize: "0.72rem" }}
                     >
                       {isEquipped ? "Equipped" : "Equip"}
@@ -147,10 +156,22 @@ export function InventoryPanel() {
           type="button"
           className="chibi-btn chibi-btn--secondary"
           disabled={pending}
-          onClick={() => void handleEquip(null)}
+          onClick={() => void handleEquip(null, "weapon")}
           style={{ marginTop: 12, width: "100%", padding: "8px 10px", fontSize: "0.78rem" }}
         >
           Unequip weapon
+        </button>
+      )}
+
+      {equippedToolId && (
+        <button
+          type="button"
+          className="chibi-btn chibi-btn--secondary"
+          disabled={pending}
+          onClick={() => void handleEquip(null, "tool")}
+          style={{ marginTop: 8, width: "100%", padding: "8px 10px", fontSize: "0.78rem" }}
+        >
+          Unequip tool
         </button>
       )}
 

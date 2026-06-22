@@ -308,8 +308,8 @@ export class NetworkManager {
     this.room?.send("useItem", { itemId });
   }
 
-  sendEquipItem(itemId: string | null) {
-    this.room?.send("equipItem", { itemId });
+  sendEquipItem(itemId: string | null, slot?: "weapon" | "tool") {
+    this.room?.send("equipItem", { itemId, slot });
   }
 
   sendCraft(recipeId: string) {

@@ -1,4 +1,4 @@
-export type ItemKind = "material" | "consumable" | "weapon";
+export type ItemKind = "material" | "consumable" | "weapon" | "tool";
 
 export interface ItemDefinition {
   id: string;
@@ -27,6 +27,7 @@ export interface InventoryResultPayload {
   hp?: number;
   maxHp?: number;
   equippedWeaponId?: string | null;
+  equippedToolId?: string | null;
 }
 
 export const INVENTORY_CAPACITY = 16;
@@ -159,6 +160,30 @@ export const ITEMS: Record<string, ItemDefinition> = {
     stackable: false,
     maxStack: 1,
     kind: "weapon",
+  },
+  item_copper_axe: {
+    id: "item_copper_axe",
+    name: "Copper Axe",
+    description: "A proper felling axe. Chops trees 30% faster when equipped.",
+    stackable: false,
+    maxStack: 1,
+    kind: "tool",
+  },
+  item_copper_pickaxe: {
+    id: "item_copper_pickaxe",
+    name: "Copper Pickaxe",
+    description: "A sturdy mining pick. Mines rocks 30% faster when equipped.",
+    stackable: false,
+    maxStack: 1,
+    kind: "tool",
+  },
+  item_fishing_rod: {
+    id: "item_fishing_rod",
+    name: "Sturdy Fishing Rod",
+    description: "A balanced rod with a fine line. Reels in catches 30% faster when equipped.",
+    stackable: false,
+    maxStack: 1,
+    kind: "tool",
   },
 };
 

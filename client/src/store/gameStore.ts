@@ -28,6 +28,7 @@ interface GameStore {
   knockedOut: boolean;
   freeRespawnAt: number | null;
   equippedWeaponId: string | null;
+  equippedToolId: string | null;
   walletAddress: string | null;
   connected: boolean;
   playerCount: number;
@@ -113,6 +114,7 @@ export const useGameStore = create<GameStore>((set) => ({
   knockedOut: false,
   freeRespawnAt: null,
   equippedWeaponId: null,
+  equippedToolId: null,
   walletAddress: null,
   connected: false,
   playerCount: 0,
@@ -178,6 +180,8 @@ export const useGameStore = create<GameStore>((set) => ({
         profile.freeRespawnAt !== undefined ? profile.freeRespawnAt : state.freeRespawnAt,
       equippedWeaponId:
         profile.equippedWeaponId !== undefined ? profile.equippedWeaponId : state.equippedWeaponId,
+      equippedToolId:
+        profile.equippedToolId !== undefined ? profile.equippedToolId : state.equippedToolId,
     })),
   setPlayerGold: (playerGold) => set({ playerGold }),
   setPlayerVitals: (playerHp, playerMaxHp) => set({ playerHp, playerMaxHp }),

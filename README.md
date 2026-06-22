@@ -121,6 +121,7 @@ shared/   Zone maps, protocol types
 - [x] Quest system with persisted progress (10 quests, 3 chains)
 - [x] Combat (dummy, wild slime, slime brute) with loot and gold
 - [x] Inventory, weapons, consumables
+- [x] Craftable tools (axe/pickaxe/rod) — equip for 30% faster gathering
 - [x] Merchant shop (Pip) and soft currency (gold)
 - [x] Peer-to-peer gold market (MetricBase SPL)
 - [x] Knockout respawn (100g or 30 min wait)

@@ -59,6 +59,8 @@ import {
   getPlayerMaxHp,
   isCollectObjectiveMet,
   normalizeEquipment,
+  getToolSpeedMultiplier,
+  type PlayerEquipment,
   PLAYER_SPEED,
   POTION_HEAL_AMOUNT,
   getMobRewardConfig,
@@ -251,9 +253,12 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       void this.handleUseItem(client, message.itemId ?? "");
     });
 
-    this.onMessage("equipItem", (client, message: { itemId?: string | null }) => {
-      void this.handleEquipItem(client, message.itemId ?? null);
-    });
+    this.onMessage(
+      "equipItem",
+      (client, message: { itemId?: string | null; slot?: "weapon" | "tool" }) => {
+        void this.handleEquipItem(client, message.itemId ?? null, message.slot);
+      },
+    );
 
     this.onMessage("craft", (client, message: { recipeId?: string }) => {
       void this.handleCraft(client, message.recipeId ?? "");
@@ -986,6 +991,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       hp: this.playerHp.get(player.name) ?? maxHp,
       maxHp,
       equippedWeaponId: equipment?.weaponId ?? null,
+      equippedToolId: equipment?.toolId ?? null,
       knockedOut,
       freeRespawnAt: knockedOut ? (this.playerKnockedOutUntil.get(player.name) ?? null) : null,
     });
@@ -1612,22 +1618,29 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     await this.persistPlayer(player);
   }
 
-  private async handleEquipItem(client: Client, itemId: string | null) {
+  private async handleEquipItem(
+    client: Client,
+    itemId: string | null,
+    slot?: "weapon" | "tool",
+  ) {
     const player = this.state.players.get(client.sessionId);
     if (!player) return;
     if (this.isKnockedOut(player.name)) return;
 
+    const current = normalizeEquipment(this.playerEquipment.get(player.name));
+
     if (itemId === null) {
-      this.playerEquipment.set(player.name, normalizeEquipment({ weaponId: null }));
+      // Unequip the requested slot (default weapon for older clients), keeping the other.
+      const next: PlayerEquipment =
+        slot === "tool" ? { ...current, toolId: null } : { ...current, weaponId: null };
+      this.playerEquipment.set(player.name, normalizeEquipment(next));
       this.sendProfile(client, player);
       this.sendInventory(client, player.name);
       client.send("inventoryResult", {
         ok: true,
-        equippedWeaponId: null,
-        inventory: buildInventoryPayload(
-          this.inventories.get(player.name) ?? [],
-          null,
-        ),
+        equippedWeaponId: next.weaponId,
+        equippedToolId: next.toolId,
+        inventory: buildInventoryPayload(this.inventories.get(player.name) ?? [], next.weaponId),
       });
       await this.persistPlayer(player);
       return;
@@ -1641,7 +1654,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       return;
     }
 
-    if (item.kind !== "weapon") {
+    if (item.kind !== "weapon" && item.kind !== "tool") {
       client.send("inventoryResult", { ok: false, error: "That item cannot be equipped." });
       return;
     }
@@ -1652,7 +1665,11 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       return;
     }
 
-    this.playerEquipment.set(player.name, normalizeEquipment({ weaponId: itemId }));
+    const next: PlayerEquipment =
+      item.kind === "tool"
+        ? { ...current, toolId: itemId }
+        : { ...current, weaponId: itemId };
+    this.playerEquipment.set(player.name, normalizeEquipment(next));
     this.sendProfile(client, player);
     this.sendInventory(client, player.name);
 
@@ -1667,8 +1684,9 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
     client.send("inventoryResult", {
       ok: true,
-      equippedWeaponId: itemId,
-      inventory: buildInventoryPayload(inventory, itemId),
+      equippedWeaponId: next.weaponId,
+      equippedToolId: next.toolId,
+      inventory: buildInventoryPayload(inventory, next.weaponId),
     });
     await this.persistPlayer(player);
   }
@@ -1732,7 +1750,10 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       return;
     }
 
-    const durationMs = gather.durationMs(skillLevel);
+    const toolId = this.playerEquipment.get(player.name)?.toolId ?? null;
+    const durationMs = Math.round(
+      gather.durationMs(skillLevel) * getToolSpeedMultiplier(toolId, gather.skill),
+    );
     const startedAt = now;
     const endsAt = now + durationMs;
 
