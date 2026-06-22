@@ -797,10 +797,10 @@ export class GameScene extends Phaser.Scene {
       // tileX/tileY is the centre tile of the 3x3 footprint.
       const { x, y } = tileToWorld(plot.tileX, plot.tileY);
       const sprite = this.add.sprite(x, y, "plot_marker");
-      sprite.setOrigin(0.5, 0.629);
+      sprite.setOrigin(0.5, 0.667);
       sprite.setDepth(y);
       const label = this.add
-        .text(x, y - 80, "For Sale", {
+        .text(x, y - 108, "For Sale", {
           fontFamily: '"Fredoka", "Nunito", sans-serif',
           fontSize: "10px",
           fontStyle: "bold",
@@ -933,7 +933,7 @@ export class GameScene extends Phaser.Scene {
         npc: 0.91,
       };
       sprite.setOrigin(0.5, originY[mobTexture] ?? 0.9);
-      sprite.setDepth(900);
+      sprite.setDepth(y);
       // World-Y of the visible head/top, used to place label + HP bar.
       const headTopOffset: Record<string, number> = {
         slime: 25,
@@ -966,10 +966,10 @@ export class GameScene extends Phaser.Scene {
           strokeThickness: 4.5,
         })
         .setOrigin(0.5, 1)
-        .setDepth(901);
+        .setDepth(y + 1);
 
-      const hpBarBg = this.add.graphics().setDepth(902);
-      const hpBarFill = this.add.graphics().setDepth(903);
+      const hpBarBg = this.add.graphics().setDepth(y + 2);
+      const hpBarFill = this.add.graphics().setDepth(y + 3);
       const maxHp = npc.combat?.maxHp ?? 0;
       const currentHp = networkManager.getMobHealth(npc.id)?.currentHp ?? maxHp;
 
@@ -1638,7 +1638,9 @@ export class GameScene extends Phaser.Scene {
     const x = Math.round(local.predicted.x);
     const y = Math.round(local.predicted.y);
     local.sprite.setPosition(x, y);
+    local.sprite.setDepth(y);
     local.label.setPosition(x, y - 42);
+    local.label.setDepth(y + 1);
   }
 
   private interpolateRemotePlayers() {
@@ -1647,7 +1649,9 @@ export class GameScene extends Phaser.Scene {
       const x = Math.round(Phaser.Math.Linear(rendered.sprite.x, rendered.targetX, alpha));
       const y = Math.round(Phaser.Math.Linear(rendered.sprite.y, rendered.targetY, alpha));
       rendered.sprite.setPosition(x, y);
+      rendered.sprite.setDepth(y);
       rendered.label.setPosition(x, y - 42);
+      rendered.label.setDepth(y + 1);
     }
   }
 

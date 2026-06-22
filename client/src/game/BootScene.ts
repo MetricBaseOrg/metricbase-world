@@ -596,15 +596,17 @@ export class BootScene extends Phaser.Scene {
   }
 
   private createHousingTextures() {
-    // Iso building spanning a 3x3 tile footprint.
+    // Iso building on a 3x3 tile footprint with a gable roof: a ridge runs
+    // along the SW-NE axis, the big slope faces the camera (down-left), and the
+    // triangular gable end sits over the SE wall (the door side).
     const W = 176;
-    const H = 124;
+    const H = 156;
     const cx = W / 2;
-    const baseY = 78;
+    const baseY = 104;
     const hw = 84;
     const hh = 42;
     const wallH = 40;
-    const roofH = 32;
+    const ridgeH = 40;
 
     type P = [number, number];
     const fE: P = [cx + hw, baseY];
@@ -613,7 +615,10 @@ export class BootScene extends Phaser.Scene {
     const tE: P = [cx + hw, baseY - wallH];
     const tS: P = [cx, baseY + hh - wallH];
     const tW: P = [cx - hw, baseY - wallH];
-    const apex: P = [cx, baseY - wallH - roofH];
+    const tN: P = [cx, baseY - hh - wallH];
+    // Ridge ends: raised above the midpoints of the two SE/NW eaves.
+    const ridgeS: P = [(tS[0] + tE[0]) / 2, (tS[1] + tE[1]) / 2 - ridgeH];
+    const ridgeN: P = [(tW[0] + tN[0]) / 2, (tW[1] + tN[1]) / 2 - ridgeH];
     const lerp = (a: P, b: P, t: number): P => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
 
     const poly = (g: Phaser.GameObjects.Graphics, pts: P[], fill: number) => {
@@ -645,14 +650,14 @@ export class BootScene extends Phaser.Scene {
       poly(g, [fS, fE, tE, tS], 0xead9b8);
       outline(g, [fW, fS, tS, tW]);
       outline(g, [fS, fE, tE, tS]);
-      // roof — only the two camera-facing slopes (the back slopes are hidden,
-      // and drawing them poked a stray spike above the apex). Light comes from
-      // the right (SE) so that slope is lighter, matching the wall shading.
-      poly(g, [tW, tS, apex], roofDark);
-      poly(g, [tS, tE, apex], roofColor);
-      outline(g, [tW, apex, tE]);
-      outline(g, [tS, apex], false);
-      outline(g, [tW, tS, tE], false);
+      // Gable roof: back-right slope (hidden filler) first, then the big front
+      // slope facing the camera, then the SE gable end over the door.
+      poly(g, [tN, tE, ridgeS, ridgeN], roofDark);
+      poly(g, [tW, tS, ridgeS, ridgeN], roofColor);
+      poly(g, [tS, tE, ridgeS], roofDark);
+      outline(g, [tW, tS, ridgeS, ridgeN]);
+      outline(g, [tS, tE, ridgeS]);
+      outline(g, [ridgeN, ridgeS], false);
       accent(g);
     };
 
