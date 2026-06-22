@@ -84,3 +84,7 @@ CREATE TABLE IF NOT EXISTS land_plots (
   structure VARCHAR(16) NOT NULL DEFAULT 'house',
   purchased_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Player-run shop inventory + uncollected earnings (added later).
+ALTER TABLE land_plots ADD COLUMN IF NOT EXISTS listings JSONB NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE land_plots ADD COLUMN IF NOT EXISTS earnings INTEGER NOT NULL DEFAULT 0;

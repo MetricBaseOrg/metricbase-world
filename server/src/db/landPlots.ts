@@ -1,4 +1,4 @@
-import type { StructureType } from "@metricbase/shared";
+import type { ShopListing, StructureType } from "@metricbase/shared";
 import { getPool } from "./pool.js";
 
 export interface StoredLandPlot {
@@ -7,6 +7,16 @@ export interface StoredLandPlot {
   ownerWallet: string | null;
   ownerName: string;
   structure: StructureType;
+  listings: ShopListing[];
+  earnings: number;
+}
+
+function normalizeListings(value: unknown): ShopListing[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((l): l is ShopListing => !!l && typeof l === "object" && "itemId" in l)
+    .map((l) => ({ itemId: String(l.itemId), quantity: Number(l.quantity) || 0, price: Number(l.price) || 0 }))
+    .filter((l) => l.quantity > 0 && l.price > 0);
 }
 
 export async function loadLandPlots(): Promise<StoredLandPlot[]> {
@@ -19,13 +29,19 @@ export async function loadLandPlots(): Promise<StoredLandPlot[]> {
       owner_wallet: string | null;
       owner_name: string;
       structure: string;
-    }>("SELECT plot_id, zone_id, owner_wallet, owner_name, structure FROM land_plots");
+      listings: unknown;
+      earnings: number | null;
+    }>(
+      "SELECT plot_id, zone_id, owner_wallet, owner_name, structure, listings, earnings FROM land_plots",
+    );
     return res.rows.map((row) => ({
       plotId: row.plot_id,
       zoneId: row.zone_id,
       ownerWallet: row.owner_wallet,
       ownerName: row.owner_name,
       structure: (row.structure as StructureType) ?? "house",
+      listings: normalizeListings(row.listings),
+      earnings: row.earnings ?? 0,
     }));
   } catch (error) {
     console.warn("[landPlots] load failed:", error);
@@ -38,12 +54,21 @@ export async function saveLandPlot(plot: StoredLandPlot): Promise<void> {
   if (!pool) return;
   try {
     await pool.query(
-      `INSERT INTO land_plots (plot_id, zone_id, owner_wallet, owner_name, structure)
-       VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO land_plots (plot_id, zone_id, owner_wallet, owner_name, structure, listings, earnings)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
        ON CONFLICT (plot_id)
        DO UPDATE SET owner_wallet = EXCLUDED.owner_wallet, owner_name = EXCLUDED.owner_name,
-                     structure = EXCLUDED.structure`,
-      [plot.plotId, plot.zoneId, plot.ownerWallet, plot.ownerName, plot.structure],
+                     structure = EXCLUDED.structure, listings = EXCLUDED.listings,
+                     earnings = EXCLUDED.earnings`,
+      [
+        plot.plotId,
+        plot.zoneId,
+        plot.ownerWallet,
+        plot.ownerName,
+        plot.structure,
+        JSON.stringify(plot.listings ?? []),
+        plot.earnings ?? 0,
+      ],
     );
   } catch (error) {
     console.warn("[landPlots] save failed:", error);

@@ -40,6 +40,8 @@ interface GameStore {
   housingOpen: boolean;
   housingPlotId: string | null;
   housingPlots: LandPlotState[];
+  playerShopOpen: boolean;
+  playerShopPlotId: string | null;
   shop: ShopOpenPayload | null;
   shopOpen: boolean;
   setPlayerName: (name: string) => void;
@@ -84,6 +86,8 @@ interface GameStore {
   openHousing: (plotId: string) => void;
   setHousingOpen: (open: boolean) => void;
   setHousingPlots: (plots: LandPlotState[]) => void;
+  openPlayerShop: (plotId: string) => void;
+  setPlayerShopOpen: (open: boolean) => void;
   setShop: (shop: ShopOpenPayload | null) => void;
   setShopOpen: (open: boolean) => void;
 }
@@ -121,6 +125,8 @@ export const useGameStore = create<GameStore>((set) => ({
   housingOpen: false,
   housingPlotId: null,
   housingPlots: [],
+  playerShopOpen: false,
+  playerShopPlotId: null,
   shop: null,
   shopOpen: false,
   setPlayerName: (name) => set({ playerName: name }),
@@ -195,6 +201,15 @@ export const useGameStore = create<GameStore>((set) => ({
     set({ housingPlotId, housingOpen: true, inventoryOpen: false, craftOpen: false }),
   setHousingOpen: (housingOpen) => set({ housingOpen }),
   setHousingPlots: (housingPlots) => set({ housingPlots }),
+  openPlayerShop: (playerShopPlotId) =>
+    set({
+      playerShopPlotId,
+      playerShopOpen: true,
+      housingOpen: false,
+      inventoryOpen: false,
+      craftOpen: false,
+    }),
+  setPlayerShopOpen: (playerShopOpen) => set({ playerShopOpen }),
   setShop: (shop) => set({ shop }),
   setShopOpen: (shopOpen) => set({ shopOpen }),
 }));

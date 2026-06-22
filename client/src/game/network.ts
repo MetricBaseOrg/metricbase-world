@@ -15,6 +15,7 @@ import {
   FarmResultPayload,
   HousingStatePayload,
   HousingResultPayload,
+  PlayerShopResultPayload,
   EmotePayload,
   WorldStatsPayload,
   MobHealthPayload,
@@ -66,6 +67,7 @@ type HousingStateListener = (payload: HousingStatePayload) => void;
 type HousingResultListener = (payload: HousingResultPayload) => void;
 type EmoteListener = (payload: EmotePayload) => void;
 type WorldStatsListener = (payload: WorldStatsPayload) => void;
+type PlayerShopResultListener = (payload: PlayerShopResultPayload) => void;
 type ShopOpenListener = (payload: ShopOpenPayload) => void;
 type ShopResultListener = (payload: ShopResultPayload) => void;
 type MarketResultListener = (payload: MarketResultPayload) => void;
@@ -107,6 +109,7 @@ export class NetworkManager {
   private emoteListeners = new Set<EmoteListener>();
   private worldStatsListeners = new Set<WorldStatsListener>();
   private latestWorldStats: WorldStatsPayload = { baseHolders: null, online: 0 };
+  private playerShopResultListeners = new Set<PlayerShopResultListener>();
   private shopOpenListeners = new Set<ShopOpenListener>();
   private shopResultListeners = new Set<ShopResultListener>();
   private marketResultListeners = new Set<MarketResultListener>();
@@ -324,6 +327,27 @@ export class NetworkManager {
 
   sendEmote(emoteId: string) {
     this.room?.send("emote", { emoteId });
+  }
+
+  sendShopStock(plotId: string, itemId: string, quantity: number, price: number) {
+    this.room?.send("shopStock", { plotId, itemId, quantity, price });
+  }
+
+  sendShopUnstock(plotId: string, itemId: string) {
+    this.room?.send("shopUnstock", { plotId, itemId });
+  }
+
+  sendShopBuyListing(plotId: string, itemId: string, quantity: number) {
+    this.room?.send("shopBuyListing", { plotId, itemId, quantity });
+  }
+
+  sendShopCollect(plotId: string) {
+    this.room?.send("shopCollect", { plotId });
+  }
+
+  onPlayerShopResult(listener: PlayerShopResultListener) {
+    this.playerShopResultListeners.add(listener);
+    return () => this.playerShopResultListeners.delete(listener);
   }
 
   getHousingState(): HousingStatePayload {
@@ -757,6 +781,11 @@ export class NetworkManager {
     this.room.onMessage("worldStats", (payload: WorldStatsPayload) => {
       this.latestWorldStats = payload;
       for (const listener of this.worldStatsListeners) {
+        listener(payload);
+      }
+    });
+    this.room.onMessage("playerShopResult", (payload: PlayerShopResultPayload) => {
+      for (const listener of this.playerShopResultListeners) {
         listener(payload);
       }
     });

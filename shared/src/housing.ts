@@ -21,6 +21,9 @@ export interface LandPlotState {
   plotId: string;
   ownerName?: string;
   structure: StructureType;
+  listings?: ShopListing[];
+  /** Uncollected gold from sales (only meaningful to the owner). */
+  earnings?: number;
 }
 
 export interface HousingStatePayload {
@@ -37,4 +40,21 @@ export interface HousingResultPayload {
 
 export function structureLabel(structure: StructureType): string {
   return structure === "shop" ? "Shop" : structure === "house" ? "House" : "Plot";
+}
+
+/** A single item for sale in a player-run shop. */
+export interface ShopListing {
+  itemId: string;
+  quantity: number;
+  price: number;
+}
+
+/** Max distinct items a player shop can list at once. */
+export const MAX_SHOP_LISTINGS = 8;
+
+export interface PlayerShopResultPayload {
+  ok: boolean;
+  error?: string;
+  plotId?: string;
+  gold?: number;
 }

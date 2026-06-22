@@ -39,6 +39,7 @@ import {
   PLOT_PRICE,
   HOUSE_RANGE,
   structureLabel,
+  MAX_SHOP_LISTINGS,
   getEmote,
   EMOTE_COOLDOWN_MS,
   type GatherSkill,
@@ -100,7 +101,12 @@ import {
   placeMarketOrder,
 } from "../market/service.js";
 import { dynamicSellPrices, effectiveSellPrice, recordSale } from "../market/sellPressure.js";
-import { buildLandPlotStates, claimPlot, getPlotOwner } from "../housing/landRegistry.js";
+import {
+  buildLandPlotStates,
+  claimPlot,
+  getPlotOwner,
+  updatePlotShop,
+} from "../housing/landRegistry.js";
 
 interface PendingInput {
   dx: number;
@@ -266,6 +272,39 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
     this.onMessage("emote", (client, message: { emoteId?: string }) => {
       this.handleEmote(client, message.emoteId ?? "");
+    });
+
+    this.onMessage(
+      "shopStock",
+      (client, message: { plotId?: string; itemId?: string; quantity?: number; price?: number }) => {
+        void this.handleShopStock(
+          client,
+          message.plotId ?? "",
+          message.itemId ?? "",
+          Math.floor(Number(message.quantity) || 0),
+          Math.floor(Number(message.price) || 0),
+        );
+      },
+    );
+
+    this.onMessage("shopUnstock", (client, message: { plotId?: string; itemId?: string }) => {
+      void this.handleShopUnstock(client, message.plotId ?? "", message.itemId ?? "");
+    });
+
+    this.onMessage(
+      "shopBuyListing",
+      (client, message: { plotId?: string; itemId?: string; quantity?: number }) => {
+        void this.handleShopBuyListing(
+          client,
+          message.plotId ?? "",
+          message.itemId ?? "",
+          Math.floor(Number(message.quantity) || 0),
+        );
+      },
+    );
+
+    this.onMessage("shopCollect", (client, message: { plotId?: string }) => {
+      void this.handleShopCollect(client, message.plotId ?? "");
     });
 
     this.onMessage("requestRespawn", (client, message: { payGold?: boolean }) => {
@@ -2092,6 +2131,159 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
   private broadcastHousingState() {
     this.broadcast("housingState", this.buildHousingState());
+  }
+
+  private ownedShopFor(plotId: string, playerName: string) {
+    const owned = getPlotOwner(plotId);
+    if (!owned || owned.structure !== "shop") return null;
+    return owned.ownerName === playerName ? owned : null;
+  }
+
+  private async handleShopStock(
+    client: Client,
+    plotId: string,
+    itemId: string,
+    quantity: number,
+    price: number,
+  ) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || this.isKnockedOut(player.name)) return;
+    const shop = this.ownedShopFor(plotId, player.name);
+    if (!shop) {
+      client.send("playerShopResult", { ok: false, plotId, error: "That isn't your shop." });
+      return;
+    }
+    if (quantity <= 0 || price <= 0 || price > 1_000_000) {
+      client.send("playerShopResult", { ok: false, plotId, error: "Enter a quantity and price." });
+      return;
+    }
+    const inv = this.inventories.get(player.name) ?? [];
+    if (getItemQuantity(inv, itemId) < quantity) {
+      client.send("playerShopResult", { ok: false, plotId, error: "You don't have that many." });
+      return;
+    }
+    const listings = shop.listings.map((l) => ({ ...l }));
+    const existing = listings.find((l) => l.itemId === itemId);
+    if (!existing && listings.length >= MAX_SHOP_LISTINGS) {
+      client.send("playerShopResult", { ok: false, plotId, error: "Shop shelves are full." });
+      return;
+    }
+    const { inventory, removed } = removeItemFromInventory(inv, itemId, quantity);
+    if (removed <= 0) {
+      client.send("playerShopResult", { ok: false, plotId, error: "You don't have that item." });
+      return;
+    }
+    this.inventories.set(player.name, inventory);
+    if (existing) {
+      existing.quantity += removed;
+      existing.price = price;
+    } else {
+      listings.push({ itemId, quantity: removed, price });
+    }
+    updatePlotShop(plotId, listings, shop.earnings);
+    this.sendInventory(client, player.name);
+    this.broadcastHousingState();
+    client.send("playerShopResult", { ok: true, plotId });
+  }
+
+  private async handleShopUnstock(client: Client, plotId: string, itemId: string) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const shop = this.ownedShopFor(plotId, player.name);
+    if (!shop) return;
+    const listings = shop.listings.map((l) => ({ ...l }));
+    const idx = listings.findIndex((l) => l.itemId === itemId);
+    if (idx < 0) return;
+    const listing = listings[idx];
+    const inv = this.inventories.get(player.name) ?? [];
+    const { inventory, added } = addItemToInventory(inv, itemId, listing.quantity);
+    if (added <= 0) {
+      client.send("playerShopResult", { ok: false, plotId, error: "Make inventory space first." });
+      return;
+    }
+    this.inventories.set(player.name, inventory);
+    if (added >= listing.quantity) listings.splice(idx, 1);
+    else listing.quantity -= added;
+    updatePlotShop(plotId, listings, shop.earnings);
+    this.sendInventory(client, player.name);
+    this.broadcastHousingState();
+    client.send("playerShopResult", { ok: true, plotId });
+  }
+
+  private async handleShopBuyListing(
+    client: Client,
+    plotId: string,
+    itemId: string,
+    quantity: number,
+  ) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || this.isKnockedOut(player.name)) return;
+    const owned = getPlotOwner(plotId);
+    if (!owned || owned.structure !== "shop") {
+      client.send("playerShopResult", { ok: false, plotId, error: "No shop here." });
+      return;
+    }
+    if (owned.ownerName === player.name) {
+      client.send("playerShopResult", { ok: false, plotId, error: "That's your own shop." });
+      return;
+    }
+    if (quantity <= 0) return;
+    const listings = owned.listings.map((l) => ({ ...l }));
+    const listing = listings.find((l) => l.itemId === itemId);
+    if (!listing || listing.quantity <= 0) {
+      client.send("playerShopResult", { ok: false, plotId, error: "Sold out." });
+      return;
+    }
+    const wantQty = Math.min(quantity, listing.quantity);
+    const gold = this.playerGold.get(player.name) ?? STARTING_GOLD;
+    const affordable = Math.min(wantQty, Math.floor(gold / listing.price));
+    if (affordable <= 0) {
+      client.send("playerShopResult", { ok: false, plotId, error: "Not enough gold." });
+      return;
+    }
+    const inv = this.inventories.get(player.name) ?? [];
+    const { inventory, added } = addItemToInventory(inv, itemId, affordable);
+    if (added <= 0) {
+      client.send("playerShopResult", { ok: false, plotId, error: "Your inventory is full." });
+      return;
+    }
+    const cost = added * listing.price;
+    const nextGold = gold - cost;
+    this.inventories.set(player.name, inventory);
+    this.playerGold.set(player.name, nextGold);
+    listing.quantity -= added;
+    const remaining = listings.filter((l) => l.quantity > 0);
+    updatePlotShop(plotId, remaining, owned.earnings + cost);
+    this.sendProfile(client, player);
+    this.sendInventory(client, player.name);
+    this.broadcastHousingState();
+    this.broadcastChat({
+      id: crypto.randomUUID(),
+      channel: "system",
+      senderId: "system",
+      senderName: "Shop",
+      body: `${player.name} bought ${added}x ${getItemDefinition(itemId).name} from ${owned.ownerName}'s shop.`,
+      sentAt: Date.now(),
+    });
+    client.send("playerShopResult", { ok: true, plotId, gold: nextGold });
+    await this.persistPlayer(player);
+  }
+
+  private async handleShopCollect(client: Client, plotId: string) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const shop = this.ownedShopFor(plotId, player.name);
+    if (!shop || shop.earnings <= 0) {
+      client.send("playerShopResult", { ok: false, plotId, error: "Nothing to collect." });
+      return;
+    }
+    const nextGold = (this.playerGold.get(player.name) ?? STARTING_GOLD) + shop.earnings;
+    this.playerGold.set(player.name, nextGold);
+    updatePlotShop(plotId, shop.listings, 0);
+    this.sendProfile(client, player);
+    this.broadcastHousingState();
+    client.send("playerShopResult", { ok: true, plotId, gold: nextGold });
+    await this.persistPlayer(player);
   }
 
   private async handleHousingBuy(client: Client, plotId: string, structure: StructureType) {

@@ -1290,7 +1290,15 @@ export class GameScene extends Phaser.Scene {
     }
     if (nearestLand) {
       playSfx("ui_open");
-      useGameStore.getState().openHousing(nearestLand.id);
+      // A built shop opens the player-run shop; anything else opens housing.
+      const state = networkManager
+        .getHousingState()
+        .plots.find((p) => p.plotId === nearestLand.id);
+      if (state?.structure === "shop") {
+        useGameStore.getState().openPlayerShop(nearestLand.id);
+      } else {
+        useGameStore.getState().openHousing(nearestLand.id);
+      }
       return;
     }
 

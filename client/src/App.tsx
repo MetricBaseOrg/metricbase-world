@@ -12,6 +12,7 @@ import { ChatPanel } from "./ui/ChatPanel";
 import { CraftPanel } from "./ui/CraftPanel";
 import { EmoteBar } from "./ui/EmoteBar";
 import { HousingPanel } from "./ui/HousingPanel";
+import { PlayerShopPanel } from "./ui/PlayerShopPanel";
 import { DeathOverlay } from "./ui/DeathOverlay";
 import { HUD } from "./ui/HUD";
 import { LoginOverlay } from "./ui/LoginOverlay";
@@ -262,6 +263,7 @@ export function App() {
     store.setCraftOpen(false);
     store.setHousingOpen(false);
     store.setHousingPlots([]);
+    store.setPlayerShopOpen(false);
     store.setPlayerVitals(40, 40);
     store.setProfile(store.playerLevel, store.playerXp, 0, 40, 40, null, false, null);
     store.setSkillState(1, 0, 1, 0, 1, 0, 1, 0);
@@ -279,6 +281,7 @@ export function App() {
       {joined && <InventoryPanel />}
       {joined && <CraftPanel />}
       {joined && <HousingPanel />}
+      {joined && <PlayerShopPanel />}
       {joined && <InventoryHotkey />}
       {joined && (
         <ErrorBoundary label="Shop">
