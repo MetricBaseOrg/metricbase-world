@@ -262,6 +262,23 @@ export function HUD({ onLeave }: HUDProps) {
             </div>
           )}
 
+          <a
+            href="/docs"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="chibi-stat-pill"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              marginTop: 8,
+              textDecoration: "none",
+              fontSize: "0.78rem",
+            }}
+          >
+            📖 How to Play
+          </a>
+
           <div className="chibi-text-muted" style={{ marginTop: 8, fontSize: "0.68rem", textAlign: "center" }}>
             client v{GAME_VERSION}
           </div>

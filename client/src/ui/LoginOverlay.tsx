@@ -362,6 +362,23 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
             Connect your wallet to bond your character. Name, avatar, and progress stay linked to
             your wallet across sessions.
           </p>
+          <a
+            href="/docs"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="chibi-btn chibi-btn--secondary"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              marginTop: 12,
+              padding: "8px 14px",
+              fontSize: "0.85rem",
+              textDecoration: "none",
+            }}
+          >
+            📖 New here? Read the How-to-Play guide
+          </a>
         </div>
 
         <div className="chibi-login-grid">
