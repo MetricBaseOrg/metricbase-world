@@ -102,6 +102,7 @@ export function PartyPanel() {
                 <div className="chibi-text-muted" style={{ fontSize: "0.72rem", marginTop: 8, lineHeight: 1.35 }}>
                   ⚔️ Fight near your party for bonus XP — the finisher earns more
                   per nearby ally, and allies share assist XP and kill credit.
+                  🪓 Gather together, too: nearby members share gather XP.
                 </div>
                 <button
                   type="button"

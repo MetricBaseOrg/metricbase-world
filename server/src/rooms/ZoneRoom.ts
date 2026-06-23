@@ -81,6 +81,7 @@ import {
   TRAINING_DUMMY_COUNTER_DAMAGE,
   PlayerSchema,
   partyAssistXp,
+  partyGatherShareXp,
   partyKillXp,
   PARTY_ASSIST_RANGE,
   startQuest,
@@ -2031,6 +2032,28 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         sentAt: now,
       });
       await this.persistPlayer(player);
+    }
+
+    // Party play: nearby party members in this zone share a slice of gather XP.
+    const nodePosition = tileToWorld(resource.tileX, resource.tileY);
+    for (const ally of this.nearbyPartyMembers(player, nodePosition)) {
+      const result = this.grantSkillXp(
+        ally.player.name,
+        gather.skill,
+        partyGatherShareXp(skillXpGained),
+      );
+      this.sendSkillState(ally.client, ally.player.name);
+      if (result.leveledUp) {
+        this.broadcastChat({
+          id: crypto.randomUUID(),
+          channel: "system",
+          senderId: "system",
+          senderName: gather.label,
+          body: `${ally.player.name} reached ${gather.label} level ${result.newLevel}!`,
+          sentAt: now,
+        });
+        await this.persistPlayer(ally.player);
+      }
     }
 
     this.broadcastChat({

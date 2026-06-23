@@ -26,6 +26,16 @@ export function partyAssistXp(baseXp: number): number {
   return Math.max(1, Math.round(baseXp * PARTY_ASSIST_XP_SHARE));
 }
 
+// Gathering together also pays off: when a partied player finishes a gather,
+// nearby party members (same zone, within `PARTY_ASSIST_RANGE`) earn a slice of
+// the skill XP — smaller than the combat assist since gathering is lower-risk.
+export const PARTY_GATHER_XP_SHARE = 0.25;
+
+/** Skill XP each nearby party member earns from an ally's gather. */
+export function partyGatherShareXp(baseXp: number): number {
+  return Math.max(1, Math.round(baseXp * PARTY_GATHER_XP_SHARE));
+}
+
 export interface PartyDetail {
   id: string;
   leaderName: string;
