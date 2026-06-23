@@ -68,6 +68,7 @@ import {
   normalizeEquipment,
   getToolSpeedMultiplier,
   getToolYieldBonus,
+  rollRareGatherDrop,
   type PlayerEquipment,
   PLAYER_SPEED,
   POTION_HEAL_AMOUNT,
@@ -1584,16 +1585,21 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     client.send("inventory", buildInventoryPayload(inventory, equipment?.weaponId ?? null));
   }
 
-  private async grantLoot(client: Client, playerName: string, itemId: string, quantity: number) {
+  private async grantLoot(
+    client: Client,
+    playerName: string,
+    itemId: string,
+    quantity: number,
+  ): Promise<number> {
     const current = this.inventories.get(playerName) ?? [];
     const { inventory, added } = addItemToInventory(current, itemId, quantity);
-    if (added <= 0) return;
+    if (added <= 0) return 0;
 
     this.inventories.set(playerName, inventory);
     this.sendInventory(client, playerName);
 
     const player = this.state.players.get(client.sessionId);
-    if (!player) return;
+    if (!player) return added;
 
     this.broadcastChat({
       id: crypto.randomUUID(),
@@ -1605,6 +1611,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     });
 
     await this.checkCollectObjectives(client, playerName);
+    return added;
   }
 
   private sendQuestState(client: Client, playerName: string) {
@@ -1990,9 +1997,22 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       Math.random() < getToolYieldBonus(toolId, gather.skill) ? 1 : 0;
     const lootQuantity = gather.lootQuantity + bonusYield;
 
+    // Luck-based rare drop (amber/gemstone/pearl), independent of the yield roll.
+    const rareItemId = rollRareGatherDrop(gather.skill, gather.nodeLevel);
+
     const client = this.clients.find((entry) => entry.sessionId === sessionId);
     if (client) {
       await this.grantLoot(client, player.name, gather.lootItemId, lootQuantity);
+      if (rareItemId && (await this.grantLoot(client, player.name, rareItemId, 1)) > 0) {
+        this.broadcastChat({
+          id: crypto.randomUUID(),
+          channel: "system",
+          senderId: "system",
+          senderName: gather.label,
+          body: `✨ ${player.name} found a rare ${getItemDefinition(rareItemId).name}!`,
+          sentAt: now,
+        });
+      }
     }
 
     const skillXpGained = gather.skillXp;

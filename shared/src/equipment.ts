@@ -3,11 +3,13 @@ import type { GatherSkill } from "./resources.js";
 export const ITEM_RUSTY_BLADE = "item_rusty_blade";
 export const ITEM_GEL_KNIFE = "item_gel_knife";
 export const ITEM_COPPER_DAGGER = "item_copper_dagger";
+export const ITEM_GEM_BLADE = "item_gem_blade";
 
 export const WEAPON_BONUS_DAMAGE: Record<string, number> = {
   [ITEM_RUSTY_BLADE]: 12,
   [ITEM_GEL_KNIFE]: 8,
   [ITEM_COPPER_DAGGER]: 18,
+  [ITEM_GEM_BLADE]: 30,
 };
 
 export function getWeaponBonusDamage(weaponId: string | null | undefined): number {

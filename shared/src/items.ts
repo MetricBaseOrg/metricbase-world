@@ -289,6 +289,38 @@ export const ITEMS: Record<string, ItemDefinition> = {
     maxStack: 1,
     kind: "tool",
   },
+  item_amber: {
+    id: "item_amber",
+    name: "Amber",
+    description: "A rare bead of fossilised resin, sometimes found in old trees. Pip pays handsomely.",
+    stackable: true,
+    maxStack: 50,
+    kind: "material",
+  },
+  item_gemstone: {
+    id: "item_gemstone",
+    name: "Gemstone",
+    description: "A rare cut stone struck from deep rock. Pip pays handsomely — or forge it into a blade.",
+    stackable: true,
+    maxStack: 50,
+    kind: "material",
+  },
+  item_pearl: {
+    id: "item_pearl",
+    name: "Pearl",
+    description: "A rare lustrous pearl pulled from the deep. Pip pays handsomely.",
+    stackable: true,
+    maxStack: 50,
+    kind: "material",
+  },
+  item_gem_blade: {
+    id: "item_gem_blade",
+    name: "Gemforged Blade",
+    description: "A masterwork sword set with a gemstone. +30 attack damage when equipped.",
+    stackable: false,
+    maxStack: 1,
+    kind: "weapon",
+  },
 };
 
 /** HP restored by each consumable when used. */

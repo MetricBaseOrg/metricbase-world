@@ -199,6 +199,18 @@ export const CRAFT_RECIPES: CraftRecipe[] = [
     output: { itemId: "item_harvest_net", quantity: 1 },
     goldCost: 120,
   },
+  {
+    id: "craft_gem_blade",
+    name: "Gemforged Blade",
+    description: "Set a rare gemstone into a steel sword. +30 attack when equipped.",
+    inputs: [
+      { itemId: "item_steel_bar", quantity: 3 },
+      { itemId: "item_hardwood_plank", quantity: 1 },
+      { itemId: "item_gemstone", quantity: 1 },
+    ],
+    output: { itemId: "item_gem_blade", quantity: 1 },
+    goldCost: 200,
+  },
 ];
 
 export function getRecipe(recipeId: string): CraftRecipe | undefined {

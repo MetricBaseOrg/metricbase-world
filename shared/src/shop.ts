@@ -70,6 +70,9 @@ export const SHOPS: Record<string, ShopDefinition> = {
       item_wheat: 7,
       item_slime_gel: 12,
       item_slime_core: 25,
+      item_amber: 55,
+      item_gemstone: 60,
+      item_pearl: 55,
     },
   },
 };

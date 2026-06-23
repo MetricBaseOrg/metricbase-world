@@ -74,8 +74,10 @@ server on Railway, Neon PostgreSQL, Solana token gate/market.
   Planks, Grilled Salmon, and the Angler's Pro Rod (50% faster fishing).
   ✅ Steel tier raises *yield*: Steel Bars (iron + hardwood) forge a Steel
   Axe/Pickaxe and Trawler's Net — 50% faster *and* a 40% chance of a bonus drop
-  (`getToolYieldBonus`, rolled in `completeChop`). Next: rare/uncommon resource
-  drops and gear with combat stat rolls.
+  (`getToolYieldBonus`, rolled in `completeChop`). ✅ Rare gather drops: a small,
+  tier-scaled chance to also yield Amber / Gemstone / Pearl (`rollRareGatherDrop`)
+  — high-value Pip sales, and a Gemstone forges the **Gemforged Blade** (+30 atk),
+  the top weapon. Next: gear with rolled stat ranges and set bonuses.
 - ✅ Persist farm-plot state to the DB (process-global `farm_plots` registry;
   crops keep growing across restarts).
 - More zones, NPCs, quests, and recipes around the loop.

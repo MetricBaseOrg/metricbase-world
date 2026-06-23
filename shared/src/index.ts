@@ -48,6 +48,7 @@ export * from "./tokenShop.js";
 export * from "./market.js";
 export * from "./skills.js";
 export * from "./resources.js";
+export * from "./gatherDrops.js";
 export * from "./crafting.js";
 export * from "./economy.js";
 export * from "./farming.js";
