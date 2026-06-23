@@ -22,6 +22,7 @@ import {
   isValidDecorId,
   structureLabel,
   getEmote,
+  getWorldTime,
   tileToWorld,
   type FarmStatePayload,
   type HousingStatePayload,
@@ -158,6 +159,7 @@ export class GameScene extends Phaser.Scene {
   private lastFootstepAt = 0;
   private chopHitTimer: Phaser.Time.TimerEvent | null = null;
   private cameraFollowSprite: Phaser.GameObjects.Sprite | null = null;
+  private dayNightOverlay: Phaser.GameObjects.Rectangle | null = null;
 
   constructor() {
     super("GameScene");
@@ -168,6 +170,13 @@ export class GameScene extends Phaser.Scene {
     this.cameras.main.setZoom(1.5);
     this.cameras.main.roundPixels = true;
     this.cameras.main.useBounds = false;
+
+    // Day/night lighting tint. A rectangle pinned over the visible world each
+    // frame (origin top-left); colour + opacity come from the shared clock.
+    this.dayNightOverlay = this.add
+      .rectangle(0, 0, 10, 10, 0x0a1538, 0)
+      .setOrigin(0, 0)
+      .setDepth(99_999);
     this.scale.on(Phaser.Scale.Events.RESIZE, this.handleViewportResize, this);
     this.scale.refresh();
     this.handleViewportResize();
@@ -412,6 +421,20 @@ export class GameScene extends Phaser.Scene {
     this.redrawActiveChopBars();
     this.updateFarmPlots();
     this.updatePlayerAnimations();
+    this.updateDayNight();
+  }
+
+  /** Pin the lighting overlay over the visible world and tint it for the time of day. */
+  private updateDayNight() {
+    const overlay = this.dayNightOverlay;
+    if (!overlay) return;
+
+    const view = this.cameras.main.worldView;
+    overlay.setPosition(view.x, view.y);
+    overlay.setSize(view.width, view.height);
+
+    const time = getWorldTime();
+    overlay.setFillStyle(time.overlayColor, time.overlayAlpha);
   }
 
   private findLocalPlayer(): RenderedPlayer | null {

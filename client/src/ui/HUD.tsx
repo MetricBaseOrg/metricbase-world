@@ -13,6 +13,7 @@ import { isMusicEnabled, setMusicEnabled } from "../audio/backgroundMusic";
 import { useGameStore } from "../store/gameStore";
 import { shortenWallet } from "../wallet/solanaProvider";
 import { CircleGauge } from "./CircleGauge";
+import { DayNightClock } from "./DayNightClock";
 import { useMobileLayout } from "./useMobileLayout";
 import { WalletConnectBar } from "./WalletConnectBar";
 
@@ -101,8 +102,13 @@ export function HUD({ onLeave }: HUDProps) {
 
       {(!mobileLayout || expanded) && (
         <div className="chibi-hud-details">
-          <div className="chibi-stat-pill" style={{ marginBottom: 6 }}>
-            <span>🗺️</span> {zoneName}
+          <div
+            style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 6 }}
+          >
+            <div className="chibi-stat-pill">
+              <span>🗺️</span> {zoneName}
+            </div>
+            <DayNightClock />
           </div>
 
           {!mobileLayout && (

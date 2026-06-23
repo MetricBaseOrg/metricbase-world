@@ -18,6 +18,9 @@ server on Railway, Neon PostgreSQL, Solana token gate/market.
   props/NPCs, procedural background music + a full SFX set.
 - **Everyday loop — Gather:** Woodcutting, Mining, Fishing (shared gather-session
   system; nodes, items, skill XP, HUD gauges, art, FX/SFX).
+- **Day/night cycle:** a shared, time-driven world clock (`shared/src/daynight.ts`);
+  the client tints the world dawn→day→dusk→night and a HUD clock shows the time.
+  Cosmetic now, ready to drive future gameplay (night mobs, shop hours).
 - **Energy / hunger:** working actions (gather/attack/farm) spend Energy;
   food restores it (`shared/src/stamina.ts`). Out of energy = too hungry to work
   until you eat; slow trickle avoids hard locks; persisted (`stamina` column).
