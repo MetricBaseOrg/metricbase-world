@@ -1058,6 +1058,100 @@ export class BootScene extends Phaser.Scene {
       g.generateTexture("scenery_produce", W, H);
       g.destroy();
     }
+
+    // Shared isometric box: a top diamond (2:1) extruded down into SW + SE
+    // walls. `gy` is the ground-level diamond centre; the box rises `height`.
+    type IP = { x: number; y: number };
+    const isoBox = (
+      gr: Phaser.GameObjects.Graphics,
+      cx: number,
+      gy: number,
+      hw: number,
+      hh: number,
+      height: number,
+      topCol: number,
+      leftCol: number,
+      rightCol: number,
+    ): { top: IP; right: IP; bottom: IP; left: IP } => {
+      const ty = gy - height;
+      const N: IP = { x: cx, y: ty - hh };
+      const E: IP = { x: cx + hw, y: ty };
+      const S: IP = { x: cx, y: ty + hh };
+      const Wp: IP = { x: cx - hw, y: ty };
+      const E2: IP = { x: cx + hw, y: gy };
+      const S2: IP = { x: cx, y: gy + hh };
+      const W2: IP = { x: cx - hw, y: gy };
+      gr.fillStyle(leftCol, 1).fillPoints([Wp, S, S2, W2], true);
+      gr.fillStyle(rightCol, 1).fillPoints([S, E, E2, S2], true);
+      gr.fillStyle(topCol, 1).fillPoints([N, E, S, Wp], true);
+      gr.lineStyle(2, OUTLINE, 1);
+      gr.strokePoints([Wp, S, S2, W2], true);
+      gr.strokePoints([S, E, E2, S2], true);
+      gr.strokePoints([N, E, S, Wp], true);
+      return { top: N, right: E, bottom: S, left: Wp };
+    };
+
+    // Forge furnace — an iso stone block with a glowing mouth and a chimney.
+    g = this.make.graphics({ x: 0, y: 0 });
+    {
+      const W = 52;
+      const H = 60;
+      const cx = W / 2;
+      const gy = 42;
+      g.fillStyle(0x2a1d12, 0.22).fillEllipse(cx, gy + 9, 40, 8);
+      isoBox(g, cx, gy, 17, 9, 26, 0x9a8f86, 0x6f655d, 0x8a8079);
+      // Glowing mouth on the SE (right) face.
+      g.fillStyle(0x2a1410, 1).fillEllipse(cx + 9, gy - 8, 12, 9);
+      g.fillStyle(0xff7a1a, 1).fillEllipse(cx + 9, gy - 7, 9, 6);
+      g.fillStyle(0xffd33d, 1).fillEllipse(cx + 9, gy - 6, 5, 3.5);
+      // Chimney on the back of the top.
+      isoBox(g, cx - 5, gy - 26, 5, 2.5, 14, 0x847a72, 0x5f564f, 0x756c64);
+      // A wisp of smoke.
+      g.fillStyle(0xcfcac4, 0.5).fillCircle(cx - 5, gy - 44, 4);
+      g.fillStyle(0xcfcac4, 0.35).fillCircle(cx - 2, gy - 50, 5);
+      g.generateTexture("scenery_forge", W, H);
+      g.destroy();
+    }
+
+    // Anvil — a dark iron anvil on an iso oak stump.
+    g = this.make.graphics({ x: 0, y: 0 });
+    {
+      const W = 44;
+      const H = 44;
+      const cx = W / 2;
+      const gy = 30;
+      g.fillStyle(0x2a1d12, 0.22).fillEllipse(cx, gy + 7, 28, 6);
+      // Oak stump base.
+      isoBox(g, cx, gy, 12, 6, 12, 0xb5793f, 0x7a5230, 0x9a6638);
+      // Anvil body (dark iron) sitting on the stump top.
+      const top = gy - 12;
+      isoBox(g, cx, top, 9, 4.5, 6, 0x4a505a, 0x2c3037, 0x3c424b);
+      // Horn poking off the E side + a little step.
+      g.fillStyle(0x3c424b, 1).fillTriangle(cx + 9, top - 9, cx + 18, top - 5, cx + 9, top - 2);
+      g.lineStyle(2, OUTLINE, 1).strokeTriangle(cx + 9, top - 9, cx + 18, top - 5, cx + 9, top - 2);
+      g.fillStyle(0x6a7280, 0.6).fillEllipse(cx, top - 10, 12, 4);
+      g.generateTexture("scenery_anvil", W, H);
+      g.destroy();
+    }
+
+    // Quench barrel — an iso wooden barrel brimming with water.
+    g = this.make.graphics({ x: 0, y: 0 });
+    {
+      const W = 34;
+      const H = 42;
+      const cx = W / 2;
+      const gy = 30;
+      g.fillStyle(0x2a1d12, 0.22).fillEllipse(cx, gy + 7, 24, 6);
+      const faces = isoBox(g, cx, gy, 11, 5.5, 18, 0x3f8fd0, 0x7a5230, 0x9a6638);
+      // Water highlight on the top diamond.
+      g.fillStyle(0x8fd0f6, 0.7).fillEllipse(faces.top.x, faces.top.y + 5.5, 12, 5);
+      // Iron hoops across the staves.
+      g.lineStyle(1.6, 0x4a3a28, 1);
+      g.strokePoints([{ x: cx - 11, y: gy - 6 }, { x: cx, y: gy - 0.5 }, { x: cx + 11, y: gy - 6 }], false);
+      g.strokePoints([{ x: cx - 11, y: gy - 12 }, { x: cx, y: gy - 6.5 }, { x: cx + 11, y: gy - 12 }], false);
+      g.generateTexture("scenery_quench", W, H);
+      g.destroy();
+    }
   }
 
   private createBillboardTexture() {

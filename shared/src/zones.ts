@@ -238,6 +238,11 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
       { id: "pip_stall", tileX: 13, tileY: 12, prop: "stall" },
       { id: "pip_crate_l", tileX: 13, tileY: 14, prop: "crate" },
       { id: "pip_produce_r", tileX: 15, tileY: 12, prop: "produce" },
+      // Brenna's forge (she stands at 13,10): furnace behind, anvil + quench
+      // barrel flanking her at the same screen row.
+      { id: "forge_furnace", tileX: 12, tileY: 9, prop: "forge" },
+      { id: "forge_anvil", tileX: 14, tileY: 9, prop: "anvil" },
+      { id: "forge_quench", tileX: 12, tileY: 11, prop: "quench" },
     ],
   },
   [ZONE_WILDERNESS]: {

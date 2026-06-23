@@ -56,6 +56,7 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Changed
 
 - **Extended level cap → 50** — Combat **Level** now climbs from a cap of 10 all the way to **50** (the XP curve keeps growing past the early game; L50 ≈ 122k total XP), and the four **gather skills** extend to **50** as well. HP keeps scaling with level; the XP bar shows full at the cap. Pure curve change in `shared/src/progression.ts` + `skills.ts` (`MAX_LEVEL`, `MAX_SKILL_LEVEL`) — existing characters keep their XP and simply have far more headroom to grow.
+- **Brenna has a real forge** — The blacksmith now works at an **isometric forge**: a glowing stone furnace with a chimney behind her, an iron **anvil** on an oak stump, and a water **quench barrel** flanking her counter. Drawn as true iso boxes (top diamond + SW/SE shaded walls + outline, via a shared `isoBox` helper) to match the world's buildings — new `scenery_forge` / `scenery_anvil` / `scenery_quench` props.
 - **Pip has a real market stall** — Pip is no longer a lone standing NPC: he now stands at a striped-awning **market stall** with a produce-laden counter, flanked by a crate and a fruit basket, so the hub merchant reads as an actual marketplace. New `scenery_stall` / `scenery_crate` / `scenery_produce` props (procedurally drawn, depth-sorted) placed via the zone scenery system.
 - **Isometric buildings + depth sorting** — Houses/shops/farms/plots are true iso art (gable roofs); scenery, players, and NPCs depth-sort by world Y, so you're occluded behind tall objects (e.g. the billboard).
 
