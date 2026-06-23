@@ -29,8 +29,9 @@ server on Railway, Neon PostgreSQL, Solana token gate/market.
 - **Living-world effects** (`shared/src/environment.ts`): night slows gathering
   unless your lamp is on; rain gives fishing a bonus catch. Server-authoritative.
 - **Building lights:** owners toggle a house/shop light (🏠 panel) that glows at
-  night for everyone and burns a per-plot energy reserve, refueled with gold
-  (`effectiveLight`, `housingLight`/`housingRefuel`; persisted on the plot).
+  night for everyone and burns a per-plot energy reserve, refueled with craftable
+  **Lamp Oil** (2 fish + 1 wood). `effectiveLight`, `housingLight`/`housingRefuel`;
+  persisted on the plot.
 - **Energy / hunger:** working actions (gather/attack/farm) spend Energy;
   food restores it (`shared/src/stamina.ts`). Out of energy = too hungry to work
   until you eat; slow trickle avoids hard locks; persisted (`stamina` column).

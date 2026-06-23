@@ -1,6 +1,7 @@
 import {
+  getItemQuantity,
   LIGHT_MAX_ENERGY,
-  LIGHT_REFUEL_COST,
+  LIGHT_OIL_ITEM,
   PLOT_DECORATIONS,
   PLOT_PRICE,
   ROOF_COLORS,
@@ -17,6 +18,7 @@ export function HousingPanel() {
   const plotId = useGameStore((state) => state.housingPlotId);
   const plots = useGameStore((state) => state.housingPlots);
   const playerGold = useGameStore((state) => state.playerGold);
+  const inventory = useGameStore((state) => state.inventory);
   const playerName = useGameStore((state) => state.playerName);
   const setHousingOpen = useGameStore((state) => state.setHousingOpen);
   const setPlayerGold = useGameStore((state) => state.setPlayerGold);
@@ -225,15 +227,16 @@ export function HousingPanel() {
                     type="button"
                     className="chibi-btn chibi-btn--mint"
                     onClick={refuelLight}
-                    disabled={playerGold < LIGHT_REFUEL_COST || (plot?.energy ?? 0) >= LIGHT_MAX_ENERGY}
-                    title={`Refuel for ${LIGHT_REFUEL_COST} gold`}
+                    disabled={getItemQuantity(inventory.items, LIGHT_OIL_ITEM) <= 0 || (plot?.energy ?? 0) >= LIGHT_MAX_ENERGY}
+                    title="Refuel with 1 Lamp Oil"
                     style={{ padding: "8px 10px", fontSize: "0.76rem" }}
                   >
-                    ⛽ {LIGHT_REFUEL_COST}
+                    ⛽ Oil ({getItemQuantity(inventory.items, LIGHT_OIL_ITEM)})
                   </button>
                 </div>
                 <div className="chibi-text-muted" style={{ fontSize: "0.72rem", marginTop: 4 }}>
-                  A lit building glows at night for everyone — it slowly burns energy while on.
+                  A lit building glows at night for everyone — it burns energy while on. Refuel with
+                  <strong> Lamp Oil</strong> (craft it: 2 River Fish + 1 Wood).
                 </div>
               </div>
             </>

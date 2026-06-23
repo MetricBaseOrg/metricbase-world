@@ -37,7 +37,9 @@ import {
   getFarmCropBySeed,
   DEFAULT_FARM_SEED,
   PLOT_PRICE,
-  LIGHT_REFUEL_COST,
+  LIGHT_OIL_ITEM,
+  LIGHT_REFUEL_AMOUNT,
+  LIGHT_MAX_ENERGY,
   HOUSE_RANGE,
   PLOT_DECOR_SLOTS,
   isValidRoofId,
@@ -2815,7 +2817,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       client.send("housingResult", {
         ok: false,
         plotId,
-        error: `The light is out of energy — refuel it for ${LIGHT_REFUEL_COST} gold.`,
+        error: "The light is out of energy — refuel it with Lamp Oil.",
       });
       return;
     }
@@ -2835,19 +2837,25 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       return;
     }
 
-    const gold = this.playerGold.get(player.name) ?? STARTING_GOLD;
-    if (gold < LIGHT_REFUEL_COST) {
+    if (getPlotLight(plotId).energy >= LIGHT_MAX_ENERGY) {
+      client.send("housingResult", { ok: false, plotId, error: "The light is already full." });
+      return;
+    }
+
+    const inventory = this.inventories.get(player.name) ?? [];
+    const { inventory: nextInv, removed } = removeItemFromInventory(inventory, LIGHT_OIL_ITEM, 1);
+    if (removed <= 0) {
       client.send("housingResult", {
         ok: false,
         plotId,
-        error: `Need ${LIGHT_REFUEL_COST} gold to refuel the light.`,
+        error: "You need Lamp Oil — craft it at the workbench (2 River Fish + 1 Wood).",
       });
       return;
     }
 
-    this.playerGold.set(player.name, gold - LIGHT_REFUEL_COST);
-    refuelPlot(plotId);
-    this.sendProfile(client, player);
+    this.inventories.set(player.name, nextInv);
+    refuelPlot(plotId, LIGHT_REFUEL_AMOUNT);
+    this.sendInventory(client, player.name);
     this.broadcastHousingState();
     client.send("housingResult", { ok: true, plotId, ownerName: player.name });
     void this.persistPlayer(player);

@@ -60,11 +60,12 @@ export function setPlotLight(plotId: string, on: boolean, now = Date.now()): voi
   void saveLandPlot(record);
 }
 
-/** Refill a plot's light energy reserve to full. */
-export function refuelPlot(plotId: string, now = Date.now()): void {
+/** Add to a plot's light energy reserve (capped), settling any drain first. */
+export function refuelPlot(plotId: string, amount: number, now = Date.now()): void {
   const record = plots.get(plotId);
   if (!record) return;
-  record.energy = LIGHT_MAX_ENERGY;
+  const current = effectiveLight(record.lightOn, record.energy, record.energyAt, now);
+  record.energy = Math.min(LIGHT_MAX_ENERGY, current.energy + amount);
   record.energyAt = now;
   void saveLandPlot(record);
 }

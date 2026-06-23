@@ -200,6 +200,17 @@ export const CRAFT_RECIPES: CraftRecipe[] = [
     goldCost: 120,
   },
   {
+    id: "craft_lamp_oil",
+    name: "Lamp Oil",
+    description: "Render fish into oil for a building light's lantern.",
+    inputs: [
+      { itemId: "item_fish", quantity: 2 },
+      { itemId: "item_wood", quantity: 1 },
+    ],
+    output: { itemId: "item_lamp_oil", quantity: 1 },
+    goldCost: 2,
+  },
+  {
     id: "craft_gem_blade",
     name: "Gemforged Blade",
     description: "Set a rare gemstone into a steel sword. +30 attack when equipped.",

@@ -321,6 +321,14 @@ export const ITEMS: Record<string, ItemDefinition> = {
     maxStack: 1,
     kind: "weapon",
   },
+  item_lamp_oil: {
+    id: "item_lamp_oil",
+    name: "Lamp Oil",
+    description: "Rendered fish oil in a flask. Refuels a building's light at the housing panel.",
+    stackable: true,
+    maxStack: 50,
+    kind: "material",
+  },
 };
 
 /** HP restored by each consumable when used. */

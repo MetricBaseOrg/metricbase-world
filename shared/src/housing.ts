@@ -12,8 +12,10 @@ export const PLOT_PRICE = 500;
 export const LIGHT_MAX_ENERGY = 100;
 /** Energy drained per real minute while the light is on. 100 ⇒ ~20 min (one day). */
 export const LIGHT_DRAIN_PER_MIN = 5;
-/** Gold to refill the light's energy reserve to full. A small gold sink. */
-export const LIGHT_REFUEL_COST = 30;
+/** The craftable item that refuels a building light. */
+export const LIGHT_OIL_ITEM = "item_lamp_oil";
+/** Energy restored per Lamp Oil burned (two oils refill an empty reserve). */
+export const LIGHT_REFUEL_AMOUNT = 50;
 
 /**
  * Resolve a plot light's live state, draining its reserve over elapsed time.
