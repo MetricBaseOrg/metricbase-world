@@ -1,4 +1,6 @@
 import {
+  LIGHT_MAX_ENERGY,
+  LIGHT_REFUEL_COST,
   PLOT_DECORATIONS,
   PLOT_PRICE,
   ROOF_COLORS,
@@ -57,6 +59,18 @@ export function HousingPanel() {
     if (!plotId) return;
     playSfx("ui_click");
     networkManager.sendHousingDecorate(plotId, slot, propId);
+  };
+
+  const toggleLight = () => {
+    if (!plotId) return;
+    playSfx("ui_click");
+    networkManager.sendHousingLight(plotId, !plot?.lightOn);
+  };
+
+  const refuelLight = () => {
+    if (!plotId) return;
+    playSfx("ui_click");
+    networkManager.sendHousingRefuel(plotId);
   };
 
   const buy = async (structure: "house" | "shop") => {
@@ -177,6 +191,49 @@ export function HousingPanel() {
                       </select>
                     </div>
                   ))}
+                </div>
+              </div>
+
+              <div style={{ marginTop: 12 }}>
+                <div className="chibi-label" style={{ marginBottom: 6 }}>
+                  Building light
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <button
+                    type="button"
+                    className={`chibi-btn ${plot?.lightOn ? "chibi-btn--gold" : "chibi-btn--secondary"}`}
+                    onClick={toggleLight}
+                    style={{ padding: "8px 12px", fontSize: "0.8rem" }}
+                  >
+                    {plot?.lightOn ? "💡 On" : "🌑 Off"}
+                  </button>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ height: 10, borderRadius: 6, background: "rgba(0,0,0,0.18)", overflow: "hidden" }}>
+                      <div
+                        style={{
+                          width: `${Math.round(((plot?.energy ?? 0) / LIGHT_MAX_ENERGY) * 100)}%`,
+                          height: "100%",
+                          background: "linear-gradient(90deg, #f5a623, #ffe08a)",
+                        }}
+                      />
+                    </div>
+                    <div className="chibi-text-muted" style={{ fontSize: "0.7rem", marginTop: 2 }}>
+                      Energy {plot?.energy ?? 0}/{LIGHT_MAX_ENERGY}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="chibi-btn chibi-btn--mint"
+                    onClick={refuelLight}
+                    disabled={playerGold < LIGHT_REFUEL_COST || (plot?.energy ?? 0) >= LIGHT_MAX_ENERGY}
+                    title={`Refuel for ${LIGHT_REFUEL_COST} gold`}
+                    style={{ padding: "8px 10px", fontSize: "0.76rem" }}
+                  >
+                    ⛽ {LIGHT_REFUEL_COST}
+                  </button>
+                </div>
+                <div className="chibi-text-muted" style={{ fontSize: "0.72rem", marginTop: 4 }}>
+                  A lit building glows at night for everyone — it slowly burns energy while on.
                 </div>
               </div>
             </>

@@ -7,6 +7,34 @@ export type StructureType = "none" | "house" | "shop";
 /** Gold cost to buy a land plot. A deliberately large long-term gold sink. */
 export const PLOT_PRICE = 500;
 
+// Building lights. An owner can switch a built plot's light on; while lit it
+// burns the building's energy reserve, which the owner tops up with gold.
+export const LIGHT_MAX_ENERGY = 100;
+/** Energy drained per real minute while the light is on. 100 ⇒ ~20 min (one day). */
+export const LIGHT_DRAIN_PER_MIN = 5;
+/** Gold to refill the light's energy reserve to full. A small gold sink. */
+export const LIGHT_REFUEL_COST = 30;
+
+/**
+ * Resolve a plot light's live state, draining its reserve over elapsed time.
+ * Returns the effective on/off and the remaining energy (0..LIGHT_MAX_ENERGY);
+ * the light reads as off once the reserve is empty.
+ */
+export function effectiveLight(
+  lightOn: boolean | undefined,
+  energy: number | undefined,
+  energyAt: number | null | undefined,
+  now: number,
+): { lightOn: boolean; energy: number } {
+  let remaining = typeof energy === "number" ? energy : LIGHT_MAX_ENERGY;
+  if (lightOn && typeof energyAt === "number") {
+    const drained = ((now - energyAt) / 60_000) * LIGHT_DRAIN_PER_MIN;
+    remaining = remaining - drained;
+  }
+  remaining = Math.max(0, Math.min(LIGHT_MAX_ENERGY, remaining));
+  return { lightOn: Boolean(lightOn) && remaining > 0, energy: Math.round(remaining) };
+}
+
 /** How close a player must stand to interact with a plot (3x3 footprint). */
 export const HOUSE_RANGE = 150;
 
@@ -30,6 +58,10 @@ export interface LandPlotState {
   listings?: ShopListing[];
   /** Uncollected gold from sales (only meaningful to the owner). */
   earnings?: number;
+  /** Whether the building light is on (effective — false once the reserve is empty). */
+  lightOn?: boolean;
+  /** Remaining light energy reserve, 0..LIGHT_MAX_ENERGY. */
+  energy?: number;
 }
 
 /** Max characters for an owner-set building sign. */

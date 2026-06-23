@@ -15,6 +15,10 @@ export interface StoredLandPlot {
   decor: (string | null)[];
   listings: ShopListing[];
   earnings: number;
+  /** Building light state. */
+  lightOn: boolean;
+  energy: number;
+  energyAt: number | null;
 }
 
 function normalizeListings(value: unknown): ShopListing[] {
@@ -40,8 +44,11 @@ export async function loadLandPlots(): Promise<StoredLandPlot[]> {
       decor: unknown;
       listings: unknown;
       earnings: number | null;
+      light_on: boolean | null;
+      energy: number | null;
+      energy_at: string | number | null;
     }>(
-      "SELECT plot_id, zone_id, owner_wallet, owner_name, structure, roof, sign, decor, listings, earnings FROM land_plots",
+      "SELECT plot_id, zone_id, owner_wallet, owner_name, structure, roof, sign, decor, listings, earnings, light_on, energy, energy_at FROM land_plots",
     );
     return res.rows.map((row) => ({
       plotId: row.plot_id,
@@ -54,6 +61,9 @@ export async function loadLandPlots(): Promise<StoredLandPlot[]> {
       decor: normalizeDecor(row.decor),
       listings: normalizeListings(row.listings),
       earnings: row.earnings ?? 0,
+      lightOn: Boolean(row.light_on),
+      energy: row.energy ?? 100,
+      energyAt: row.energy_at === null ? null : Number(row.energy_at),
     }));
   } catch (error) {
     console.warn("[landPlots] load failed:", error);
@@ -66,12 +76,13 @@ export async function saveLandPlot(plot: StoredLandPlot): Promise<void> {
   if (!pool) return;
   try {
     await pool.query(
-      `INSERT INTO land_plots (plot_id, zone_id, owner_wallet, owner_name, structure, roof, sign, decor, listings, earnings)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      `INSERT INTO land_plots (plot_id, zone_id, owner_wallet, owner_name, structure, roof, sign, decor, listings, earnings, light_on, energy, energy_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
        ON CONFLICT (plot_id)
        DO UPDATE SET owner_wallet = EXCLUDED.owner_wallet, owner_name = EXCLUDED.owner_name,
                      structure = EXCLUDED.structure, roof = EXCLUDED.roof, sign = EXCLUDED.sign,
-                     decor = EXCLUDED.decor, listings = EXCLUDED.listings, earnings = EXCLUDED.earnings`,
+                     decor = EXCLUDED.decor, listings = EXCLUDED.listings, earnings = EXCLUDED.earnings,
+                     light_on = EXCLUDED.light_on, energy = EXCLUDED.energy, energy_at = EXCLUDED.energy_at`,
       [
         plot.plotId,
         plot.zoneId,
@@ -83,6 +94,9 @@ export async function saveLandPlot(plot: StoredLandPlot): Promise<void> {
         JSON.stringify(plot.decor ?? []),
         JSON.stringify(plot.listings ?? []),
         plot.earnings ?? 0,
+        plot.lightOn,
+        plot.energy,
+        plot.energyAt,
       ],
     );
   } catch (error) {

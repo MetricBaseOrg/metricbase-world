@@ -37,6 +37,7 @@ import {
   getFarmCropBySeed,
   DEFAULT_FARM_SEED,
   PLOT_PRICE,
+  LIGHT_REFUEL_COST,
   HOUSE_RANGE,
   PLOT_DECOR_SLOTS,
   isValidRoofId,
@@ -130,10 +131,14 @@ import {
 } from "../market/service.js";
 import { dynamicSellPrices, effectiveSellPrice, recordSale } from "../market/sellPressure.js";
 import {
+  anyPlotLit,
   buildLandPlotStates,
   claimPlot,
+  getPlotLight,
   getPlotOwner,
+  refuelPlot,
   setPlotDecor,
+  setPlotLight,
   setPlotRoof,
   setPlotSign,
   updatePlotShop,
@@ -203,6 +208,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   private playerLastStaminaRegenAt = new Map<string, number>();
   private playerLastHungerNoticeAt = new Map<string, number>();
   private playerLastDarkNoticeAt = new Map<string, number>();
+  private lastPlotLightSweepAt = 0;
   private playerEquipment = new Map<string, ReturnType<typeof normalizeEquipment>>();
   private playerWallets = new Map<string, string>();
   private zoneConfig!: ZoneConfig;
@@ -368,6 +374,14 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         );
       },
     );
+
+    this.onMessage("housingLight", (client, message: { plotId?: string; on?: boolean }) => {
+      this.handleHousingLight(client, message.plotId ?? "", Boolean(message.on));
+    });
+
+    this.onMessage("housingRefuel", (client, message: { plotId?: string }) => {
+      this.handleHousingRefuel(client, message.plotId ?? "");
+    });
 
     this.onMessage("guildCreate", (client, message: { name?: string; tag?: string }) => {
       void this.handleGuildCreate(client, message.name ?? "", message.tag ?? "");
@@ -635,6 +649,15 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   private tick(deltaTime: number) {
     const dt = deltaTime / 1000;
     const now = Date.now();
+
+    // While any plot light burns, re-broadcast housing state every ~12s so the
+    // energy bar updates and a drained light visibly switches off for everyone.
+    if (now - this.lastPlotLightSweepAt > 12_000) {
+      this.lastPlotLightSweepAt = now;
+      if (anyPlotLit((this.zoneConfig.landPlots ?? []).map((p) => p.id), now)) {
+        this.broadcastHousingState();
+      }
+    }
 
     for (const npc of this.zoneConfig.npcs) {
       if (!npc.combat) continue;
@@ -2776,6 +2799,58 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     setPlotDecor(plotId, slot, propId);
     this.broadcastHousingState();
     client.send("housingResult", { ok: true, plotId, ownerName: player.name });
+  }
+
+  private handleHousingLight(client: Client, plotId: string, on: boolean) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !plotId) return;
+
+    const owner = getPlotOwner(plotId);
+    if (!owner || owner.ownerName !== player.name) {
+      client.send("housingResult", { ok: false, plotId, error: "You don't own this plot." });
+      return;
+    }
+
+    if (on && getPlotLight(plotId).energy <= 0) {
+      client.send("housingResult", {
+        ok: false,
+        plotId,
+        error: `The light is out of energy — refuel it for ${LIGHT_REFUEL_COST} gold.`,
+      });
+      return;
+    }
+
+    setPlotLight(plotId, on);
+    this.broadcastHousingState();
+    client.send("housingResult", { ok: true, plotId, ownerName: player.name });
+  }
+
+  private handleHousingRefuel(client: Client, plotId: string) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !plotId) return;
+
+    const owner = getPlotOwner(plotId);
+    if (!owner || owner.ownerName !== player.name) {
+      client.send("housingResult", { ok: false, plotId, error: "You don't own this plot." });
+      return;
+    }
+
+    const gold = this.playerGold.get(player.name) ?? STARTING_GOLD;
+    if (gold < LIGHT_REFUEL_COST) {
+      client.send("housingResult", {
+        ok: false,
+        plotId,
+        error: `Need ${LIGHT_REFUEL_COST} gold to refuel the light.`,
+      });
+      return;
+    }
+
+    this.playerGold.set(player.name, gold - LIGHT_REFUEL_COST);
+    refuelPlot(plotId);
+    this.sendProfile(client, player);
+    this.broadcastHousingState();
+    client.send("housingResult", { ok: true, plotId, ownerName: player.name });
+    void this.persistPlayer(player);
   }
 
   private async handleGuildCreate(client: Client, rawName: string, rawTag: string) {

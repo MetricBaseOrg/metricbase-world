@@ -97,6 +97,8 @@ interface RenderedLandPlot {
   /** Currently-rendered prop id per slot (parallel to slotPositions). */
   decorIds: (string | null)[];
   decorSprites: (Phaser.GameObjects.Sprite | null)[];
+  lightOn: boolean;
+  glow: Phaser.GameObjects.Image | null;
 }
 
 interface RenderedNpc {
@@ -596,6 +598,16 @@ export class GameScene extends Phaser.Scene {
         rendered.glow.setVisible(false);
       }
     }
+
+    // Building lights — a warm window glow on plots whose light is on.
+    for (const plot of this.renderedLandPlots.values()) {
+      if (plot.lightOn) {
+        if (!plot.glow) plot.glow = this.makeGlow().setDisplaySize(LAMP_GLOW_DIAMETER * 1.25, LAMP_GLOW_DIAMETER * 1.25);
+        plot.glow.setPosition(plot.worldX, plot.worldY - 28).setVisible(true).setAlpha(Math.min(1, 0.18 + darkness * 1.6));
+      } else if (plot.glow) {
+        plot.glow.setVisible(false);
+      }
+    }
   }
 
   /** Pin the lighting overlay over the visible world and tint it for the time of day. */
@@ -1064,6 +1076,8 @@ export class GameScene extends Phaser.Scene {
         slotPositions,
         decorIds: new Array(PLOT_DECOR_SLOTS).fill(null),
         decorSprites: new Array(PLOT_DECOR_SLOTS).fill(null),
+        lightOn: false,
+        glow: null,
       });
     }
     this.applyHousingState(networkManager.getHousingState());
@@ -1074,6 +1088,7 @@ export class GameScene extends Phaser.Scene {
       plot.sprite.destroy();
       plot.label.destroy();
       plot.decorSprites.forEach((sprite) => sprite?.destroy());
+      plot.glow?.destroy();
     });
     this.renderedLandPlots.clear();
   }
@@ -1083,6 +1098,7 @@ export class GameScene extends Phaser.Scene {
       const plot = this.renderedLandPlots.get(state.plotId);
       if (!plot) continue;
       const owned = state.structure !== "none";
+      plot.lightOn = owned && Boolean(state.lightOn);
       const base = owned ? (state.structure === "shop" ? "shop" : "house") : "plot_marker";
       // Use the painted roof variant when the owner has chosen one.
       const variant = owned && state.roof ? `${base}_${state.roof}` : base;

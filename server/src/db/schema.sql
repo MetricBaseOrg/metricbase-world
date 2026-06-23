@@ -95,6 +95,10 @@ ALTER TABLE land_plots ADD COLUMN IF NOT EXISTS roof VARCHAR(16);
 ALTER TABLE land_plots ADD COLUMN IF NOT EXISTS sign VARCHAR(24);
 -- Corner decoration props (housing depth). JSON array of prop ids / nulls.
 ALTER TABLE land_plots ADD COLUMN IF NOT EXISTS decor JSONB NOT NULL DEFAULT '[]'::jsonb;
+-- Building light: on/off, remaining energy reserve, and when energy was last set.
+ALTER TABLE land_plots ADD COLUMN IF NOT EXISTS light_on BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE land_plots ADD COLUMN IF NOT EXISTS energy INTEGER NOT NULL DEFAULT 100;
+ALTER TABLE land_plots ADD COLUMN IF NOT EXISTS energy_at BIGINT;
 
 -- Guilds: persistent player organizations. Members stored as a JSON name array.
 CREATE TABLE IF NOT EXISTS guilds (
