@@ -86,6 +86,8 @@ import {
   clampStamina,
   getConsumableStamina,
   hasStaminaFor,
+  gatherDurationMultiplier,
+  rainFishingBonus,
   RESPAWN_GOLD_COST,
   RESPAWN_WAIT_MS,
   TRAINING_DUMMY_COUNTER_DAMAGE,
@@ -200,6 +202,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   private playerStamina = new Map<string, number>();
   private playerLastStaminaRegenAt = new Map<string, number>();
   private playerLastHungerNoticeAt = new Map<string, number>();
+  private playerLastDarkNoticeAt = new Map<string, number>();
   private playerEquipment = new Map<string, ReturnType<typeof normalizeEquipment>>();
   private playerWallets = new Map<string, string>();
   private zoneConfig!: ZoneConfig;
@@ -611,6 +614,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       this.playerStamina.delete(player.name);
       this.playerLastStaminaRegenAt.delete(player.name);
       this.playerLastHungerNoticeAt.delete(player.name);
+      this.playerLastDarkNoticeAt.delete(player.name);
       this.playerWallets.delete(client.sessionId);
       this.playerSkills.delete(player.name);
     }
@@ -1218,6 +1222,21 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       senderName: "Hunger",
       body: `You're too hungry to ${activity}. Eat some food (cooked fish, bread, or salmon) to restore energy.`,
       sentAt: Date.now(),
+    });
+  }
+
+  private notifyDark(client: Client, playerName: string) {
+    const now = Date.now();
+    const last = this.playerLastDarkNoticeAt.get(playerName) ?? 0;
+    if (now - last < 20_000) return; // gentle, infrequent reminder
+    this.playerLastDarkNoticeAt.set(playerName, now);
+    client.send("chat", {
+      id: crypto.randomUUID(),
+      channel: "system",
+      senderId: "system",
+      senderName: "Night",
+      body: "🌙 It's dark — light your lamp (L) to gather at full speed.",
+      sentAt: now,
     });
   }
 
@@ -2001,9 +2020,13 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       return;
     }
 
+    // Working in the dark is slow — unless you carry a lamp.
+    const darkPenalty = gatherDurationMultiplier(now, player.lampOn);
+    if (darkPenalty > 1.01) this.notifyDark(client, player.name);
+
     const toolId = this.playerEquipment.get(player.name)?.toolId ?? null;
     const durationMs = Math.round(
-      gather.durationMs(skillLevel) * getToolSpeedMultiplier(toolId, gather.skill),
+      gather.durationMs(skillLevel) * getToolSpeedMultiplier(toolId, gather.skill) * darkPenalty,
     );
     const startedAt = now;
     const endsAt = now + durationMs;
@@ -2108,8 +2131,11 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
     // Steel-tier tools roll for a bonus drop on top of the node's base yield.
     const toolId = this.playerEquipment.get(player.name)?.toolId;
-    const bonusYield =
-      Math.random() < getToolYieldBonus(toolId, gather.skill) ? 1 : 0;
+    const toolBonus = Math.random() < getToolYieldBonus(toolId, gather.skill) ? 1 : 0;
+    // The fish bite in the rain — a bonus catch chance while it's wet.
+    const rainBonus =
+      gather.skill === "fishing" && Math.random() < rainFishingBonus(now) ? 1 : 0;
+    const bonusYield = toolBonus + rainBonus;
     const lootQuantity = gather.lootQuantity + bonusYield;
 
     // Luck-based rare drop (amber/gemstone/pearl), independent of the yield roll.

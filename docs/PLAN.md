@@ -26,6 +26,8 @@ server on Railway, Neon PostgreSQL, Solana token gate/market.
 - **Weather:** deterministic, time-driven weather (`shared/src/weather.ts`) —
   clear/cloudy/rain/fog/storm with rain particles, a weather tint, lightning,
   and a HUD readout. Shared by all clients; rain suppressed indoors.
+- **Living-world effects** (`shared/src/environment.ts`): night slows gathering
+  unless your lamp is on; rain gives fishing a bonus catch. Server-authoritative.
 - **Energy / hunger:** working actions (gather/attack/farm) spend Energy;
   food restores it (`shared/src/stamina.ts`). Out of energy = too hungry to work
   until you eat; slow trickle avoids hard locks; persisted (`stamina` column).
