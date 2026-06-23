@@ -39,9 +39,26 @@ export function computeFishDurationMs(spotLevel: number, fishingLevel: number): 
 }
 
 /** Cumulative woodcutting XP required to reach each level (index = level - 1). */
-export const WOODCUTTING_LEVEL_XP_THRESHOLDS = [
-  0, 50, 120, 220, 360, 550, 800, 1100, 1500, 2000, 2600,
-];
+/** Highest level a gather skill (woodcutting/mining/fishing/farming) can reach. */
+export const MAX_SKILL_LEVEL = 50;
+
+/**
+ * Cumulative XP per gather-skill level. The first eleven levels keep their
+ * hand-tuned values; beyond that the per-level cost keeps climbing out to
+ * MAX_SKILL_LEVEL so there's a long-term goal (the chop-speed bonus floors out
+ * earlier, so higher levels are mostly a mark of mastery, not raw power).
+ */
+function buildSkillThresholds(): number[] {
+  const thresholds = [0, 50, 120, 220, 360, 550, 800, 1100, 1500, 2000, 2600]; // L1–L11
+  let delta = 700;
+  for (let level = thresholds.length + 1; level <= MAX_SKILL_LEVEL; level++) {
+    thresholds.push(thresholds[thresholds.length - 1] + delta);
+    delta += 100;
+  }
+  return thresholds;
+}
+
+export const WOODCUTTING_LEVEL_XP_THRESHOLDS = buildSkillThresholds();
 
 export interface SkillXpMap {
   woodcutting: number;
@@ -90,7 +107,11 @@ export function woodcuttingXpProgress(
   level: number,
 ): { current: number; required: number } {
   const currentThreshold = WOODCUTTING_LEVEL_XP_THRESHOLDS[level - 1] ?? 0;
-  const nextThreshold = WOODCUTTING_LEVEL_XP_THRESHOLDS[level] ?? currentThreshold + 500;
+  const nextThreshold = WOODCUTTING_LEVEL_XP_THRESHOLDS[level];
+  // At max level there's no next threshold — show a full bar.
+  if (nextThreshold === undefined) {
+    return { current: 1, required: 1 };
+  }
   return {
     current: Math.max(0, xp - currentThreshold),
     required: Math.max(1, nextThreshold - currentThreshold),

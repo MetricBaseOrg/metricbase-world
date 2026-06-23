@@ -35,6 +35,8 @@ server on Railway, Neon PostgreSQL, Solana token gate/market.
   persisted on the plot.
 - **Rest at home:** resting in your own house restores energy + HP on an 8-min
   cooldown, giving housing a gameplay function (`housingRest`, `REST_COOLDOWN_MS`).
+- **Level cap 50:** combat Level and the four gather skills now climb to 50
+  (`MAX_LEVEL`, `MAX_SKILL_LEVEL`); curves keep growing past the early game.
 - **Interaction prompts:** a floating "E · …" cue over the nearest interactable
   (NPC / land plot / farm plot) so it's obvious what you can use and how.
 - **Multi-currency gold market:** P2P gold orders can be priced in $BASE, USDC,
