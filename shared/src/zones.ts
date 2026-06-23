@@ -214,11 +214,21 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
       { id: "hub_plot_1", tileX: 3, tileY: 16 },
       { id: "hub_plot_2", tileX: 6, tileY: 16 },
       { id: "hub_plot_3", tileX: 4, tileY: 19 },
+      // Expanded south-central field — more tilled plots for farmers.
+      { id: "hub_plot_4", tileX: 8, tileY: 16 },
+      { id: "hub_plot_5", tileX: 10, tileY: 16 },
+      { id: "hub_plot_6", tileX: 8, tileY: 19 },
+      { id: "hub_plot_7", tileX: 10, tileY: 19 },
     ],
     landPlots: [
       { id: "hub_land_1", tileX: 16, tileY: 4 },
       { id: "hub_land_2", tileX: 20, tileY: 4 },
       { id: "hub_land_3", tileX: 18, tileY: 8 },
+      // More homesteads ringing the plaza — NW, N, and E open grass.
+      { id: "hub_land_4", tileX: 15, tileY: 7 },
+      { id: "hub_land_5", tileX: 7, tileY: 3 },
+      { id: "hub_land_6", tileX: 4, tileY: 7 },
+      { id: "hub_land_7", tileX: 21, tileY: 8 },
     ],
     billboards: [{ id: "hub_billboard", tileX: 12, tileY: 7 }],
   },
