@@ -55,6 +55,7 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **Shop/modal close button unreachable on mobile** — The floating top social toggles (👥 🏆 🛡️ 🎉) stacked over a centered modal's × close button on small screens, making Pip's Shop (and the housing / player-shop panels) impossible to close. The social rail + emote tray now hide whenever a blocking center modal is open.
 - **Docs discoverability** — The How-to-Play guide existed at `/docs` but had no entry point in the game. Added visible links: a "📖 New here? Read the How-to-Play guide" button on the login screen and a "📖 How to Play" pill in the HUD (both open `/docs` in a new tab).
 - **HUD duplicate** — Removed the redundant player-count pill from the HUD (the online roster owns it now); kept the connection status badge.
 - **Gold market on Token-2022** — `$BASE` is a Token-2022 mint; payments use the Token-2022 program + checked transfers (fixes the "wrong amount / IncorrectProgramId" failures).

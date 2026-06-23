@@ -537,6 +537,18 @@ body {
   pointer-events: auto;
 }
 
+/* While a blocking center modal (shop, housing, player shop — all use
+   .chibi-anchor--center) is open, hide the floating top social toggles and the
+   emote tray. On small screens they stack at the top-right, directly over the
+   modal's × close button, which made the shop impossible to close. */
+#root:has(.chibi-anchor--center) .chibi-who,
+#root:has(.chibi-anchor--center) .chibi-leaderboard,
+#root:has(.chibi-anchor--center) .chibi-guild,
+#root:has(.chibi-anchor--center) .chibi-party,
+#root:has(.chibi-anchor--center) .chibi-emote-bar {
+  display: none;
+}
+
 .chibi-who-toggle {
   padding: 6px 14px;
   border: 2px solid #4a3728;
