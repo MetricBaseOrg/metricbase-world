@@ -32,6 +32,8 @@ export interface MarketOrderView {
   goldAmount: number;
   tokenPrice: number;
   tokenPerGold: number;
+  /** Payment currency id (see PAYMENT_CURRENCIES); defaults to "base". */
+  currency: string;
   createdAt: number;
   /** When pending: wallet that must receive token payment. */
   payToWallet?: string;

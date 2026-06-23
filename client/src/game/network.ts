@@ -307,8 +307,8 @@ export class NetworkManager {
     this.room?.send("shopSell", { shopId, itemId, quantity });
   }
 
-  sendMarketPlace(side: "bid" | "ask", goldAmount: number, tokenPrice: number) {
-    this.room?.send("marketPlace", { side, goldAmount, tokenPrice });
+  sendMarketPlace(side: "bid" | "ask", goldAmount: number, tokenPrice: number, currency: string) {
+    this.room?.send("marketPlace", { side, goldAmount, tokenPrice, currency });
   }
 
   sendMarketCancel(orderId: string) {

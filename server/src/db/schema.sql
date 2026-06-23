@@ -56,6 +56,9 @@ CREATE TABLE IF NOT EXISTS market_orders (
 CREATE INDEX IF NOT EXISTS market_orders_status_idx ON market_orders (status);
 CREATE INDEX IF NOT EXISTS market_orders_wallet_idx ON market_orders (wallet);
 
+-- Payment currency the order is priced in (base / usdc / idrx / sol).
+ALTER TABLE market_orders ADD COLUMN IF NOT EXISTS currency VARCHAR(8) NOT NULL DEFAULT 'base';
+
 CREATE TABLE IF NOT EXISTS market_trades (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   order_id UUID NOT NULL REFERENCES market_orders(id),
@@ -68,6 +71,9 @@ CREATE TABLE IF NOT EXISTS market_trades (
 );
 
 CREATE INDEX IF NOT EXISTS market_trades_created_at_idx ON market_trades (created_at);
+
+-- Currency the trade settled in; the price chart only aggregates 'base' trades.
+ALTER TABLE market_trades ADD COLUMN IF NOT EXISTS currency VARCHAR(8) NOT NULL DEFAULT 'base';
 
 -- Persistent vendor sell pressure (dynamic NPC pricing) so prices survive restarts.
 CREATE TABLE IF NOT EXISTS vendor_sell_pressure (

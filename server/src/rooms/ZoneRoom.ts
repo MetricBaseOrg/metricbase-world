@@ -298,14 +298,18 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       );
     });
 
-    this.onMessage("marketPlace", (client, message: { side?: string; goldAmount?: number; tokenPrice?: number }) => {
-      void this.handleMarketPlace(
-        client,
-        message.side === "bid" ? "bid" : "ask",
-        message.goldAmount ?? 0,
-        message.tokenPrice ?? 0,
-      );
-    });
+    this.onMessage(
+      "marketPlace",
+      (client, message: { side?: string; goldAmount?: number; tokenPrice?: number; currency?: string }) => {
+        void this.handleMarketPlace(
+          client,
+          message.side === "bid" ? "bid" : "ask",
+          message.goldAmount ?? 0,
+          message.tokenPrice ?? 0,
+          message.currency ?? "base",
+        );
+      },
+    );
 
     this.onMessage("marketCancel", (client, message: { orderId?: string }) => {
       void this.handleMarketCancel(client, message.orderId ?? "");
@@ -1442,6 +1446,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     side: "bid" | "ask",
     goldAmount: number,
     tokenPrice: number,
+    currency: string,
   ) {
     const player = this.state.players.get(client.sessionId);
     if (!player) return;
@@ -1459,6 +1464,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       side,
       goldAmount,
       tokenPrice,
+      currency,
     });
 
     this.playerGold.set(player.name, playerGold);

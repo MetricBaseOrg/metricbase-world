@@ -1,12 +1,13 @@
 import {
   buildEmptyMarketState,
   buildMarketChartPayload,
+  DEFAULT_CURRENCY_ID,
+  getCurrency,
+  isKnownCurrency,
   MARKET_CHART_CANDLE_COUNT,
   MARKET_CHART_INTERVAL_MS,
   MAX_MARKET_GOLD,
-  METRICBASE_TOKEN_MINT,
   MIN_MARKET_GOLD,
-  MIN_MARKET_TOKEN_PRICE,
   TOKEN_DECIMALS,
   goldAfterMarketFee,
   marketFee,
@@ -30,10 +31,34 @@ import {
   toMarketOrderView,
 } from "../db/market.js";
 import { getPool } from "../db/pool.js";
+import { verifyPeerSolTransfer } from "../solana/verifyPeerSolTransfer.js";
 import { verifyPeerTokenTransfer } from "../solana/verifyPeerTokenTransfer.js";
 
 function getRpcUrl(): string {
   return process.env.SOLANA_RPC_URL ?? "https://api.mainnet-beta.solana.com";
+}
+
+/**
+ * Verify a peer payment in the order's currency: native SOL is checked via
+ * lamport deltas; everything else is an SPL transfer of that currency's mint
+ * (BASE may be overridden by the TOKEN_MINT env, mirroring the legacy path).
+ */
+async function verifyMarketPayment(
+  signature: string,
+  fromWallet: string,
+  toWallet: string,
+  currencyId: string,
+  minUiAmount: number,
+): Promise<{ ok: boolean; error?: string }> {
+  const currency = getCurrency(currencyId);
+  if (currency.native) {
+    return verifyPeerSolTransfer(signature, { fromWallet, toWallet, minUiAmount });
+  }
+  const mint =
+    currency.id === DEFAULT_CURRENCY_ID
+      ? process.env.TOKEN_MINT ?? currency.mint ?? ""
+      : currency.mint ?? "";
+  return verifyPeerTokenTransfer(signature, { fromWallet, toWallet, mint, minUiAmount });
 }
 
 export function isMarketEnabled(): boolean {
@@ -46,14 +71,16 @@ export async function buildMarketState(wallet: string | null): Promise<MarketSta
   if (!enabled) return base;
 
   const orders = await listOpenMarketOrders();
+  // Group by currency, then price (best first). Prices across currencies aren't
+  // comparable, so grouping keeps each currency's book readable.
   const asks = orders
     .filter((order) => order.side === "ask" && order.status === "open")
     .map(toMarketOrderView)
-    .sort((left, right) => left.tokenPerGold - right.tokenPerGold);
+    .sort((l, r) => l.currency.localeCompare(r.currency) || l.tokenPerGold - r.tokenPerGold);
   const bids = orders
     .filter((order) => order.side === "bid" && order.status === "open")
     .map(toMarketOrderView)
-    .sort((left, right) => right.tokenPerGold - left.tokenPerGold);
+    .sort((l, r) => l.currency.localeCompare(r.currency) || r.tokenPerGold - l.tokenPerGold);
 
   const myOrders = wallet ? (await listMarketOrdersForWallet(wallet)).map(toMarketOrderView) : [];
 
@@ -75,6 +102,7 @@ export async function placeMarketOrder(input: {
   side: MarketSide;
   goldAmount: number;
   tokenPrice: number;
+  currency?: string;
 }): Promise<{ result: MarketResultPayload; playerGold: number }> {
   if (!isMarketEnabled()) {
     return { result: { ok: false, error: "Gold market is unavailable." }, playerGold: input.playerGold };
@@ -82,6 +110,7 @@ export async function placeMarketOrder(input: {
 
   const goldAmount = Math.floor(input.goldAmount);
   const tokenPrice = Number(input.tokenPrice);
+  const currency = isKnownCurrency(input.currency) ? input.currency! : DEFAULT_CURRENCY_ID;
 
   if (goldAmount < MIN_MARKET_GOLD || goldAmount > MAX_MARKET_GOLD) {
     return {
@@ -90,9 +119,10 @@ export async function placeMarketOrder(input: {
     };
   }
 
-  if (!Number.isFinite(tokenPrice) || tokenPrice < MIN_MARKET_TOKEN_PRICE) {
+  // Fractional prices are valid for SOL/USDC, so just require a positive amount.
+  if (!Number.isFinite(tokenPrice) || tokenPrice <= 0) {
     return {
-      result: { ok: false, error: `Token price must be at least ${MIN_MARKET_TOKEN_PRICE}.` },
+      result: { ok: false, error: `Price must be greater than zero ${getCurrency(currency).label}.` },
       playerGold: input.playerGold,
     };
   }
@@ -114,6 +144,7 @@ export async function placeMarketOrder(input: {
     playerName: input.playerName,
     goldAmount,
     tokenPrice,
+    currency,
     escrowGold,
   });
 
@@ -169,12 +200,13 @@ export async function fillAskOrder(input: {
     return { result: { ok: false, error: "This transaction was already used." }, buyerGold: input.buyerGold };
   }
 
-  const verification = await verifyPeerTokenTransfer(input.signature, {
-    fromWallet: input.buyerWallet,
-    toWallet: order.wallet,
-    mint: process.env.TOKEN_MINT ?? METRICBASE_TOKEN_MINT,
-    minUiAmount: order.tokenPrice,
-  });
+  const verification = await verifyMarketPayment(
+    input.signature,
+    input.buyerWallet,
+    order.wallet,
+    order.currency,
+    order.tokenPrice,
+  );
 
   if (!verification.ok) {
     return { result: { ok: false, error: verification.error ?? "Payment verification failed." }, buyerGold: input.buyerGold };
@@ -191,6 +223,7 @@ export async function fillAskOrder(input: {
     sellerWallet: order.wallet,
     goldAmount: order.goldAmount,
     tokenAmount: order.tokenPrice,
+    currency: order.currency,
     txSignature: input.signature,
   });
 
@@ -275,12 +308,13 @@ export async function completeBidPayment(input: {
     return { result: { ok: false, error: "This transaction was already used." }, buyerGold: input.buyerGold };
   }
 
-  const verification = await verifyPeerTokenTransfer(input.signature, {
-    fromWallet: input.buyerWallet,
-    toWallet: sellerWallet,
-    mint: process.env.TOKEN_MINT ?? METRICBASE_TOKEN_MINT,
-    minUiAmount: order.tokenPrice,
-  });
+  const verification = await verifyMarketPayment(
+    input.signature,
+    input.buyerWallet,
+    sellerWallet,
+    order.currency,
+    order.tokenPrice,
+  );
 
   if (!verification.ok) {
     return { result: { ok: false, error: verification.error ?? "Payment verification failed." }, buyerGold: input.buyerGold };
@@ -297,6 +331,7 @@ export async function completeBidPayment(input: {
     sellerWallet,
     goldAmount: order.goldAmount,
     tokenAmount: order.tokenPrice,
+    currency: order.currency,
     txSignature: input.signature,
   });
 

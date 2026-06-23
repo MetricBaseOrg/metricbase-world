@@ -204,9 +204,11 @@ export class GameScene extends Phaser.Scene {
         fontSize: "13px",
         fontStyle: "700",
         color: "#fff7ea",
-        backgroundColor: "#3b2c1eee",
-        padding: { x: 8, y: 4 },
+        // Transparent background — use a dark outline + shadow for legibility.
+        stroke: "#3b2c1e",
+        strokeThickness: 4,
       })
+      .setShadow(0, 2, "#000000", 3, true, true)
       .setOrigin(0.5, 1)
       .setDepth(101_000)
       .setVisible(false);

@@ -1,8 +1,10 @@
 import {
   buildShopOpenPayload,
+  getCurrency,
   getShopDefinition,
   METRICBASE_TOKEN_MINT,
   normalizeMarketState,
+  PAYMENT_CURRENCIES,
   type MarketOrderView,
   type MarketResultPayload,
   type MarketStatePayload,
@@ -13,6 +15,7 @@ import { useState } from "react";
 import { playSfx } from "../audio/soundEffects";
 import { networkManager } from "../game/network";
 import { useGameStore } from "../store/gameStore";
+import { sendSolPayment } from "../wallet/solPayment";
 import { sendMetricbaseTokenPayment } from "../wallet/tokenPayment";
 
 import { GoldMarketChart } from "./GoldMarketChart";
@@ -81,6 +84,7 @@ export function ShopPanel() {
   const [bidTokens, setBidTokens] = useState("50");
   const [askGold, setAskGold] = useState("100");
   const [askTokens, setAskTokens] = useState("60");
+  const [currency, setCurrency] = useState("base");
 
   if (!open || !shop) return null;
 
@@ -183,7 +187,7 @@ export function ShopPanel() {
     if (linked.wallet) {
       useGameStore.getState().setWalletAddress(linked.wallet);
     }
-    networkManager.sendMarketPlace(side, goldAmount, tokenPrice);
+    networkManager.sendMarketPlace(side, goldAmount, tokenPrice, currency);
     const result = await waitForMarketResult();
     setPending(false);
     if (!result.ok) {
@@ -216,16 +220,25 @@ export function ShopPanel() {
     applyMarketResult(result);
   };
 
-  const payTokens = async (recipientWallet: string, tokenAmount: number) => {
+  const payCurrency = async (recipientWallet: string, amount: number, currencyId: string) => {
     if (!walletAddress || !market) {
       throw new Error("Wallet not connected.");
+    }
+    const cur = getCurrency(currencyId);
+    if (cur.native) {
+      return sendSolPayment({
+        payerWallet: walletAddress,
+        recipientWallet,
+        uiAmount: amount,
+        rpcUrl: market.rpcUrl,
+      });
     }
     return sendMetricbaseTokenPayment({
       payerWallet: walletAddress,
       recipientWallet,
-      mint: market.mint,
-      uiAmount: tokenAmount,
-      decimals: market.decimals,
+      mint: cur.id === "base" ? market.mint : cur.mint ?? market.mint,
+      uiAmount: amount,
+      decimals: cur.decimals,
       rpcUrl: market.rpcUrl,
     });
   };
@@ -237,9 +250,9 @@ export function ShopPanel() {
     }
     setPending(true);
     setError(null);
-    setStatus(`Pay ${order.tokenPrice} tokens to ${order.playerName}...`);
+    setStatus(`Pay ${order.tokenPrice} ${getCurrency(order.currency).label} to ${order.playerName}...`);
     try {
-      const signature = await payTokens(order.wallet, order.tokenPrice);
+      const signature = await payCurrency(order.wallet, order.tokenPrice, order.currency);
       setStatus("Verifying payment...");
       networkManager.sendMarketFillAsk(order.id, signature);
       const result = await waitForMarketResult();
@@ -273,7 +286,7 @@ export function ShopPanel() {
     }
     playSfx("market_success");
     applyMarketResult(result);
-    setStatus(`${order.playerName} must pay you ${order.tokenPrice} tokens to complete the trade.`);
+    setStatus(`${order.playerName} must pay you ${order.tokenPrice} ${getCurrency(order.currency).label} to complete the trade.`);
   };
 
   const handlePayBid = async (order: MarketOrderView) => {
@@ -283,9 +296,9 @@ export function ShopPanel() {
     }
     setPending(true);
     setError(null);
-    setStatus(`Pay ${order.tokenPrice} tokens to seller...`);
+    setStatus(`Pay ${order.tokenPrice} ${getCurrency(order.currency).label} to seller...`);
     try {
-      const signature = await payTokens(order.payToWallet, order.tokenPrice);
+      const signature = await payCurrency(order.payToWallet, order.tokenPrice, order.currency);
       setStatus("Verifying payment...");
       networkManager.sendMarketPayBid(order.id, signature);
       const result = await waitForMarketResult();
@@ -408,17 +421,39 @@ export function ShopPanel() {
             <div style={{ marginTop: 16, fontSize: 13, opacity: 0.7 }}>Gold market requires wallet login and database persistence.</div>
           ) : (
             <>
+              <div style={{ marginTop: 16 }}>
+                <div className="chibi-label" style={{ textTransform: "none", letterSpacing: 0, marginBottom: 6 }}>
+                  Pay / receive in
+                </div>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {PAYMENT_CURRENCIES.map((cur) => (
+                    <button
+                      key={cur.id}
+                      type="button"
+                      className={`chibi-btn ${currency === cur.id ? "chibi-btn--primary" : "chibi-btn--secondary"}`}
+                      onClick={() => { playSfx("ui_click"); setCurrency(cur.id); }}
+                      style={{ padding: "6px 12px", fontSize: "0.76rem" }}
+                    >
+                      {cur.label}
+                    </button>
+                  ))}
+                </div>
+                <div className="chibi-text-muted" style={{ fontSize: "0.72rem", marginTop: 6 }}>
+                  New orders you post are priced in {getCurrency(currency).label}. Tokens/SOL settle directly between wallets.
+                </div>
+              </div>
+
               <div className="chibi-grid-2" style={{ marginTop: 16 }}>
                 <div className="chibi-card chibi-card--info">
                   <div className="chibi-label" style={{ color: "var(--chibi-sky-deep)", textTransform: "none", letterSpacing: 0 }}>Place Bid (buy gold)</div>
                   <input className="chibi-input" value={bidGold} onChange={(e) => setBidGold(e.target.value)} placeholder="Gold amount" style={{ marginBottom: 6, fontSize: "0.82rem", padding: "8px 10px" }} />
-                  <input className="chibi-input" value={bidTokens} onChange={(e) => setBidTokens(e.target.value)} placeholder="Max tokens" style={{ marginBottom: 10, fontSize: "0.82rem", padding: "8px 10px" }} />
+                  <input className="chibi-input" value={bidTokens} onChange={(e) => setBidTokens(e.target.value)} placeholder={`Max ${getCurrency(currency).label}`} style={{ marginBottom: 10, fontSize: "0.82rem", padding: "8px 10px" }} />
                   <button type="button" className="chibi-btn chibi-btn--primary" disabled={pending || !walletAddress} onClick={() => void handlePlaceOrder("bid")} style={{ width: "100%", padding: "8px 10px", fontSize: "0.8rem" }}>Post Bid</button>
                 </div>
                 <div className="chibi-card chibi-card--gold">
                   <div className="chibi-label" style={{ color: "var(--chibi-gold-deep)", textTransform: "none", letterSpacing: 0 }}>Place Offer (sell gold)</div>
                   <input className="chibi-input" value={askGold} onChange={(e) => setAskGold(e.target.value)} placeholder="Gold amount" style={{ marginBottom: 6, fontSize: "0.82rem", padding: "8px 10px" }} />
-                  <input className="chibi-input" value={askTokens} onChange={(e) => setAskTokens(e.target.value)} placeholder="Ask tokens" style={{ marginBottom: 10, fontSize: "0.82rem", padding: "8px 10px" }} />
+                  <input className="chibi-input" value={askTokens} onChange={(e) => setAskTokens(e.target.value)} placeholder={`Ask ${getCurrency(currency).label}`} style={{ marginBottom: 10, fontSize: "0.82rem", padding: "8px 10px" }} />
                   <button type="button" className="chibi-btn chibi-btn--gold" disabled={pending || !walletAddress} onClick={() => void handlePlaceOrder("ask")} style={{ width: "100%", padding: "8px 10px", fontSize: "0.8rem" }}>Post Offer</button>
                 </div>
               </div>
@@ -431,8 +466,8 @@ export function ShopPanel() {
                       <div key={order.id} className="chibi-card" style={orderRowStyle()}>
                         <div>
                           <div style={{ fontWeight: 600, fontSize: 13 }}>{order.playerName}</div>
-                          <div style={{ fontSize: 12, marginTop: 4 }}>{order.goldAmount} gold for {order.tokenPrice} tokens</div>
-                          <div className="chibi-text-muted">{order.tokenPerGold} tokens/gold</div>
+                          <div style={{ fontSize: 12, marginTop: 4 }}>{order.goldAmount} gold for {order.tokenPrice} {getCurrency(order.currency).label}</div>
+                          <div className="chibi-text-muted">{order.tokenPerGold} {getCurrency(order.currency).label}/gold</div>
                         </div>
                         {renderOrderActions(order, "book")}
                       </div>
@@ -449,8 +484,8 @@ export function ShopPanel() {
                       <div key={order.id} className="chibi-card" style={orderRowStyle()}>
                         <div>
                           <div style={{ fontWeight: 600, fontSize: 13 }}>{order.playerName}</div>
-                          <div style={{ fontSize: 12, marginTop: 4 }}>Wants {order.goldAmount} gold for {order.tokenPrice} tokens</div>
-                          <div className="chibi-text-muted">{order.tokenPerGold} tokens/gold</div>
+                          <div style={{ fontSize: 12, marginTop: 4 }}>Wants {order.goldAmount} gold for {order.tokenPrice} {getCurrency(order.currency).label}</div>
+                          <div className="chibi-text-muted">{order.tokenPerGold} {getCurrency(order.currency).label}/gold</div>
                         </div>
                         {renderOrderActions(order, "book")}
                       </div>
@@ -466,7 +501,7 @@ export function ShopPanel() {
                     {market.myOrders.map((order) => (
                       <div key={order.id} className="chibi-card" style={orderRowStyle()}>
                         <div>
-                          <div style={{ fontWeight: 600, fontSize: 13 }}>{order.side === "ask" ? "Offer" : "Bid"} · {order.goldAmount} gold @ {order.tokenPrice} tokens</div>
+                          <div style={{ fontWeight: 600, fontSize: 13 }}>{order.side === "ask" ? "Offer" : "Bid"} · {order.goldAmount} gold @ {order.tokenPrice} {getCurrency(order.currency).label}</div>
                           <div className="chibi-text-muted" style={{ marginTop: 4 }}>{order.status}</div>
                         </div>
                         {renderOrderActions(order, "mine")}

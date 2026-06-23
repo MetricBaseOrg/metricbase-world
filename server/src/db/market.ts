@@ -1,4 +1,5 @@
 import {
+  DEFAULT_CURRENCY_ID,
   MARKET_PAYMENT_TIMEOUT_MS,
   type MarketOrderStatus,
   type MarketSide,
@@ -15,6 +16,7 @@ export interface MarketOrderRecord {
   playerName: string;
   goldAmount: number;
   tokenPrice: number;
+  currency: string;
   escrowGold: number;
   counterpartyWallet: string | null;
   pendingExpiresAt: number | null;
@@ -29,11 +31,15 @@ type MarketOrderRow = {
   player_name: string;
   gold_amount: number;
   token_price: number;
+  currency: string | null;
   escrow_gold: number;
   counterparty_wallet: string | null;
   pending_expires_at: Date | null;
   created_at: Date;
 };
+
+const ORDER_COLUMNS =
+  "id, side, status, wallet, player_name, gold_amount, token_price, currency, escrow_gold, counterparty_wallet, pending_expires_at, created_at";
 
 export async function listOpenMarketOrders(): Promise<MarketOrderRecord[]> {
   const db = getPool();
@@ -42,7 +48,7 @@ export async function listOpenMarketOrders(): Promise<MarketOrderRecord[]> {
   await expirePendingOrders();
 
   const result = await db.query<MarketOrderRow>(
-    `SELECT id, side, status, wallet, player_name, gold_amount, token_price, escrow_gold,
+    `SELECT id, side, status, wallet, player_name, gold_amount, token_price, currency, escrow_gold,
             counterparty_wallet, pending_expires_at, created_at
      FROM market_orders
      WHERE status IN ('open', 'pending')
@@ -59,7 +65,7 @@ export async function listMarketOrdersForWallet(wallet: string): Promise<MarketO
   await expirePendingOrders();
 
   const result = await db.query<MarketOrderRow>(
-    `SELECT id, side, status, wallet, player_name, gold_amount, token_price, escrow_gold,
+    `SELECT id, side, status, wallet, player_name, gold_amount, token_price, currency, escrow_gold,
             counterparty_wallet, pending_expires_at, created_at
      FROM market_orders
      WHERE wallet = $1 AND status IN ('open', 'pending')
@@ -75,7 +81,7 @@ export async function getMarketOrder(orderId: string): Promise<MarketOrderRecord
   if (!db) return null;
 
   const result = await db.query<MarketOrderRow>(
-    `SELECT id, side, status, wallet, player_name, gold_amount, token_price, escrow_gold,
+    `SELECT id, side, status, wallet, player_name, gold_amount, token_price, currency, escrow_gold,
             counterparty_wallet, pending_expires_at, created_at
      FROM market_orders WHERE id = $1`,
     [orderId],
@@ -91,15 +97,16 @@ export async function createMarketOrder(input: {
   playerName: string;
   goldAmount: number;
   tokenPrice: number;
+  currency: string;
   escrowGold: number;
 }): Promise<MarketOrderRecord | null> {
   const db = getPool();
   if (!db) return null;
 
   const result = await db.query<MarketOrderRow>(
-    `INSERT INTO market_orders (side, wallet, player_name, gold_amount, token_price, escrow_gold)
-     VALUES ($1, $2, $3, $4, $5, $6)
-     RETURNING id, side, status, wallet, player_name, gold_amount, token_price, escrow_gold,
+    `INSERT INTO market_orders (side, wallet, player_name, gold_amount, token_price, currency, escrow_gold)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
+     RETURNING id, side, status, wallet, player_name, gold_amount, token_price, currency, escrow_gold,
                counterparty_wallet, pending_expires_at, created_at`,
     [
       input.side,
@@ -107,6 +114,7 @@ export async function createMarketOrder(input: {
       input.playerName,
       input.goldAmount,
       input.tokenPrice,
+      input.currency,
       input.escrowGold,
     ],
   );
@@ -130,7 +138,7 @@ export async function setMarketOrderPending(
          pending_expires_at = $3,
          updated_at = NOW()
      WHERE id = $1 AND status = 'open'
-     RETURNING id, side, status, wallet, player_name, gold_amount, token_price, escrow_gold,
+     RETURNING id, side, status, wallet, player_name, gold_amount, token_price, currency, escrow_gold,
                counterparty_wallet, pending_expires_at, created_at`,
     [orderId, counterpartyWallet, expiresAt],
   );
@@ -147,7 +155,7 @@ export async function fillMarketOrder(orderId: string): Promise<MarketOrderRecor
     `UPDATE market_orders
      SET status = 'filled', escrow_gold = 0, updated_at = NOW()
      WHERE id = $1 AND status IN ('open', 'pending')
-     RETURNING id, side, status, wallet, player_name, gold_amount, token_price, escrow_gold,
+     RETURNING id, side, status, wallet, player_name, gold_amount, token_price, currency, escrow_gold,
                counterparty_wallet, pending_expires_at, created_at`,
     [orderId],
   );
@@ -162,7 +170,7 @@ export async function cancelMarketOrder(orderId: string, wallet: string): Promis
 
   const result = await db.query<MarketOrderRow & { refunded_escrow_gold: number }>(
     `WITH target AS (
-       SELECT id, side, status, wallet, player_name, gold_amount, token_price, escrow_gold,
+       SELECT id, side, status, wallet, player_name, gold_amount, token_price, currency, escrow_gold,
               counterparty_wallet, pending_expires_at, created_at
        FROM market_orders
        WHERE id = $1 AND wallet = $2 AND status IN ('open', 'pending')
@@ -171,7 +179,7 @@ export async function cancelMarketOrder(orderId: string, wallet: string): Promis
      SET status = 'cancelled', escrow_gold = 0, updated_at = NOW()
      FROM target AS t
      WHERE o.id = t.id
-     RETURNING o.id, o.side, o.status, o.wallet, o.player_name, o.gold_amount, o.token_price,
+     RETURNING o.id, o.side, o.status, o.wallet, o.player_name, o.gold_amount, o.token_price, o.currency,
                t.escrow_gold AS escrow_gold,
                o.counterparty_wallet, o.pending_expires_at, o.created_at`,
     [orderId, wallet],
@@ -187,6 +195,7 @@ export async function recordMarketTrade(input: {
   sellerWallet: string;
   goldAmount: number;
   tokenAmount: number;
+  currency: string;
   txSignature: string;
 }): Promise<boolean> {
   const db = getPool();
@@ -194,14 +203,15 @@ export async function recordMarketTrade(input: {
 
   try {
     await db.query(
-      `INSERT INTO market_trades (order_id, buyer_wallet, seller_wallet, gold_amount, token_amount, tx_signature)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
+      `INSERT INTO market_trades (order_id, buyer_wallet, seller_wallet, gold_amount, token_amount, currency, tx_signature)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
       [
         input.orderId,
         input.buyerWallet,
         input.sellerWallet,
         input.goldAmount,
         input.tokenAmount,
+        input.currency,
         input.txSignature,
       ],
     );
@@ -228,7 +238,7 @@ export async function listRecentMarketTrades(sinceMs: number): Promise<MarketTra
   }>(
     `SELECT gold_amount, token_amount, created_at
      FROM market_trades
-     WHERE created_at >= $1
+     WHERE created_at >= $1 AND currency = 'base'
      ORDER BY created_at ASC`,
     [new Date(sinceMs)],
   );
@@ -292,6 +302,7 @@ export function toMarketOrderView(order: MarketOrderRecord): MarketOrderView {
     goldAmount: order.goldAmount,
     tokenPrice: order.tokenPrice,
     tokenPerGold: tokenPerGold(order.goldAmount, order.tokenPrice),
+    currency: order.currency,
     createdAt: order.createdAt,
   };
 
@@ -317,6 +328,7 @@ function mapRow(row: MarketOrderRow): MarketOrderRecord {
     playerName: row.player_name,
     goldAmount: row.gold_amount,
     tokenPrice: row.token_price,
+    currency: row.currency ?? DEFAULT_CURRENCY_ID,
     escrowGold: row.escrow_gold,
     counterpartyWallet: row.counterparty_wallet,
     pendingExpiresAt: row.pending_expires_at ? row.pending_expires_at.getTime() : null,

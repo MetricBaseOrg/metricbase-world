@@ -34,6 +34,9 @@ server on Railway, Neon PostgreSQL, Solana token gate/market.
   persisted on the plot.
 - **Interaction prompts:** a floating "E · …" cue over the nearest interactable
   (NPC / land plot / farm plot) so it's obvious what you can use and how.
+- **Multi-currency gold market:** P2P gold orders can be priced in $BASE, USDC,
+  IDRX, or SOL (per-order `currency`; SPL or native-SOL settlement verified
+  on-chain). `shared/src/currencies.ts`, `verifyPeerSolTransfer`.
 - **Energy / hunger:** working actions (gather/attack/farm) spend Energy;
   food restores it (`shared/src/stamina.ts`). Out of energy = too hungry to work
   until you eat; slow trickle avoids hard locks; persisted (`stamina` column).
