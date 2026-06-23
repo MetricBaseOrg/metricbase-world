@@ -55,6 +55,7 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **Pip has a real market stall** — Pip is no longer a lone standing NPC: he now stands at a striped-awning **market stall** with a produce-laden counter, flanked by a crate and a fruit basket, so the hub merchant reads as an actual marketplace. New `scenery_stall` / `scenery_crate` / `scenery_produce` props (procedurally drawn, depth-sorted) placed via the zone scenery system.
 - **Isometric buildings + depth sorting** — Houses/shops/farms/plots are true iso art (gable roofs); scenery, players, and NPCs depth-sort by world Y, so you're occluded behind tall objects (e.g. the billboard).
 
 ### Fixed

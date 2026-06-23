@@ -231,6 +231,14 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
       { id: "hub_land_7", tileX: 21, tileY: 8 },
     ],
     billboards: [{ id: "hub_billboard", tileX: 12, tileY: 7 }],
+    // Pip's market: a stall directly behind him (he stands at 14,13) with a
+    // crate and a produce basket flanking his counter at the same screen row,
+    // so it reads as a real marketplace instead of a lone NPC.
+    scenery: [
+      { id: "pip_stall", tileX: 13, tileY: 12, prop: "stall" },
+      { id: "pip_crate_l", tileX: 13, tileY: 14, prop: "crate" },
+      { id: "pip_produce_r", tileX: 15, tileY: 12, prop: "produce" },
+    ],
   },
   [ZONE_WILDERNESS]: {
     id: ZONE_WILDERNESS,
