@@ -84,6 +84,8 @@ server on Railway, Neon PostgreSQL, Solana token gate/market.
 - More zones, NPCs, quests, and recipes around the loop. ✅ Brenna the
   Blacksmith (hub) + a five-quest Smith chain (iron → steel → gemstone →
   master Steel Pickaxe) that onboards players into the tool/material tiers.
+  ✅ Housing + farming now span every outdoor zone (hub 7+7, Wilderness 3+3,
+  Grotto 3+2); the Lodge interior is excluded as it's itself a building.
 
 ---
 

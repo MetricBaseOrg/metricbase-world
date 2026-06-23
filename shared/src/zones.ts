@@ -441,6 +441,18 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
         },
       },
     ],
+    // Frontier homesteads + a tilled field, all on dry grass and clear of the
+    // river, the mobs, the gather nodes, and the two portals.
+    farmPlots: [
+      { id: "wild_plot_1", tileX: 3, tileY: 18 },
+      { id: "wild_plot_2", tileX: 8, tileY: 18 },
+      { id: "wild_plot_3", tileX: 15, tileY: 3 },
+    ],
+    landPlots: [
+      { id: "wild_land_1", tileX: 4, tileY: 4 },
+      { id: "wild_land_2", tileX: 15, tileY: 18 },
+      { id: "wild_land_3", tileX: 20, tileY: 18 },
+    ],
   },
   [ZONE_GROTTO]: {
     id: ZONE_GROTTO,
@@ -472,6 +484,17 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
         dialogue: "GLORP! A massive slime blocks the cavern.",
         combat: { maxHp: 150, rewardXp: 55, respawnMs: 20_000 },
       },
+    ],
+    // A small cavern settlement — cave dwellings and mushroom beds on the dry
+    // floor, set well clear of both pools and the Brute's lair.
+    farmPlots: [
+      { id: "grotto_plot_1", tileX: 8, tileY: 3 },
+      { id: "grotto_plot_2", tileX: 20, tileY: 8 },
+      { id: "grotto_plot_3", tileX: 11, tileY: 20 },
+    ],
+    landPlots: [
+      { id: "grotto_land_1", tileX: 11, tileY: 3 },
+      { id: "grotto_land_2", tileX: 20, tileY: 5 },
     ],
   },
   [ZONE_INTERIOR]: {
