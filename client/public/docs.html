@@ -1,0 +1,523 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>How to Play — MetricBase World</title>
+    <meta
+      name="description"
+      content="Player guide for MetricBase World: how to log in, gather, craft, farm, fight, trade, build a home, and play together in a living chibi MMO."
+    />
+    <link rel="icon" type="image/png" href="/metricbase-world.png" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="MetricBase World" />
+    <meta property="og:title" content="How to Play — MetricBase World" />
+    <meta
+      property="og:description"
+      content="Everything you need to start playing MetricBase World — controls, the Gather → Craft → Trade → Build loop, quests, housing, and social play."
+    />
+    <meta property="og:url" content="https://world.metricbase.org/docs" />
+    <meta property="og:image" content="https://world.metricbase.org/metricbase-world.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="How to Play — MetricBase World" />
+    <meta name="twitter:image" content="https://world.metricbase.org/metricbase-world.png" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap"
+      rel="stylesheet"
+    />
+
+    <style>
+      :root {
+        --sky: #b8e8fc;
+        --sky-deep: #8fd6f6;
+        --ink: #20374a;
+        --ink-soft: #4a6276;
+        --card: #ffffff;
+        --line: #d7eaf5;
+        --brand: #2f8fd0;
+        --brand-deep: #1f6fab;
+        --accent: #f5a623;
+        --leaf: #49b265;
+        --rose: #e24b6b;
+        --shadow: 0 6px 0 rgba(31, 111, 171, 0.12), 0 14px 30px rgba(31, 111, 171, 0.16);
+      }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html { scroll-behavior: smooth; }
+      body {
+        font-family: "Nunito", system-ui, -apple-system, sans-serif;
+        color: var(--ink);
+        background: linear-gradient(180deg, var(--sky) 0%, #d9f3ff 100%);
+        line-height: 1.6;
+        -webkit-font-smoothing: antialiased;
+      }
+      a { color: var(--brand-deep); }
+
+      .wrap { max-width: 940px; margin: 0 auto; padding: 0 20px 80px; }
+
+      /* Hero */
+      header.hero {
+        text-align: center;
+        padding: 56px 20px 36px;
+      }
+      .hero img.logo {
+        width: 100%;
+        max-width: 460px;
+        border-radius: 22px;
+        box-shadow: var(--shadow);
+        border: 4px solid #fff;
+      }
+      .hero h1 {
+        font-size: clamp(2rem, 5vw, 3rem);
+        font-weight: 900;
+        margin-top: 26px;
+        letter-spacing: -0.5px;
+      }
+      .hero p.tag {
+        font-size: clamp(1rem, 2.4vw, 1.25rem);
+        color: var(--ink-soft);
+        font-weight: 700;
+        margin-top: 8px;
+      }
+      .cta {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 24px;
+        background: var(--brand);
+        color: #fff;
+        font-weight: 800;
+        font-size: 1.05rem;
+        text-decoration: none;
+        padding: 14px 26px;
+        border-radius: 14px;
+        box-shadow: 0 5px 0 var(--brand-deep);
+        transition: transform 0.08s ease;
+      }
+      .cta:active { transform: translateY(3px); box-shadow: 0 2px 0 var(--brand-deep); }
+
+      /* TOC */
+      nav.toc {
+        background: var(--card);
+        border: 2px solid var(--line);
+        border-radius: 18px;
+        padding: 20px 24px;
+        box-shadow: var(--shadow);
+        margin: 10px 0 34px;
+      }
+      nav.toc h2 { font-size: 1rem; text-transform: uppercase; letter-spacing: 1px; color: var(--ink-soft); margin-bottom: 12px; }
+      nav.toc ul { list-style: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 6px 18px; }
+      nav.toc a { text-decoration: none; font-weight: 700; display: block; padding: 4px 0; }
+      nav.toc a:hover { color: var(--accent); }
+
+      /* Sections */
+      section {
+        background: var(--card);
+        border: 2px solid var(--line);
+        border-radius: 20px;
+        padding: 28px 30px;
+        box-shadow: var(--shadow);
+        margin-bottom: 24px;
+      }
+      section h2 {
+        font-size: 1.6rem;
+        font-weight: 900;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 6px;
+      }
+      section h2 .emoji { font-size: 1.5rem; }
+      section h3 { font-size: 1.12rem; font-weight: 800; margin: 18px 0 6px; color: var(--brand-deep); }
+      section p { margin: 8px 0; color: var(--ink-soft); }
+      section p strong, li strong { color: var(--ink); }
+      ul.list { margin: 8px 0 8px 4px; padding-left: 20px; }
+      ul.list li { margin: 6px 0; color: var(--ink-soft); }
+
+      .lead { font-size: 1.08rem; color: var(--ink-soft); font-weight: 600; }
+
+      /* Key chips & tables */
+      .kbd {
+        display: inline-block;
+        font-family: inherit;
+        font-weight: 800;
+        font-size: 0.85rem;
+        background: #eef7fc;
+        border: 2px solid var(--sky-deep);
+        border-bottom-width: 4px;
+        border-radius: 8px;
+        padding: 2px 9px;
+        color: var(--ink);
+        white-space: nowrap;
+      }
+      table { width: 100%; border-collapse: collapse; margin: 14px 0; }
+      th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+      th { font-weight: 800; color: var(--ink); font-size: 0.95rem; }
+      td { color: var(--ink-soft); }
+      tr:last-child td { border-bottom: none; }
+
+      .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-top: 12px; }
+      .mini {
+        background: #f6fbfe;
+        border: 2px solid var(--line);
+        border-radius: 14px;
+        padding: 14px 16px;
+      }
+      .mini h4 { font-size: 1rem; font-weight: 800; margin-bottom: 4px; }
+      .mini p { font-size: 0.92rem; margin: 2px 0; }
+
+      .callout {
+        border-left: 6px solid var(--accent);
+        background: #fff8ec;
+        border-radius: 10px;
+        padding: 12px 16px;
+        margin: 16px 0;
+        color: #7a5a16;
+        font-weight: 600;
+      }
+      .callout.brand { border-left-color: var(--brand); background: #eef7fc; color: var(--brand-deep); }
+      .callout.leaf { border-left-color: var(--leaf); background: #eefaf0; color: #2c7544; }
+
+      .step { display: flex; gap: 14px; align-items: flex-start; margin: 14px 0; }
+      .step .num {
+        flex: 0 0 auto;
+        width: 32px; height: 32px;
+        border-radius: 50%;
+        background: var(--brand);
+        color: #fff;
+        font-weight: 900;
+        display: grid; place-items: center;
+      }
+      .step .body { flex: 1; }
+      .step .body strong { display: block; }
+
+      footer {
+        text-align: center;
+        color: var(--ink-soft);
+        padding: 30px 20px 10px;
+        font-weight: 600;
+      }
+      footer a { font-weight: 800; text-decoration: none; }
+      .ver { font-size: 0.85rem; opacity: 0.7; margin-top: 6px; }
+    </style>
+  </head>
+  <body>
+    <header class="hero">
+      <a href="https://world.metricbase.org" aria-label="MetricBase World">
+        <img class="logo" src="/metricbase-world.png" alt="MetricBase World" />
+      </a>
+      <h1>How to Play MetricBase World</h1>
+      <p class="tag">Build. Trade. Explore. Thrive Together!</p>
+      <a class="cta" href="https://world.metricbase.org">▶ Play now</a>
+    </header>
+
+    <div class="wrap">
+      <nav class="toc">
+        <h2>Contents</h2>
+        <ul>
+          <li><a href="#start">1. Getting Started</a></li>
+          <li><a href="#controls">2. Controls</a></li>
+          <li><a href="#loop">3. The Core Loop</a></li>
+          <li><a href="#gather">4. Gathering</a></li>
+          <li><a href="#farm">5. Farming</a></li>
+          <li><a href="#craft">6. Crafting &amp; Tools</a></li>
+          <li><a href="#combat">7. Combat &amp; Leveling</a></li>
+          <li><a href="#quests">8. Quests</a></li>
+          <li><a href="#economy">9. Trade &amp; Economy</a></li>
+          <li><a href="#housing">10. Housing &amp; Shops</a></li>
+          <li><a href="#social">11. Social Play</a></li>
+          <li><a href="#world">12. The World</a></li>
+          <li><a href="#tips">13. Tips</a></li>
+        </ul>
+      </nav>
+
+      <p class="lead" style="margin: 0 4px 26px;">
+        MetricBase World is a browser-based, isometric multiplayer MMO and living economic
+        simulation. You play a chibi adventurer in a shared world: gather raw materials, craft
+        them into gear, farm crops, fight monsters, trade with other players, and build a home of
+        your own. Everything runs in your browser — no download required.
+      </p>
+
+      <!-- 1 -->
+      <section id="start">
+        <h2><span class="emoji">🚀</span> 1. Getting Started</h2>
+        <p>MetricBase World is gated by the <strong>$BASE</strong> token on Solana to keep the
+        economy healthy.</p>
+        <div class="step">
+          <div class="num">1</div>
+          <div class="body"><strong>Open the game</strong>
+            Go to <a href="https://world.metricbase.org">world.metricbase.org</a> in a modern
+            desktop or mobile browser (Chrome, Edge, Firefox, or Safari).</div>
+        </div>
+        <div class="step">
+          <div class="num">2</div>
+          <div class="body"><strong>Connect your Solana wallet</strong>
+            Click <em>Connect Wallet</em> and approve the signature request. This proves you own
+            the wallet — it does <em>not</em> move any funds.</div>
+        </div>
+        <div class="step">
+          <div class="num">3</div>
+          <div class="body"><strong>Hold at least 1,000 $BASE</strong>
+            Your wallet needs a minimum balance of the $BASE token to enter the world. This is the
+            world's "key" — your tokens stay yours.</div>
+        </div>
+        <div class="step">
+          <div class="num">4</div>
+          <div class="body"><strong>Name your character &amp; spawn in</strong>
+            Pick a name and you'll appear in the <strong>MetricBase Hub</strong> with
+            <strong>25 starting gold</strong>. Your progress (level, gold, inventory, skills,
+            quests, land) is saved automatically.</div>
+        </div>
+        <div class="callout brand">Your character is tied to your wallet, so you can log back in
+        from any device and pick up exactly where you left off.</div>
+      </section>
+
+      <!-- 2 -->
+      <section id="controls">
+        <h2><span class="emoji">🎮</span> 2. Controls</h2>
+        <h3>Desktop (keyboard)</h3>
+        <table>
+          <tr><th>Action</th><th>Key</th></tr>
+          <tr><td>Move</td><td><span class="kbd">W</span> <span class="kbd">A</span> <span class="kbd">S</span> <span class="kbd">D</span> or the <span class="kbd">↑ ↓ ← →</span> arrow keys</td></tr>
+          <tr><td>Talk / Interact (NPCs, shops, plots)</td><td><span class="kbd">E</span></td></tr>
+          <tr><td>Attack a monster</td><td><span class="kbd">Space</span></td></tr>
+          <tr><td>Gather (chop trees / mine rocks)</td><td><span class="kbd">F</span></td></tr>
+          <tr><td>Fish</td><td><span class="kbd">G</span></td></tr>
+          <tr><td>Open Crafting</td><td><span class="kbd">C</span></td></tr>
+          <tr><td>Open Inventory</td><td><span class="kbd">I</span></td></tr>
+        </table>
+        <h3>Mobile (touch)</h3>
+        <p>On phones and tablets, use the on-screen joystick to move and the contextual action
+        buttons (attack, gather, interact) that appear near the bottom of the screen. The HUD
+        buttons across the top and side open Inventory, Crafting, Quests, and the social panels.</p>
+        <div class="callout">Most panels also have a clickable HUD button (🔨 Craft, 🎒 Inventory,
+        🏆 Leaderboard, 🛡️ Guild, 🎉 Party, 😀 Emotes), so you never <em>need</em> the keyboard.</div>
+      </section>
+
+      <!-- 3 -->
+      <section id="loop">
+        <h2><span class="emoji">🔄</span> 3. The Core Loop</h2>
+        <p class="lead">MetricBase World is built around one satisfying everyday loop, wrapped in a
+        community layer:</p>
+        <div class="grid2">
+          <div class="mini"><h4>⛏️ Gather</h4><p>Chop wood, mine ore, catch fish, and harvest crops to collect raw materials.</p></div>
+          <div class="mini"><h4>🔨 Craft</h4><p>Turn materials into planks, bars, food, tools, and weapons at the workbench.</p></div>
+          <div class="mini"><h4>💰 Trade</h4><p>Sell to Pip, run your own shop, or swap gold for $BASE on the open market.</p></div>
+          <div class="mini"><h4>🏠 Build</h4><p>Buy land, build a house or shop, and make the world your own.</p></div>
+          <div class="mini"><h4>🤝 Community</h4><p>Form guilds and parties, chat, emote, and climb the leaderboards together.</p></div>
+        </div>
+      </section>
+
+      <!-- 4 -->
+      <section id="gather">
+        <h2><span class="emoji">⛏️</span> 4. Gathering</h2>
+        <p>Walk up to a resource node, face it, and press the gather key. There are three gathering
+        skills, each with its own XP and levels:</p>
+        <table>
+          <tr><th>Skill</th><th>Node</th><th>Key</th><th>Yields</th></tr>
+          <tr><td>Woodcutting</td><td>Trees</td><td><span class="kbd">F</span></td><td>Wood, Hardwood</td></tr>
+          <tr><td>Mining</td><td>Rocks &amp; deposits</td><td><span class="kbd">F</span></td><td>Copper Ore, Iron Ore</td></tr>
+          <tr><td>Fishing</td><td>Fishing spots (on water)</td><td><span class="kbd">G</span></td><td>River Fish, Prized Salmon</td></tr>
+        </table>
+        <h3>Tiers &amp; requirements</h3>
+        <p>Higher-tier nodes need a higher skill level — e.g. <strong>Iron Deposits</strong> and
+        <strong>Hardwood</strong> trees require level 3, and <strong>Ironwood</strong> requires
+        level 4. Level a skill up by gathering its basic nodes first.</p>
+        <h3>Rare finds ✨</h3>
+        <p>Every gather has a small chance to also turn up a <strong>rare material</strong> —
+        <strong>Amber</strong> (trees), <strong>Gemstone</strong> (rocks), or <strong>Pearl</strong>
+        (fish). They sell for a lot, and a Gemstone can be forged into the best weapon in the game.</p>
+        <div class="callout leaf">Equip a crafted <strong>tool</strong> (axe, pickaxe, fishing rod,
+        or net) to gather faster — and steel-tier tools also have a chance to drop a bonus
+        resource each time. See <a href="#craft">Crafting &amp; Tools</a>.</div>
+      </section>
+
+      <!-- 5 -->
+      <section id="farm">
+        <h2><span class="emoji">🌾</span> 5. Farming</h2>
+        <p>Farm plots are scattered across the world (look for tilled soil). Stand on an empty plot
+        and interact to plant a seed, then wait for it to grow.</p>
+        <ul class="list">
+          <li>Buy <strong>Wheat Seeds</strong> from Pip (5 gold each).</li>
+          <li>Plant on an empty farm plot — a growth bar shows its progress.</li>
+          <li>Crops grow in <strong>real time</strong>, even while you're away or offline.</li>
+          <li>Return when it's ripe to harvest <strong>Wheat</strong> + Farming XP, then bake it
+          into <strong>Bread</strong> at the workbench.</li>
+        </ul>
+      </section>
+
+      <!-- 6 -->
+      <section id="craft">
+        <h2><span class="emoji">🔨</span> 6. Crafting &amp; Tools</h2>
+        <p>Open the Crafting panel (<span class="kbd">C</span> or the 🔨 button) to turn raw
+        materials into useful goods. Crafting charges a small <strong>forge fee</strong> in gold.</p>
+        <h3>What you can make</h3>
+        <ul class="list">
+          <li><strong>Materials:</strong> Planks, Hardwood Planks, Copper / Iron / Steel Bars.</li>
+          <li><strong>Food:</strong> Cooked Fish (+40 HP), Bread (+30 HP), Grilled Salmon (+60 HP).</li>
+          <li><strong>Weapons:</strong> Copper Dagger (+18), and the prestige <strong>Gemforged
+          Blade</strong> (+30, needs a rare Gemstone).</li>
+          <li><strong>Tools:</strong> three tiers that speed up gathering.</li>
+        </ul>
+        <h3>Tool tiers</h3>
+        <table>
+          <tr><th>Tier</th><th>Speed</th><th>Bonus</th></tr>
+          <tr><td>Copper (axe / pickaxe / rod)</td><td>30% faster</td><td>—</td></tr>
+          <tr><td>Iron / Pro (axe / pickaxe / rod)</td><td>50% faster</td><td>—</td></tr>
+          <tr><td>Steel (axe / pickaxe / Trawler's Net)</td><td>50% faster</td><td>40% chance of a bonus drop</td></tr>
+        </table>
+        <p>Equip a tool from your Inventory into the <strong>tool slot</strong> (separate from your
+        weapon). It only helps the matching skill.</p>
+      </section>
+
+      <!-- 7 -->
+      <section id="combat">
+        <h2><span class="emoji">⚔️</span> 7. Combat &amp; Leveling</h2>
+        <p>Approach a hostile creature (Training Dummy, Wild Slime, Slime Brute) and press
+        <span class="kbd">Space</span> to attack. The server handles all damage fairly. Monsters
+        hit back, so watch your HP.</p>
+        <ul class="list">
+          <li>Equip a <strong>weapon</strong> for more damage per hit.</li>
+          <li>Earn <strong>XP</strong> and <strong>gold</strong> from defeating monsters, which
+          raises your combat <strong>Level</strong> and max HP.</li>
+          <li>Out of combat, your HP slowly <strong>regenerates</strong> — or eat food to heal fast.</li>
+        </ul>
+        <h3>Knockout &amp; respawn</h3>
+        <p>If your HP hits 0 you're <strong>knocked out</strong>. Pay <strong>100 gold</strong> to
+        respawn immediately, or wait <strong>30 minutes</strong> for a free revival. You can't move
+        or fight while knocked out.</p>
+      </section>
+
+      <!-- 8 -->
+      <section id="quests">
+        <h2><span class="emoji">📜</span> 8. Quests</h2>
+        <p>Talk to NPCs (press <span class="kbd">E</span>) to pick up quests. They guide you
+        through the game and reward XP, gold, and gear.</p>
+        <div class="grid2">
+          <div class="mini"><h4>Aria — the Guide (Hub)</h4><p>Your starter chain: meet her, explore,
+          fight your first dummy, and become a Veteran Adventurer.</p></div>
+          <div class="mini"><h4>Rook — the Scout (Wilderness)</h4><p>Slime patrol and gel collection,
+          rewarding the Gel-Edged Knife.</p></div>
+          <div class="mini"><h4>Moss — the Warden (Grotto)</h4><p>Venture into the cave and take down
+          the mighty Slime Brute.</p></div>
+          <div class="mini"><h4>Brenna — the Blacksmith (Hub)</h4><p>A five-part smithing chain:
+          iron → steel → a rare gemstone → a free master Steel Pickaxe.</p></div>
+        </div>
+        <p>Open the Quest log (the HUD card on desktop, or the floating quest button on mobile) to
+        track your active objectives.</p>
+      </section>
+
+      <!-- 9 -->
+      <section id="economy">
+        <h2><span class="emoji">💰</span> 9. Trade &amp; Economy</h2>
+        <h3>Pip's Provisions (Hub)</h3>
+        <p>Press <span class="kbd">E</span> near <strong>Pip</strong> to buy supplies (potions,
+        seeds, a starter blade) and sell your gathered &amp; crafted materials for gold.</p>
+        <div class="callout">Pip's buy prices are <strong>dynamic</strong>: the more of a material
+        is sold, the less he pays for it (prices recover over time). It keeps the economy from
+        flooding — sell a variety, not just one thing.</div>
+        <h3>The open Gold Market ($BASE)</h3>
+        <p>Pip's shop also hosts a player-to-player <strong>order book</strong> where you trade
+        in-game <strong>gold ↔ $BASE</strong> tokens. Post a bid or an offer; trades settle
+        <strong>peer-to-peer on-chain</strong> between wallets, verified by the server. A small
+        market fee applies.</p>
+      </section>
+
+      <!-- 10 -->
+      <section id="housing">
+        <h2><span class="emoji">🏠</span> 10. Housing &amp; Shops</h2>
+        <p>Owning land is the big mid-game goal (and the largest gold sink). Plots are available in
+        every outdoor zone.</p>
+        <div class="step">
+          <div class="num">1</div>
+          <div class="body"><strong>Buy a plot</strong>
+            Stand on an empty 3×3 land plot, interact, and buy it for <strong>500 gold</strong>.</div>
+        </div>
+        <div class="step">
+          <div class="num">2</div>
+          <div class="body"><strong>Build a House or a Shop</strong>
+            Your name goes on it, and it becomes a solid structure others can see.</div>
+        </div>
+        <div class="step">
+          <div class="num">3</div>
+          <div class="body"><strong>Make it yours</strong>
+            Repaint the roof (6 colours), put a custom name on the sign, and place props on the
+            four corners.</div>
+        </div>
+        <h3>Run a player shop</h3>
+        <p>Build a <strong>Shop</strong> and stock items from your inventory at prices you choose.
+        Anyone can buy from it (by quantity or buy-all). Sales pile up as <strong>earnings</strong>
+        you collect on your next visit — so you earn even while offline.</p>
+      </section>
+
+      <!-- 11 -->
+      <section id="social">
+        <h2><span class="emoji">🤝</span> 11. Social Play</h2>
+        <div class="grid2">
+          <div class="mini"><h4>🛡️ Guilds</h4><p>Found a guild for 1,000 gold (or join one) from the
+          guild panel. Your tag shows on your nameplate worldwide, with a shared roster and guild
+          chat that reaches members in any zone.</p></div>
+          <div class="mini"><h4>🎉 Parties</h4><p>Invite up to 3 others into a party. Fight or gather
+          <em>near</em> your partymates for <strong>bonus XP</strong> — the finisher of a kill earns
+          extra, allies share assist XP and quest credit, and nearby members share gathering XP.</p></div>
+          <div class="mini"><h4>💬 Chat</h4><p>Toggle between <strong>Zone</strong>,
+          <strong>Guild</strong>, and <strong>Party</strong> channels. Guild and party messages
+          reach members across zones.</p></div>
+          <div class="mini"><h4>😀 Emotes &amp; Who</h4><p>Broadcast emoji bubbles, and open the
+          online roster to see who's around and their levels.</p></div>
+          <div class="mini"><h4>🏆 Leaderboard</h4><p>Climb the top-10 charts for combat
+          <strong>Level</strong>, <strong>Richest</strong> (gold), and total gathering
+          <strong>Skills</strong>.</p></div>
+          <div class="mini"><h4>📢 Hub Billboard</h4><p>The plaza billboard shows the live on-chain
+          <strong>$BASE holder count</strong> and how many players are online.</p></div>
+        </div>
+      </section>
+
+      <!-- 12 -->
+      <section id="world">
+        <h2><span class="emoji">🗺️</span> 12. The World</h2>
+        <p>Travel between zones through glowing <strong>portals</strong>. Each zone is themed:</p>
+        <table>
+          <tr><th>Zone</th><th>What's there</th></tr>
+          <tr><td><strong>MetricBase Hub</strong></td><td>The town square. Pip, Aria, Brenna, the
+          billboard, the lake, beginner gathering nodes, farms, and homesteads.</td></tr>
+          <tr><td><strong>Wilderness</strong></td><td>Rook, the Training Dummy, Wild Slimes,
+          higher-tier trees/ore/fish, a river — plus frontier farms &amp; housing.</td></tr>
+          <tr><td><strong>Slime Grotto</strong></td><td>A cave past the Wilderness with pools, Moss,
+          the Slime Brute boss, and a small cavern settlement.</td></tr>
+          <tr><td><strong>Community Lodge</strong></td><td>A cosy indoor space off the Hub plaza to
+          gather and hang out with other adventurers.</td></tr>
+        </table>
+        <div class="callout brand">MetricBase World is fully multiplayer — you'll see other players
+        move, fight, and gather in real time. Very busy zones split into multiple copies of about
+        20 players each, so the world always feels lively without lag.</div>
+      </section>
+
+      <!-- 13 -->
+      <section id="tips">
+        <h2><span class="emoji">💡</span> 13. Tips for New Players</h2>
+        <ul class="list">
+          <li>Do <strong>Aria's starter quests</strong> first — they teach the basics and hand you
+          early gold.</li>
+          <li>Gather a mix of <strong>wood, ore, and fish</strong>, then craft a tool early — faster
+          gathering snowballs everything else.</li>
+          <li>Plant a crop <strong>before</strong> you log off; it'll be ready when you return.</li>
+          <li>Don't dump 20 of one item on Pip at once — his prices drop. Spread your sales.</li>
+          <li>Save toward a <strong>500-gold land plot</strong>; a player <strong>shop</strong> earns
+          passive income.</li>
+          <li>Team up — a <strong>party</strong> levels faster thanks to shared combat and gather XP.</li>
+          <li>Keep some food on hand so a tough fight doesn't end in a knockout.</li>
+        </ul>
+      </section>
+
+      <footer>
+        <a class="cta" href="https://world.metricbase.org">▶ Jump into MetricBase World</a>
+        <p style="margin-top:18px;">Build. Trade. Explore. Thrive Together! 🌍</p>
+        <p class="ver">Player guide · MetricBase World</p>
+      </footer>
+    </div>
+  </body>
+</html>

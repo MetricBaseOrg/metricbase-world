@@ -6,6 +6,10 @@
   "framework": null,
   "rewrites": [
     {
+      "source": "/docs",
+      "destination": "/docs.html"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
