@@ -25,6 +25,8 @@ interface GameStore {
   playerGold: number;
   playerHp: number;
   playerMaxHp: number;
+  playerStamina: number;
+  playerMaxStamina: number;
   knockedOut: boolean;
   freeRespawnAt: number | null;
   equippedWeaponId: string | null;
@@ -111,6 +113,8 @@ export const useGameStore = create<GameStore>((set) => ({
   playerGold: 0,
   playerHp: 40,
   playerMaxHp: 40,
+  playerStamina: 100,
+  playerMaxStamina: 100,
   knockedOut: false,
   freeRespawnAt: null,
   equippedWeaponId: null,
@@ -174,6 +178,8 @@ export const useGameStore = create<GameStore>((set) => ({
       playerGold: profile.gold ?? state.playerGold,
       playerHp: profile.hp ?? state.playerHp,
       playerMaxHp: profile.maxHp ?? state.playerMaxHp,
+      playerStamina: profile.stamina ?? state.playerStamina,
+      playerMaxStamina: profile.maxStamina ?? state.playerMaxStamina,
       knockedOut:
         profile.knockedOut !== undefined ? profile.knockedOut : state.knockedOut,
       freeRespawnAt:

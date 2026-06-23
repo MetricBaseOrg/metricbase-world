@@ -26,6 +26,7 @@ ALTER TABLE characters ADD COLUMN IF NOT EXISTS npc_interact_at JSONB NOT NULL D
 ALTER TABLE characters ADD COLUMN IF NOT EXISTS mob_gold_claimed JSONB NOT NULL DEFAULT '{}'::jsonb;
 ALTER TABLE characters ADD COLUMN IF NOT EXISTS knocked_out_until BIGINT;
 ALTER TABLE characters ADD COLUMN IF NOT EXISTS skills JSONB NOT NULL DEFAULT '{"woodcutting":0}'::jsonb;
+ALTER TABLE characters ADD COLUMN IF NOT EXISTS stamina INTEGER;
 
 CREATE TABLE IF NOT EXISTS token_purchases (
   signature VARCHAR(88) PRIMARY KEY,

@@ -44,6 +44,8 @@ export interface ProfilePayload {
   gold?: number;
   hp?: number;
   maxHp?: number;
+  stamina?: number;
+  maxStamina?: number;
   equippedWeaponId?: string | null;
   equippedToolId?: string | null;
   knockedOut?: boolean;

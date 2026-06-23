@@ -28,6 +28,7 @@ await saveCharacter({
   mobGoldClaimed: {},
   knockedOutUntil: null,
   skills: { woodcutting: 0 },
+  stamina: 100,
 });
 
 const loaded = await loadCharacter("__healthcheck__");

@@ -32,6 +32,8 @@ export function HUD({ onLeave }: HUDProps) {
     playerGold,
     playerHp,
     playerMaxHp,
+    playerStamina,
+    playerMaxStamina,
     equippedWeaponId,
     equippedToolId,
     walletAddress,
@@ -64,6 +66,7 @@ export function HUD({ onLeave }: HUDProps) {
       ? woodcuttingProgress.current / woodcuttingProgress.required
       : 0;
   const hpRatio = playerMaxHp > 0 ? playerHp / playerMaxHp : 0;
+  const staminaRatio = playerMaxStamina > 0 ? playerStamina / playerMaxStamina : 0;
   const activeQuest = questState.active[0];
 
   return (
@@ -84,6 +87,7 @@ export function HUD({ onLeave }: HUDProps) {
           </span>
           <span className="chibi-hud-compact-bar__stats">
             <span>❤️ {playerHp}</span>
+            <span>🍗 {playerStamina}</span>
             <span>🪙 {playerGold}</span>
             {activeQuest && <span className="chibi-hud-compact-bar__quest">📜</span>}
           </span>
@@ -118,6 +122,16 @@ export function HUD({ onLeave }: HUDProps) {
                 color="#ff6b6b"
               />
               <span className="chibi-hud-gauge-caption">HP</span>
+            </div>
+            <div className="chibi-hud-gauge-item">
+              <CircleGauge
+                value={staminaRatio}
+                label={`${playerStamina}`}
+                detail={`/${playerMaxStamina}`}
+                title={`Energy ${playerStamina} / ${playerMaxStamina} — eat food to refill`}
+                color="#f5a623"
+              />
+              <span className="chibi-hud-gauge-caption">Energy</span>
             </div>
             <div className="chibi-hud-gauge-item">
               <CircleGauge

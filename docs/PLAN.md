@@ -18,6 +18,9 @@ server on Railway, Neon PostgreSQL, Solana token gate/market.
   props/NPCs, procedural background music + a full SFX set.
 - **Everyday loop — Gather:** Woodcutting, Mining, Fishing (shared gather-session
   system; nodes, items, skill XP, HUD gauges, art, FX/SFX).
+- **Energy / hunger:** working actions (gather/attack/farm) spend Energy;
+  food restores it (`shared/src/stamina.ts`). Out of energy = too hungry to work
+  until you eat; slow trickle avoids hard locks; persisted (`stamina` column).
 - **Everyday loop — Farming:** tilled plots with a real-time growth cycle (plant
   seed → grow → harvest crop + Farming XP), live growth bars, Wheat→Bread.
 - **Everyday loop — Craft:** workbench recipes (planks, copper bars, cooked fish,

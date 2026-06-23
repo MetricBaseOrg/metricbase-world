@@ -76,6 +76,16 @@ import {
   COMBAT_RECENT_MS,
   HP_REGEN_AMOUNT,
   HP_REGEN_INTERVAL_MS,
+  MAX_STAMINA,
+  STARTING_STAMINA,
+  STAMINA_COST_GATHER,
+  STAMINA_COST_ATTACK,
+  STAMINA_COST_FARM,
+  STAMINA_REGEN_AMOUNT,
+  STAMINA_REGEN_INTERVAL_MS,
+  clampStamina,
+  getConsumableStamina,
+  hasStaminaFor,
   RESPAWN_GOLD_COST,
   RESPAWN_WAIT_MS,
   TRAINING_DUMMY_COUNTER_DAMAGE,
@@ -187,6 +197,9 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   private playerEmoteAt = new Map<string, number>();
   private playerGold = new Map<string, number>();
   private playerHp = new Map<string, number>();
+  private playerStamina = new Map<string, number>();
+  private playerLastStaminaRegenAt = new Map<string, number>();
+  private playerLastHungerNoticeAt = new Map<string, number>();
   private playerEquipment = new Map<string, ReturnType<typeof normalizeEquipment>>();
   private playerWallets = new Map<string, string>();
   private zoneConfig!: ZoneConfig;
@@ -506,6 +519,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       this.playerHp.set(player.name, Math.min(savedHp, maxHp));
     }
 
+    this.playerStamina.set(player.name, clampStamina(saved?.stamina ?? STARTING_STAMINA));
+
     // Safety net: never drop a player onto a blocked tile. Stale saved
     // coordinates inside a wall (e.g. the map corner) leave the player
     // unable to move in any direction — snap them back to the spawn tile.
@@ -587,6 +602,9 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       this.playerKnockedOutUntil.delete(player.name);
       this.playerLastCombatAt.delete(player.name);
       this.playerLastRegenAt.delete(player.name);
+      this.playerStamina.delete(player.name);
+      this.playerLastStaminaRegenAt.delete(player.name);
+      this.playerLastHungerNoticeAt.delete(player.name);
       this.playerWallets.delete(client.sessionId);
       this.playerSkills.delete(player.name);
     }
@@ -655,6 +673,23 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
       this.playerLastRegenAt.set(player.name, now);
       this.playerHp.set(player.name, Math.min(maxHp, currentHp + HP_REGEN_AMOUNT));
+      this.sendProfile(client, player);
+    }
+
+    // Slow stamina trickle so a player who runs out of food (and gold) still
+    // recovers over time — food is just far faster. Runs whenever not knocked out.
+    for (const client of this.clients) {
+      const player = this.state.players.get(client.sessionId);
+      if (!player || this.isKnockedOut(player.name)) continue;
+
+      const stamina = this.playerStamina.get(player.name) ?? STARTING_STAMINA;
+      if (stamina >= MAX_STAMINA) continue;
+
+      const lastTrickle = this.playerLastStaminaRegenAt.get(player.name) ?? 0;
+      if (now - lastTrickle < STAMINA_REGEN_INTERVAL_MS) continue;
+
+      this.playerLastStaminaRegenAt.set(player.name, now);
+      this.playerStamina.set(player.name, clampStamina(stamina + STAMINA_REGEN_AMOUNT));
       this.sendProfile(client, player);
     }
 
@@ -806,6 +841,13 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     const playerHp = this.playerHp.get(player.name) ?? getPlayerMaxHp(player.level);
     if (playerHp <= 0) return;
 
+    if (!this.spendStamina(client, player.name, STAMINA_COST_ATTACK)) {
+      this.attackCooldowns.set(client.sessionId, now); // throttle repeated swings
+      this.notifyTooHungry(client, player.name, "fight");
+      this.sendProfile(client, player);
+      return;
+    }
+
     this.attackCooldowns.set(client.sessionId, now);
     this.playerLastCombatAt.set(player.name, now);
     const equipment = this.playerEquipment.get(player.name);
@@ -862,6 +904,9 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       maxHp: npc.combat.maxHp,
       defeated,
     });
+
+    // Refresh the HUD so the stamina gauge reflects the swing's energy cost.
+    this.sendProfile(client, player);
   }
 
   private async checkTalkObjectives(client: Client, playerName: string, npcId: string) {
@@ -1129,8 +1174,44 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       maxHp,
       equippedWeaponId: equipment?.weaponId ?? null,
       equippedToolId: equipment?.toolId ?? null,
+      stamina: this.playerStamina.get(player.name) ?? STARTING_STAMINA,
+      maxStamina: MAX_STAMINA,
       knockedOut,
       freeRespawnAt: knockedOut ? (this.playerKnockedOutUntil.get(player.name) ?? null) : null,
+    });
+  }
+
+  /**
+   * Spend stamina on an activity. Returns false (without spending) when the
+   * player is too low — the caller should refuse the action and tell them to
+   * eat. Successful spends push a fresh profile so the HUD gauge updates.
+   */
+  private spendStamina(client: Client, playerName: string, cost: number): boolean {
+    const current = this.playerStamina.get(playerName) ?? STARTING_STAMINA;
+    if (!hasStaminaFor(current, cost)) return false;
+    this.playerStamina.set(playerName, clampStamina(current - cost));
+    return true;
+  }
+
+  private restoreStamina(playerName: string, amount: number): number {
+    const current = this.playerStamina.get(playerName) ?? STARTING_STAMINA;
+    const next = clampStamina(current + amount);
+    this.playerStamina.set(playerName, next);
+    return next - current;
+  }
+
+  private notifyTooHungry(client: Client, playerName: string, activity: string) {
+    const now = Date.now();
+    const last = this.playerLastHungerNoticeAt.get(playerName) ?? 0;
+    if (now - last < 5_000) return; // throttle so spammed actions don't flood chat
+    this.playerLastHungerNoticeAt.set(playerName, now);
+    client.send("chat", {
+      id: crypto.randomUUID(),
+      channel: "system",
+      senderId: "system",
+      senderName: "Hunger",
+      body: `You're too hungry to ${activity}. Eat some food (cooked fish, bread, or salmon) to restore energy.`,
+      sentAt: Date.now(),
     });
   }
 
@@ -1651,19 +1732,24 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     const healed = Math.min(healAmount, maxHp - currentHp);
     const nextHp = Math.min(maxHp, currentHp + healAmount);
     this.playerHp.set(player.name, nextHp);
+    // Eating food also restores energy (the hunger loop).
+    const energyRestored = this.restoreStamina(player.name, getConsumableStamina(itemId));
     this.inventories.set(player.name, inventory);
     this.sendProfile(client, player);
     this.sendInventory(client, player.name);
 
+    const gains: string[] = [];
+    if (healed > 0) gains.push(`+${healed} HP`);
+    if (energyRestored > 0) gains.push(`+${energyRestored} energy`);
     this.broadcastChat({
       id: crypto.randomUUID(),
       channel: "system",
       senderId: "system",
       senderName: "Item",
       body:
-        healed > 0
-          ? `${player.name} used ${item.name} (+${healed} HP).`
-          : `${player.name} used ${item.name} (already at full HP).`,
+        gains.length > 0
+          ? `${player.name} used ${item.name} (${gains.join(", ")}).`
+          : `${player.name} used ${item.name}.`,
       sentAt: Date.now(),
     });
 
@@ -1893,6 +1979,22 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       return;
     }
 
+    if (!hasStaminaFor(this.playerStamina.get(player.name) ?? STARTING_STAMINA, STAMINA_COST_GATHER)) {
+      this.notifyTooHungry(client, player.name, "gather");
+      client.send("chopResult", {
+        resourceId,
+        available: true,
+        depleted: false,
+        skillXpGained: 0,
+        woodcuttingLevel: skillLevel,
+        skill: gather.skill,
+        skillLevel,
+        ok: false,
+        error: "You're too hungry to gather. Eat some food first.",
+      });
+      return;
+    }
+
     const toolId = this.playerEquipment.get(player.name)?.toolId ?? null;
     const durationMs = Math.round(
       gather.durationMs(skillLevel) * getToolSpeedMultiplier(toolId, gather.skill),
@@ -1992,6 +2094,12 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     this.resourceChopper.delete(session.resourceId);
     this.resourceRespawnAt.set(session.resourceId, now + gather.respawnMs);
 
+    // Working the node burns energy (the food/hunger loop).
+    this.playerStamina.set(
+      player.name,
+      clampStamina((this.playerStamina.get(player.name) ?? STARTING_STAMINA) - STAMINA_COST_GATHER),
+    );
+
     // Steel-tier tools roll for a bonus drop on top of the node's base yield.
     const toolId = this.playerEquipment.get(player.name)?.toolId;
     const bonusYield =
@@ -2020,6 +2128,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     const { newLevel, leveledUp } = this.grantSkillXp(player.name, gather.skill, skillXpGained);
     if (client) {
       this.sendSkillState(client, player.name);
+      this.sendProfile(client, player); // reflect spent stamina on the HUD gauge
     }
 
     if (leveledUp) {
@@ -2252,9 +2361,20 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         });
         return;
       }
+      if (!this.spendStamina(client, player.name, STAMINA_COST_FARM)) {
+        this.notifyTooHungry(client, player.name, "farm");
+        client.send("farmResult", {
+          ok: false,
+          plotId,
+          action: "plant",
+          error: "You're too hungry to farm. Eat some food first.",
+        });
+        return;
+      }
       inventory = removeItemFromInventory(inventory, crop.seedItemId, 1).inventory;
       this.inventories.set(player.name, inventory);
       this.sendInventory(client, player.name);
+      this.sendProfile(client, player);
       plantFarmPlot({
         plotId,
         zoneId: this.zoneConfig.id,
@@ -2281,6 +2401,16 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     }
 
     // Harvest.
+    if (!this.spendStamina(client, player.name, STAMINA_COST_FARM)) {
+      this.notifyTooHungry(client, player.name, "farm");
+      client.send("farmResult", {
+        ok: false,
+        plotId,
+        error: "You're too hungry to harvest. Eat some food first.",
+      });
+      return;
+    }
+    this.sendProfile(client, player);
     const crop = getFarmCropBySeed(active.seedId);
     const yieldQty = crop?.yield ?? 1;
     await this.grantLoot(client, player.name, active.cropId, yieldQty);
@@ -2765,6 +2895,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         ? (this.playerKnockedOutUntil.get(player.name) ?? null)
         : null,
       skills: normalizeSkills(this.playerSkills.get(player.name)),
+      stamina: clampStamina(this.playerStamina.get(player.name) ?? STARTING_STAMINA),
     });
   }
 
