@@ -25,7 +25,8 @@ server on Railway, Neon PostgreSQL, Solana token gate/market.
   through the dark; other players see it (PlayerSchema `lampOn` + `toggleLamp`).
 - **Weather:** deterministic, time-driven weather (`shared/src/weather.ts`) —
   clear/cloudy/rain/fog/storm with rain particles, a weather tint, lightning,
-  and a HUD readout. Shared by all clients; rain suppressed indoors.
+  and a HUD readout. Shared by all clients; rain suppressed indoors. Procedural
+  **rain + thunder ambience** (`audio/weatherAmbience.ts`) tracks the weather.
 - **Living-world effects** (`shared/src/environment.ts`): night slows gathering
   unless your lamp is on; rain gives fishing a bonus catch. Server-authoritative.
 - **Building lights:** owners toggle a house/shop light (🏠 panel) that glows at

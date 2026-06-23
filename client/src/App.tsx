@@ -2,6 +2,7 @@ import { type CharacterAppearance } from "@metricbase/shared";
 import { useEffect, useRef, useState } from "react";
 import { initSoundEffects, playSfx } from "./audio/soundEffects";
 import { startBackgroundMusic, stopBackgroundMusic } from "./audio/backgroundMusic";
+import { startWeatherAmbience, stopWeatherAmbience } from "./audio/weatherAmbience";
 import { bindUiTypingFocusGuard, resetMobileInput } from "./game/inputControl";
 import { waitForGameSceneReady } from "./game/gameSceneReady";
 import { PhaserGame } from "./game/PhaserGame";
@@ -233,6 +234,7 @@ export function App() {
 
     setJoined(true);
     startBackgroundMusic();
+    startWeatherAmbience();
 
     try {
       await waitForGameSceneReady();
@@ -241,12 +243,14 @@ export function App() {
     } catch (error) {
       setJoined(false);
       stopBackgroundMusic();
+      stopWeatherAmbience();
       throw error;
     }
   };
 
   const handleLeave = async () => {
     stopBackgroundMusic();
+    stopWeatherAmbience();
     resetMobileInput();
     previousLevelRef.current = 1;
     previousWoodcuttingLevelRef.current = 1;
