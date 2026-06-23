@@ -23,6 +23,9 @@ server on Railway, Neon PostgreSQL, Solana token gate/market.
   Cosmetic now, ready to drive future gameplay (night mobs, shop hours).
 - **Player lamp/torch:** toggle (L / 💡) a networked personal light that glows
   through the dark; other players see it (PlayerSchema `lampOn` + `toggleLamp`).
+- **Weather:** deterministic, time-driven weather (`shared/src/weather.ts`) —
+  clear/cloudy/rain/fog/storm with rain particles, a weather tint, lightning,
+  and a HUD readout. Shared by all clients; rain suppressed indoors.
 - **Energy / hunger:** working actions (gather/attack/farm) spend Energy;
   food restores it (`shared/src/stamina.ts`). Out of energy = too hungry to work
   until you eat; slow trickle avoids hard locks; persisted (`stamina` column).

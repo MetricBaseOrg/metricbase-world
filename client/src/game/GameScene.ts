@@ -23,7 +23,9 @@ import {
   structureLabel,
   getEmote,
   getWorldTime,
+  getWeather,
   LAMP_GLOW_DIAMETER,
+  ZONE_INTERIOR,
   tileToWorld,
   type FarmStatePayload,
   type HousingStatePayload,
@@ -165,6 +167,12 @@ export class GameScene extends Phaser.Scene {
   private dayNightOverlay: Phaser.GameObjects.Rectangle | null = null;
   private lampKey: Phaser.Input.Keyboard.Key | null = null;
   private localLampGlow: Phaser.GameObjects.Image | null = null;
+  private weatherOverlay: Phaser.GameObjects.Rectangle | null = null;
+  private rainEmitter: Phaser.GameObjects.Particles.ParticleEmitter | null = null;
+  private rainZone = new Phaser.Geom.Rectangle(0, 0, 100, 8);
+  private weatherRain = 0; // eased current rain density
+  private weatherAlpha = 0; // eased current overlay opacity
+  private nextLightningAt = 0;
 
   constructor() {
     super("GameScene");
@@ -185,6 +193,27 @@ export class GameScene extends Phaser.Scene {
 
     // Soft radial texture used for hand-lamp glows (drawn additively over night).
     this.ensureGlowTexture();
+
+    // Weather: a tint overlay (fog/cloud/rain darkening) plus a rain emitter.
+    this.weatherOverlay = this.add
+      .rectangle(0, 0, 10, 10, 0x5a6b85, 0)
+      .setOrigin(0, 0)
+      .setDepth(99_998);
+    this.ensureRaindropTexture();
+    this.rainEmitter = this.add
+      .particles(0, 0, "raindrop", {
+        lifespan: 950,
+        speedY: { min: 720, max: 980 },
+        speedX: { min: -130, max: -70 },
+        scaleY: { min: 0.7, max: 1.35 },
+        scaleX: 1,
+        alpha: { min: 0.22, max: 0.5 },
+        quantity: 2,
+        frequency: 26,
+        emitZone: { type: "random", source: this.rainZone, quantity: 1 },
+      })
+      .setDepth(100_002);
+    this.rainEmitter.stop();
     this.scale.on(Phaser.Scale.Events.RESIZE, this.handleViewportResize, this);
     this.scale.refresh();
     this.handleViewportResize();
@@ -444,6 +473,65 @@ export class GameScene extends Phaser.Scene {
     this.updatePlayerAnimations();
     this.updateDayNight();
     this.updateLamps();
+    this.updateWeather();
+  }
+
+  private ensureRaindropTexture() {
+    if (this.textures.exists("raindrop")) return;
+    const w = 3;
+    const h = 18;
+    const tex = this.textures.createCanvas("raindrop", w, h);
+    if (!tex) return;
+    const ctx = tex.getContext();
+    const grad = ctx.createLinearGradient(0, 0, 0, h);
+    grad.addColorStop(0, "rgba(200, 222, 255, 0)");
+    grad.addColorStop(0.5, "rgba(200, 222, 255, 0.85)");
+    grad.addColorStop(1, "rgba(225, 240, 255, 0.95)");
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, w, h);
+    tex.refresh();
+  }
+
+  /** Drive the weather tint + rain emitter from the shared deterministic clock. */
+  private updateWeather() {
+    const overlay = this.weatherOverlay;
+    const emitter = this.rainEmitter;
+    if (!overlay || !emitter) return;
+
+    const indoors = this.currentZoneId === ZONE_INTERIOR;
+    const weather = getWeather();
+    const targetRain = indoors ? 0 : weather.rain;
+    const targetAlpha = indoors ? 0 : weather.overlayAlpha;
+
+    // Ease toward targets so weather fades in/out instead of popping.
+    this.weatherRain += (targetRain - this.weatherRain) * 0.05;
+    this.weatherAlpha += (targetAlpha - this.weatherAlpha) * 0.05;
+
+    const view = this.cameras.main.worldView;
+    overlay.setPosition(view.x, view.y);
+    overlay.setSize(view.width, view.height);
+    overlay.setFillStyle(weather.overlayColor, this.weatherAlpha);
+
+    // Rain emitter: cover the top of the visible world and scale density.
+    this.rainZone.setTo(view.x - 40, view.y - 50, view.width + 120, 8);
+    if (this.weatherRain > 0.04) {
+      emitter.setFrequency(
+        Phaser.Math.Linear(70, 8, this.weatherRain),
+        Math.round(Phaser.Math.Linear(1, 4, this.weatherRain)),
+      );
+      if (!emitter.emitting) emitter.start();
+    } else if (emitter.emitting) {
+      emitter.stop();
+    }
+
+    // Lightning during storms — an occasional full-screen flash.
+    if (!indoors && weather.lightning && this.weatherRain > 0.5) {
+      const now = Date.now();
+      if (now >= this.nextLightningAt) {
+        this.nextLightningAt = now + 4000 + Math.random() * 8000;
+        this.cameras.main.flash(140, 210, 224, 255);
+      }
+    }
   }
 
   /** Flip the local player's lamp, sync it, and reflect it in the HUD store. */
