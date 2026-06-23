@@ -32,6 +32,8 @@ server on Railway, Neon PostgreSQL, Solana token gate/market.
   night for everyone and burns a per-plot energy reserve, refueled with craftable
   **Lamp Oil** (2 fish + 1 wood). `effectiveLight`, `housingLight`/`housingRefuel`;
   persisted on the plot.
+- **Rest at home:** resting in your own house restores energy + HP on an 8-min
+  cooldown, giving housing a gameplay function (`housingRest`, `REST_COOLDOWN_MS`).
 - **Interaction prompts:** a floating "E · …" cue over the nearest interactable
   (NPC / land plot / farm plot) so it's obvious what you can use and how.
 - **Multi-currency gold market:** P2P gold orders can be priced in $BASE, USDC,

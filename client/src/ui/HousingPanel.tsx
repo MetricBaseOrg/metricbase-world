@@ -75,6 +75,28 @@ export function HousingPanel() {
     networkManager.sendHousingRefuel(plotId);
   };
 
+  const rest = async () => {
+    if (!plotId) return;
+    playSfx("ui_click");
+    setError(null);
+    networkManager.sendHousingRest(plotId);
+    const result = await new Promise<{ ok: boolean; error?: string }>((resolve) => {
+      const timeout = window.setTimeout(() => resolve({ ok: false, error: "Request timed out." }), 6000);
+      const unsubscribe = networkManager.onHousingResult((payload) => {
+        window.clearTimeout(timeout);
+        unsubscribe();
+        resolve(payload);
+      });
+    });
+    if (result.ok) {
+      playSfx("level_up");
+      setHousingOpen(false);
+    } else {
+      playSfx("shop_fail");
+      setError(result.error ?? "Could not rest.");
+    }
+  };
+
   const buy = async (structure: "house" | "shop") => {
     setPending(true);
     setError(null);
@@ -121,6 +143,22 @@ export function HousingPanel() {
 
           {isMine && (
             <>
+              {plot?.structure === "house" && (
+                <div style={{ marginTop: 12 }}>
+                  <button
+                    type="button"
+                    className="chibi-btn chibi-btn--primary"
+                    onClick={() => void rest()}
+                    style={{ width: "100%", padding: "10px 12px" }}
+                  >
+                    😴 Rest here (restore energy + HP)
+                  </button>
+                  <div className="chibi-text-muted" style={{ fontSize: "0.72rem", marginTop: 4 }}>
+                    A good rest at home refills your energy and health. Available every 8 minutes.
+                  </div>
+                </div>
+              )}
+
               <div style={{ marginTop: 12 }}>
                 <div className="chibi-label" style={{ marginBottom: 6 }}>
                   Sign

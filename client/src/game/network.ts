@@ -375,6 +375,10 @@ export class NetworkManager {
     this.room?.send("housingRefuel", { plotId });
   }
 
+  sendHousingRest(plotId: string) {
+    this.room?.send("housingRest", { plotId });
+  }
+
   sendGuildCreate(name: string, tag: string) {
     this.room?.send("guildCreate", { name, tag });
   }

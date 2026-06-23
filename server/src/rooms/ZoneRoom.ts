@@ -40,6 +40,7 @@ import {
   LIGHT_OIL_ITEM,
   LIGHT_REFUEL_AMOUNT,
   LIGHT_MAX_ENERGY,
+  REST_COOLDOWN_MS,
   HOUSE_RANGE,
   PLOT_DECOR_SLOTS,
   isValidRoofId,
@@ -210,6 +211,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   private playerLastStaminaRegenAt = new Map<string, number>();
   private playerLastHungerNoticeAt = new Map<string, number>();
   private playerLastDarkNoticeAt = new Map<string, number>();
+  private playerLastRestAt = new Map<string, number>();
   private lastPlotLightSweepAt = 0;
   private playerEquipment = new Map<string, ReturnType<typeof normalizeEquipment>>();
   private playerWallets = new Map<string, string>();
@@ -387,6 +389,10 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
     this.onMessage("housingRefuel", (client, message: { plotId?: string }) => {
       this.handleHousingRefuel(client, message.plotId ?? "");
+    });
+
+    this.onMessage("housingRest", (client, message: { plotId?: string }) => {
+      void this.handleHousingRest(client, message.plotId ?? "");
     });
 
     this.onMessage("guildCreate", (client, message: { name?: string; tag?: string }) => {
@@ -635,6 +641,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       this.playerLastStaminaRegenAt.delete(player.name);
       this.playerLastHungerNoticeAt.delete(player.name);
       this.playerLastDarkNoticeAt.delete(player.name);
+      this.playerLastRestAt.delete(player.name);
       this.playerWallets.delete(client.sessionId);
       this.playerSkills.delete(player.name);
     }
@@ -2865,6 +2872,54 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     this.broadcastHousingState();
     client.send("housingResult", { ok: true, plotId, ownerName: player.name });
     void this.persistPlayer(player);
+  }
+
+  /** Rest at your own house to recover energy + HP (on a cooldown). */
+  private async handleHousingRest(client: Client, plotId: string) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !plotId) return;
+    if (this.isKnockedOut(player.name)) {
+      client.send("housingResult", { ok: false, plotId, error: "You can't rest while knocked out." });
+      return;
+    }
+
+    const owner = getPlotOwner(plotId);
+    if (!owner || owner.ownerName !== player.name) {
+      client.send("housingResult", { ok: false, plotId, error: "You can only rest in your own home." });
+      return;
+    }
+    if (owner.structure !== "house") {
+      client.send("housingResult", { ok: false, plotId, error: "You can only rest in a house, not a shop." });
+      return;
+    }
+
+    const now = Date.now();
+    const last = this.playerLastRestAt.get(player.name) ?? 0;
+    const remaining = REST_COOLDOWN_MS - (now - last);
+    if (remaining > 0) {
+      const mins = Math.ceil(remaining / 60_000);
+      client.send("housingResult", {
+        ok: false,
+        plotId,
+        error: `You're well-rested. Rest again in ${mins} minute${mins === 1 ? "" : "s"}.`,
+      });
+      return;
+    }
+
+    this.playerLastRestAt.set(player.name, now);
+    this.playerStamina.set(player.name, MAX_STAMINA);
+    this.playerHp.set(player.name, getPlayerMaxHp(player.level));
+    this.sendProfile(client, player);
+    client.send("housingResult", { ok: true, plotId, ownerName: player.name });
+    this.broadcastChat({
+      id: crypto.randomUUID(),
+      channel: "system",
+      senderId: "system",
+      senderName: "Home",
+      body: `😴 ${player.name} rested at home and feels refreshed (energy + HP restored).`,
+      sentAt: now,
+    });
+    await this.persistPlayer(player);
   }
 
   private async handleGuildCreate(client: Client, rawName: string, rawTag: string) {
