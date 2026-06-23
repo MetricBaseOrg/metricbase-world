@@ -10,6 +10,7 @@ import {
 import { useState } from "react";
 import { isSoundEnabled, playSfx, setSoundEnabled } from "../audio/soundEffects";
 import { isMusicEnabled, setMusicEnabled } from "../audio/backgroundMusic";
+import { networkManager } from "../game/network";
 import { useGameStore } from "../store/gameStore";
 import { shortenWallet } from "../wallet/solanaProvider";
 import { CircleGauge } from "./CircleGauge";
@@ -37,6 +38,8 @@ export function HUD({ onLeave }: HUDProps) {
     playerMaxStamina,
     equippedWeaponId,
     equippedToolId,
+    lampOn,
+    setLampOn,
     walletAddress,
     connected,
     zoneName,
@@ -242,6 +245,21 @@ export function HUD({ onLeave }: HUDProps) {
             >
               {musicOn ? "🎵" : "🎵̶"}
             </button>
+            <button
+              type="button"
+              className="chibi-btn chibi-btn--ghost"
+              style={{ padding: "4px 8px", fontSize: "0.78rem", opacity: lampOn ? 1 : 0.55 }}
+              onClick={() => {
+                const next = !lampOn;
+                setLampOn(next);
+                networkManager.sendToggleLamp(next);
+                if (soundOn) playSfx("ui_click");
+              }}
+              aria-label={lampOn ? "Turn off lamp (L)" : "Turn on lamp (L)"}
+              title={lampOn ? "Lamp on — click or press L to turn off" : "Lamp off — click or press L to light it"}
+            >
+              {lampOn ? "🔦" : "💡"}
+            </button>
           </div>
 
           {activeQuest && (
@@ -258,7 +276,7 @@ export function HUD({ onLeave }: HUDProps) {
 
           {!mobileLayout && (
             <div className="chibi-key-hint chibi-key-hint--desktop">
-              WASD move · E interact · Space attack/chop · F chop · G fish · I inventory · C craft
+              WASD move · E interact · Space attack/chop · F chop · G fish · I inventory · C craft · L lamp
             </div>
           )}
 

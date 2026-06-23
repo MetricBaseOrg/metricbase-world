@@ -23,6 +23,7 @@ import {
   structureLabel,
   getEmote,
   getWorldTime,
+  LAMP_GLOW_DIAMETER,
   tileToWorld,
   type FarmStatePayload,
   type HousingStatePayload,
@@ -66,6 +67,8 @@ interface RenderedPlayer {
   remoteMoving: boolean;
   prevSpriteX: number;
   prevSpriteY: number;
+  lampOn: boolean;
+  glow: Phaser.GameObjects.Image | null;
 }
 
 interface RenderedFarmPlot {
@@ -160,6 +163,8 @@ export class GameScene extends Phaser.Scene {
   private chopHitTimer: Phaser.Time.TimerEvent | null = null;
   private cameraFollowSprite: Phaser.GameObjects.Sprite | null = null;
   private dayNightOverlay: Phaser.GameObjects.Rectangle | null = null;
+  private lampKey: Phaser.Input.Keyboard.Key | null = null;
+  private localLampGlow: Phaser.GameObjects.Image | null = null;
 
   constructor() {
     super("GameScene");
@@ -177,6 +182,9 @@ export class GameScene extends Phaser.Scene {
       .rectangle(0, 0, 10, 10, 0x0a1538, 0)
       .setOrigin(0, 0)
       .setDepth(99_999);
+
+    // Soft radial texture used for hand-lamp glows (drawn additively over night).
+    this.ensureGlowTexture();
     this.scale.on(Phaser.Scale.Events.RESIZE, this.handleViewportResize, this);
     this.scale.refresh();
     this.handleViewportResize();
@@ -191,6 +199,7 @@ export class GameScene extends Phaser.Scene {
       this.attackKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
       this.chopKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.F);
       this.fishKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.G);
+      this.lampKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.L);
     }
 
     const unsubscribePlayers = networkManager.onPlayersChange((players, sessionId) => {
@@ -209,8 +218,12 @@ export class GameScene extends Phaser.Scene {
       this.renderedPlayers.forEach((entry) => {
         entry.sprite.destroy();
         entry.label.destroy();
+        entry.glow?.destroy();
       });
       this.renderedPlayers.clear();
+      // The server resets each player's lamp to off on (re)join, so mirror that.
+      useGameStore.getState().setLampOn(false);
+      this.localLampGlow?.setVisible(false);
       this.renderZone(zoneId);
       playSfx("zone_enter");
     });
@@ -416,12 +429,85 @@ export class GameScene extends Phaser.Scene {
       this.sweepStrayAvatarSprites();
     }
 
+    if (
+      this.lampKey &&
+      Phaser.Input.Keyboard.JustDown(this.lampKey) &&
+      !isUiTypingActive()
+    ) {
+      this.toggleLamp();
+    }
+
     this.bindCameraToLocalPlayer();
     this.applyKnockedOutVisuals();
     this.redrawActiveChopBars();
     this.updateFarmPlots();
     this.updatePlayerAnimations();
     this.updateDayNight();
+    this.updateLamps();
+  }
+
+  /** Flip the local player's lamp, sync it, and reflect it in the HUD store. */
+  toggleLamp() {
+    const on = !useGameStore.getState().lampOn;
+    useGameStore.getState().setLampOn(on);
+    networkManager.sendToggleLamp(on);
+    playSfx("ui_open");
+  }
+
+  private ensureGlowTexture() {
+    if (this.textures.exists("lamp-glow")) return;
+    const size = 256;
+    const tex = this.textures.createCanvas("lamp-glow", size, size);
+    if (!tex) return;
+    const ctx = tex.getContext();
+    const r = size / 2;
+    const grad = ctx.createRadialGradient(r, r, 0, r, r, r);
+    grad.addColorStop(0, "rgba(255, 244, 214, 0.95)");
+    grad.addColorStop(0.45, "rgba(255, 232, 170, 0.45)");
+    grad.addColorStop(1, "rgba(255, 230, 160, 0)");
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, size, size);
+    tex.refresh();
+  }
+
+  private makeGlow(): Phaser.GameObjects.Image {
+    const glow = this.add
+      .image(0, 0, "lamp-glow")
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setDepth(100_000)
+      .setDisplaySize(LAMP_GLOW_DIAMETER, LAMP_GLOW_DIAMETER)
+      .setVisible(false);
+    return glow;
+  }
+
+  /**
+   * Draw a warm glow under every player whose lamp is on. The glow is additive,
+   * so it brightens the night overlay; its strength scales with how dark it is,
+   * so a lamp is most useful at night and barely shows in daylight.
+   */
+  private updateLamps() {
+    const darkness = getWorldTime().overlayAlpha;
+    const intensity = Math.min(1, 0.14 + darkness * 1.7);
+
+    // Local player — driven by the store for instant on/off feedback.
+    const localOn = useGameStore.getState().lampOn;
+    const local = this.localAvatar;
+    if (localOn && local) {
+      if (!this.localLampGlow) this.localLampGlow = this.makeGlow();
+      this.localLampGlow.setPosition(local.sprite.x, local.sprite.y - 12).setVisible(true).setAlpha(intensity);
+    } else if (this.localLampGlow) {
+      this.localLampGlow.setVisible(false);
+    }
+
+    // Remote players — driven by their synced lampOn state.
+    for (const rendered of this.renderedPlayers.values()) {
+      if (rendered.lampOn) {
+        if (!rendered.glow) rendered.glow = this.makeGlow();
+        rendered.glow.setPosition(rendered.sprite.x, rendered.sprite.y - 12).setVisible(true).setAlpha(intensity);
+      } else if (rendered.glow) {
+        rendered.glow.setVisible(false);
+      }
+    }
   }
 
   /** Pin the lighting overlay over the visible world and tint it for the time of day. */
@@ -545,6 +631,7 @@ export class GameScene extends Phaser.Scene {
       level: useGameStore.getState().playerLevel,
       xp: useGameStore.getState().playerXp,
       guildTag: "",
+      lampOn: useGameStore.getState().lampOn,
       appearance: normalizeCharacterAppearance(appearance),
     });
   }
@@ -576,6 +663,7 @@ export class GameScene extends Phaser.Scene {
   private destroyRenderedPlayer(sessionId: string, rendered: RenderedPlayer) {
     rendered.sprite.destroy();
     rendered.label.destroy();
+    rendered.glow?.destroy();
     this.renderedPlayers.delete(sessionId);
   }
 
@@ -671,6 +759,8 @@ export class GameScene extends Phaser.Scene {
       remoteMoving: false,
       prevSpriteX: player.x,
       prevSpriteY: player.y,
+      lampOn: player.lampOn,
+      glow: null,
     };
   }
 
@@ -1729,6 +1819,7 @@ export class GameScene extends Phaser.Scene {
         existing.lastTargetY = existing.targetY;
         existing.targetX = player.x;
         existing.targetY = player.y;
+        existing.lampOn = player.lampOn;
         existing.label.setText(nameplateText(player));
       }
     }

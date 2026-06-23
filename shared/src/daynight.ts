@@ -6,6 +6,9 @@
 
 export const DAY_LENGTH_MS = 20 * 60 * 1000; // one full day+night every 20 real minutes
 
+/** Diameter (world px) of a player's hand-lamp glow. */
+export const LAMP_GLOW_DIAMETER = 320;
+
 export type DayPhase = "dawn" | "day" | "dusk" | "night";
 
 export interface WorldTime {

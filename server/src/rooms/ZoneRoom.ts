@@ -387,6 +387,11 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       this.handleEmote(client, message.emoteId ?? "");
     });
 
+    this.onMessage("toggleLamp", (client, message: { on?: boolean }) => {
+      const player = this.state.players.get(client.sessionId);
+      if (player) player.lampOn = Boolean(message.on);
+    });
+
     this.onMessage(
       "shopStock",
       (client, message: { plotId?: string; itemId?: string; quantity?: number; price?: number }) => {
@@ -493,6 +498,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     player.hairStyle = appearance.hairStyle;
     player.outfitStyle = appearance.outfitStyle;
     player.guildTag = tagForMember(name);
+    player.lampOn = false;
 
     const maxHp = getPlayerMaxHp(player.level);
     const spawn = tileToWorld(this.zoneConfig.spawnTile.x, this.zoneConfig.spawnTile.y);

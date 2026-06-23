@@ -31,6 +31,7 @@ interface GameStore {
   freeRespawnAt: number | null;
   equippedWeaponId: string | null;
   equippedToolId: string | null;
+  lampOn: boolean;
   walletAddress: string | null;
   connected: boolean;
   playerCount: number;
@@ -74,6 +75,7 @@ interface GameStore {
   applyProfilePatch: (profile: Partial<ProfilePayload>) => void;
   setPlayerGold: (gold: number) => void;
   setPlayerVitals: (hp: number, maxHp: number) => void;
+  setLampOn: (on: boolean) => void;
   setWalletAddress: (wallet: string | null) => void;
   setConnected: (connected: boolean) => void;
   setPlayerCount: (count: number) => void;
@@ -119,6 +121,7 @@ export const useGameStore = create<GameStore>((set) => ({
   freeRespawnAt: null,
   equippedWeaponId: null,
   equippedToolId: null,
+  lampOn: false,
   walletAddress: null,
   connected: false,
   playerCount: 0,
@@ -191,6 +194,7 @@ export const useGameStore = create<GameStore>((set) => ({
     })),
   setPlayerGold: (playerGold) => set({ playerGold }),
   setPlayerVitals: (playerHp, playerMaxHp) => set({ playerHp, playerMaxHp }),
+  setLampOn: (lampOn) => set({ lampOn }),
   setWalletAddress: (walletAddress) => set({ walletAddress }),
   setConnected: (connected) => set({ connected }),
   setPlayerCount: (count) => set({ playerCount: count }),

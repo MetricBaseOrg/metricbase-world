@@ -52,6 +52,7 @@ export interface RemotePlayer {
   level: number;
   xp: number;
   guildTag: string;
+  lampOn: boolean;
   appearance: CharacterAppearance;
 }
 
@@ -288,6 +289,10 @@ export class NetworkManager {
 
   sendAttack(npcId: string) {
     this.room?.send("attack", { npcId });
+  }
+
+  sendToggleLamp(on: boolean) {
+    this.room?.send("toggleLamp", { on });
   }
 
   sendChop(resourceId: string) {
@@ -1114,6 +1119,7 @@ export class NetworkManager {
         level: player.level,
         xp: player.xp,
         guildTag: player.guildTag,
+        lampOn: player.lampOn,
         appearance: player.appearance,
       })),
     );
@@ -1159,6 +1165,7 @@ export class NetworkManager {
       level: player.level,
       xp: player.xp ?? 0,
       guildTag: player.guildTag ?? "",
+      lampOn: Boolean(player.lampOn),
       appearance: normalizeCharacterAppearance({
         bodyColor: player.bodyColor,
         hairColor: player.hairColor,

@@ -13,6 +13,7 @@ export const PlayerSchema = schema({
   hairStyle: "string",
   outfitStyle: "string",
   guildTag: "string",
+  lampOn: "boolean",
 });
 
 export type Player = InstanceType<typeof PlayerSchema>;
