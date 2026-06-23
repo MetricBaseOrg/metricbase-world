@@ -169,6 +169,7 @@ export class GameScene extends Phaser.Scene {
   private dayNightOverlay: Phaser.GameObjects.Rectangle | null = null;
   private lampKey: Phaser.Input.Keyboard.Key | null = null;
   private localLampGlow: Phaser.GameObjects.Image | null = null;
+  private interactHint: Phaser.GameObjects.Text | null = null;
   private weatherOverlay: Phaser.GameObjects.Rectangle | null = null;
   private rainEmitter: Phaser.GameObjects.Particles.ParticleEmitter | null = null;
   private rainZone = new Phaser.Geom.Rectangle(0, 0, 100, 8);
@@ -195,6 +196,20 @@ export class GameScene extends Phaser.Scene {
 
     // Soft radial texture used for hand-lamp glows (drawn additively over night).
     this.ensureGlowTexture();
+
+    // Contextual "press E to ..." prompt floating over the nearest interactable.
+    this.interactHint = this.add
+      .text(0, 0, "", {
+        fontFamily: "Nunito, sans-serif",
+        fontSize: "13px",
+        fontStyle: "700",
+        color: "#fff7ea",
+        backgroundColor: "#3b2c1eee",
+        padding: { x: 8, y: 4 },
+      })
+      .setOrigin(0.5, 1)
+      .setDepth(101_000)
+      .setVisible(false);
 
     // Weather: a tint overlay (fog/cloud/rain darkening) plus a rain emitter.
     this.weatherOverlay = this.add
@@ -476,6 +491,93 @@ export class GameScene extends Phaser.Scene {
     this.updateDayNight();
     this.updateLamps();
     this.updateWeather();
+    this.updateInteractHint();
+  }
+
+  /** Float a "press E to …" prompt over the nearest interactable (matches tryInteract's priority). */
+  private updateInteractHint() {
+    const hint = this.interactHint;
+    if (!hint) return;
+
+    const store = useGameStore.getState();
+    const local = this.findLocalPlayer();
+    const panelOpen =
+      store.shopOpen || store.housingOpen || store.playerShopOpen || store.inventoryOpen || store.craftOpen;
+    if (!local || store.knockedOut || isUiTypingActive() || panelOpen) {
+      hint.setVisible(false);
+      return;
+    }
+
+    const px = local.predicted.x;
+    const py = local.predicted.y;
+    let target: { x: number; y: number; label: string } | null = null;
+
+    // Farm plots take priority (plant/harvest).
+    let bestFarm: RenderedFarmPlot | null = null;
+    let bestFarmD = FARM_RANGE;
+    for (const plot of this.renderedFarmPlots.values()) {
+      const d = Math.hypot(px - plot.worldX, py - plot.worldY);
+      if (d <= bestFarmD) {
+        bestFarm = plot;
+        bestFarmD = d;
+      }
+    }
+    if (bestFarm) {
+      const verb = bestFarm.stage === "ready" ? "Harvest" : bestFarm.stage === "growing" ? null : "Plant seed";
+      if (verb) target = { x: bestFarm.worldX, y: bestFarm.worldY - 36, label: verb };
+    }
+
+    // Then land plots (buy / manage / visit).
+    if (!target) {
+      let bestLand: RenderedLandPlot | null = null;
+      let bestLandD = HOUSE_RANGE;
+      for (const land of this.renderedLandPlots.values()) {
+        const d = Math.hypot(px - land.worldX, py - land.worldY);
+        if (d <= bestLandD) {
+          bestLand = land;
+          bestLandD = d;
+        }
+      }
+      if (bestLand) {
+        const state = networkManager.getHousingState().plots.find((p) => p.plotId === bestLand!.id);
+        const mine = state?.ownerName === store.playerName;
+        let label = "Buy this plot";
+        if (state && state.structure === "shop") label = mine ? "Manage your shop" : "Browse shop";
+        else if (state && state.structure === "house") label = mine ? "Manage your house" : `${state.ownerName}'s house`;
+        target = { x: bestLand.worldX, y: bestLand.worldY - 52, label };
+      }
+    }
+
+    // Finally talkable NPCs (skip mobs — those are attacked, not interacted).
+    if (!target) {
+      let bestNpc: RenderedNpc | null = null;
+      let bestNpcD = NPC_INTERACT_RANGE;
+      for (const npc of this.renderedNpcs) {
+        if (npc.combat) continue;
+        const d = Math.hypot(px - npc.worldX, py - npc.worldY);
+        if (d <= bestNpcD) {
+          bestNpc = npc;
+          bestNpcD = d;
+        }
+      }
+      if (bestNpc) {
+        const config = getZoneConfig(this.currentZoneId ?? networkManager.zoneId);
+        const npcDef = config.npcs.find((n) => n.id === bestNpc!.id);
+        const name = bestNpc.label.text || "them";
+        const label = npcDef?.shopId ? `Shop with ${name}` : `Talk to ${name}`;
+        target = { x: bestNpc.worldX, y: bestNpc.headTopY - 8, label };
+      }
+    }
+
+    if (!target) {
+      hint.setVisible(false);
+      return;
+    }
+
+    const cue = this.sys.game.device.input.touch ? "✨" : "E";
+    hint.setText(`${cue} · ${target.label}`);
+    hint.setPosition(Math.round(target.x), Math.round(target.y));
+    hint.setVisible(true);
   }
 
   private ensureRaindropTexture() {

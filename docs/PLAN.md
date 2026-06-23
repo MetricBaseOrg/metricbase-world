@@ -32,6 +32,8 @@ server on Railway, Neon PostgreSQL, Solana token gate/market.
   night for everyone and burns a per-plot energy reserve, refueled with craftable
   **Lamp Oil** (2 fish + 1 wood). `effectiveLight`, `housingLight`/`housingRefuel`;
   persisted on the plot.
+- **Interaction prompts:** a floating "E · …" cue over the nearest interactable
+  (NPC / land plot / farm plot) so it's obvious what you can use and how.
 - **Energy / hunger:** working actions (gather/attack/farm) spend Energy;
   food restores it (`shared/src/stamina.ts`). Out of energy = too hungry to work
   until you eat; slow trickle avoids hard locks; persisted (`stamina` column).
