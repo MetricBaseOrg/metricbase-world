@@ -11,6 +11,11 @@ export const QUEST_SLIME_SAMPLES = "quest_slime_samples";
 export const QUEST_ARIA_COMMENDATION = "quest_aria_commendation";
 export const QUEST_EXPLORE_GROTTO = "quest_explore_grotto";
 export const QUEST_DEFEAT_BRUTE = "quest_defeat_brute";
+export const QUEST_SMITH_INTRO = "quest_smith_intro";
+export const QUEST_SMITH_IRON = "quest_smith_iron";
+export const QUEST_SMITH_STEEL = "quest_smith_steel";
+export const QUEST_SMITH_RARE = "quest_smith_rare";
+export const QUEST_SMITH_MASTER = "quest_smith_master";
 
 export type QuestObjectiveType = "talk_npc" | "visit_zone" | "defeat_npc" | "collect_item";
 
@@ -178,6 +183,64 @@ export const QUESTS: Record<string, QuestDefinition> = {
     rewardGold: 75,
     startNpcId: "grotto_warden",
     requiresCompleted: [QUEST_EXPLORE_GROTTO],
+  },
+  [QUEST_SMITH_INTRO]: {
+    id: QUEST_SMITH_INTRO,
+    title: "The Blacksmith's Call",
+    description: "Brenna the smith has set up her forge in the hub. See what she needs.",
+    objectives: [{ type: "talk_npc", target: "hub_smith", label: "Talk to Brenna" }],
+    rewardXp: 60,
+    rewardGold: 20,
+    startNpcId: "hub_smith",
+    requiresCompleted: [QUEST_VETERAN],
+  },
+  [QUEST_SMITH_IRON]: {
+    id: QUEST_SMITH_IRON,
+    title: "Iron in the Blood",
+    description: "Brenna needs raw iron from the Wilderness deposits (Mining 3) to stoke the forge.",
+    objectives: [
+      { type: "collect_item", target: "item_iron_ore", count: 5, label: "Collect 5 Iron Ore" },
+    ],
+    rewardXp: 100,
+    rewardGold: 45,
+    startNpcId: "hub_smith",
+    requiresCompleted: [QUEST_SMITH_INTRO],
+  },
+  [QUEST_SMITH_STEEL]: {
+    id: QUEST_SMITH_STEEL,
+    title: "Tempered Steel",
+    description: "Smelt iron with hardwood into steel bars and bring two to prove your craft.",
+    objectives: [
+      { type: "collect_item", target: "item_steel_bar", count: 2, label: "Forge 2 Steel Bars" },
+    ],
+    rewardXp: 150,
+    rewardGold: 70,
+    startNpcId: "hub_smith",
+    requiresCompleted: [QUEST_SMITH_IRON],
+  },
+  [QUEST_SMITH_RARE]: {
+    id: QUEST_SMITH_RARE,
+    title: "A Rare Find",
+    description: "Brenna wants a gemstone — keep gathering and luck will turn one up.",
+    objectives: [
+      { type: "collect_item", target: "item_gemstone", count: 1, label: "Find 1 Gemstone" },
+    ],
+    rewardXp: 220,
+    rewardGold: 120,
+    startNpcId: "hub_smith",
+    requiresCompleted: [QUEST_SMITH_STEEL],
+  },
+  [QUEST_SMITH_MASTER]: {
+    id: QUEST_SMITH_MASTER,
+    title: "Master Smith",
+    description: "Return to Brenna — she has a master-forged tool for a smith of your standing.",
+    objectives: [{ type: "talk_npc", target: "hub_smith", label: "Report back to Brenna" }],
+    rewardXp: 300,
+    rewardGold: 100,
+    rewardItemId: "item_steel_pickaxe",
+    rewardItemQuantity: 1,
+    startNpcId: "hub_smith",
+    requiresCompleted: [QUEST_SMITH_RARE],
   },
 };
 

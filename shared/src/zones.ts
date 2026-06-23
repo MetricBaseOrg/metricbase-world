@@ -97,6 +97,14 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
         dialogue:
           "Welcome to Pip's Provisions! Trade gold on the open market, or buy gear with in-game gold.",
       },
+      {
+        id: "hub_smith",
+        name: "Brenna",
+        tileX: 13,
+        tileY: 10,
+        dialogue:
+          "The forge is hot, friend. Bring me iron, temper it into steel, and who knows — strike lucky and we'll set a gemstone in a real blade. Got the makings of a smith in you?",
+      },
     ],
     // Resources sit in themed regions: a NW forest, a W quarry, and the SE lake.
     resources: [

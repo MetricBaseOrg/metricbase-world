@@ -80,7 +80,9 @@ server on Railway, Neon PostgreSQL, Solana token gate/market.
   the top weapon. Next: gear with rolled stat ranges and set bonuses.
 - ✅ Persist farm-plot state to the DB (process-global `farm_plots` registry;
   crops keep growing across restarts).
-- More zones, NPCs, quests, and recipes around the loop.
+- More zones, NPCs, quests, and recipes around the loop. ✅ Brenna the
+  Blacksmith (hub) + a five-quest Smith chain (iron → steel → gemstone →
+  master Steel Pickaxe) that onboards players into the tool/material tiers.
 
 ---
 
