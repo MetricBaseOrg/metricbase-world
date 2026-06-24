@@ -839,35 +839,65 @@ export class BootScene extends Phaser.Scene {
       windowPanes(gg, win);
     };
 
-    // Shop accent — door, striped awning over the SE wall, coin sign.
-    const shopAccent = (gg: Phaser.GameObjects.Graphics) => {
-      const dbl = lerp(fS, fE, 0.34);
-      const dbr = lerp(fS, fE, 0.56);
-      const door: P[] = [dbl, dbr, [dbr[0], dbr[1] - 28], [dbl[0], dbl[1] - 28]];
+    // Shop accent (factory) — a glass display window with goods on the SE wall
+    // under a roof-coloured striped, scalloped awning, plus a slim door and a
+    // hanging coin sign. The awning takes the building's roof colour so painted
+    // shops get matching market fronts (like a real high street of stalls).
+    // A point on the SE wall: base position `p` (0=front-centre .. 1=right) and
+    // vertical offset `o` (0=base, up to wallH at the eave).
+    const onSE = (p: number, o: number): P => {
+      const base = lerp(fS, fE, p);
+      return [base[0], base[1] - o];
+    };
+    const makeShopAccent = (roof: number, roofDark: number) => (gg: Phaser.GameObjects.Graphics) => {
+      // Slim door on the left of the front wall.
+      const door: P[] = [onSE(0.12, 0), onSE(0.3, 0), onSE(0.3, 30), onSE(0.12, 30)];
       poly(gg, door, 0x7a5236);
       outline(gg, door);
-      // striped awning band high on the SE wall
-      for (let i = 0; i < 6; i++) {
-        const a = lerp(fS, fE, i / 6);
-        const b = lerp(fS, fE, (i + 1) / 6);
-        const band: P[] = [
-          [a[0], a[1] - wallH + 12],
-          [b[0], b[1] - wallH + 12],
-          [b[0], b[1] - wallH - 3],
-          [a[0], a[1] - wallH - 3],
-        ];
-        poly(gg, band, i % 2 === 0 ? 0xe2483b : 0xfff1e0);
+      gg.fillStyle(0xf2c94c, 1).fillCircle(onSE(0.29, 14)[0] - 1, onSE(0.29, 14)[1], 1.8);
+
+      // Glass display window with goods on a shelf.
+      const win: P[] = [onSE(0.4, 4), onSE(0.92, 4), onSE(0.92, 29), onSE(0.4, 29)];
+      poly(gg, win, 0xcdebff);
+      gg.fillStyle(0xffffff, 0.3);
+      poly(gg, [onSE(0.4, 18), onSE(0.92, 18), onSE(0.92, 29), onSE(0.4, 29)], 0xeaf7ff);
+      outline(gg, win);
+      // shelf line
+      outline(gg, [onSE(0.4, 13), onSE(0.92, 13)], false);
+      // a few goods (generic colourful wares) sitting on the shelf
+      const wares = [0xe2483b, 0xf2a93c, 0x6cc06a, 0xb06fd0, 0xe2483b];
+      wares.forEach((col, i) => {
+        const p = 0.46 + i * 0.1;
+        const b = onSE(p, 13);
+        gg.fillStyle(col, 1).fillRoundedRect(b[0] - 2.4, b[1] - 8, 4.8, 8, 1.4);
+        gg.lineStyle(1, OUTLINE, 0.7).strokeRoundedRect(b[0] - 2.4, b[1] - 8, 4.8, 8, 1.4);
+      });
+
+      // Scalloped striped awning above the window (roof colour).
+      const awTop = 41;
+      const awBot = 30;
+      const awL = 0.34;
+      const awR = 0.96;
+      const awn: P[] = [onSE(awL, awBot), onSE(awR, awBot), onSE(awR, awTop), onSE(awL, awTop)];
+      poly(gg, awn, roof);
+      for (let i = 0; i < 6; i += 2) {
+        const a = awL + ((awR - awL) * i) / 6;
+        const b = awL + ((awR - awL) * (i + 1)) / 6;
+        poly(gg, [onSE(a, awBot), onSE(b, awBot), onSE(b, awTop), onSE(a, awTop)], roofDark);
       }
-      const aw0 = lerp(fS, fE, 0);
-      const aw1 = lerp(fS, fE, 1);
-      outline(gg, [
-        [aw0[0], aw0[1] - wallH + 12],
-        [aw1[0], aw1[1] - wallH + 12],
-        [aw1[0], aw1[1] - wallH - 3],
-        [aw0[0], aw0[1] - wallH - 3],
-      ]);
-      gg.fillStyle(0xf2c94c, 1).fillCircle(tE[0] - 6, tE[1] - 8, 7);
-      gg.lineStyle(2, OUTLINE, 1).strokeCircle(tE[0] - 6, tE[1] - 8, 7);
+      outline(gg, awn);
+      // scallop fringe hanging off the awning's front edge
+      for (let i = 0; i < 6; i++) {
+        const a = awL + ((awR - awL) * i) / 6;
+        const m = awL + ((awR - awL) * (i + 0.5)) / 6;
+        const b = awL + ((awR - awL) * (i + 1)) / 6;
+        gg.fillStyle(i % 2 === 0 ? roof : roofDark, 1);
+        gg.fillTriangle(...onSE(a, awBot), ...onSE(b, awBot), ...onSE(m, awBot - 5));
+      }
+
+      // Hanging coin sign over the door.
+      gg.fillStyle(0xf2c94c, 1).fillCircle(onSE(0.2, 34)[0], onSE(0.2, 34)[1], 6);
+      gg.lineStyle(2, OUTLINE, 1).strokeCircle(onSE(0.2, 34)[0], onSE(0.2, 34)[1], 6);
     };
 
     const bakeBuilding = (key: string, roof: number, roofDark: number, accent: typeof houseAccent) => {
@@ -879,12 +909,12 @@ export class BootScene extends Phaser.Scene {
 
     // Base textures: House (blue roof) and Shop (warm roof).
     bakeBuilding("house", 0x4f8cff, 0x3a6fd0, houseAccent);
-    bakeBuilding("shop", 0xe07a3c, 0xb85f2a, shopAccent);
+    bakeBuilding("shop", 0xe07a3c, 0xb85f2a, makeShopAccent(0xe07a3c, 0xb85f2a));
 
     // Roof-paint variants ("house_<id>" / "shop_<id>") for housing customization.
     for (const color of ROOF_COLORS) {
       bakeBuilding(`house_${color.id}`, color.roof, color.roofDark, houseAccent);
-      bakeBuilding(`shop_${color.id}`, color.roof, color.roofDark, shopAccent);
+      bakeBuilding(`shop_${color.id}`, color.roof, color.roofDark, makeShopAccent(color.roof, color.roofDark));
     }
 
     // Empty plot — iso dirt diamond + a "for sale" signpost.
