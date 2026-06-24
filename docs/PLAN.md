@@ -43,6 +43,8 @@ server on Railway, Neon PostgreSQL, Solana token gate/market.
   (persisted); overlays track the zoom.
 - **Edge portals + gate art:** zone portals sit at map edges (no accidental
   entry) and render as glowing magenta gates with labels (`portal_gate`).
+- **Ground detail scatter:** deterministic cosmetic flowers/mushrooms/pebbles/
+  tufts/leaves over grass + subtle per-tile grass tint (`renderGroundDetails`).
 - **Multi-currency gold market:** P2P gold orders can be priced in $BASE, USDC,
   IDRX, or SOL (per-order `currency`; SPL or native-SOL settlement verified
   on-chain). `shared/src/currencies.ts`, `verifyPeerSolTransfer`.

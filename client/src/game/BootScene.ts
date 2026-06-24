@@ -39,6 +39,81 @@ export class BootScene extends Phaser.Scene {
     this.createSceneryTextures();
     this.createBillboardTexture();
     this.createPortalTexture();
+    this.createGroundDetailTextures();
+  }
+
+  /** Small cosmetic props scattered over grass to make the ground feel alive. */
+  private createGroundDetailTextures() {
+    const shadow = (g: Phaser.GameObjects.Graphics, cx: number, by: number, w: number) =>
+      g.fillStyle(0x2a1d12, 0.16).fillEllipse(cx, by, w, Math.max(3, w * 0.32));
+
+    // Flower cluster — three little blooms on stems.
+    let g = this.make.graphics({ x: 0, y: 0 });
+    {
+      const W = 22, H = 20, cx = W / 2, by = H - 3;
+      shadow(g, cx, by, 14);
+      const bloom = (x: number, y: number, petal: number) => {
+        g.lineStyle(1.4, 0x4f8a3d, 1);
+        g.strokePoints([{ x, y: by - 1 }, { x, y }], false);
+        g.fillStyle(petal, 1).fillCircle(x, y, 2.6);
+        g.fillStyle(0xfff0a8, 1).fillCircle(x, y, 1.1);
+      };
+      bloom(cx - 5, by - 9, 0xff8fb3);
+      bloom(cx + 1, by - 12, 0xfff0a8);
+      bloom(cx + 6, by - 8, 0x9ec5ff);
+      g.generateTexture("detail_flowers", W, H);
+      g.destroy();
+    }
+
+    // Mushroom — red cap with white spots.
+    g = this.make.graphics({ x: 0, y: 0 });
+    {
+      const W = 16, H = 16, cx = W / 2, by = H - 3;
+      shadow(g, cx, by, 11);
+      g.fillStyle(0xf2ecd9, 1).fillRoundedRect(cx - 2, by - 6, 4, 6, 1.5);
+      g.fillStyle(0xd0463f, 1).fillEllipse(cx, by - 6, 11, 7);
+      g.lineStyle(1.5, OUTLINE, 1).strokeEllipse(cx, by - 6, 11, 7);
+      g.fillStyle(0xfff3e8, 1).fillCircle(cx - 2, by - 7, 1.3).fillCircle(cx + 3, by - 6, 1.1);
+      g.generateTexture("detail_mushroom", W, H);
+      g.destroy();
+    }
+
+    // Pebbles — a couple of small stones.
+    g = this.make.graphics({ x: 0, y: 0 });
+    {
+      const W = 18, H = 12, cx = W / 2, by = H - 3;
+      shadow(g, cx, by, 13);
+      g.fillStyle(0xb4aaa0, 1).fillEllipse(cx - 3, by - 2, 8, 5);
+      g.fillStyle(0x9a8f85, 1).fillEllipse(cx + 4, by - 1, 6, 4);
+      g.lineStyle(1.3, OUTLINE, 0.8).strokeEllipse(cx - 3, by - 2, 8, 5).strokeEllipse(cx + 4, by - 1, 6, 4);
+      g.generateTexture("detail_pebbles", W, H);
+      g.destroy();
+    }
+
+    // Grass tuft — a few blades.
+    g = this.make.graphics({ x: 0, y: 0 });
+    {
+      const W = 16, H = 16, cx = W / 2, by = H - 3;
+      g.lineStyle(2, 0x5aa341, 1);
+      g.strokePoints([{ x: cx - 4, y: by }, { x: cx - 5, y: by - 8 }], false);
+      g.strokePoints([{ x: cx, y: by }, { x: cx, y: by - 11 }], false);
+      g.strokePoints([{ x: cx + 4, y: by }, { x: cx + 6, y: by - 7 }], false);
+      g.lineStyle(2, 0x7cc35a, 1);
+      g.strokePoints([{ x: cx - 1, y: by }, { x: cx - 2, y: by - 9 }], false);
+      g.generateTexture("detail_tuft", W, H);
+      g.destroy();
+    }
+
+    // Fallen leaves — autumn accents.
+    g = this.make.graphics({ x: 0, y: 0 });
+    {
+      const W = 18, H = 12, cx = W / 2, by = H - 4;
+      g.fillStyle(0xe08a3c, 1).fillEllipse(cx - 3, by, 6, 3.4);
+      g.fillStyle(0xc7632a, 1).fillEllipse(cx + 4, by - 2, 5, 3);
+      g.fillStyle(0xd8a13e, 1).fillEllipse(cx + 1, by + 1, 4, 2.4);
+      g.generateTexture("detail_leaf", W, H);
+      g.destroy();
+    }
   }
 
   private createPortalTexture() {

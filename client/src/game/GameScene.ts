@@ -26,6 +26,7 @@ import {
   getWeather,
   LAMP_GLOW_DIAMETER,
   ZONE_INTERIOR,
+  TILE_GRASS,
   tileToWorld,
   type FarmStatePayload,
   type HousingStatePayload,
@@ -149,6 +150,20 @@ function readStoredZoom(): number {
   return Number.isFinite(raw) && raw >= MIN_ZOOM && raw <= MAX_ZOOM ? raw : DEFAULT_ZOOM;
 }
 
+// Deterministic 0..1 hash so the cosmetic ground scatter is identical for every
+// player (no networking) and stable across renders.
+function hash01(n: number): number {
+  let x = Math.floor(n) >>> 0;
+  x = (Math.imul(x ^ (x >>> 16), 0x45d9f3b) >>> 0) >>> 0;
+  x = (Math.imul(x ^ (x >>> 16), 0x45d9f3b) >>> 0) >>> 0;
+  x = (x ^ (x >>> 16)) >>> 0;
+  return x / 0x100000000;
+}
+
+/** Near-white tints that nudge grass tiles slightly warmer/cooler for variety. */
+const GRASS_TINTS = [0xffffff, 0xf3f7e6, 0xeaf2da, 0xfff4df, 0xeef6ff];
+const GROUND_DETAILS = ["detail_flowers", "detail_mushroom", "detail_pebbles", "detail_tuft", "detail_leaf"];
+
 export class GameScene extends Phaser.Scene {
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private wasd!: {
@@ -162,6 +177,7 @@ export class GameScene extends Phaser.Scene {
   private localSessionId: string | null = null;
   private mapTiles: Phaser.GameObjects.Image[] = [];
   private renderedPortals: Phaser.GameObjects.GameObject[] = [];
+  private groundDetails: Phaser.GameObjects.Image[] = [];
   private renderedNpcs: RenderedNpc[] = [];
   private renderedResources: RenderedResource[] = [];
   private renderedFarmPlots = new Map<string, RenderedFarmPlot>();
@@ -1042,6 +1058,7 @@ export class GameScene extends Phaser.Scene {
     this.clearBillboards();
     this.clearScenery();
     this.clearPortals();
+    this.clearGroundDetails();
 
     const ground = buildZoneMap(zoneId);
 
@@ -1057,10 +1074,15 @@ export class GameScene extends Phaser.Scene {
         tile.setOrigin(0.5, 1 / 3);
         tile.setDepth(x + y);
         tile.setFrame(tileIndex);
+        // Subtle per-tile grass tint variation so the ground isn't flat.
+        if (tileIndex === TILE_GRASS) {
+          tile.setTint(GRASS_TINTS[hash01(x * 23 + y * 71 + 7) * GRASS_TINTS.length | 0]);
+        }
         this.mapTiles.push(tile);
       }
     }
 
+    this.renderGroundDetails(zoneId, ground);
     this.renderNpcs(zoneId);
     this.renderResources(zoneId);
     this.renderFarmPlots(zoneId);
@@ -1107,6 +1129,49 @@ export class GameScene extends Phaser.Scene {
   private clearPortals() {
     this.renderedPortals.forEach((obj) => obj.destroy());
     this.renderedPortals = [];
+  }
+
+  /**
+   * Scatter cosmetic props (flowers, mushrooms, pebbles…) over open grass for a
+   * lusher, cozier world. Deterministic per tile, skips occupied tiles, and is
+   * purely decorative (non-collidable).
+   */
+  private renderGroundDetails(zoneId: string, ground: number[][]) {
+    const config = getZoneConfig(zoneId);
+    const occupied = new Set<string>();
+    const mark = (x: number, y: number) => occupied.add(`${x},${y}`);
+    for (const n of config.npcs) mark(n.tileX, n.tileY);
+    for (const r of config.resources ?? []) mark(r.tileX, r.tileY);
+    for (const p of config.portals) mark(p.tileX, p.tileY);
+    for (const b of config.billboards ?? []) mark(b.tileX, b.tileY);
+    for (const s of config.scenery ?? []) mark(s.tileX, s.tileY);
+    for (const f of config.farmPlots ?? []) for (let dy = 0; dy < 2; dy++) for (let dx = 0; dx < 2; dx++) mark(f.tileX + dx, f.tileY + dy);
+    for (const l of config.landPlots ?? []) for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) mark(l.tileX + dx, l.tileY + dy);
+    mark(config.spawnTile.x, config.spawnTile.y);
+
+    const salt = zoneId.split("").reduce((a, c) => a + c.charCodeAt(0), 0) * 131;
+
+    for (let y = 0; y < MAP_HEIGHT; y++) {
+      for (let x = 0; x < MAP_WIDTH; x++) {
+        if (ground[y][x] !== TILE_GRASS || occupied.has(`${x},${y}`)) continue;
+        const h = hash01(salt + x * 73856 + y * 19349);
+        if (h >= 0.18) continue;
+        const key = GROUND_DETAILS[Math.floor(hash01(salt + x * 13 + y * 991) * GROUND_DETAILS.length)];
+        const { x: wx, y: wy } = tileToWorld(x, y);
+        const ox = (hash01(salt + x * 7 + y * 3) - 0.5) * 18;
+        const oy = (hash01(salt + x * 5 + y * 11) - 0.5) * 10;
+        const detail = this.add
+          .image(Math.round(wx + ox), Math.round(wy + oy), key)
+          .setOrigin(0.5, 0.86)
+          .setDepth(wy + oy - 1);
+        this.groundDetails.push(detail);
+      }
+    }
+  }
+
+  private clearGroundDetails() {
+    this.groundDetails.forEach((d) => d.destroy());
+    this.groundDetails = [];
   }
 
   private renderScenery(zoneId: string) {
