@@ -5,10 +5,12 @@ import { TILESET_COLUMNS } from "./mapData";
 const OUTLINE = 0x3a2a1e;
 
 // Iso-cube tile palettes: top face, two side faces, dark edge, light accent.
+// Tuned toward a warm, soft "cozy" look — gentler greens, cobblestone-lavender
+// paths, and calmer water rather than neon brights.
 const TILE_PALETTES = [
-  { top: 0x8ed666, left: 0x68b84a, right: 0x57a33d, edge: 0x4f7a2f, accent: 0xa9e87f, type: "grass" },
-  { top: 0xcfc6bf, left: 0xa99e95, right: 0x95897f, edge: 0x6f655c, accent: 0xe6ddd4, type: "stone" },
-  { top: 0x6cc6f5, left: 0x49a7e0, right: 0x3690cf, edge: 0x2f74a8, accent: 0xb8e9ff, type: "water" },
+  { top: 0x8ac35d, left: 0x6aa548, right: 0x5b963d, edge: 0x46742d, accent: 0xaad97c, type: "grass" },
+  { top: 0xc4bccb, left: 0xa69cb0, right: 0x948aa0, edge: 0x6c6276, accent: 0xded6e8, type: "stone" },
+  { top: 0x5fb4e8, left: 0x439ad6, right: 0x3185c2, edge: 0x276896, accent: 0xa9dbf5, type: "water" },
   { top: 0xc79a66, left: 0xa67c4f, right: 0x8d6a42, edge: 0x5f4126, accent: 0xe0bd8c, type: "wall" },
   { top: 0xe7a6f7, left: 0xcf73e8, right: 0xb84fd6, edge: 0x7d2f99, accent: 0xfbe2ff, type: "portal" },
 ] as const;

@@ -160,8 +160,8 @@ function hash01(n: number): number {
   return x / 0x100000000;
 }
 
-/** Near-white tints that nudge grass tiles slightly warmer/cooler for variety. */
-const GRASS_TINTS = [0xffffff, 0xf3f7e6, 0xeaf2da, 0xfff4df, 0xeef6ff];
+/** Near-white tints that nudge grass tiles warmer for cozy variety. */
+const GRASS_TINTS = [0xffffff, 0xf6f8e8, 0xeef3da, 0xfff3dc, 0xf2f3e0];
 const GROUND_DETAILS = ["detail_flowers", "detail_mushroom", "detail_pebbles", "detail_tuft", "detail_leaf"];
 
 export class GameScene extends Phaser.Scene {

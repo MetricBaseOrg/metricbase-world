@@ -49,6 +49,8 @@ server on Railway, Neon PostgreSQL, Solana token gate/market.
   tall left panel; settings/leave behind a ⚙️ menu. Mobile keeps its HUD.
 - **Market shopfronts:** built shops get a glass display window with goods under a
   roof-coloured scalloped awning (`makeShopAccent`).
+- **Warmer palette:** softer cozy tile colours — warm grass, cobblestone-lavender
+  paths, calmer water (`TILE_PALETTES`).
 - **Multi-currency gold market:** P2P gold orders can be priced in $BASE, USDC,
   IDRX, or SOL (per-order `currency`; SPL or native-SOL settlement verified
   on-chain). `shared/src/currencies.ts`, `verifyPeerSolTransfer`.
