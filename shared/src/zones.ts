@@ -477,6 +477,17 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
       { id: "wild_land_2", tileX: 15, tileY: 18 },
       { id: "wild_land_3", tileX: 20, tileY: 18 },
     ],
+    // Frontier dressing — signposts at the two gates, lamp posts lighting the
+    // trail, a trailside bench, and a hedge row by the south homesteads.
+    scenery: [
+      { id: "wild_sign_hub", tileX: 3, tileY: 13, prop: "signpost" },
+      { id: "wild_sign_grotto", tileX: 20, tileY: 13, prop: "signpost" },
+      { id: "wild_lamp_1", tileX: 5, tileY: 10, prop: "lamppost" },
+      { id: "wild_lamp_2", tileX: 16, tileY: 12, prop: "lamppost" },
+      { id: "wild_bench", tileX: 7, tileY: 5, prop: "bench" },
+      { id: "wild_hedge_1", tileX: 10, tileY: 18, prop: "hedge" },
+      { id: "wild_hedge_2", tileX: 10, tileY: 17, prop: "hedge" },
+    ],
   },
   [ZONE_GROTTO]: {
     id: ZONE_GROTTO,
@@ -519,6 +530,14 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
     landPlots: [
       { id: "grotto_land_1", tileX: 11, tileY: 3 },
       { id: "grotto_land_2", tileX: 20, tileY: 5 },
+    ],
+    // Cavern dressing — a signpost by the exit and lamp posts lighting the dark
+    // cave (no hedges/benches underground; lamps fit the grotto's gloom).
+    scenery: [
+      { id: "grotto_sign_exit", tileX: 3, tileY: 12, prop: "signpost" },
+      { id: "grotto_lamp_1", tileX: 6, tileY: 8, prop: "lamppost" },
+      { id: "grotto_lamp_2", tileX: 14, tileY: 10, prop: "lamppost" },
+      { id: "grotto_lamp_3", tileX: 17, tileY: 13, prop: "lamppost" },
     ],
   },
   [ZONE_INTERIOR]: {

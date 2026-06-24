@@ -56,6 +56,9 @@ server on Railway, Neon PostgreSQL, Solana token gate/market.
 - **Idle bob + contact shadows:** players/NPCs bob gently when idle and cast a
   soft `contact_shadow`; bob is offset from a bob-free `baseY` so it never feeds
   back into motion/interpolation.
+- **Wilderness & Grotto props:** both outdoor zones now carry `scenery` —
+  signposts at gates, lamp posts, a bench and hedge row (wilderness), cave lamps
+  (grotto); all verified clear of resources/NPCs/portals/plots.
 - **Multi-currency gold market:** P2P gold orders can be priced in $BASE, USDC,
   IDRX, or SOL (per-order `currency`; SPL or native-SOL settlement verified
   on-chain). `shared/src/currencies.ts`, `verifyPeerSolTransfer`.
