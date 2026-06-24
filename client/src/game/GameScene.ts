@@ -27,6 +27,7 @@ import {
   LAMP_GLOW_DIAMETER,
   ZONE_INTERIOR,
   TILE_GRASS,
+  TILE_WATER,
   tileToWorld,
   type FarmStatePayload,
   type HousingStatePayload,
@@ -183,6 +184,8 @@ export class GameScene extends Phaser.Scene {
   private localAvatar: RenderedPlayer | null = null;
   private localSessionId: string | null = null;
   private mapTiles: Phaser.GameObjects.Image[] = [];
+  /** Animated glints drifting over water tiles. */
+  private waterShimmers: { img: Phaser.GameObjects.Image; baseX: number; baseY: number; phase: number; speed: number }[] = [];
   private renderedPortals: Phaser.GameObjects.GameObject[] = [];
   private groundDetails: Phaser.GameObjects.Image[] = [];
   private renderedNpcs: RenderedNpc[] = [];
@@ -545,6 +548,7 @@ export class GameScene extends Phaser.Scene {
     this.updateDayNight();
     this.updateLamps();
     this.updateSceneryLights();
+    this.updateWaterShimmer();
     this.updateWeather();
     this.updateInteractHint();
     this.updatePinchZoom();
@@ -688,6 +692,29 @@ export class GameScene extends Phaser.Scene {
     grad.addColorStop(0, "rgba(18,11,6,0.42)");
     grad.addColorStop(0.55, "rgba(18,11,6,0.26)");
     grad.addColorStop(1, "rgba(18,11,6,0)");
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(0, 0, w / 2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+    tex.refresh();
+  }
+
+  /** A soft cyan-white glint reused as drifting highlights on water. */
+  private ensureWaterShimmerTexture() {
+    if (this.textures.exists("water_shimmer")) return;
+    const w = 32;
+    const h = 14;
+    const tex = this.textures.createCanvas("water_shimmer", w, h);
+    if (!tex) return;
+    const ctx = tex.getContext();
+    ctx.save();
+    ctx.translate(w / 2, h / 2);
+    ctx.scale(1, h / w);
+    const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, w / 2);
+    grad.addColorStop(0, "rgba(226, 246, 255, 0.9)");
+    grad.addColorStop(0.5, "rgba(190, 232, 255, 0.4)");
+    grad.addColorStop(1, "rgba(190, 232, 255, 0)");
     ctx.fillStyle = grad;
     ctx.beginPath();
     ctx.arc(0, 0, w / 2, 0, Math.PI * 2);
@@ -1126,6 +1153,23 @@ export class GameScene extends Phaser.Scene {
         // Subtle per-tile grass tint variation so the ground isn't flat.
         if (tileIndex === TILE_GRASS) {
           tile.setTint(GRASS_TINTS[hash01(x * 23 + y * 71 + 7) * GRASS_TINTS.length | 0]);
+        } else if (tileIndex === TILE_WATER && hash01(x * 41 + y * 17 + 3) > 0.42) {
+          // Scatter drifting glints over ~half the water tiles for a live shimmer.
+          this.ensureWaterShimmerTexture();
+          const ox = (hash01(x * 7 + y * 13) - 0.5) * 20;
+          const oy = (hash01(x * 19 + y * 5) - 0.5) * 8;
+          const img = this.add
+            .image(worldX + ox, worldY + oy, "water_shimmer")
+            .setBlendMode(Phaser.BlendModes.ADD)
+            .setDepth(x + y + 0.3)
+            .setAlpha(0);
+          this.waterShimmers.push({
+            img,
+            baseX: worldX + ox,
+            baseY: worldY + oy,
+            phase: hash01(x * 3 + y * 29) * Math.PI * 2,
+            speed: 0.0014 + hash01(x * 11 + y * 7) * 0.0010,
+          });
         }
         this.mapTiles.push(tile);
       }
@@ -1542,6 +1586,21 @@ export class GameScene extends Phaser.Scene {
   private clearMap() {
     this.mapTiles.forEach((tile) => tile.destroy());
     this.mapTiles = [];
+    this.waterShimmers.forEach((s) => s.img.destroy());
+    this.waterShimmers = [];
+  }
+
+  /** Drift the water glints with a slow sine so the surface gently ripples. */
+  private updateWaterShimmer() {
+    if (this.waterShimmers.length === 0) return;
+    const now = Date.now();
+    for (const s of this.waterShimmers) {
+      const t = now * s.speed + s.phase;
+      // Fade in/out (offset so they don't all peak together) and drift sideways.
+      s.img.setAlpha(0.18 + 0.22 * (0.5 + 0.5 * Math.sin(t)));
+      s.img.x = s.baseX + Math.sin(t * 0.7) * 4;
+      s.img.y = s.baseY + Math.sin(t * 1.3 + 1.1) * 1.5;
+    }
   }
 
   private clearNpcs() {
