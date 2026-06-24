@@ -50,6 +50,7 @@ import { buildZoneMap } from "./mapData";
 import { PredictedPosition, reconcilePrediction, stepPrediction } from "./prediction";
 
 interface RenderedPlayer {
+  name: string;
   sprite: Phaser.GameObjects.Sprite;
   label: Phaser.GameObjects.Text;
   appearance: CharacterAppearance;
@@ -846,6 +847,7 @@ export class GameScene extends Phaser.Scene {
 
     if (this.localAvatar) {
       const existing = this.localAvatar;
+      existing.name = player.name;
       existing.lastTargetX = existing.targetX;
       existing.lastTargetY = existing.targetY;
       existing.targetX = player.x;
@@ -944,6 +946,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     return {
+      name: player.name,
       sprite,
       label,
       appearance: player.appearance,
@@ -1585,9 +1588,10 @@ export class GameScene extends Phaser.Scene {
   }
 
   private findRenderedPlayerByName(playerName: string): RenderedPlayer | null {
-    if (this.localAvatar?.label.text === playerName) return this.localAvatar;
+    // Match the raw name, not the nameplate label (which carries a [GUILD] tag).
+    if (this.localAvatar?.name === playerName) return this.localAvatar;
     for (const rendered of this.renderedPlayers.values()) {
-      if (rendered.label.text === playerName) return rendered;
+      if (rendered.name === playerName) return rendered;
     }
     return null;
   }
@@ -2028,6 +2032,7 @@ export class GameScene extends Phaser.Scene {
         existing.targetX = player.x;
         existing.targetY = player.y;
         existing.lampOn = player.lampOn;
+        existing.name = player.name;
         existing.label.setText(nameplateText(player));
       }
     }

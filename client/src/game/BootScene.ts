@@ -843,6 +843,38 @@ export class BootScene extends Phaser.Scene {
 
   /** Indoor furniture used to dress interior zones (the Community Lodge). */
   private createSceneryTextures() {
+    // Shared isometric box: a top diamond (2:1) extruded down into SW + SE
+    // walls. `gy` is the ground-level diamond centre; the box rises `height`.
+    type IP = { x: number; y: number };
+    const isoBox = (
+      gr: Phaser.GameObjects.Graphics,
+      cx: number,
+      gy: number,
+      hw: number,
+      hh: number,
+      height: number,
+      topCol: number,
+      leftCol: number,
+      rightCol: number,
+    ): { top: IP; right: IP; bottom: IP; left: IP } => {
+      const ty = gy - height;
+      const N: IP = { x: cx, y: ty - hh };
+      const E: IP = { x: cx + hw, y: ty };
+      const S: IP = { x: cx, y: ty + hh };
+      const Wp: IP = { x: cx - hw, y: ty };
+      const E2: IP = { x: cx + hw, y: gy };
+      const S2: IP = { x: cx, y: gy + hh };
+      const W2: IP = { x: cx - hw, y: gy };
+      gr.fillStyle(leftCol, 1).fillPoints([Wp, S, S2, W2], true);
+      gr.fillStyle(rightCol, 1).fillPoints([S, E, E2, S2], true);
+      gr.fillStyle(topCol, 1).fillPoints([N, E, S, Wp], true);
+      gr.lineStyle(2, OUTLINE, 1);
+      gr.strokePoints([Wp, S, S2, W2], true);
+      gr.strokePoints([S, E, E2, S2], true);
+      gr.strokePoints([N, E, S, Wp], true);
+      return { top: N, right: E, bottom: S, left: Wp };
+    };
+
     // Rug — a flat patterned mat drawn as an iso diamond (players walk over it).
     let g = this.make.graphics({ x: 0, y: 0 });
     {
@@ -973,123 +1005,101 @@ export class BootScene extends Phaser.Scene {
       g.destroy();
     }
 
-    // Market stall — a wooden counter under a striped, scalloped awning.
+    // Market stall — an iso wooden counter under a striped awning on posts.
     g = this.make.graphics({ x: 0, y: 0 });
     {
-      const W = 64;
-      const H = 60;
+      const W = 72;
+      const H = 70;
       const cx = W / 2;
-      const baseY = H - 4;
-      g.fillStyle(0x2a1d12, 0.22).fillEllipse(cx, baseY + 2, 48, 8);
-      // Support posts.
-      g.fillStyle(0x8a5a33, 1).fillRect(cx - 26, baseY - 44, 3, 44);
-      g.fillStyle(0x8a5a33, 1).fillRect(cx + 23, baseY - 44, 3, 44);
-      g.lineStyle(2, OUTLINE, 1).strokeRect(cx - 26, baseY - 44, 3, 44);
-      g.lineStyle(2, OUTLINE, 1).strokeRect(cx + 23, baseY - 44, 3, 44);
-      // Counter.
-      g.fillStyle(0xb5793f, 1).fillRoundedRect(cx - 26, baseY - 18, 52, 18, 3);
-      g.lineStyle(2, OUTLINE, 1).strokeRoundedRect(cx - 26, baseY - 18, 52, 18, 3);
-      g.fillStyle(0xd9a566, 0.7).fillRect(cx - 24, baseY - 18, 48, 4);
-      g.fillStyle(0x8a5a33, 1).fillRect(cx - 24, baseY - 9, 48, 1.5);
-      // Goods on the counter.
-      g.fillStyle(0xd0463f, 1).fillCircle(cx - 16, baseY - 20, 3);
-      g.fillStyle(0xe8902e, 1).fillCircle(cx - 8, baseY - 20, 3);
-      g.fillStyle(0x49b265, 1).fillCircle(cx + 1, baseY - 20, 3);
-      g.fillStyle(0xd0463f, 1).fillCircle(cx + 10, baseY - 20, 3);
-      g.fillStyle(0xe8902e, 1).fillCircle(cx + 18, baseY - 20, 3);
-      // Awning — cream base with red stripes, scalloped front edge.
-      const aTop = baseY - 50;
-      const aW = 60;
-      const aLeft = cx - aW / 2;
-      g.fillStyle(0xf3e6c8, 1).fillRoundedRect(aLeft, aTop, aW, 12, 3);
-      for (let sx = aLeft; sx < aLeft + aW; sx += 12) {
-        g.fillStyle(0xd0463f, 1).fillRect(sx, aTop, 6, 12);
+      const gy = 50;
+      const hw = 26;
+      const hh = 13;
+      g.fillStyle(0x2a1d12, 0.22).fillEllipse(cx, gy + hh + 2, hw * 2, 10);
+      // Iso counter (the front-right SE face is where goods sit).
+      const counter = isoBox(g, cx, gy, hw, hh, 16, 0xc89255, 0x8a5a33, 0xb5793f);
+      // Goods along the counter's top diamond.
+      const fruit = [0xd0463f, 0xe8902e, 0x49b265, 0xd0463f, 0xe8902e];
+      fruit.forEach((col, i) => {
+        const t = (i + 1) / (fruit.length + 1);
+        const px = counter.left.x + (counter.right.x - counter.left.x) * t;
+        const py = counter.left.y + (counter.right.y - counter.left.y) * t;
+        g.fillStyle(col, 1).fillCircle(px, py - 2, 3);
+      });
+      // Awning poles rising from the back corners (N and E of the top diamond).
+      const poleTop = gy - 16 - 30;
+      g.fillStyle(0x6f4a2a, 1).fillRect(counter.top.x - 1.5, poleTop, 3, gy - 16 - poleTop);
+      g.fillStyle(0x6f4a2a, 1).fillRect(counter.right.x - 1.5, poleTop, 3, gy - 16 - poleTop);
+      g.lineStyle(2, OUTLINE, 1).strokeRect(counter.top.x - 1.5, poleTop, 3, gy - 16 - poleTop);
+      g.lineStyle(2, OUTLINE, 1).strokeRect(counter.right.x - 1.5, poleTop, 3, gy - 16 - poleTop);
+      // Iso awning canopy — a tilted diamond roof above the counter, striped.
+      const ay = poleTop - 2;
+      const aN: IP = { x: cx, y: ay - hh - 4 };
+      const aE: IP = { x: cx + hw + 6, y: ay - 2 };
+      const aS: IP = { x: cx, y: ay + hh };
+      const aW2: IP = { x: cx - hw - 6, y: ay - 2 };
+      g.fillStyle(0xf3e6c8, 1).fillPoints([aN, aE, aS, aW2], true);
+      // Red stripes running down the camera-facing (SW) half.
+      for (let k = 0; k < 5; k++) {
+        const t0 = k / 5;
+        const t1 = (k + 0.5) / 5;
+        if (k % 2 === 0) continue;
+        const p0: IP = { x: aW2.x + (aS.x - aW2.x) * t0, y: aW2.y + (aS.y - aW2.y) * t0 };
+        const p1: IP = { x: aW2.x + (aS.x - aW2.x) * t1, y: aW2.y + (aS.y - aW2.y) * t1 };
+        const q0: IP = { x: aN.x + (aE.x - aN.x) * t0, y: aN.y + (aE.y - aN.y) * t0 };
+        const q1: IP = { x: aN.x + (aE.x - aN.x) * t1, y: aN.y + (aE.y - aN.y) * t1 };
+        g.fillStyle(0xd0463f, 1).fillPoints([p0, p1, q1, q0], true);
       }
-      g.lineStyle(2, OUTLINE, 1).strokeRoundedRect(aLeft, aTop, aW, 12, 3);
-      // Scalloped fringe.
-      for (let sx = aLeft + 4; sx < aLeft + aW; sx += 8) {
-        const stripe = Math.floor((sx - aLeft) / 12) % 2 === 0;
-        g.fillStyle(stripe ? 0xd0463f : 0xf3e6c8, 1);
-        g.fillTriangle(sx - 4, aTop + 12, sx + 4, aTop + 12, sx, aTop + 17);
-      }
+      g.lineStyle(2, OUTLINE, 1).strokePoints([aN, aE, aS, aW2], true);
       g.generateTexture("scenery_stall", W, H);
       g.destroy();
     }
 
-    // Crate — a wooden box with a cross-plank and produce peeking out the top.
+    // Crate — an iso wooden box with a cross-plank and produce on top.
     g = this.make.graphics({ x: 0, y: 0 });
     {
-      const W = 28;
-      const H = 28;
+      const W = 34;
+      const H = 32;
       const cx = W / 2;
-      const baseY = H - 4;
-      g.fillStyle(0x2a1d12, 0.22).fillEllipse(cx, baseY + 2, 18, 5);
-      g.fillStyle(0xa9733f, 1).fillRoundedRect(cx - 10, baseY - 18, 20, 18, 2);
-      g.lineStyle(2, OUTLINE, 1).strokeRoundedRect(cx - 10, baseY - 18, 20, 18, 2);
-      g.lineStyle(2, 0x7a5230, 1);
-      g.beginPath();
-      g.moveTo(cx - 10, baseY - 18);
-      g.lineTo(cx + 10, baseY);
-      g.moveTo(cx + 10, baseY - 18);
-      g.lineTo(cx - 10, baseY);
-      g.strokePath();
-      g.fillStyle(0xd0463f, 1).fillCircle(cx - 3, baseY - 20, 3);
-      g.fillStyle(0xe8902e, 1).fillCircle(cx + 4, baseY - 20, 3);
+      const gy = 20;
+      const hw = 12;
+      const hh = 6;
+      g.fillStyle(0x2a1d12, 0.22).fillEllipse(cx, gy + hh + 2, hw * 2, 6);
+      const box = isoBox(g, cx, gy, hw, hh, 13, 0xc08850, 0x7a5230, 0xa9733f);
+      // Cross-plank on the SE (right) face.
+      g.lineStyle(1.8, 0x6f4a2a, 1);
+      g.strokePoints([box.bottom, { x: box.right.x, y: box.right.y + 13 }], false);
+      g.strokePoints([{ x: box.bottom.x, y: box.bottom.y + 13 }, box.right], false);
+      // Produce poking out the top diamond.
+      g.fillStyle(0xd0463f, 1).fillCircle(box.top.x - 3, box.top.y + hh, 3);
+      g.fillStyle(0xe8902e, 1).fillCircle(box.top.x + 4, box.top.y + hh + 1, 3);
       g.generateTexture("scenery_crate", W, H);
       g.destroy();
     }
 
-    // Produce basket — a woven basket brimming with fruit.
+    // Produce basket — an iso basket brimming with fruit.
     g = this.make.graphics({ x: 0, y: 0 });
     {
-      const W = 30;
-      const H = 28;
+      const W = 34;
+      const H = 30;
       const cx = W / 2;
-      const baseY = H - 4;
-      g.fillStyle(0x2a1d12, 0.22).fillEllipse(cx, baseY + 2, 20, 5);
-      g.fillStyle(0xc28a4a, 1).fillRoundedRect(cx - 11, baseY - 12, 22, 12, 3);
-      g.lineStyle(2, OUTLINE, 1).strokeRoundedRect(cx - 11, baseY - 12, 22, 12, 3);
-      g.lineStyle(1.5, 0x9a6a36, 1).strokeRect(cx - 9, baseY - 9, 18, 0.5);
-      g.lineStyle(1.5, 0x9a6a36, 1).strokeRect(cx - 9, baseY - 5, 18, 0.5);
-      g.fillStyle(0xd0463f, 1).fillCircle(cx - 6, baseY - 14, 4);
-      g.fillStyle(0x49b265, 1).fillCircle(cx, baseY - 15, 4);
-      g.fillStyle(0xe8902e, 1).fillCircle(cx + 6, baseY - 14, 4);
-      g.fillStyle(0xb05fbf, 1).fillCircle(cx + 2, baseY - 12, 3);
+      const gy = 20;
+      const hw = 12;
+      const hh = 6;
+      g.fillStyle(0x2a1d12, 0.22).fillEllipse(cx, gy + hh + 2, hw * 2, 6);
+      const box = isoBox(g, cx, gy, hw, hh, 9, 0xd9b15f, 0x9a6a36, 0xc28a4a);
+      // Weave lines on the SE face.
+      g.lineStyle(1.3, 0x9a6a36, 1);
+      g.strokePoints([{ x: box.bottom.x, y: box.bottom.y + 4 }, { x: box.right.x, y: box.right.y + 4 }], false);
+      // Heap of fruit on the top diamond.
+      const tx = box.top.x;
+      const ty = box.top.y + hh;
+      g.fillStyle(0xd0463f, 1).fillCircle(tx - 5, ty, 4);
+      g.fillStyle(0x49b265, 1).fillCircle(tx + 1, ty - 1, 4);
+      g.fillStyle(0xe8902e, 1).fillCircle(tx + 6, ty, 4);
+      g.fillStyle(0xb05fbf, 1).fillCircle(tx, ty - 4, 3);
       g.generateTexture("scenery_produce", W, H);
       g.destroy();
     }
-
-    // Shared isometric box: a top diamond (2:1) extruded down into SW + SE
-    // walls. `gy` is the ground-level diamond centre; the box rises `height`.
-    type IP = { x: number; y: number };
-    const isoBox = (
-      gr: Phaser.GameObjects.Graphics,
-      cx: number,
-      gy: number,
-      hw: number,
-      hh: number,
-      height: number,
-      topCol: number,
-      leftCol: number,
-      rightCol: number,
-    ): { top: IP; right: IP; bottom: IP; left: IP } => {
-      const ty = gy - height;
-      const N: IP = { x: cx, y: ty - hh };
-      const E: IP = { x: cx + hw, y: ty };
-      const S: IP = { x: cx, y: ty + hh };
-      const Wp: IP = { x: cx - hw, y: ty };
-      const E2: IP = { x: cx + hw, y: gy };
-      const S2: IP = { x: cx, y: gy + hh };
-      const W2: IP = { x: cx - hw, y: gy };
-      gr.fillStyle(leftCol, 1).fillPoints([Wp, S, S2, W2], true);
-      gr.fillStyle(rightCol, 1).fillPoints([S, E, E2, S2], true);
-      gr.fillStyle(topCol, 1).fillPoints([N, E, S, Wp], true);
-      gr.lineStyle(2, OUTLINE, 1);
-      gr.strokePoints([Wp, S, S2, W2], true);
-      gr.strokePoints([S, E, E2, S2], true);
-      gr.strokePoints([N, E, S, Wp], true);
-      return { top: N, right: E, bottom: S, left: Wp };
-    };
 
     // Forge furnace — an iso stone block with a glowing mouth and a chimney.
     g = this.make.graphics({ x: 0, y: 0 });
