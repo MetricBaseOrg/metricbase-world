@@ -82,6 +82,12 @@ body {
   padding: 12px 14px;
   min-width: 0;
   max-width: min(260px, calc(100vw - 24px - var(--chibi-safe-left) - var(--chibi-safe-right)));
+  /* Reserve room for the bottom-left chat box so the (taller) HUD never grows
+     down over it; scroll the HUD internally on short screens. The mobile HUD
+     overrides this with its own compact/expanded heights. */
+  max-height: calc(100dvh - 320px - var(--chibi-safe-top) - var(--chibi-safe-bottom));
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   pointer-events: auto;
 }
 

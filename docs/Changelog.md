@@ -63,6 +63,7 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **HUD overlapping the chat box** — On desktop the left HUD panel (no height cap) could grow down over the bottom-left chat box and hide it. The HUD now reserves room for the chat and scrolls internally on short screens, so the chat is always visible.
 - **Pip's market stall cropped** — The stall's awning was drawn at negative texture coordinates (above the canvas), clipping the top. Rebuilt the stall texture with a taller canvas and safe margins so the whole iso stall renders.
 - **Emotes invisible for guilded players** — Emote bubbles matched a player by their nameplate *label*, which carries the `[GUILD]` tag, against the raw name — so an emote never showed a bubble over any player in a guild. Rendered players now track their raw name and match on that. (The 😀 emote tray and 👥 who-roster toggles themselves were working — the missing bubble made emotes look broken.)
 - **Interaction prompt background** — The floating "E · …" interaction prompt now has a transparent background (dark outline + shadow for legibility) instead of an opaque box.
