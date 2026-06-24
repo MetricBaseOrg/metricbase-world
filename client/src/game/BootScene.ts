@@ -38,6 +38,57 @@ export class BootScene extends Phaser.Scene {
     this.createDecorTextures();
     this.createSceneryTextures();
     this.createBillboardTexture();
+    this.createPortalTexture();
+  }
+
+  private createPortalTexture() {
+    const g = this.make.graphics({ x: 0, y: 0 });
+    const W = 56;
+    const H = 80;
+    const cx = W / 2;
+    const baseY = H - 10;
+    const pcy = baseY - 30; // portal centre
+
+    // Ground glow pad.
+    g.fillStyle(0xb84fd6, 0.18).fillEllipse(cx, baseY, 34, 12);
+    // Stone footing (a small iso diamond).
+    g.fillStyle(0x6b6470, 1).fillPoints(
+      [
+        { x: cx, y: baseY - 6 },
+        { x: cx + 16, y: baseY },
+        { x: cx, y: baseY + 6 },
+        { x: cx - 16, y: baseY },
+      ],
+      true,
+    );
+    g.lineStyle(2, OUTLINE, 1).strokePoints(
+      [
+        { x: cx, y: baseY - 6 },
+        { x: cx + 16, y: baseY },
+        { x: cx, y: baseY + 6 },
+        { x: cx - 16, y: baseY },
+      ],
+      true,
+    );
+
+    // Stone ring (frame) around the portal surface.
+    g.fillStyle(0x7a6a86, 1).fillEllipse(cx, pcy, 21, 31);
+    g.lineStyle(2.5, OUTLINE, 1).strokeEllipse(cx, pcy, 21, 31);
+    // Glowing magenta portal surface, layered for a soft radial look.
+    g.fillStyle(0x6a249a, 1).fillEllipse(cx, pcy, 17, 27);
+    g.fillStyle(0xab46cf, 1).fillEllipse(cx, pcy, 12, 21);
+    g.fillStyle(0xe7a6f7, 0.95).fillEllipse(cx, pcy - 1, 7, 14);
+    g.fillStyle(0xfbe2ff, 0.9).fillEllipse(cx, pcy - 2, 3.5, 8);
+    // Swirl hints.
+    g.lineStyle(1.5, 0xf3d0ff, 0.7).strokeEllipse(cx + 2, pcy + 2, 9, 16);
+    // Sparkles.
+    g.fillStyle(0xffffff, 0.9);
+    g.fillCircle(cx - 9, pcy - 12, 1.4);
+    g.fillCircle(cx + 8, pcy + 8, 1.6);
+    g.fillCircle(cx + 6, pcy - 14, 1.2);
+
+    g.generateTexture("portal_gate", W, H);
+    g.destroy();
   }
 
   create() {

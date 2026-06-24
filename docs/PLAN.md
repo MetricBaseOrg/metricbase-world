@@ -41,6 +41,8 @@ server on Railway, Neon PostgreSQL, Solana token gate/market.
   (NPC / land plot / farm plot) so it's obvious what you can use and how.
 - **Camera zoom:** wheel / pinch / HUD buttons zoom the world 0.9×–2.8×
   (persisted); overlays track the zoom.
+- **Edge portals + gate art:** zone portals sit at map edges (no accidental
+  entry) and render as glowing magenta gates with labels (`portal_gate`).
 - **Multi-currency gold market:** P2P gold orders can be priced in $BASE, USDC,
   IDRX, or SOL (per-order `currency`; SPL or native-SOL settlement verified
   on-chain). `shared/src/currencies.ts`, `verifyPeerSolTransfer`.

@@ -66,14 +66,15 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
     displayName: "MetricBase Hub",
     spawnTile: { x: 12, y: 12 },
     portals: [
+      // Portals sit at the map edges so players don't wander into them.
       {
-        tileX: 20,
+        tileX: 22,
         tileY: 12,
         targetZone: ZONE_WILDERNESS,
         label: "Wilderness Gate",
       },
       {
-        tileX: 9,
+        tileX: 1,
         tileY: 8,
         targetZone: ZONE_INTERIOR,
         label: "Community Lodge",
@@ -252,7 +253,7 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
     spawnTile: { x: 4, y: 12 },
     portals: [
       {
-        tileX: 2,
+        tileX: 1,
         tileY: 12,
         targetZone: ZONE_HUB,
         label: "Return Gate",
@@ -474,7 +475,7 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
     spawnTile: { x: 20, y: 12 },
     portals: [
       {
-        tileX: 2,
+        tileX: 1,
         tileY: 12,
         targetZone: ZONE_WILDERNESS,
         label: "Grotto Exit",

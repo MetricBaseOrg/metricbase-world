@@ -73,10 +73,10 @@ export function buildHubMap(): GroundLayer {
   // Western quarry floor (rocky ground, still walkable).
   fillRect(layer, 2, 10, 5, 15, TILE_STONE);
 
-  // Gate to the Wilderness.
-  stampPortal(layer, 20, 12);
-  // Doorway into the Community Lodge interior (NW of the plaza).
-  stampPortal(layer, 9, 8);
+  // Gate to the Wilderness — east edge so nobody triggers it by accident.
+  stampPortal(layer, 22, 12);
+  // Doorway into the Community Lodge interior — west edge.
+  stampPortal(layer, 1, 8);
 
   return layer;
 }
@@ -111,7 +111,7 @@ export function buildWildernessMap(): GroundLayer {
   fillRect(layer, 11, 6, 12, 7, TILE_GRASS);
   fillRect(layer, 11, 15, 12, 16, TILE_GRASS);
 
-  stampPortal(layer, 2, 12);
+  stampPortal(layer, 1, 12);
   stampPortal(layer, 22, 14);
 
   return layer;
@@ -132,7 +132,7 @@ export function buildGrottoMap(): GroundLayer {
   stampLake(layer, 4, 4, 7, 7);
   stampLake(layer, 15, 14, 19, 18);
 
-  stampPortal(layer, 2, 12);
+  stampPortal(layer, 1, 12);
 
   return layer;
 }

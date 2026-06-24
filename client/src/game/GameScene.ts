@@ -161,6 +161,7 @@ export class GameScene extends Phaser.Scene {
   private localAvatar: RenderedPlayer | null = null;
   private localSessionId: string | null = null;
   private mapTiles: Phaser.GameObjects.Image[] = [];
+  private renderedPortals: Phaser.GameObjects.GameObject[] = [];
   private renderedNpcs: RenderedNpc[] = [];
   private renderedResources: RenderedResource[] = [];
   private renderedFarmPlots = new Map<string, RenderedFarmPlot>();
@@ -1040,6 +1041,7 @@ export class GameScene extends Phaser.Scene {
     this.clearLandPlots();
     this.clearBillboards();
     this.clearScenery();
+    this.clearPortals();
 
     const ground = buildZoneMap(zoneId);
 
@@ -1065,6 +1067,46 @@ export class GameScene extends Phaser.Scene {
     this.renderLandPlots(zoneId);
     this.renderBillboards(zoneId);
     this.renderScenery(zoneId);
+    this.renderPortals(zoneId);
+  }
+
+  private renderPortals(zoneId: string) {
+    const config = getZoneConfig(zoneId);
+    for (const portal of config.portals) {
+      const { x, y } = tileToWorld(portal.tileX, portal.tileY);
+
+      // Pulsing magenta aura behind the gate (reuses the soft glow texture).
+      const aura = this.add
+        .image(x, y - 18, "lamp-glow")
+        .setTint(0xc14fe0)
+        .setBlendMode(Phaser.BlendModes.ADD)
+        .setDisplaySize(96, 96)
+        .setDepth(y - 1)
+        .setAlpha(0.5);
+      this.tweens.add({ targets: aura, alpha: 0.85, scale: aura.scale * 1.12, duration: 1100, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
+
+      const sprite = this.add.sprite(x, y, "portal_gate").setOrigin(0.5, 0.84).setDepth(y);
+      this.tweens.add({ targets: sprite, y: y - 3, duration: 1400, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
+
+      const label = this.add
+        .text(x, y - 64, portal.label, {
+          fontFamily: '"Fredoka", "Nunito", sans-serif',
+          fontSize: "12px",
+          fontStyle: "bold",
+          color: "#f3d0ff",
+          stroke: "#3a1148",
+          strokeThickness: 4,
+        })
+        .setOrigin(0.5, 1)
+        .setDepth(y + 1);
+
+      this.renderedPortals.push(aura, sprite, label);
+    }
+  }
+
+  private clearPortals() {
+    this.renderedPortals.forEach((obj) => obj.destroy());
+    this.renderedPortals = [];
   }
 
   private renderScenery(zoneId: string) {
