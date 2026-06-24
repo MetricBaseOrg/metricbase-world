@@ -51,6 +51,8 @@ server on Railway, Neon PostgreSQL, Solana token gate/market.
   roof-coloured scalloped awning (`makeShopAccent`).
 - **Warmer palette:** softer cozy tile colours — warm grass, cobblestone-lavender
   paths, calmer water (`TILE_PALETTES`).
+- **Cobblestone paths + plaza props:** iso cobble texture on stone tiles
+  (`drawTileDetail`) and hub dressing — lamp posts, hedges, bench, signpost.
 - **Multi-currency gold market:** P2P gold orders can be priced in $BASE, USDC,
   IDRX, or SOL (per-order `currency`; SPL or native-SOL settlement verified
   on-chain). `shared/src/currencies.ts`, `verifyPeerSolTransfer`.

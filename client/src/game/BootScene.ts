@@ -317,13 +317,29 @@ export class BootScene extends Phaser.Scene {
         break;
       }
       case "stone": {
-        g.fillStyle(palette.accent, 0.7);
-        g.fillCircle(cx - 8, cy, 1.6);
-        g.fillCircle(cx + 6, cy - 3, 1.3);
-        g.fillCircle(cx + 4, cy + 5, 1.1);
-        g.fillStyle(palette.edge, 0.5);
-        g.fillCircle(cx - 2, cy + 3, 1.2);
-        g.fillCircle(cx + 12, cy + 1, 1);
+        // Cobblestone: subdivide the top diamond into iso cells (mortar lines
+        // along the grid) with slightly varied tones, for a cobbled-path look.
+        const hw = TILE_WIDTH / 2;
+        const hh = TILE_HEIGHT / 2;
+        const N = 3;
+        const pt = (i: number, j: number) => ({
+          x: cx + (i - j) * (hw / N),
+          y: cy - hh + (i + j) * (hh / N),
+        });
+        const tones = [palette.top, palette.accent, palette.left];
+        for (let i = 0; i < N; i++) {
+          for (let j = 0; j < N; j++) {
+            const tone = tones[(i * 2 + j * 3) % tones.length];
+            g.fillStyle(tone, 1).fillPoints(
+              [pt(i, j), pt(i + 1, j), pt(i + 1, j + 1), pt(i, j + 1)],
+              true,
+            );
+          }
+        }
+        // Mortar lines between cobbles.
+        g.lineStyle(1, palette.edge, 0.45);
+        for (let i = 1; i < N; i++) g.strokePoints([pt(i, 0), pt(i, N)], false);
+        for (let j = 1; j < N; j++) g.strokePoints([pt(0, j), pt(N, j)], false);
         break;
       }
       case "wall": {
@@ -1322,6 +1338,91 @@ export class BootScene extends Phaser.Scene {
       g.strokePoints([{ x: cx - 11, y: gy - 6 }, { x: cx, y: gy - 0.5 }, { x: cx + 11, y: gy - 6 }], false);
       g.strokePoints([{ x: cx - 11, y: gy - 12 }, { x: cx, y: gy - 6.5 }, { x: cx + 11, y: gy - 12 }], false);
       g.generateTexture("scenery_quench", W, H);
+      g.destroy();
+    }
+
+    // Lamp post — a tall iron post with a glowing lantern, for lighting paths.
+    g = this.make.graphics({ x: 0, y: 0 });
+    {
+      const W = 30, H = 76, cx = W / 2, by = H - 6;
+      g.fillStyle(0x2a1d12, 0.22).fillEllipse(cx, by, 18, 6);
+      g.fillStyle(0x3a3f47, 1).fillEllipse(cx, by - 2, 14, 5);
+      g.lineStyle(2, OUTLINE, 1).strokeEllipse(cx, by - 2, 14, 5);
+      g.fillStyle(0x4a505a, 1).fillRect(cx - 2.5, by - 52, 5, 50);
+      g.lineStyle(2, OUTLINE, 1).strokeRect(cx - 2.5, by - 52, 5, 50);
+      g.fillStyle(0x3a3f47, 1).fillRoundedRect(cx - 8, by - 64, 16, 14, 3);
+      g.lineStyle(2, OUTLINE, 1).strokeRoundedRect(cx - 8, by - 64, 16, 14, 3);
+      g.fillStyle(0xffe9a6, 1).fillRoundedRect(cx - 5, by - 61, 10, 9, 2);
+      g.fillStyle(0xfff6d6, 0.95).fillCircle(cx, by - 56, 2.6);
+      g.fillStyle(0x3a3f47, 1).fillTriangle(cx - 8, by - 64, cx + 8, by - 64, cx, by - 70);
+      g.lineStyle(2, OUTLINE, 1).strokeTriangle(cx - 8, by - 64, cx + 8, by - 64, cx, by - 70);
+      g.fillStyle(0xffe9a6, 0.18).fillCircle(cx, by - 56, 16);
+      g.generateTexture("scenery_lamppost", W, H);
+      g.destroy();
+    }
+
+    // Hedge — a leafy iso green block for borders.
+    g = this.make.graphics({ x: 0, y: 0 });
+    {
+      const W = 44, H = 34, cx = W / 2, gy = 22, hw = 18, hh = 9;
+      g.fillStyle(0x2a1d12, 0.2).fillEllipse(cx, gy + hh + 2, hw * 2, 7);
+      const top = isoBox(g, cx, gy, hw, hh, 12, 0x4f9c4a, 0x2f6b30, 0x3f8a3d);
+      // leafy dapples on the top.
+      const dapples = [0x6cc06a, 0x3f8a3d, 0x6cc06a, 0x4f9c4a];
+      dapples.forEach((c, i) => {
+        const t = (i + 1) / (dapples.length + 1);
+        g.fillStyle(c, 0.9).fillCircle(top.left.x + (top.right.x - top.left.x) * t, top.left.y + (top.right.y - top.left.y) * t, 3);
+      });
+      g.generateTexture("scenery_hedge", W, H);
+      g.destroy();
+    }
+
+    // Bench — a simple iso wooden bench.
+    g = this.make.graphics({ x: 0, y: 0 });
+    {
+      const W = 44, H = 34, cx = W / 2, gy = 24;
+      g.fillStyle(0x2a1d12, 0.2).fillEllipse(cx, gy + 6, 34, 7);
+      // seat (a thin iso slab)
+      const sy = gy - 6;
+      const sN: IP = { x: cx, y: sy - 7 }, sE: IP = { x: cx + 17, y: sy }, sS: IP = { x: cx, y: sy + 7 }, sW: IP = { x: cx - 17, y: sy };
+      g.fillStyle(0xb5793f, 1).fillPoints([sN, sE, sS, sW], true);
+      g.lineStyle(2, OUTLINE, 1).strokePoints([sN, sE, sS, sW], true);
+      // legs
+      g.fillStyle(0x7a5230, 1);
+      for (const lx of [cx - 13, cx + 11]) g.fillRect(lx, sy + 2, 3, 8);
+      // backrest
+      g.fillStyle(0x9a6638, 1).fillRect(cx - 16, sy - 16, 3, 12);
+      g.fillStyle(0xb5793f, 1).fillRect(cx - 16, sy - 16, 30, 4);
+      g.lineStyle(1.6, OUTLINE, 1).strokeRect(cx - 16, sy - 16, 30, 4);
+      g.generateTexture("scenery_bench", W, H);
+      g.destroy();
+    }
+
+    // Signpost — a wooden post with a pointing board.
+    g = this.make.graphics({ x: 0, y: 0 });
+    {
+      const W = 36, H = 48, cx = W / 2, by = H - 5;
+      g.fillStyle(0x2a1d12, 0.2).fillEllipse(cx, by, 14, 5);
+      g.fillStyle(0x7a5230, 1).fillRoundedRect(cx - 2.5, by - 38, 5, 38, 2);
+      g.lineStyle(2, OUTLINE, 1).strokeRoundedRect(cx - 2.5, by - 38, 5, 38, 2);
+      g.fillStyle(0xc89255, 1).fillPoints([
+        { x: cx - 12, y: by - 36 },
+        { x: cx + 9, y: by - 36 },
+        { x: cx + 15, y: by - 30 },
+        { x: cx + 9, y: by - 24 },
+        { x: cx - 12, y: by - 24 },
+      ], true);
+      g.lineStyle(2, OUTLINE, 1).strokePoints([
+        { x: cx - 12, y: by - 36 },
+        { x: cx + 9, y: by - 36 },
+        { x: cx + 15, y: by - 30 },
+        { x: cx + 9, y: by - 24 },
+        { x: cx - 12, y: by - 24 },
+      ], true);
+      g.lineStyle(1.5, 0x7a5230, 1);
+      g.strokePoints([{ x: cx - 8, y: by - 31 }, { x: cx + 6, y: by - 31 }], false);
+      g.strokePoints([{ x: cx - 8, y: by - 28 }, { x: cx + 3, y: by - 28 }], false);
+      g.generateTexture("scenery_signpost", W, H);
       g.destroy();
     }
   }

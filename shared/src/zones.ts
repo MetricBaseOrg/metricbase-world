@@ -244,6 +244,16 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
       { id: "forge_furnace", tileX: 12, tileY: 9, prop: "forge" },
       { id: "forge_anvil", tileX: 14, tileY: 9, prop: "anvil" },
       { id: "forge_quench", tileX: 12, tileY: 11, prop: "quench" },
+      // Plaza dressing — lamp posts framing the square, a hedge border, a bench,
+      // and a signpost on the east lane toward the Wilderness gate.
+      { id: "plaza_lamp_nw", tileX: 10, tileY: 9, prop: "lamppost" },
+      { id: "plaza_lamp_sw", tileX: 10, tileY: 13, prop: "lamppost" },
+      { id: "plaza_lamp_ne", tileX: 16, tileY: 9, prop: "lamppost" },
+      { id: "plaza_lamp_se", tileX: 16, tileY: 13, prop: "lamppost" },
+      { id: "plaza_hedge_1", tileX: 9, tileY: 10, prop: "hedge" },
+      { id: "plaza_hedge_2", tileX: 9, tileY: 11, prop: "hedge" },
+      { id: "plaza_bench", tileX: 16, tileY: 11, prop: "bench" },
+      { id: "plaza_sign", tileX: 17, tileY: 12, prop: "signpost" },
     ],
   },
   [ZONE_WILDERNESS]: {
