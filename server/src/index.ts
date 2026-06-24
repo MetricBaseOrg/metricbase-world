@@ -1,6 +1,13 @@
 import { Server } from "@colyseus/core";
 import { WebSocketTransport } from "@colyseus/ws-transport";
-import { ZONE_GROTTO, ZONE_HUB, ZONE_INTERIOR, ZONE_WILDERNESS } from "@metricbase/shared";
+import {
+  GAME_VERSION,
+  getZoneConfig,
+  ZONE_GROTTO,
+  ZONE_HUB,
+  ZONE_INTERIOR,
+  ZONE_WILDERNESS,
+} from "@metricbase/shared";
 import cors from "cors";
 import express from "express";
 import { createServer } from "node:http";
@@ -23,13 +30,15 @@ app.use(cors({ origin: true }));
 app.use(express.json());
 
 app.get("/health", (_req, res) => {
+  // Report the live build + the loaded hub portal tiles so a stale deploy is
+  // obvious at a glance (e.g. a portal still at the old mid-map position).
   res.json({
     status: "ok",
-    version: "0.8.0",
-    farming: true,
-    housing: true,
-    emotes: true,
-    billboard: true,
+    version: GAME_VERSION,
+    hubPortals: getZoneConfig(ZONE_HUB).portals.map((p) => ({
+      label: p.label,
+      tile: [p.tileX, p.tileY],
+    })),
   });
 });
 
