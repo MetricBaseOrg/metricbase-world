@@ -39,6 +39,8 @@ server on Railway, Neon PostgreSQL, Solana token gate/market.
   (`MAX_LEVEL`, `MAX_SKILL_LEVEL`); curves keep growing past the early game.
 - **Interaction prompts:** a floating "E · …" cue over the nearest interactable
   (NPC / land plot / farm plot) so it's obvious what you can use and how.
+- **Camera zoom:** wheel / pinch / HUD buttons zoom the world 0.9×–2.8×
+  (persisted); overlays track the zoom.
 - **Multi-currency gold market:** P2P gold orders can be priced in $BASE, USDC,
   IDRX, or SOL (per-order `currency`; SPL or native-SOL settlement verified
   on-chain). `shared/src/currencies.ts`, `verifyPeerSolTransfer`.

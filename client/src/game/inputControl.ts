@@ -79,6 +79,20 @@ export function bindUiTypingFocusGuard() {
   };
 }
 
+type ZoomableScene = Phaser.Scene & {
+  setZoomLevel?: (zoom: number) => void;
+  getZoomLevel?: () => number;
+};
+
+/** Step the GameScene camera zoom (used by the HUD zoom buttons). */
+export function nudgeZoom(delta: number) {
+  if (!game) return;
+  const scene = game.scene.getScene("GameScene") as ZoomableScene | undefined;
+  if (scene?.getZoomLevel && scene.setZoomLevel) {
+    scene.setZoomLevel(scene.getZoomLevel() + delta);
+  }
+}
+
 export function setMobileAxis(dx: number, dy: number) {
   mobileAxis = { dx, dy };
 }

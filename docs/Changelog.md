@@ -11,6 +11,7 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Camera zoom** — Players can now zoom the world in and out: **mouse wheel** on desktop, **two-finger pinch** on touch, or the **🔍+ / 🔍−** HUD buttons (zoom 0.9×–2.8×). The choice persists across sessions, and the lighting/weather/prompt overlays all track the new zoom.
 - **Ambient weather audio** — Weather now sounds real: a procedural rain bed (filtered brown-noise loop) whose loudness and brightness track the shared weather, plus rolling **thunder** during storms. Fully synthesized through the existing Web Audio bus (no audio files), eased in/out, suppressed indoors, and tied to the 🎵 music toggle. `client/src/audio/weatherAmbience.ts`.
 - **Rest at home** — Your house now has a real function: open your **own house** in the 🏠 panel and **Rest** to fully restore **energy and HP**, on an **8-minute cooldown**. Ties housing into the energy/hunger loop and rewards the 500g home investment — food is still the on-the-go option. Server-authoritative (owner + house-only + cooldown checks); new `housingRest` message, `REST_COOLDOWN_MS` in `shared/src/housing.ts`.
 - **Multi-currency gold market** — The peer-to-peer gold market now accepts **USDC, IDRX (`idrxZcP8…`), and SOL** alongside **$BASE**. When you post a bid or offer you pick the currency; each order shows what it's priced in, and settlement transfers that currency's SPL mint (or native SOL) directly between the two wallets, verified on-chain server-side. Per-order `currency` is persisted (`market_orders.currency`, auto-migrated); the price chart still tracks $BASE only. New `verifyPeerSolTransfer` for native SOL; `shared/src/currencies.ts` holds the registry.
@@ -62,6 +63,7 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **Pip's market stall cropped** — The stall's awning was drawn at negative texture coordinates (above the canvas), clipping the top. Rebuilt the stall texture with a taller canvas and safe margins so the whole iso stall renders.
 - **Emotes invisible for guilded players** — Emote bubbles matched a player by their nameplate *label*, which carries the `[GUILD]` tag, against the raw name — so an emote never showed a bubble over any player in a guild. Rendered players now track their raw name and match on that. (The 😀 emote tray and 👥 who-roster toggles themselves were working — the missing bubble made emotes look broken.)
 - **Interaction prompt background** — The floating "E · …" interaction prompt now has a transparent background (dark outline + shadow for legibility) instead of an opaque box.
 - **Shop/modal close button unreachable on mobile** — The floating top social toggles (👥 🏆 🛡️ 🎉) stacked over a centered modal's × close button on small screens, making Pip's Shop (and the housing / player-shop panels) impossible to close. The social rail + emote tray now hide whenever a blocking center modal is open.

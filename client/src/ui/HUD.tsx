@@ -10,6 +10,7 @@ import {
 import { useState } from "react";
 import { isSoundEnabled, playSfx, setSoundEnabled } from "../audio/soundEffects";
 import { isMusicEnabled, setMusicEnabled } from "../audio/backgroundMusic";
+import { nudgeZoom } from "../game/inputControl";
 import { networkManager } from "../game/network";
 import { useGameStore } from "../store/gameStore";
 import { shortenWallet } from "../wallet/solanaProvider";
@@ -259,6 +260,26 @@ export function HUD({ onLeave }: HUDProps) {
               title={lampOn ? "Lamp on — click or press L to turn off" : "Lamp off — click or press L to light it"}
             >
               {lampOn ? "🔦" : "💡"}
+            </button>
+            <button
+              type="button"
+              className="chibi-btn chibi-btn--ghost"
+              style={{ padding: "4px 8px", fontSize: "0.78rem" }}
+              onClick={() => { nudgeZoom(0.3); if (soundOn) playSfx("ui_click"); }}
+              aria-label="Zoom in"
+              title="Zoom in (mouse wheel / pinch)"
+            >
+              🔍+
+            </button>
+            <button
+              type="button"
+              className="chibi-btn chibi-btn--ghost"
+              style={{ padding: "4px 8px", fontSize: "0.78rem" }}
+              onClick={() => { nudgeZoom(-0.3); if (soundOn) playSfx("ui_click"); }}
+              aria-label="Zoom out"
+              title="Zoom out (mouse wheel / pinch)"
+            >
+              🔍−
             </button>
           </div>
 

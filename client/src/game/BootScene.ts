@@ -1008,15 +1008,17 @@ export class BootScene extends Phaser.Scene {
     // Market stall — an iso wooden counter under a striped awning on posts.
     g = this.make.graphics({ x: 0, y: 0 });
     {
-      const W = 72;
-      const H = 70;
+      const W = 84;
+      const H = 104;
       const cx = W / 2;
-      const gy = 50;
+      const gy = 80; // counter ground-diamond centre
       const hw = 26;
       const hh = 13;
+      const ch = 16; // counter height
+      const ctY = gy - ch; // counter top-diamond centre
       g.fillStyle(0x2a1d12, 0.22).fillEllipse(cx, gy + hh + 2, hw * 2, 10);
-      // Iso counter (the front-right SE face is where goods sit).
-      const counter = isoBox(g, cx, gy, hw, hh, 16, 0xc89255, 0x8a5a33, 0xb5793f);
+      // Iso counter.
+      const counter = isoBox(g, cx, gy, hw, hh, ch, 0xc89255, 0x8a5a33, 0xb5793f);
       // Goods along the counter's top diamond.
       const fruit = [0xd0463f, 0xe8902e, 0x49b265, 0xd0463f, 0xe8902e];
       fruit.forEach((col, i) => {
@@ -1025,24 +1027,26 @@ export class BootScene extends Phaser.Scene {
         const py = counter.left.y + (counter.right.y - counter.left.y) * t;
         g.fillStyle(col, 1).fillCircle(px, py - 2, 3);
       });
-      // Awning poles rising from the back corners (N and E of the top diamond).
-      const poleTop = gy - 16 - 30;
-      g.fillStyle(0x6f4a2a, 1).fillRect(counter.top.x - 1.5, poleTop, 3, gy - 16 - poleTop);
-      g.fillStyle(0x6f4a2a, 1).fillRect(counter.right.x - 1.5, poleTop, 3, gy - 16 - poleTop);
-      g.lineStyle(2, OUTLINE, 1).strokeRect(counter.top.x - 1.5, poleTop, 3, gy - 16 - poleTop);
-      g.lineStyle(2, OUTLINE, 1).strokeRect(counter.right.x - 1.5, poleTop, 3, gy - 16 - poleTop);
+      // Two awning poles framing the counter.
+      const poleTopY = 22;
+      const poleBotY = ctY - 1;
+      for (const pxc of [cx - 22, cx + 22]) {
+        g.fillStyle(0x6f4a2a, 1).fillRect(pxc - 1.5, poleTopY, 3, poleBotY - poleTopY);
+        g.lineStyle(2, OUTLINE, 1).strokeRect(pxc - 1.5, poleTopY, 3, poleBotY - poleTopY);
+      }
       // Iso awning canopy — a tilted diamond roof above the counter, striped.
-      const ay = poleTop - 2;
-      const aN: IP = { x: cx, y: ay - hh - 4 };
-      const aE: IP = { x: cx + hw + 6, y: ay - 2 };
-      const aS: IP = { x: cx, y: ay + hh };
-      const aW2: IP = { x: cx - hw - 6, y: ay - 2 };
+      const ay = 20;
+      const awnHw = 32;
+      const awnHh = 13;
+      const aN: IP = { x: cx, y: ay - awnHh };
+      const aE: IP = { x: cx + awnHw, y: ay };
+      const aS: IP = { x: cx, y: ay + awnHh };
+      const aW2: IP = { x: cx - awnHw, y: ay };
       g.fillStyle(0xf3e6c8, 1).fillPoints([aN, aE, aS, aW2], true);
       // Red stripes running down the camera-facing (SW) half.
-      for (let k = 0; k < 5; k++) {
+      for (let k = 1; k < 5; k += 2) {
         const t0 = k / 5;
         const t1 = (k + 0.5) / 5;
-        if (k % 2 === 0) continue;
         const p0: IP = { x: aW2.x + (aS.x - aW2.x) * t0, y: aW2.y + (aS.y - aW2.y) * t0 };
         const p1: IP = { x: aW2.x + (aS.x - aW2.x) * t1, y: aW2.y + (aS.y - aW2.y) * t1 };
         const q0: IP = { x: aN.x + (aE.x - aN.x) * t0, y: aN.y + (aE.y - aN.y) * t0 };

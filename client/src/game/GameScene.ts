@@ -137,6 +137,18 @@ function nameplateText(player: RemotePlayer): string {
   return player.guildTag ? `[${player.guildTag}] ${player.name}` : player.name;
 }
 
+// Camera zoom limits + persistence (mouse wheel on desktop, pinch on touch).
+const MIN_ZOOM = 0.9;
+const MAX_ZOOM = 2.8;
+const DEFAULT_ZOOM = 1.5;
+const ZOOM_STORAGE_KEY = "metricbase-zoom";
+
+function readStoredZoom(): number {
+  if (typeof window === "undefined") return DEFAULT_ZOOM;
+  const raw = Number(window.localStorage.getItem(ZOOM_STORAGE_KEY));
+  return Number.isFinite(raw) && raw >= MIN_ZOOM && raw <= MAX_ZOOM ? raw : DEFAULT_ZOOM;
+}
+
 export class GameScene extends Phaser.Scene {
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private wasd!: {
@@ -171,6 +183,8 @@ export class GameScene extends Phaser.Scene {
   private lampKey: Phaser.Input.Keyboard.Key | null = null;
   private localLampGlow: Phaser.GameObjects.Image | null = null;
   private interactHint: Phaser.GameObjects.Text | null = null;
+  private cameraZoom = readStoredZoom();
+  private lastPinchDist = 0;
   private weatherOverlay: Phaser.GameObjects.Rectangle | null = null;
   private rainEmitter: Phaser.GameObjects.Particles.ParticleEmitter | null = null;
   private rainZone = new Phaser.Geom.Rectangle(0, 0, 100, 8);
@@ -184,9 +198,16 @@ export class GameScene extends Phaser.Scene {
 
   create() {
     this.cameras.main.setBackgroundColor("#b8e8fc");
-    this.cameras.main.setZoom(1.5);
+    this.cameras.main.setZoom(this.cameraZoom);
     this.cameras.main.roundPixels = true;
     this.cameras.main.useBounds = false;
+
+    // Camera zoom: mouse wheel (desktop) + two-finger pinch (touch). Pinch is
+    // handled in update(); a second pointer must be enabled for it.
+    this.input.addPointer(1);
+    this.input.on("wheel", (_p: unknown, _o: unknown, _dx: number, dy: number) => {
+      this.adjustZoom(dy < 0 ? 0.15 : -0.15);
+    });
 
     // Day/night lighting tint. A rectangle pinned over the visible world each
     // frame (origin top-left); colour + opacity come from the shared clock.
@@ -495,6 +516,44 @@ export class GameScene extends Phaser.Scene {
     this.updateLamps();
     this.updateWeather();
     this.updateInteractHint();
+    this.updatePinchZoom();
+  }
+
+  /** Two-finger pinch zoom for touch devices. */
+  private updatePinchZoom() {
+    const p1 = this.input.pointer1;
+    const p2 = this.input.pointer2;
+    if (p1?.isDown && p2?.isDown) {
+      const dist = Phaser.Math.Distance.Between(p1.x, p1.y, p2.x, p2.y);
+      if (this.lastPinchDist > 0) {
+        this.adjustZoom((dist - this.lastPinchDist) * 0.004);
+      }
+      this.lastPinchDist = dist;
+    } else {
+      this.lastPinchDist = 0;
+    }
+  }
+
+  /** Nudge the camera zoom within bounds and remember the choice. */
+  private adjustZoom(delta: number) {
+    const next = Phaser.Math.Clamp(this.cameraZoom + delta, MIN_ZOOM, MAX_ZOOM);
+    if (Math.abs(next - this.cameraZoom) < 0.001) return;
+    this.cameraZoom = next;
+    this.cameras.main.setZoom(next);
+    try {
+      window.localStorage.setItem(ZOOM_STORAGE_KEY, next.toFixed(2));
+    } catch {
+      /* ignore storage errors */
+    }
+  }
+
+  /** Set an absolute zoom level (used by the HUD zoom buttons). */
+  setZoomLevel(zoom: number) {
+    this.adjustZoom(zoom - this.cameraZoom);
+  }
+
+  getZoomLevel(): number {
+    return this.cameraZoom;
   }
 
   /** Float a "press E to …" prompt over the nearest interactable (matches tryInteract's priority). */
