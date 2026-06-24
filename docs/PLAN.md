@@ -53,6 +53,9 @@ server on Railway, Neon PostgreSQL, Solana token gate/market.
   paths, calmer water (`TILE_PALETTES`).
 - **Cobblestone paths + plaza props:** iso cobble texture on stone tiles
   (`drawTileDetail`) and hub dressing — lamp posts, hedges, bench, signpost.
+- **Idle bob + contact shadows:** players/NPCs bob gently when idle and cast a
+  soft `contact_shadow`; bob is offset from a bob-free `baseY` so it never feeds
+  back into motion/interpolation.
 - **Multi-currency gold market:** P2P gold orders can be priced in $BASE, USDC,
   IDRX, or SOL (per-order `currency`; SPL or native-SOL settlement verified
   on-chain). `shared/src/currencies.ts`, `verifyPeerSolTransfer`.

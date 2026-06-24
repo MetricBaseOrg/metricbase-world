@@ -73,6 +73,12 @@ interface RenderedPlayer {
   prevSpriteY: number;
   lampOn: boolean;
   glow: Phaser.GameObjects.Image | null;
+  /** Soft contact shadow that tracks the feet (does not bob with the sprite). */
+  shadow: Phaser.GameObjects.Image;
+  /** True ground-Y of the feet, before any idle-bob offset is applied. */
+  baseY: number;
+  /** Per-avatar phase so idle bobbing isn't synchronised across players. */
+  bobPhase: number;
 }
 
 interface RenderedFarmPlot {
@@ -115,6 +121,7 @@ interface RenderedNpc {
   maxHp: number;
   currentHp: number;
   headTopY: number;
+  shadow: Phaser.GameObjects.Image;
 }
 
 interface RenderedResource {
@@ -659,6 +666,29 @@ export class GameScene extends Phaser.Scene {
     hint.setVisible(true);
   }
 
+  /** A soft elliptical contact shadow, drawn once and reused under entities. */
+  private ensureContactShadowTexture() {
+    if (this.textures.exists("contact_shadow")) return;
+    const w = 64;
+    const h = 30;
+    const tex = this.textures.createCanvas("contact_shadow", w, h);
+    if (!tex) return;
+    const ctx = tex.getContext();
+    ctx.save();
+    ctx.translate(w / 2, h / 2);
+    ctx.scale(1, h / w); // squash the circle into a ground ellipse
+    const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, w / 2);
+    grad.addColorStop(0, "rgba(18,11,6,0.42)");
+    grad.addColorStop(0.55, "rgba(18,11,6,0.26)");
+    grad.addColorStop(1, "rgba(18,11,6,0)");
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(0, 0, w / 2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+    tex.refresh();
+  }
+
   private ensureRaindropTexture() {
     if (this.textures.exists("raindrop")) return;
     const w = 3;
@@ -816,6 +846,8 @@ export class GameScene extends Phaser.Scene {
     }
     this.localAvatar.sprite.destroy();
     this.localAvatar.label.destroy();
+    this.localAvatar.glow?.destroy();
+    this.localAvatar.shadow.destroy();
     this.localAvatar = null;
   }
 
@@ -946,6 +978,7 @@ export class GameScene extends Phaser.Scene {
     rendered.sprite.destroy();
     rendered.label.destroy();
     rendered.glow?.destroy();
+    rendered.shadow.destroy();
     this.renderedPlayers.delete(sessionId);
   }
 
@@ -996,6 +1029,12 @@ export class GameScene extends Phaser.Scene {
   }
 
   private createRenderedPlayerEntry(player: RemotePlayer, isLocal: boolean): RenderedPlayer {
+    this.ensureContactShadowTexture();
+    const shadow = this.add
+      .image(player.x, player.y + 4, "contact_shadow")
+      .setDisplaySize(30, 14)
+      .setDepth(player.y - 0.5);
+
     const sprite = this.add.sprite(player.x, player.y, "player");
     sprite.setOrigin(0.5, 0.93);
     sprite.setDisplaySize(AVATAR_LOGICAL_WIDTH, AVATAR_LOGICAL_HEIGHT);
@@ -1044,6 +1083,9 @@ export class GameScene extends Phaser.Scene {
       prevSpriteY: player.y,
       lampOn: player.lampOn,
       glow: null,
+      shadow,
+      baseY: player.y,
+      bobPhase: Math.random() * Math.PI * 2,
     };
   }
 
@@ -1458,10 +1500,12 @@ export class GameScene extends Phaser.Scene {
 
   private clearNpcs() {
     this.renderedNpcs.forEach((npc) => {
+      this.tweens.killTweensOf(npc.sprite);
       npc.sprite.destroy();
       npc.label.destroy();
       npc.hpBarBg.destroy();
       npc.hpBarFill.destroy();
+      npc.shadow.destroy();
     });
     this.renderedNpcs = [];
   }
@@ -1490,6 +1534,13 @@ export class GameScene extends Phaser.Scene {
             : isCombat
               ? "dummy"
               : "npc";
+      this.ensureContactShadowTexture();
+      const shadowW: Record<string, number> = { slime: 24, brute: 32, dummy: 24, npc: 26 };
+      const shadow = this.add
+        .image(x, y + 2, "contact_shadow")
+        .setDisplaySize(shadowW[mobTexture] ?? 26, (shadowW[mobTexture] ?? 26) * 0.46)
+        .setDepth(y - 0.5);
+
       const sprite = this.add.sprite(x, y, mobTexture);
       // Anchor each sprite so its feet/base plant on the tile.
       const originY: Record<string, number> = {
@@ -1500,6 +1551,18 @@ export class GameScene extends Phaser.Scene {
       };
       sprite.setOrigin(0.5, originY[mobTexture] ?? 0.9);
       sprite.setDepth(y);
+      // Living NPCs gently bob in place; the training dummy stays rigid.
+      if (mobTexture !== "dummy") {
+        this.tweens.add({
+          targets: sprite,
+          y: y - (mobTexture === "slime" ? 3 : 2),
+          duration: 1100 + Math.random() * 500,
+          delay: Math.random() * 800,
+          yoyo: true,
+          repeat: -1,
+          ease: "Sine.easeInOut",
+        });
+      }
       // World-Y of the visible head/top, used to place label + HP bar.
       const headTopOffset: Record<string, number> = {
         slime: 25,
@@ -1551,6 +1614,7 @@ export class GameScene extends Phaser.Scene {
         maxHp,
         currentHp,
         headTopY,
+        shadow,
       };
 
       this.renderedNpcs.push(rendered);
@@ -2090,7 +2154,7 @@ export class GameScene extends Phaser.Scene {
         action = moving ? "walk" : "idle";
       } else {
         const vx = rendered.sprite.x - rendered.prevSpriteX;
-        const vy = rendered.sprite.y - rendered.prevSpriteY;
+        const vy = rendered.baseY - rendered.prevSpriteY;
         const speed = Math.hypot(vx, vy);
         if (speed > 0.8) {
           rendered.remoteMoving = true;
@@ -2105,7 +2169,7 @@ export class GameScene extends Phaser.Scene {
       }
 
       rendered.prevSpriteX = rendered.sprite.x;
-      rendered.prevSpriteY = rendered.sprite.y;
+      rendered.prevSpriteY = rendered.baseY;
       rendered.direction = direction;
       if (rendered.actionUntil <= now) {
         rendered.action = action;
@@ -2139,6 +2203,11 @@ export class GameScene extends Phaser.Scene {
           frame,
         );
       }
+
+      // Gentle idle bob — the avatar breathes/hovers a hair above its shadow
+      // when standing still; the shadow stays put on the ground.
+      const bobY = playAction === "idle" ? Math.sin(now / 520 + rendered.bobPhase) * 1.6 : 0;
+      rendered.sprite.y = rendered.baseY + bobY;
     }
   }
 
@@ -2223,21 +2292,28 @@ export class GameScene extends Phaser.Scene {
 
     const x = Math.round(local.predicted.x);
     const y = Math.round(local.predicted.y);
+    local.baseY = y;
     local.sprite.setPosition(x, y);
     local.sprite.setDepth(y);
     local.label.setPosition(x, y - 42);
     local.label.setDepth(y + 1);
+    local.shadow.setPosition(x, y + 4);
+    local.shadow.setDepth(y - 0.5);
   }
 
   private interpolateRemotePlayers() {
     const alpha = 0.25;
     for (const [, rendered] of this.renderedPlayers) {
       const x = Math.round(Phaser.Math.Linear(rendered.sprite.x, rendered.targetX, alpha));
-      const y = Math.round(Phaser.Math.Linear(rendered.sprite.y, rendered.targetY, alpha));
+      // Lerp from the bob-free baseY so the idle bob never feeds back into motion.
+      const y = Math.round(Phaser.Math.Linear(rendered.baseY, rendered.targetY, alpha));
+      rendered.baseY = y;
       rendered.sprite.setPosition(x, y);
       rendered.sprite.setDepth(y);
       rendered.label.setPosition(x, y - 42);
       rendered.label.setDepth(y + 1);
+      rendered.shadow.setPosition(x, y + 4);
+      rendered.shadow.setDepth(y - 0.5);
     }
   }
 
