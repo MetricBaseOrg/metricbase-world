@@ -61,6 +61,8 @@ server on Railway, Neon PostgreSQL, Solana token gate/market.
   (grotto); all verified clear of resources/NPCs/portals/plots.
 - **Community Lodge furnishing:** lanterns, side-wall shelves/crates/plants,
   paired seating, entrance rug runner, door plants (new `scenery_lantern`).
+- **Night light pools + flicker:** lamp/lantern/fireplace scenery cast warm
+  additive glow pools that brighten at night and flicker (`updateSceneryLights`).
 - **Multi-currency gold market:** P2P gold orders can be priced in $BASE, USDC,
   IDRX, or SOL (per-order `currency`; SPL or native-SOL settlement verified
   on-chain). `shared/src/currencies.ts`, `verifyPeerSolTransfer`.

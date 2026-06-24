@@ -190,6 +190,12 @@ export class GameScene extends Phaser.Scene {
   private renderedFarmPlots = new Map<string, RenderedFarmPlot>();
   private renderedLandPlots = new Map<string, RenderedLandPlot>();
   private renderedScenery: Phaser.GameObjects.Sprite[] = [];
+  /** Warm light pools cast by lamp/lantern/fire scenery; brighten + flicker at night. */
+  private sceneryLights: {
+    glow: Phaser.GameObjects.Image;
+    type: "lamp" | "fire";
+    phase: number;
+  }[] = [];
   private billboardTexts: Phaser.GameObjects.GameObject[] = [];
   private billboardHoldersText: Phaser.GameObjects.Text | null = null;
   private billboardOnlineText: Phaser.GameObjects.Text | null = null;
@@ -538,6 +544,7 @@ export class GameScene extends Phaser.Scene {
     this.updatePlayerAnimations();
     this.updateDayNight();
     this.updateLamps();
+    this.updateSceneryLights();
     this.updateWeather();
     this.updateInteractHint();
     this.updatePinchZoom();
@@ -1227,12 +1234,51 @@ export class GameScene extends Phaser.Scene {
       // front of / behind it.
       sprite.setDepth(flat ? node.tileX + node.tileY + 0.5 : y);
       this.renderedScenery.push(sprite);
+
+      // Light-emitting props cast a warm pool that brightens + flickers at night.
+      const lightSpec: Record<string, { dy: number; size: number; type: "lamp" | "fire"; tint?: number }> = {
+        lamppost: { dy: -56, size: LAMP_GLOW_DIAMETER * 0.95, type: "lamp" },
+        lantern: { dy: -33, size: LAMP_GLOW_DIAMETER * 0.7, type: "lamp" },
+        fireplace: { dy: -10, size: LAMP_GLOW_DIAMETER * 0.95, type: "fire", tint: 0xff8a36 },
+      };
+      const spec = lightSpec[node.prop];
+      if (spec) {
+        const glow = this.makeGlow()
+          .setPosition(x, y + spec.dy)
+          .setDisplaySize(spec.size, spec.size)
+          .setVisible(true);
+        if (spec.tint) glow.setTint(spec.tint);
+        this.sceneryLights.push({ glow, type: spec.type, phase: Math.random() * Math.PI * 2 });
+      }
     }
   }
 
   private clearScenery() {
     this.renderedScenery.forEach((sprite) => sprite.destroy());
     this.renderedScenery = [];
+    this.sceneryLights.forEach((l) => l.glow.destroy());
+    this.sceneryLights = [];
+  }
+
+  /**
+   * Brighten the lamp/lantern/fire light pools as night falls, with a gentle
+   * pulse for lamps and a livelier flicker for fire (which stays lit by day).
+   */
+  private updateSceneryLights() {
+    if (this.sceneryLights.length === 0) return;
+    const darkness = getWorldTime().overlayAlpha;
+    const now = Date.now();
+    for (const light of this.sceneryLights) {
+      let alpha: number;
+      if (light.type === "fire") {
+        const flick = 0.85 + 0.15 * Math.sin(now / 90 + light.phase) + (Math.random() - 0.5) * 0.12;
+        alpha = (0.32 + darkness * 1.3) * flick;
+      } else {
+        const flick = 0.92 + 0.08 * Math.sin(now / 420 + light.phase);
+        alpha = (0.12 + darkness * 1.7) * flick;
+      }
+      light.glow.setAlpha(Math.max(0, Math.min(1.1, alpha)));
+    }
   }
 
   private renderBillboards(zoneId: string) {
