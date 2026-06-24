@@ -59,6 +59,8 @@ server on Railway, Neon PostgreSQL, Solana token gate/market.
 - **Wilderness & Grotto props:** both outdoor zones now carry `scenery` —
   signposts at gates, lamp posts, a bench and hedge row (wilderness), cave lamps
   (grotto); all verified clear of resources/NPCs/portals/plots.
+- **Community Lodge furnishing:** lanterns, side-wall shelves/crates/plants,
+  paired seating, entrance rug runner, door plants (new `scenery_lantern`).
 - **Multi-currency gold market:** P2P gold orders can be priced in $BASE, USDC,
   IDRX, or SOL (per-order `currency`; SPL or native-SOL settlement verified
   on-chain). `shared/src/currencies.ts`, `verifyPeerSolTransfer`.

@@ -1425,6 +1425,32 @@ export class BootScene extends Phaser.Scene {
       g.generateTexture("scenery_signpost", W, H);
       g.destroy();
     }
+
+    // Floor lantern — a short wooden stand with a warm glowing lantern, for
+    // cozy indoor lighting (lodge).
+    g = this.make.graphics({ x: 0, y: 0 });
+    {
+      const W = 26, H = 50, cx = W / 2, by = H - 5;
+      g.fillStyle(0x2a1d12, 0.22).fillEllipse(cx, by, 14, 5);
+      // base + post
+      g.fillStyle(0x5a4632, 1).fillEllipse(cx, by - 2, 11, 4);
+      g.lineStyle(2, OUTLINE, 1).strokeEllipse(cx, by - 2, 11, 4);
+      g.fillStyle(0x6f4a2a, 1).fillRect(cx - 2, by - 26, 4, 25);
+      g.lineStyle(2, OUTLINE, 1).strokeRect(cx - 2, by - 26, 4, 25);
+      // lantern housing
+      g.fillStyle(0x3a2a1e, 1).fillRoundedRect(cx - 7, by - 40, 14, 16, 3);
+      g.lineStyle(2, OUTLINE, 1).strokeRoundedRect(cx - 7, by - 40, 14, 16, 3);
+      // warm glass
+      g.fillStyle(0xffe09a, 1).fillRoundedRect(cx - 4.5, by - 37, 9, 11, 2);
+      g.fillStyle(0xfff6d6, 0.95).fillCircle(cx, by - 31, 2.8);
+      // little roof cap
+      g.fillStyle(0x3a2a1e, 1).fillTriangle(cx - 8, by - 40, cx + 8, by - 40, cx, by - 46);
+      g.lineStyle(2, OUTLINE, 1).strokeTriangle(cx - 8, by - 40, cx + 8, by - 40, cx, by - 46);
+      // soft glow
+      g.fillStyle(0xffe09a, 0.2).fillCircle(cx, by - 31, 15);
+      g.generateTexture("scenery_lantern", W, H);
+      g.destroy();
+    }
   }
 
   private createBillboardTexture() {

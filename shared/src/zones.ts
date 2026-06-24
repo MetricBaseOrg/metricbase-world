@@ -564,19 +564,35 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
       },
     ],
     scenery: [
-      // North wall: a fireplace flanked by bookshelves and plants.
+      // North wall: a fireplace flanked by warm lanterns, bookshelves, plants.
       { id: "lodge_fire", tileX: 11, tileY: 6, prop: "fireplace" },
+      { id: "lodge_lantern_l", tileX: 9, tileY: 6, prop: "lantern" },
+      { id: "lodge_lantern_r", tileX: 13, tileY: 6, prop: "lantern" },
       { id: "lodge_shelf_l", tileX: 8, tileY: 6, prop: "bookshelf" },
       { id: "lodge_shelf_r", tileX: 14, tileY: 6, prop: "bookshelf" },
       { id: "lodge_plant_l", tileX: 7, tileY: 6, prop: "plant" },
       { id: "lodge_plant_r", tileX: 15, tileY: 6, prop: "plant" },
-      // A central rug players walk across.
+      // West wall: a reading shelf, a storage crate, and a plant.
+      { id: "lodge_shelf_w", tileX: 7, tileY: 8, prop: "bookshelf" },
+      { id: "lodge_crate_w", tileX: 7, tileY: 11, prop: "crate" },
+      { id: "lodge_plant_w", tileX: 7, tileY: 14, prop: "plant" },
+      // East wall: mirror it.
+      { id: "lodge_shelf_e", tileX: 16, tileY: 8, prop: "bookshelf" },
+      { id: "lodge_crate_e", tileX: 16, tileY: 11, prop: "crate" },
+      { id: "lodge_plant_e", tileX: 16, tileY: 14, prop: "plant" },
+      // A central rug + an entrance runner leading to the south door.
       { id: "lodge_rug", tileX: 11, tileY: 11, prop: "rug", flat: true },
-      // Two seating nooks.
+      { id: "lodge_rug_door", tileX: 11, tileY: 13, prop: "rug", flat: true },
+      // Two seating nooks, each with a pair of chairs round the table.
       { id: "lodge_table_l", tileX: 8, tileY: 12, prop: "table" },
       { id: "lodge_chair_l", tileX: 8, tileY: 13, prop: "chair" },
+      { id: "lodge_chair_l2", tileX: 8, tileY: 11, prop: "chair" },
       { id: "lodge_table_r", tileX: 14, tileY: 12, prop: "table" },
       { id: "lodge_chair_r", tileX: 14, tileY: 11, prop: "chair" },
+      { id: "lodge_chair_r2", tileX: 14, tileY: 13, prop: "chair" },
+      // Plants flanking the exit doormat.
+      { id: "lodge_plant_door_l", tileX: 9, tileY: 15, prop: "plant" },
+      { id: "lodge_plant_door_r", tileX: 13, tileY: 15, prop: "plant" },
     ],
   },
 };
