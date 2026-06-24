@@ -12,28 +12,29 @@ export function CraftPanel() {
   const setInventory = useGameStore((state) => state.setInventory);
   const setPlayerGold = useGameStore((state) => state.setPlayerGold);
   const [error, setError] = useState<string | null>(null);
-  const [pending, setPending] = useState(false);
+  const [craftingId, setCraftingId] = useState<string | null>(null);
 
   if (!open) return null;
 
   const handleCraft = async (recipeId: string) => {
-    setPending(true);
+    setCraftingId(recipeId);
     setError(null);
     networkManager.sendCraft(recipeId);
+    // Crafting now has a cast-time (up to ~12s), so wait generously.
     const result = await new Promise<{
       ok: boolean;
       error?: string;
       gold?: number;
       inventory?: typeof inventory;
     }>((resolve) => {
-      const timeout = window.setTimeout(() => resolve({ ok: false, error: "Request timed out." }), 8000);
+      const timeout = window.setTimeout(() => resolve({ ok: false, error: "Request timed out." }), 20000);
       const unsubscribe = networkManager.onCraftResult((payload) => {
         window.clearTimeout(timeout);
         unsubscribe();
         resolve(payload);
       });
     });
-    setPending(false);
+    setCraftingId(null);
     if (result.inventory) setInventory(result.inventory);
     if (typeof result.gold === "number") setPlayerGold(result.gold);
     if (!result.ok) {
@@ -83,11 +84,11 @@ export function CraftPanel() {
                 <button
                   type="button"
                   className="chibi-btn chibi-btn--primary"
-                  disabled={pending || !canCraft}
+                  disabled={craftingId !== null || !canCraft}
                   onClick={() => void handleCraft(recipe.id)}
                   style={{ padding: "6px 12px", fontSize: "0.76rem" }}
                 >
-                  Craft
+                  {craftingId === recipe.id ? "Crafting…" : "Craft"}
                 </button>
               </div>
               <div className="chibi-text-muted" style={{ fontSize: "0.74rem", marginTop: 4 }}>

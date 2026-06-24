@@ -227,3 +227,15 @@ export const CRAFT_RECIPES: CraftRecipe[] = [
 export function getRecipe(recipeId: string): CraftRecipe | undefined {
   return CRAFT_RECIPES.find((recipe) => recipe.id === recipeId);
 }
+
+// Crafting takes real time at the workbench — a base spell plus a bit per unit
+// of material, so heavier gear takes longer to forge. Capped so it never
+// outlasts the client's wait.
+export const CRAFT_BASE_MS = 4_000;
+export const CRAFT_PER_INPUT_MS = 1_000;
+export const CRAFT_MAX_MS = 12_000;
+
+export function getCraftDurationMs(recipe: CraftRecipe): number {
+  const inputUnits = recipe.inputs.reduce((sum, input) => sum + input.quantity, 0);
+  return Math.min(CRAFT_MAX_MS, CRAFT_BASE_MS + inputUnits * CRAFT_PER_INPUT_MS);
+}

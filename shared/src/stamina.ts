@@ -7,10 +7,10 @@
 export const MAX_STAMINA = 100;
 export const STARTING_STAMINA = 100;
 
-/** Stamina each activity consumes. */
-export const STAMINA_COST_GATHER = 4;
-export const STAMINA_COST_ATTACK = 3;
-export const STAMINA_COST_FARM = 3;
+/** Stamina each activity consumes (work is demanding — keep food on hand). */
+export const STAMINA_COST_GATHER = 8;
+export const STAMINA_COST_ATTACK = 5;
+export const STAMINA_COST_FARM = 6;
 
 /** Slow out-of-action trickle so nobody gets permanently stuck. */
 export const STAMINA_REGEN_AMOUNT = 1;

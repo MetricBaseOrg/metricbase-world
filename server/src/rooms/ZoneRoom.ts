@@ -20,6 +20,7 @@ import {
   getItemQuantity,
   getConsumableHeal,
   getRecipe,
+  getCraftDurationMs,
   ITEMS,
   getShopByNpcId,
   getShopDefinition,
@@ -212,6 +213,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   private playerLastHungerNoticeAt = new Map<string, number>();
   private playerLastDarkNoticeAt = new Map<string, number>();
   private playerLastRestAt = new Map<string, number>();
+  private craftingUntil = new Map<string, number>();
   private lastPlotLightSweepAt = 0;
   private playerEquipment = new Map<string, ReturnType<typeof normalizeEquipment>>();
   private playerWallets = new Map<string, string>();
@@ -642,6 +644,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       this.playerLastHungerNoticeAt.delete(player.name);
       this.playerLastDarkNoticeAt.delete(player.name);
       this.playerLastRestAt.delete(player.name);
+      this.craftingUntil.delete(player.name);
       this.playerWallets.delete(client.sessionId);
       this.playerSkills.delete(player.name);
     }
@@ -1838,9 +1841,14 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       return;
     }
 
-    let inventory = this.inventories.get(player.name) ?? [];
+    if (Date.now() < (this.craftingUntil.get(player.name) ?? 0)) {
+      client.send("craftResult", { ok: false, recipeId, error: "You're already crafting something." });
+      return;
+    }
+
+    const inventory = this.inventories.get(player.name) ?? [];
     const weaponId = this.playerEquipment.get(player.name)?.weaponId ?? null;
-    let gold = this.playerGold.get(player.name) ?? STARTING_GOLD;
+    const gold = this.playerGold.get(player.name) ?? STARTING_GOLD;
 
     // Verify the player has every ingredient before consuming anything.
     for (const input of recipe.inputs) {
@@ -1881,14 +1889,71 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       return;
     }
 
+    // Crafting takes time at the workbench. Lock the player, then deliver the
+    // result after the cast finishes (materials are consumed on completion, so a
+    // disconnect mid-craft costs nothing). The client keeps its button in a
+    // "Crafting…" pending state until the delayed craftResult arrives.
+    const duration = getCraftDurationMs(recipe);
+    this.craftingUntil.set(player.name, Date.now() + duration);
+    this.clock.setTimeout(() => {
+      void this.completeCraft(client, player.name, recipeId);
+    }, duration);
+  }
+
+  private async completeCraft(client: Client, playerName: string, recipeId: string) {
+    this.craftingUntil.delete(playerName);
+
+    const player = this.state.players.get(client.sessionId);
+    if (!player || player.name !== playerName) return; // left or changed seat
+    const recipe = getRecipe(recipeId);
+    if (!recipe) return;
+
+    let inventory = this.inventories.get(playerName) ?? [];
+    const weaponId = this.playerEquipment.get(playerName)?.weaponId ?? null;
+    let gold = this.playerGold.get(playerName) ?? STARTING_GOLD;
+
+    // Re-validate — materials/gold/space may have changed during the cast.
+    for (const input of recipe.inputs) {
+      if (getItemQuantity(inventory, input.itemId) < input.quantity) {
+        const def = ITEMS[input.itemId];
+        client.send("craftResult", {
+          ok: false,
+          recipeId,
+          gold,
+          error: `Need ${input.quantity}x ${def?.name ?? input.itemId}.`,
+          inventory: buildInventoryPayload(inventory, weaponId),
+        });
+        return;
+      }
+    }
+    if (gold < recipe.goldCost) {
+      client.send("craftResult", {
+        ok: false,
+        recipeId,
+        gold,
+        error: `Need ${recipe.goldCost} gold for the forge fee.`,
+        inventory: buildInventoryPayload(inventory, weaponId),
+      });
+      return;
+    }
+    if (addItemToInventory(inventory, recipe.output.itemId, recipe.output.quantity).added <= 0) {
+      client.send("craftResult", {
+        ok: false,
+        recipeId,
+        error: "Your bag is full.",
+        inventory: buildInventoryPayload(inventory, weaponId),
+      });
+      return;
+    }
+
     for (const input of recipe.inputs) {
       inventory = removeItemFromInventory(inventory, input.itemId, input.quantity).inventory;
     }
     inventory = addItemToInventory(inventory, recipe.output.itemId, recipe.output.quantity).inventory;
     gold -= recipe.goldCost;
-    this.playerGold.set(player.name, gold);
-    this.inventories.set(player.name, inventory);
-    this.sendInventory(client, player.name);
+    this.playerGold.set(playerName, gold);
+    this.inventories.set(playerName, inventory);
+    this.sendInventory(client, playerName);
     this.sendProfile(client, player);
 
     const outputName = ITEMS[recipe.output.itemId]?.name ?? recipe.output.itemId;
@@ -1897,7 +1962,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       channel: "system",
       senderId: "system",
       senderName: "Crafting",
-      body: `${player.name} crafted ${recipe.output.quantity}x ${outputName}.`,
+      body: `${playerName} crafted ${recipe.output.quantity}x ${outputName}.`,
       sentAt: Date.now(),
     });
 

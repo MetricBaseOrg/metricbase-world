@@ -8,8 +8,8 @@ export const MINE_RANGE = 80;
 export const FISH_RANGE = 110;
 export const FARM_RANGE = 120;
 
-/** Base chop time per tree level (level-1 trees take 60 seconds at Woodcutting 1). */
-export const WOODCUTTING_CHOP_BASE_MS = 60_000;
+/** Base chop time per tree level (level-1 trees take 90 seconds at Woodcutting 1). */
+export const WOODCUTTING_CHOP_BASE_MS = 90_000;
 
 /** Minimum fraction of base chop time (high Woodcutting still takes a while). */
 export const WOODCUTTING_CHOP_MIN_MULTIPLIER = 0.35;
