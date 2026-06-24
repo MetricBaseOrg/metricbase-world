@@ -94,6 +94,104 @@ body {
   pointer-events: auto;
 }
 
+/* Desktop top bar — compact glanceable stats; settings live behind the gear. */
+.chibi-topbar {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 12px;
+  background: var(--chibi-panel);
+  border: 3px solid var(--chibi-outline);
+  border-radius: 16px;
+  box-shadow: 0 4px 0 var(--chibi-shadow);
+  backdrop-filter: blur(3px);
+  pointer-events: auto;
+  max-width: min(440px, calc(100vw - 24px));
+}
+
+.chibi-topbar__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.chibi-topbar__brand {
+  font-family: var(--chibi-font-display);
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--chibi-ink);
+}
+
+.chibi-topbar__lvl {
+  font-weight: 800;
+  font-size: 0.72rem;
+  color: #fff;
+  background: var(--chibi-lavender, #b39ddb);
+  border: 2px solid var(--chibi-outline);
+  border-radius: 999px;
+  padding: 1px 8px;
+}
+
+.chibi-topbar__gauges {
+  display: flex;
+  align-items: flex-start;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.chibi-topbar__badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+}
+
+.chibi-topbar__badge-cap {
+  font-size: 0.58rem;
+  font-weight: 700;
+  color: var(--chibi-ink-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.chibi-topbar__gold {
+  align-self: center;
+  font-weight: 800;
+  font-size: 0.82rem;
+  color: var(--chibi-gold-deep, #b88300);
+  background: var(--chibi-cream-deep);
+  border: 2px solid var(--chibi-outline);
+  border-radius: 999px;
+  padding: 3px 10px;
+}
+
+.chibi-topbar__gear {
+  align-self: center;
+  padding: 4px 8px;
+  font-size: 0.9rem;
+}
+
+.chibi-topbar__menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  width: 230px;
+  padding: 10px 12px;
+  background: var(--chibi-panel-solid);
+  border: 3px solid var(--chibi-outline);
+  border-radius: 14px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+  z-index: 24;
+}
+
+.chibi-topbar__menu-toggles {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
 .chibi-panel--floating {
   pointer-events: auto;
 }

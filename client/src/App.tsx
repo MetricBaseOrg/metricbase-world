@@ -16,6 +16,7 @@ import { HousingPanel } from "./ui/HousingPanel";
 import { PlayerShopPanel } from "./ui/PlayerShopPanel";
 import { DeathOverlay } from "./ui/DeathOverlay";
 import { HUD } from "./ui/HUD";
+import { TopBar } from "./ui/TopBar";
 import { LoginOverlay } from "./ui/LoginOverlay";
 import { InventoryHotkey } from "./ui/InventoryHotkey";
 import { InventoryPanel } from "./ui/InventoryPanel";
@@ -283,6 +284,7 @@ export function App() {
   return (
     <div style={{ position: "relative", width: "100%", height: "100%" }}>
       {joined && <PhaserGame />}
+      {joined && <TopBar onLeave={() => void handleLeave()} />}
       {joined && <HUD onLeave={() => void handleLeave()} />}
       {joined && <QuestPanel />}
       {joined && <InventoryPanel />}

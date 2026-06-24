@@ -54,6 +54,8 @@ export function HUD({ onLeave }: HUDProps) {
     farmingLevel,
     farmingXp,
   } = useGameStore();
+  // Desktop uses the compact TopBar instead of this left panel.
+  if (!mobileLayout) return null;
   const progress = xpProgress(playerXp, playerLevel);
   const xpRatio = progress.required > 0 ? progress.current / progress.required : 0;
   const miningProgress = miningXpProgress(miningXp, miningLevel);
