@@ -21,7 +21,7 @@ export interface PlayerDamagePayload {
 
 export const TRAINING_DUMMY_NPC_ID = "training_dummy";
 export const TRAINING_DUMMY_GOLD_REWARD = 5;
-export const TRAINING_DUMMY_COUNTER_DAMAGE = 8;
+export const TRAINING_DUMMY_COUNTER_DAMAGE = 48;
 export const POTION_HEAL_AMOUNT = 25;
 
 export function getPlayerMaxHp(level: number): number {

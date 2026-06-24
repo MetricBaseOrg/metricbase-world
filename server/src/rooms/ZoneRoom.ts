@@ -906,7 +906,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
     if (npc.combat) {
       const counterDamage =
-        npcId === "wild_slime" ? 5 : npcId === "slime_brute" ? 12 : TRAINING_DUMMY_COUNTER_DAMAGE;
+        npcId === "wild_slime" ? 30 : npcId === "slime_brute" ? 72 : TRAINING_DUMMY_COUNTER_DAMAGE;
       this.damagePlayer(client, player, counterDamage, `${npc.name} counter-attack`);
     }
 

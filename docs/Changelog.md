@@ -9,6 +9,10 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- **Mobs hit much harder** — Counter-attack damage from the **Training Dummy** (8 → 48), **Wild Slime** (5 → 30), and **Slime Brute** (12 → 72) is increased by 500% (×6). Combat is now far riskier — keep food/potions handy and don't trade blows carelessly.
+
 ### Added
 
 - **Unified top bar — social toggles consolidated** — On desktop the Guild / Party / Leaderboard / Who toggles are now grouped into a single auto-laid-out **social rail** centered at the top, replacing the four hand-positioned floaters. The whole top edge now reads as one bar: the **TopBar** (name, stats, gold, ⚙️) on the left, the social rail in the centre, and the **Quest log** on the right — all on one line. Mobile keeps its right-side FAB stack untouched (the rail is `display:contents` below 769px). New `chibi-social-rail` wrapper.
