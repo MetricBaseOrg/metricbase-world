@@ -65,6 +65,8 @@ server on Railway, Neon PostgreSQL, Solana token gate/market.
   additive glow pools that brighten at night and flicker (`updateSceneryLights`).
 - **Animated water shimmer:** drifting additive glints over ~half the water tiles,
   fading + swaying on per-tile phases (`updateWaterShimmer`).
+- **Unified top bar:** desktop Guild/Party/Leaderboard/Who toggles grouped into a
+  centered `chibi-social-rail`; mobile keeps the FAB stack (`display:contents`).
 - **Multi-currency gold market:** P2P gold orders can be priced in $BASE, USDC,
   IDRX, or SOL (per-order `currency`; SPL or native-SOL settlement verified
   on-chain). `shared/src/currencies.ts`, `verifyPeerSolTransfer`.

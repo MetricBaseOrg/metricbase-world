@@ -298,10 +298,14 @@ export function App() {
         </ErrorBoundary>
       )}
       {joined && <ChatPanel />}
-      {joined && <WhoPanel />}
-      {joined && <LeaderboardPanel />}
-      {joined && <GuildPanel />}
-      {joined && <PartyPanel />}
+      {joined && (
+        <div className="chibi-social-rail">
+          <GuildPanel />
+          <PartyPanel />
+          <LeaderboardPanel />
+          <WhoPanel />
+        </div>
+      )}
       {joined && <EmoteBar />}
       {joined && <TouchControls />}
       {joined && <DeathOverlay />}

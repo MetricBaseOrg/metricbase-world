@@ -576,6 +576,45 @@ body {
   background: var(--chibi-gold, #ffe08a);
 }
 
+/* The social toggles (Guild/Party/Leaderboard/Who) live inside this rail. By
+   default it's transparent (display:contents) so each child keeps its own
+   positioning — the mobile FAB stack. On desktop it becomes one horizontal
+   bar pinned top-right, lining the toggles up as a single top bar with the
+   TopBar on the left. */
+.chibi-social-rail {
+  display: contents;
+}
+
+@media (min-width: 769px) {
+  /* Centered between the top-left TopBar and the top-right Quest log, so the
+     whole top edge reads as one bar. */
+  .chibi-social-rail {
+    position: fixed;
+    top: max(var(--chibi-ui-gap), var(--chibi-safe-top));
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 40;
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .chibi-social-rail > .chibi-who,
+  .chibi-social-rail > .chibi-leaderboard,
+  .chibi-social-rail > .chibi-guild,
+  .chibi-social-rail > .chibi-party {
+    position: static;
+    left: auto;
+    top: auto;
+    transform: none;
+    z-index: auto;
+    /* Open each dropdown down-and-left from the toggle's right edge so the
+       rightmost panels never overflow the screen edge. */
+    align-items: flex-end;
+  }
+}
+
 .chibi-who {
   position: fixed;
   top: 12px;
