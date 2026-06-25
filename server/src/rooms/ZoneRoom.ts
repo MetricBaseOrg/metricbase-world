@@ -112,6 +112,8 @@ import {
   ZoneTransferPayload,
   type ZoneConfig,
   type ZoneStateInstance,
+  getWeather,
+  getWorldTime,
 } from "@metricbase/shared";
 import { verifyAccessToken } from "../auth/accessToken.js";
 import { isTokenGateEnabled } from "../auth/tokenGate.js";
@@ -197,6 +199,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   private questProgress = new Map<string, QuestProgress>();
   private mobHp = new Map<string, number>();
   private mobRespawnAt = new Map<string, number>();
+  private npcPositions = new Map<string, { x: number; y: number }>();
+  private npcLastAttackAt = new Map<string, number>();
   private resourceRespawnAt = new Map<string, number>();
   private resourceChopper = new Map<string, string>();
   private activeChopSessions = new Map<
@@ -227,6 +231,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     for (const npc of this.zoneConfig.npcs) {
       if (npc.combat) {
         this.mobHp.set(npc.id, npc.combat.maxHp);
+        const spawnPos = tileToWorld(npc.tileX, npc.tileY);
+        this.npcPositions.set(npc.id, { x: spawnPos.x, y: spawnPos.y });
       }
     }
 
@@ -682,6 +688,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       const respawnAt = this.mobRespawnAt.get(npc.id);
       if (respawnAt && now >= respawnAt) {
         this.mobHp.set(npc.id, npc.combat.maxHp);
+        const spawnPos = tileToWorld(npc.tileX, npc.tileY);
+        this.npcPositions.set(npc.id, { x: spawnPos.x, y: spawnPos.y });
         this.mobRespawnAt.delete(npc.id);
         this.broadcastMobHealth(npc.id);
       }
@@ -770,6 +778,111 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
       this.checkPortals(sessionId, player.x, player.y);
     });
+
+    // Active AI for Wild Slimes at night
+    const timeState = getWorldTime(now);
+    const isNightTime = timeState.phase === "night";
+    const isStorm = getWeather(now).type === "storm";
+
+    let npcMoved = false;
+
+    for (const npc of this.zoneConfig.npcs) {
+      if (!npc.combat) continue;
+      const currentHp = this.mobHp.get(npc.id) ?? npc.combat.maxHp;
+      if (currentHp <= 0) continue;
+
+      const isWildSlime = npc.id.startsWith("wild_slime") || npc.id === "wild_slime";
+      if (!isWildSlime) continue;
+
+      const currentPos = this.npcPositions.get(npc.id);
+      if (!currentPos) continue;
+
+      let chasedPlayer: InstanceType<typeof PlayerSchema> | null = null;
+      let minDistance = 250; // CHASE_RANGE
+
+      if (isNightTime) {
+        // Find closest alive player in the room
+        this.state.players.forEach((player) => {
+          if (this.isKnockedOut(player.name)) return;
+          const dist = Math.hypot(player.x - currentPos.x, player.y - currentPos.y);
+          if (dist < minDistance) {
+            minDistance = dist;
+            chasedPlayer = player;
+          }
+        });
+      }
+
+      if (chasedPlayer) {
+        // Chase player
+        const dx = (chasedPlayer as any).x - currentPos.x;
+        const dy = (chasedPlayer as any).y - currentPos.y;
+        if (minDistance > 18) {
+          const speed = 55 * dt;
+          const nx = dx / minDistance;
+          const ny = dy / minDistance;
+          const nextX = currentPos.x + nx * speed;
+          const nextY = currentPos.y + ny * speed;
+
+          if (isWalkable(this.zoneConfig.id, nextX, currentPos.y)) {
+            currentPos.x = nextX;
+          }
+          if (isWalkable(this.zoneConfig.id, currentPos.x, nextY)) {
+            currentPos.y = nextY;
+          }
+          this.npcPositions.set(npc.id, currentPos);
+          npcMoved = true;
+        }
+
+        // Attack player if within attack range (28px)
+        if (minDistance <= 28) {
+          const lastAttack = this.npcLastAttackAt.get(npc.id) ?? 0;
+          if (now - lastAttack >= 1500) {
+            this.npcLastAttackAt.set(npc.id, now);
+            const client = this.clients.find((c) => c.sessionId === (chasedPlayer as any).sessionId);
+            if (client) {
+              const baseDamage = 15;
+              const dmg = isStorm ? baseDamage * 4 : baseDamage;
+              this.damagePlayer(client, chasedPlayer, dmg, `${npc.name} attack`);
+            }
+          }
+        }
+      } else {
+        // Return to spawn tile
+        const spawnPos = tileToWorld(npc.tileX, npc.tileY);
+        const dx = spawnPos.x - currentPos.x;
+        const dy = spawnPos.y - currentPos.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist > 5) {
+          const speed = 40 * dt;
+          const nx = dx / dist;
+          const ny = dy / dist;
+          const nextX = currentPos.x + nx * speed;
+          const nextY = currentPos.y + ny * speed;
+          if (isWalkable(this.zoneConfig.id, nextX, currentPos.y)) {
+            currentPos.x = nextX;
+          }
+          if (isWalkable(this.zoneConfig.id, currentPos.x, nextY)) {
+            currentPos.y = nextY;
+          }
+          this.npcPositions.set(npc.id, currentPos);
+          npcMoved = true;
+        }
+      }
+    }
+
+    // Broadcast NPC positions if any moved
+    if (npcMoved) {
+      const positionsPayload: { npcId: string; x: number; y: number }[] = [];
+      for (const npc of this.zoneConfig.npcs) {
+        if (npc.combat) {
+          const pos = this.npcPositions.get(npc.id);
+          if (pos) {
+            positionsPayload.push({ npcId: npc.id, x: pos.x, y: pos.y });
+          }
+        }
+      }
+      this.broadcast("npcPositions", positionsPayload);
+    }
   }
 
   private checkPortals(sessionId: string, worldX: number, worldY: number) {

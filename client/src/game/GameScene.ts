@@ -122,7 +122,10 @@ interface RenderedNpc {
   maxHp: number;
   currentHp: number;
   headTopY: number;
+  headTopOffset: number;
   shadow: Phaser.GameObjects.Image;
+  targetX?: number;
+  targetY?: number;
 }
 
 interface RenderedResource {
@@ -335,6 +338,16 @@ export class GameScene extends Phaser.Scene {
       this.updateNpcHealth(payload.npcId, payload.currentHp, payload.maxHp);
     });
 
+    const unsubscribeNpcPositions = networkManager.onNpcPositions((payload) => {
+      for (const update of payload) {
+        const npc = this.renderedNpcs.find((n) => n.id === update.npcId);
+        if (npc) {
+          npc.targetX = update.x;
+          npc.targetY = update.y;
+        }
+      }
+    });
+
     const unsubscribeAttackResult = networkManager.onAttackResult((payload) => {
       this.showMobDamageNumber(payload.npcId, payload.damage);
       if (payload.defeated) {
@@ -513,6 +526,7 @@ export class GameScene extends Phaser.Scene {
       unsubscribePlayers();
       unsubscribeZone();
       unsubscribeMobHealth();
+      unsubscribeNpcPositions();
       unsubscribeAttackResult();
       unsubscribePlayerDamage();
       unsubscribeResourceHealth();
@@ -604,6 +618,7 @@ export class GameScene extends Phaser.Scene {
     this.updateWaterShimmer();
     this.updateWeather();
     this.updateInteractHint();
+    this.updateNpcMovement();
     this.updatePinchZoom();
   }
 
@@ -1710,7 +1725,8 @@ export class GameScene extends Phaser.Scene {
       sprite.setOrigin(0.5, originY[mobTexture] ?? 0.9);
       sprite.setDepth(y);
       // Living NPCs gently bob in place; the training dummy stays rigid.
-      if (mobTexture !== "dummy") {
+      // Wild slimes have active moving/bobbing/hopping handled in the update loop.
+      if (mobTexture !== "dummy" && !npc.id.startsWith("wild_slime")) {
         this.tweens.add({
           targets: sprite,
           y: y - (mobTexture === "slime" ? 3 : 2),
@@ -1728,7 +1744,8 @@ export class GameScene extends Phaser.Scene {
         dummy: 36,
         npc: 43,
       };
-      const headTopY = y - (headTopOffset[mobTexture] ?? 34);
+      const offsetValue = headTopOffset[mobTexture] ?? 34;
+      const headTopY = y - offsetValue;
       const labelY = isCombat ? headTopY - 12 : headTopY - 4;
       if (isCombat && npc.combat) {
         const saved = networkManager.getMobHealth(npc.id);
@@ -1772,6 +1789,7 @@ export class GameScene extends Phaser.Scene {
         maxHp,
         currentHp,
         headTopY,
+        headTopOffset: offsetValue,
         shadow,
       };
 
@@ -2533,6 +2551,51 @@ export class GameScene extends Phaser.Scene {
       rendered.label.setDepth(y + 1);
       rendered.shadow.setPosition(x, y + 4);
       rendered.shadow.setDepth(y - 0.5);
+    }
+  }
+
+  private updateNpcMovement() {
+    const alpha = 0.22;
+    for (const npc of this.renderedNpcs) {
+      if (npc.targetX === undefined || npc.targetY === undefined) {
+        continue;
+      }
+      // Interpolate position
+      npc.worldX = Phaser.Math.Linear(npc.worldX, npc.targetX, alpha);
+      npc.worldY = Phaser.Math.Linear(npc.worldY, npc.targetY, alpha);
+
+      // Determine movement and offsets
+      const distToTarget = Math.hypot(npc.targetX - npc.worldX, npc.targetY - npc.worldY);
+      const isMoving = distToTarget > 1.0;
+
+      let bobY = 0;
+      if (npc.id.startsWith("wild_slime")) {
+        if (isMoving) {
+          bobY = Math.abs(Math.sin(this.time.now / 150)) * -6;
+        } else {
+          bobY = Math.sin(this.time.now / 300) * 1.5;
+        }
+      }
+
+      const x = Math.round(npc.worldX);
+      const y = Math.round(npc.worldY);
+
+      npc.sprite.setPosition(x, y + bobY);
+      npc.sprite.setDepth(y);
+
+      npc.headTopY = y - npc.headTopOffset;
+      const labelY = npc.combat ? npc.headTopY - 12 : npc.headTopY - 4;
+      npc.label.setPosition(x, labelY);
+      npc.label.setDepth(y + 1);
+
+      npc.shadow.setPosition(x, y + 2);
+      npc.shadow.setDepth(y - 0.5);
+
+      if (npc.combat) {
+        this.drawNpcHealthBar(npc);
+        npc.hpBarBg.setDepth(y + 2);
+        npc.hpBarFill.setDepth(y + 3);
+      }
     }
   }
 

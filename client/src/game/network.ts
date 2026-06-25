@@ -93,6 +93,8 @@ type GuildResultListener = (payload: GuildResultPayload) => void;
 type PartyStateListener = (payload: PartyStatePayload) => void;
 type PartyResultListener = (payload: PartyResultPayload) => void;
 type PartyInviteListener = (payload: PartyInvitePayload) => void;
+type NpcPositionsPayload = { npcId: string; x: number; y: number }[];
+type NpcPositionsListener = (payload: NpcPositionsPayload) => void;
 
 export class NetworkManager {
   private client: Client | null = null;
@@ -133,6 +135,7 @@ export class NetworkManager {
   private playerDamageListeners = new Set<PlayerDamageListener>();
   private resourceHealthListeners = new Set<ResourceHealthListener>();
   private chopResultListeners = new Set<ChopResultListener>();
+  private npcPositionsListeners = new Set<NpcPositionsListener>();
   private chopStartListeners = new Set<ChopStartListener>();
   private chopCancelListeners = new Set<ChopCancelListener>();
   private skillStateListeners = new Set<SkillStateListener>();
@@ -609,6 +612,11 @@ export class NetworkManager {
     return () => this.npcDialogueListeners.delete(listener);
   }
 
+  onNpcPositions(listener: NpcPositionsListener) {
+    this.npcPositionsListeners.add(listener);
+    return () => this.npcPositionsListeners.delete(listener);
+  }
+
   onQuestState(listener: QuestStateListener) {
     this.questStateListeners.add(listener);
     listener(this.latestQuestState);
@@ -1010,6 +1018,11 @@ export class NetworkManager {
           currentHp: payload.currentHp,
           maxHp: payload.maxHp,
         });
+      }
+    });
+    this.room.onMessage("npcPositions", (payload: NpcPositionsPayload) => {
+      for (const listener of this.npcPositionsListeners) {
+        listener(payload);
       }
     });
     this.room.onLeave(() => {
