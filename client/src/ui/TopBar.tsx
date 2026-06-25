@@ -18,7 +18,6 @@ import { CircleGauge } from "./CircleGauge";
 import { DayNightClock } from "./DayNightClock";
 import { useMobileLayout } from "./useMobileLayout";
 import { WalletConnectBar } from "./WalletConnectBar";
-import { InvitationsModal } from "./InvitationsModal";
 
 interface TopBarProps {
   onLeave: () => void;
@@ -30,7 +29,6 @@ export function TopBar({ onLeave }: TopBarProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [soundOn, setSoundOn] = useState(isSoundEnabled);
   const [musicOn, setMusicOn] = useState(isMusicEnabled);
-  const [invitationsOpen, setInvitationsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
   const {
@@ -56,6 +54,7 @@ export function TopBar({ onLeave }: TopBarProps) {
     fishingXp,
     farmingLevel,
     farmingXp,
+    setInvitationsOpen,
   } = useGameStore();
 
   useEffect(() => {
@@ -161,10 +160,6 @@ export function TopBar({ onLeave }: TopBarProps) {
             client v{GAME_VERSION}
           </div>
         </div>
-      )}
-
-      {invitationsOpen && (
-        <InvitationsModal onClose={() => setInvitationsOpen(false)} />
       )}
     </div>
   );

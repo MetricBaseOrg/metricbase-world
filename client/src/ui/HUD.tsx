@@ -53,6 +53,7 @@ export function HUD({ onLeave }: HUDProps) {
     fishingXp,
     farmingLevel,
     farmingXp,
+    setInvitationsOpen,
   } = useGameStore();
   // Desktop uses the compact TopBar instead of this left panel.
   if (!mobileLayout) return null;
@@ -323,6 +324,19 @@ export function HUD({ onLeave }: HUDProps) {
           <div className="chibi-text-muted" style={{ marginTop: 8, fontSize: "0.68rem", textAlign: "center" }}>
             client v{GAME_VERSION}
           </div>
+
+          <button
+            type="button"
+            className="chibi-btn chibi-btn--primary"
+            onClick={() => {
+              playSfx("ui_open");
+              setInvitationsOpen(true);
+              setExpanded(false);
+            }}
+            style={{ marginTop: 8, width: "100%", padding: "8px 10px", fontSize: "0.82rem" }}
+          >
+            ✉️ Invite Friends
+          </button>
 
           <button
             type="button"

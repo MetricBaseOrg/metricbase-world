@@ -5,12 +5,14 @@ import {
   InvitationsLeaderboardEntry,
 } from "../character/invitationsApi";
 import { shortenWallet } from "../wallet/solanaProvider";
+import { useMobileLayout } from "./useMobileLayout";
 
 interface InvitationsLeaderboardModalProps {
   onClose: () => void;
 }
 
 export function InvitationsLeaderboardModal({ onClose }: InvitationsLeaderboardModalProps) {
+  const mobileLayout = useMobileLayout();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [entries, setEntries] = useState<InvitationsLeaderboardEntry[]>([]);
@@ -34,7 +36,13 @@ export function InvitationsLeaderboardModal({ onClose }: InvitationsLeaderboardM
         <button
           type="button"
           className="chibi-btn chibi-btn--ghost"
-          style={{ position: "absolute", right: 20, top: 20, fontSize: "1.1rem" }}
+          style={{
+            position: "absolute",
+            right: mobileLayout ? 12 : 20,
+            top: mobileLayout ? 12 : 20,
+            fontSize: mobileLayout ? "0.95rem" : "1.1rem",
+            padding: "4px 8px",
+          }}
           onClick={() => {
             playSfx("ui_close");
             onClose();
@@ -43,7 +51,7 @@ export function InvitationsLeaderboardModal({ onClose }: InvitationsLeaderboardM
           ✖
         </button>
 
-        <h2 style={{ margin: "0 0 16px 0", fontSize: "1.34rem", display: "flex", alignItems: "center", gap: 8 }}>
+        <h2 style={{ margin: "0 0 16px 0", fontSize: mobileLayout ? "1.15rem" : "1.34rem", display: "flex", alignItems: "center", gap: 8 }}>
           🏆 Invitation Leaderboard
         </h2>
 
@@ -59,7 +67,7 @@ export function InvitationsLeaderboardModal({ onClose }: InvitationsLeaderboardM
           </div>
         ) : (
           <div>
-            <div style={{ maxHeight: 340, overflowY: "auto", display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={{ maxHeight: mobileLayout ? 260 : 340, overflowY: "auto", display: "flex", flexDirection: "column", gap: 8 }}>
               {entries.length === 0 ? (
                 <div style={{ textAlign: "center", opacity: 0.5, padding: "30px 0", fontSize: "0.85rem" }}>
                   No invitations recorded yet. Be the first to invite your friends!
@@ -73,21 +81,30 @@ export function InvitationsLeaderboardModal({ onClose }: InvitationsLeaderboardM
                       key={entry.walletAddress}
                       className="chibi-card"
                       style={{
-                        padding: "10px 14px",
+                        padding: mobileLayout ? "8px 10px" : "10px 14px",
                         display: "flex",
                         justifyContent: "space-between",
                         alignItems: "center",
-                        gap: 12,
+                        gap: 8,
                         background: isTop3 ? "rgba(255, 215, 0, 0.05)" : undefined,
                         border: isTop3 ? "2px solid var(--chibi-accent)" : undefined,
                       }}
                     >
-                      <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: mobileLayout ? 8 : 12, minWidth: 0 }}>
                         <span style={{ fontSize: isTop3 ? "1.15rem" : "0.9rem", fontWeight: "bold", width: 28, display: "inline-block", textAlign: "center" }}>
                           {medal}
                         </span>
                         <div style={{ minWidth: 0 }}>
-                          <div style={{ fontSize: "0.9rem", fontWeight: "bold", textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>
+                          <div
+                            style={{
+                              fontSize: "0.9rem",
+                              fontWeight: "bold",
+                              textOverflow: "ellipsis",
+                              overflow: "hidden",
+                              whiteSpace: "nowrap",
+                              maxWidth: mobileLayout ? "140px" : "200px"
+                            }}
+                          >
                             {entry.playerName || "Traveler"}
                           </div>
                           <div className="chibi-text-muted" style={{ fontSize: "0.72rem", fontFamily: "monospace", marginTop: 1 }}>

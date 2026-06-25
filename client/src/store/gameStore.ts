@@ -48,6 +48,8 @@ interface GameStore {
   playerShopPlotId: string | null;
   shop: ShopOpenPayload | null;
   shopOpen: boolean;
+  invitationsOpen: boolean;
+  setInvitationsOpen: (open: boolean) => void;
   setPlayerName: (name: string) => void;
   setCharacterAppearance: (appearance: CharacterAppearance | null) => void;
   setPlayerLevel: (level: number) => void;
@@ -138,6 +140,7 @@ export const useGameStore = create<GameStore>((set) => ({
   playerShopPlotId: null,
   shop: null,
   shopOpen: false,
+  invitationsOpen: false,
   setPlayerName: (name) => set({ playerName: name }),
   setCharacterAppearance: (characterAppearance) => set({ characterAppearance }),
   setPlayerLevel: (level) => set({ playerLevel: level }),
@@ -226,4 +229,5 @@ export const useGameStore = create<GameStore>((set) => ({
   setPlayerShopOpen: (playerShopOpen) => set({ playerShopOpen }),
   setShop: (shop) => set({ shop }),
   setShopOpen: (shopOpen) => set({ shopOpen }),
+  setInvitationsOpen: (invitationsOpen) => set({ invitationsOpen }),
 }));

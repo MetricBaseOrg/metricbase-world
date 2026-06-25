@@ -7,12 +7,14 @@ import {
   InvitationStateResponse,
 } from "../character/invitationsApi";
 import { InvitationsLeaderboardModal } from "./InvitationsLeaderboardModal";
+import { useMobileLayout } from "./useMobileLayout";
 
 interface InvitationsModalProps {
   onClose: () => void;
 }
 
 export function InvitationsModal({ onClose }: InvitationsModalProps) {
+  const mobileLayout = useMobileLayout();
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -73,7 +75,13 @@ export function InvitationsModal({ onClose }: InvitationsModalProps) {
         <button
           type="button"
           className="chibi-btn chibi-btn--ghost"
-          style={{ position: "absolute", right: 20, top: 20, fontSize: "1.1rem" }}
+          style={{
+            position: "absolute",
+            right: mobileLayout ? 12 : 20,
+            top: mobileLayout ? 12 : 20,
+            fontSize: mobileLayout ? "0.95rem" : "1.1rem",
+            padding: "4px 8px",
+          }}
           onClick={() => {
             playSfx("ui_close");
             onClose();
@@ -82,7 +90,18 @@ export function InvitationsModal({ onClose }: InvitationsModalProps) {
           ✖
         </button>
 
-        <h2 style={{ margin: "0 0 16px 0", fontSize: "1.34rem", display: "flex", justifyContent: "space-between", alignItems: "center", paddingRight: 40 }}>
+        <h2
+          style={{
+            margin: "0 0 16px 0",
+            fontSize: mobileLayout ? "1.15rem" : "1.34rem",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            paddingRight: mobileLayout ? 28 : 40,
+            flexWrap: "wrap",
+            gap: 8,
+          }}
+        >
           <span>✉️ Invitation Portal</span>
           <button
             type="button"
@@ -112,14 +131,14 @@ export function InvitationsModal({ onClose }: InvitationsModalProps) {
             {data && (
               <>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 20 }}>
-                  <div className="chibi-card" style={{ padding: "12px 14px", textAlign: "center" }}>
-                    <div style={{ fontSize: "1.5rem", fontWeight: "bold" }}>{data.invitedCount}</div>
+                  <div className="chibi-card" style={{ padding: mobileLayout ? "8px 10px" : "12px 14px", textAlign: "center" }}>
+                    <div style={{ fontSize: mobileLayout ? "1.25rem" : "1.5rem", fontWeight: "bold" }}>{data.invitedCount}</div>
                     <div className="chibi-text-muted" style={{ fontSize: "0.72rem", marginTop: 4 }}>
                       Friends Invited
                     </div>
                   </div>
-                  <div className="chibi-card" style={{ padding: "12px 14px", textAlign: "center" }}>
-                    <div style={{ fontSize: "1.5rem", fontWeight: "bold" }}>{data.codesRemaining}</div>
+                  <div className="chibi-card" style={{ padding: mobileLayout ? "8px 10px" : "12px 14px", textAlign: "center" }}>
+                    <div style={{ fontSize: mobileLayout ? "1.25rem" : "1.5rem", fontWeight: "bold" }}>{data.codesRemaining}</div>
                     <div className="chibi-text-muted" style={{ fontSize: "0.72rem", marginTop: 4 }}>
                       Codes Remaining
                     </div>
@@ -139,7 +158,13 @@ export function InvitationsModal({ onClose }: InvitationsModalProps) {
                 <button
                   type="button"
                   className="chibi-btn chibi-btn--primary"
-                  style={{ width: "100%", padding: "12px 14px", fontWeight: "bold", marginBottom: 24 }}
+                  style={{
+                    width: "100%",
+                    padding: mobileLayout ? "10px 12px" : "12px 14px",
+                    fontWeight: "bold",
+                    marginBottom: mobileLayout ? 16 : 24,
+                    fontSize: mobileLayout ? "0.85rem" : "0.95rem",
+                  }}
                   disabled={data.codesRemaining <= 0 || generating}
                   onClick={handleGenerate}
                 >
@@ -147,7 +172,7 @@ export function InvitationsModal({ onClose }: InvitationsModalProps) {
                 </button>
 
                 <h3 style={{ fontSize: "0.95rem", margin: "0 0 10px 0" }}>Your Invitation Links</h3>
-                <div style={{ maxHeight: 220, overflowY: "auto", display: "flex", flexDirection: "column", gap: 8 }}>
+                <div style={{ maxHeight: mobileLayout ? 160 : 220, overflowY: "auto", display: "flex", flexDirection: "column", gap: 8 }}>
                   {data.codes.length === 0 ? (
                     <div style={{ textAlign: "center", opacity: 0.5, padding: "20px 0", fontSize: "0.85rem" }}>
                       No codes generated yet. Click the button above to get started!
@@ -158,16 +183,16 @@ export function InvitationsModal({ onClose }: InvitationsModalProps) {
                         key={item.code}
                         className="chibi-card"
                         style={{
-                          padding: "10px 12px",
+                          padding: mobileLayout ? "8px 10px" : "10px 12px",
                           display: "flex",
                           justifyContent: "space-between",
                           alignItems: "center",
-                          gap: 12,
+                          gap: 8,
                           background: item.inviteeWallet ? "rgba(255, 255, 255, 0.05)" : undefined,
                         }}
                       >
                         <div style={{ minWidth: 0 }}>
-                          <div style={{ fontSize: "0.85rem", fontWeight: "bold", fontFamily: "monospace" }}>{item.code}</div>
+                          <div style={{ fontSize: mobileLayout ? "0.78rem" : "0.85rem", fontWeight: "bold", fontFamily: "monospace" }}>{item.code}</div>
                           <div
                             className="chibi-text-muted"
                             style={{
@@ -176,6 +201,7 @@ export function InvitationsModal({ onClose }: InvitationsModalProps) {
                               textOverflow: "ellipsis",
                               overflow: "hidden",
                               whiteSpace: "nowrap",
+                              maxWidth: mobileLayout ? "140px" : "240px",
                             }}
                           >
                             {item.inviteeWallet ? (

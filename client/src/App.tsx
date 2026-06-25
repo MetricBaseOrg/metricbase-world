@@ -28,6 +28,7 @@ import { WhoPanel } from "./ui/WhoPanel";
 import { LeaderboardPanel } from "./ui/LeaderboardPanel";
 import { GuildPanel } from "./ui/GuildPanel";
 import { PartyPanel } from "./ui/PartyPanel";
+import { InvitationsModal } from "./ui/InvitationsModal";
 
 export function App() {
   const [joined, setJoined] = useState(false);
@@ -47,6 +48,8 @@ export function App() {
     setShopOpen,
     setPlayerGold,
     setSkillState,
+    invitationsOpen,
+    setInvitationsOpen,
   } = useGameStore();
 
   const previousLevelRef = useRef(1);
@@ -310,6 +313,7 @@ export function App() {
       {joined && <EmoteBar />}
       {joined && <TouchControls />}
       {joined && <DeathOverlay />}
+      {joined && invitationsOpen && <InvitationsModal onClose={() => setInvitationsOpen(false)} />}
       {!joined && <LoginOverlay onJoin={handleJoin} />}
     </div>
   );
