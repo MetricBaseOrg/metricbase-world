@@ -146,12 +146,9 @@ export function InvitationsModal({ onClose }: InvitationsModalProps) {
                 </div>
 
                 <div className="chibi-card chibi-card--info" style={{ padding: "12px 14px", marginBottom: 20, fontSize: "0.8rem" }}>
-                  <strong>Milestone Progression:</strong>
+                  <strong>How to use your code:</strong>
                   <div style={{ marginTop: 6, lineHeight: "1.4" }}>
-                    You start with 5 codes. Get 3 more codes after 5 successful invites, and 3 more for every 3 invites after that!
-                  </div>
-                  <div style={{ marginTop: 8, fontSize: "0.75rem", opacity: 0.8 }}>
-                    Current Limit: {data.maxCodesAllowed} codes (Generated: {data.generatedCount})
+                    Copy any of the invitation links below and share them with friends. Clicking the link automatically pre-populates your code on registration, or they can enter it manually when creating their character to access the world.
                   </div>
                 </div>
 
