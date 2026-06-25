@@ -138,3 +138,4 @@ CREATE TABLE IF NOT EXISTS invitations (
 );
 
 CREATE INDEX IF NOT EXISTS invitations_inviter_wallet_idx ON invitations (inviter_wallet);
+CREATE INDEX IF NOT EXISTS invitations_invitee_wallet_idx ON invitations (invitee_wallet);

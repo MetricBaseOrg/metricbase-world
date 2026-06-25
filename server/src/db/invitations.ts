@@ -134,3 +134,39 @@ export async function validateAndUseInviteCode(code: string, inviteeWallet: stri
     [inviteeWallet, trimmedCode],
   );
 }
+
+export interface InvitationsLeaderboardEntry {
+  playerName: string | null;
+  walletAddress: string;
+  inviteCount: number;
+}
+
+export async function getInvitationsLeaderboard(): Promise<InvitationsLeaderboardEntry[]> {
+  const db = getPool();
+  if (!db) return [];
+
+  try {
+    const result = await db.query<{
+      player_name: string | null;
+      inviter_wallet: string;
+      invite_count: string;
+    }>(
+      `SELECT c.name AS player_name, i.inviter_wallet, COUNT(i.invitee_wallet) AS invite_count
+       FROM invitations i
+       LEFT JOIN characters c ON c.wallet_address = i.inviter_wallet
+       WHERE i.invitee_wallet IS NOT NULL
+       GROUP BY c.name, i.inviter_wallet
+       ORDER BY invite_count DESC, c.name ASC
+       LIMIT 50`
+    );
+
+    return result.rows.map((row) => ({
+      playerName: row.player_name,
+      walletAddress: row.inviter_wallet,
+      inviteCount: Number(row.invite_count),
+    }));
+  } catch (error) {
+    console.warn("[invitations-leaderboard] query failed:", error);
+    return [];
+  }
+}

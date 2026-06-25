@@ -59,3 +59,17 @@ export async function generateInvitationCode(accessToken: string): Promise<strin
   const body = await response.json() as { ok: boolean; code: string };
   return body.code;
 }
+
+export interface InvitationsLeaderboardEntry {
+  playerName: string | null;
+  walletAddress: string;
+  inviteCount: number;
+}
+
+export async function getInvitationsLeaderboard(): Promise<InvitationsLeaderboardEntry[]> {
+  const response = await fetchWithTimeout(`${getHttpServerUrl()}/api/invitations/leaderboard`);
+  if (!response.ok) {
+    throw new Error("Failed to load invitation leaderboard.");
+  }
+  return response.json() as Promise<InvitationsLeaderboardEntry[]>;
+}

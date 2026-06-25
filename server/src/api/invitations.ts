@@ -6,6 +6,7 @@ import {
   getGeneratedCount,
   createInvitation,
   isInvitationSystemActive,
+  getInvitationsLeaderboard,
 } from "../db/invitations.js";
 import { getGrantedCodesCount } from "@metricbase/shared";
 
@@ -45,5 +46,15 @@ invitationsRouter.post("/invitations", requireAuth, async (req, res) => {
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to create invitation";
     res.status(400).json({ error: message });
+  }
+});
+
+invitationsRouter.get("/invitations/leaderboard", async (_req, res) => {
+  try {
+    const list = await getInvitationsLeaderboard();
+    res.json(list);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to load leaderboard";
+    res.status(500).json({ error: message });
   }
 });

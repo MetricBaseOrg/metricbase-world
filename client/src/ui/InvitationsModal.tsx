@@ -6,6 +6,7 @@ import {
   generateInvitationCode,
   InvitationStateResponse,
 } from "../character/invitationsApi";
+import { InvitationsLeaderboardModal } from "./InvitationsLeaderboardModal";
 
 interface InvitationsModalProps {
   onClose: () => void;
@@ -17,6 +18,7 @@ export function InvitationsModal({ onClose }: InvitationsModalProps) {
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<InvitationStateResponse | null>(null);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const [leaderboardOpen, setLeaderboardOpen] = useState(false);
 
   const fetchStats = async () => {
     const token = networkManager.getAccessToken();
@@ -80,8 +82,19 @@ export function InvitationsModal({ onClose }: InvitationsModalProps) {
           ✖
         </button>
 
-        <h2 style={{ margin: "0 0 16px 0", fontSize: "1.34rem", display: "flex", alignItems: "center", gap: 8 }}>
-          ✉️ Invitation Portal
+        <h2 style={{ margin: "0 0 16px 0", fontSize: "1.34rem", display: "flex", justifyContent: "space-between", alignItems: "center", paddingRight: 40 }}>
+          <span>✉️ Invitation Portal</span>
+          <button
+            type="button"
+            className="chibi-btn chibi-btn--secondary"
+            style={{ fontSize: "0.75rem", padding: "4px 8px" }}
+            onClick={() => {
+              playSfx("ui_open");
+              setLeaderboardOpen(true);
+            }}
+          >
+            🏆 Leaderboard
+          </button>
         </h2>
 
         {error && (
@@ -194,6 +207,9 @@ export function InvitationsModal({ onClose }: InvitationsModalProps) {
           </div>
         )}
       </div>
+      {leaderboardOpen && (
+        <InvitationsLeaderboardModal onClose={() => setLeaderboardOpen(false)} />
+      )}
     </div>
   );
 }

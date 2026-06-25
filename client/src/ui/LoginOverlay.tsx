@@ -15,6 +15,8 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 import { lookupBondedCharacter, saveCharacterAppearance } from "../character/characterApi";
 import { getInvitationConfig } from "../character/invitationsApi";
 import { useGameStore } from "../store/gameStore";
+import { playSfx } from "../audio/soundEffects";
+import { InvitationsLeaderboardModal } from "./InvitationsLeaderboardModal";
 import type { WalletConnector } from "../wallet/discovery";
 import { shortenWallet } from "../wallet/solanaProvider";
 import {
@@ -133,6 +135,7 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
   const [walletPickerOpen, setWalletPickerOpen] = useState(false);
   const [inviteCode, setInviteCode] = useState("");
   const [invitationsActive, setInvitationsActive] = useState(false);
+  const [leaderboardOpen, setLeaderboardOpen] = useState(false);
   const [detectedWallets, setDetectedWallets] = useState<WalletConnector[]>([]);
   const walletConnectResolver = useRef<{
     resolve: (value: Awaited<ReturnType<typeof connectAndVerifyWallet>>) => void;
@@ -395,23 +398,41 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
             Connect your wallet to bond your character. Name, avatar, and progress stay linked to
             your wallet across sessions.
           </p>
-          <a
-            href="/docs"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="chibi-btn chibi-btn--secondary"
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 6,
-              marginTop: 12,
-              padding: "8px 14px",
-              fontSize: "0.85rem",
-              textDecoration: "none",
-            }}
-          >
-            📖 New here? Read the How-to-Play guide
-          </a>
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 12 }}>
+            <a
+              href="/docs"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="chibi-btn chibi-btn--secondary"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "8px 14px",
+                fontSize: "0.85rem",
+                textDecoration: "none",
+              }}
+            >
+              📖 How-to-Play Guide
+            </a>
+            <button
+              type="button"
+              className="chibi-btn chibi-btn--secondary"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "8px 14px",
+                fontSize: "0.85rem",
+              }}
+              onClick={() => {
+                playSfx("ui_open");
+                setLeaderboardOpen(true);
+              }}
+            >
+              🏆 Invitation Leaderboard
+            </button>
+          </div>
         </div>
 
         <div className="chibi-login-grid">
@@ -582,6 +603,10 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
           onSelect={(wallet) => void handleWalletPicked(wallet)}
           onClose={handleWalletPickerClose}
         />
+      )}
+
+      {leaderboardOpen && (
+        <InvitationsLeaderboardModal onClose={() => setLeaderboardOpen(false)} />
       )}
     </div>
   );
