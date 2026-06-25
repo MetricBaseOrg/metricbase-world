@@ -211,6 +211,7 @@ export function App() {
     name: string,
     accessToken: string | null | undefined,
     appearance: CharacterAppearance,
+    inviteCode?: string,
   ) => {
     setPlayerName(name);
     setCharacterAppearance(appearance);
@@ -239,7 +240,7 @@ export function App() {
 
     try {
       await waitForGameSceneReady();
-      await networkManager.connect(name, token, appearance);
+      await networkManager.connect(name, token, appearance, inviteCode);
       setZoneName(networkManager.zoneName);
     } catch (error) {
       setJoined(false);

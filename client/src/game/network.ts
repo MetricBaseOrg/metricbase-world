@@ -157,6 +157,10 @@ export class NetworkManager {
   private playerCache = new Map<string, RemotePlayer>();
   private playerListenCleanup = new Map<string, () => void>();
 
+  getAccessToken(): string | null {
+    return this.accessToken;
+  }
+
   get sessionId(): string | null {
     return this.room?.sessionId ?? null;
   }
@@ -234,6 +238,7 @@ export class NetworkManager {
     playerName: string,
     accessToken?: string | null,
     appearance?: CharacterAppearance | null,
+    inviteCode?: string,
   ): Promise<void> {
     this.playerName = playerName;
     this.accessToken = accessToken ?? null;
@@ -253,7 +258,7 @@ export class NetworkManager {
     }
 
     this.currentZoneId = zoneId;
-    await this.joinZone(zoneId);
+    await this.joinZone(zoneId, inviteCode);
     if (this.accessToken) {
       await this.linkWallet();
     }
@@ -747,7 +752,7 @@ export class NetworkManager {
     return () => this.skillStateListeners.delete(listener);
   }
 
-  private async joinZone(zoneId: string) {
+  private async joinZone(zoneId: string, inviteCode?: string) {
     if (!this.client) {
       this.client = new Client(getWebSocketUrl());
     }
@@ -758,6 +763,7 @@ export class NetworkManager {
       zoneId,
       ...(this.accessToken ? { accessToken: this.accessToken } : {}),
       ...(this.appearance ? { appearance: this.appearance } : {}),
+      ...(inviteCode ? { inviteCode } : {}),
     };
     try {
       this.room = await this.client.joinOrCreate(config.roomName, options, ZoneState);

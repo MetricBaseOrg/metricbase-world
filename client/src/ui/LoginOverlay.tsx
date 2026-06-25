@@ -13,6 +13,7 @@ import {
 } from "@metricbase/shared";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { lookupBondedCharacter, saveCharacterAppearance } from "../character/characterApi";
+import { getInvitationConfig } from "../character/invitationsApi";
 import { useGameStore } from "../store/gameStore";
 import type { WalletConnector } from "../wallet/discovery";
 import { shortenWallet } from "../wallet/solanaProvider";
@@ -32,6 +33,7 @@ interface LoginOverlayProps {
     name: string,
     accessToken: string | null | undefined,
     appearance: CharacterAppearance,
+    inviteCode?: string,
   ) => Promise<void>;
 }
 
@@ -129,11 +131,27 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
   const [tokenBalance, setTokenBalance] = useState<number | null>(null);
   const [nameBonded, setNameBonded] = useState(false);
   const [walletPickerOpen, setWalletPickerOpen] = useState(false);
+  const [inviteCode, setInviteCode] = useState("");
+  const [invitationsActive, setInvitationsActive] = useState(false);
   const [detectedWallets, setDetectedWallets] = useState<WalletConnector[]>([]);
   const walletConnectResolver = useRef<{
     resolve: (value: Awaited<ReturnType<typeof connectAndVerifyWallet>>) => void;
     reject: (reason?: unknown) => void;
   } | null>(null);
+
+  useEffect(() => {
+    getInvitationConfig().then(cfg => {
+      setInvitationsActive(cfg.active);
+    }).catch(err => {
+      console.error("Failed to load invitation config", err);
+    });
+
+    const params = new URLSearchParams(window.location.search);
+    const inviteParam = params.get("invite") || params.get("code");
+    if (inviteParam) {
+      setInviteCode(inviteParam.trim());
+    }
+  }, []);
 
   useEffect(() => {
     void (async () => {
@@ -322,11 +340,21 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
           setNameBonded(true);
         }
 
-        await saveCharacterAppearance(finalName, normalized, accessToken);
+        const isNew = !(bonded.found && bonded.bonded && bonded.name);
+        const codeToUse = inviteCode.trim();
+        if (isNew && invitationsActive && !codeToUse) {
+          throw new Error("Invitation code is required to register.");
+        }
+
+        await saveCharacterAppearance(finalName, normalized, accessToken, codeToUse || undefined);
         setNameBonded(true);
-        await onJoin(finalName, accessToken, normalized);
+        await onJoin(finalName, accessToken, normalized, codeToUse || undefined);
       } else {
-        await onJoin(trimmed, accessToken, normalized);
+        const codeToUse = inviteCode.trim();
+        if (invitationsActive && !codeToUse) {
+          throw new Error("Invitation code is required to register.");
+        }
+        await onJoin(trimmed, accessToken, normalized, codeToUse || undefined);
       }
     } catch (joinError) {
       const message =
@@ -416,6 +444,23 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
                 </div>
               )}
             </div>
+
+            {invitationsActive && !nameBonded && (
+              <div>
+                <label className="chibi-label">Invitation Code</label>
+                <input
+                  className="chibi-input"
+                  value={inviteCode}
+                  onChange={(event) => setInviteCode(event.target.value)}
+                  maxLength={32}
+                  placeholder="INV-XXXX-XXXX"
+                  required
+                />
+                <div style={{ fontSize: 11, opacity: 0.6, marginTop: 6 }}>
+                  An invitation code is required to register.
+                </div>
+              </div>
+            )}
 
             <div>
               <div className="chibi-label" style={{ textTransform: "none", letterSpacing: 0 }}>Skin tone</div>

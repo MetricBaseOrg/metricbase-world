@@ -14,6 +14,7 @@ import { createServer } from "node:http";
 import { authRouter } from "./api/auth.js";
 import { characterRouter } from "./api/characters.js";
 import { tokenShopRouter } from "./api/tokenShop.js";
+import { invitationsRouter } from "./api/invitations.js";
 import { initDatabase } from "./db/pool.js";
 import { initSellPressure } from "./market/sellPressure.js";
 import { initLandRegistry } from "./housing/landRegistry.js";
@@ -45,6 +46,7 @@ app.get("/health", (_req, res) => {
 app.use("/api", authRouter);
 app.use("/api", characterRouter);
 app.use("/api", tokenShopRouter);
+app.use("/api", invitationsRouter);
 
 const httpServer = createServer(app);
 

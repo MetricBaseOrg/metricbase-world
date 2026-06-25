@@ -19,6 +19,7 @@ export interface JoinOptions {
   zoneId?: string;
   accessToken?: string;
   appearance?: CharacterAppearance;
+  inviteCode?: string;
 }
 
 export interface CharacterLookupResponse {

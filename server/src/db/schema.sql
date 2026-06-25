@@ -128,3 +128,13 @@ CREATE TABLE IF NOT EXISTS farm_plots (
   planted_at BIGINT NOT NULL,
   ready_at BIGINT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS invitations (
+  code VARCHAR(32) PRIMARY KEY,
+  inviter_wallet VARCHAR(44) NOT NULL,
+  invitee_wallet VARCHAR(44) UNIQUE,
+  used_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS invitations_inviter_wallet_idx ON invitations (inviter_wallet);

@@ -62,3 +62,10 @@ export function appearanceTextureKey(appearance: CharacterAppearance): string {
   const { bodyColor, hairColor, outfitColor, hairStyle, outfitStyle, weaponId, toolId } = appearance;
   return `player-v${CHARACTER_ART_VERSION}-${bodyColor}-${hairColor}-${outfitColor}-${hairStyle}-${outfitStyle}-${weaponId || ""}-${toolId || ""}`;
 }
+
+export function getGrantedCodesCount(invitedCount: number): number {
+  if (invitedCount < 5) {
+    return 5;
+  }
+  return 5 + 3 * (Math.floor((invitedCount - 5) / 3) + 1);
+}

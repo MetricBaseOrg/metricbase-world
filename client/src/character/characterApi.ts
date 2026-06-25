@@ -39,11 +39,12 @@ export async function saveCharacterAppearance(
   name: string,
   appearance: CharacterAppearance,
   accessToken: string,
+  inviteCode?: string,
 ): Promise<void> {
   const response = await fetchWithTimeout(`${getHttpServerUrl()}/api/character`, {
     method: "POST",
     headers: authHeaders(accessToken),
-    body: JSON.stringify({ name, appearance }),
+    body: JSON.stringify({ name, appearance, inviteCode }),
   });
 
   if (!response.ok) {

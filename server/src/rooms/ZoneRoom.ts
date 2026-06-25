@@ -123,6 +123,7 @@ import {
   resolveCharacterForJoin,
   saveCharacter,
 } from "../db/characters.js";
+import { isInvitationSystemActive, validateAndUseInviteCode } from "../db/invitations.js";
 import { isWalkable, blockPlotFootprint } from "../map/collision.js";
 import { checkWalletTokenGate } from "../solana/tokenBalance.js";
 import { getCachedHolderCount } from "../solana/holderCount.js";
@@ -512,6 +513,22 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         throw new ServerError(403, error.message);
       }
       throw error;
+    }
+
+    if (!saved && isInvitationSystemActive()) {
+      const inviteCode = options?.inviteCode ? String(options.inviteCode).trim() : "";
+      if (!inviteCode) {
+        throw new ServerError(403, "Invitation code is required to register.");
+      }
+      try {
+        if (!wallet) {
+          throw new Error("Wallet is required to register with an invitation code.");
+        }
+        await validateAndUseInviteCode(inviteCode, wallet);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Invalid invitation code.";
+        throw new ServerError(403, msg);
+      }
     }
 
     if (wallet) {

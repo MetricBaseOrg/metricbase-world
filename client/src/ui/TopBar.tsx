@@ -18,6 +18,7 @@ import { CircleGauge } from "./CircleGauge";
 import { DayNightClock } from "./DayNightClock";
 import { useMobileLayout } from "./useMobileLayout";
 import { WalletConnectBar } from "./WalletConnectBar";
+import { InvitationsModal } from "./InvitationsModal";
 
 interface TopBarProps {
   onLeave: () => void;
@@ -29,6 +30,7 @@ export function TopBar({ onLeave }: TopBarProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [soundOn, setSoundOn] = useState(isSoundEnabled);
   const [musicOn, setMusicOn] = useState(isMusicEnabled);
+  const [invitationsOpen, setInvitationsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
   const {
@@ -146,6 +148,11 @@ export function TopBar({ onLeave }: TopBarProps) {
             📖 How to Play
           </a>
 
+          <button type="button" className="chibi-btn chibi-btn--primary" style={{ width: "100%", marginTop: 8, padding: "8px 10px" }}
+            onClick={() => { playSfx("ui_open"); setInvitationsOpen(true); setMenuOpen(false); }}>
+            ✉️ Invite Friends
+          </button>
+
           <button type="button" className="chibi-btn chibi-btn--secondary" style={{ width: "100%", marginTop: 10, padding: "8px 10px" }}
             onClick={() => { playSfx("ui_close"); onLeave(); }}>
             Leave World
@@ -154,6 +161,10 @@ export function TopBar({ onLeave }: TopBarProps) {
             client v{GAME_VERSION}
           </div>
         </div>
+      )}
+
+      {invitationsOpen && (
+        <InvitationsModal onClose={() => setInvitationsOpen(false)} />
       )}
     </div>
   );

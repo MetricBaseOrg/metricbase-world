@@ -7,6 +7,7 @@ import {
 } from "@metricbase/shared";
 import { Router } from "express";
 import { type AuthenticatedRequest, requireAuth } from "../auth/requireAuth.js";
+import { isInvitationSystemActive, validateAndUseInviteCode } from "../db/invitations.js";
 import {
   bindCharacterToWallet,
   CharacterBindingError,
@@ -82,6 +83,22 @@ characterRouter.post("/character", requireAuth, async (req, res) => {
   if (!name) {
     res.status(400).json({ error: "name is required" });
     return;
+  }
+
+  const existing = await loadCharacterByWallet(wallet);
+  if (!existing && isInvitationSystemActive()) {
+    const inviteCode = req.body?.inviteCode ? String(req.body.inviteCode).trim() : "";
+    if (!inviteCode) {
+      res.status(400).json({ error: "Invitation code is required to register." });
+      return;
+    }
+    try {
+      await validateAndUseInviteCode(inviteCode, wallet);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Invalid invitation code.";
+      res.status(400).json({ error: msg });
+      return;
+    }
   }
 
   const appearance = normalizeCharacterAppearance(req.body?.appearance as Partial<CharacterAppearance>);
