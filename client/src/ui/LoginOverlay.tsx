@@ -97,12 +97,17 @@ const HAIR_LABELS: Record<HairStyle, string> = {
   short: "Short",
   long: "Long",
   spiky: "Spiky",
+  bald: "Bald",
+  mohawk: "Mohawk",
+  ponytail: "Ponytail",
 };
 
 const OUTFIT_LABELS: Record<OutfitStyle, string> = {
   robe: "Robe",
   armor: "Armor",
   casual: "Casual",
+  tunic: "Tunic",
+  explorer: "Explorer",
 };
 
 export function LoginOverlay({ onJoin }: LoginOverlayProps) {

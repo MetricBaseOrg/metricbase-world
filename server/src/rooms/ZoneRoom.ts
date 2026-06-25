@@ -530,6 +530,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     player.outfitStyle = appearance.outfitStyle;
     player.guildTag = tagForMember(name);
     player.lampOn = false;
+    player.weaponId = "";
+    player.toolId = "";
 
     const maxHp = getPlayerMaxHp(player.level);
     const spawn = tileToWorld(this.zoneConfig.spawnTile.x, this.zoneConfig.spawnTile.y);
@@ -572,10 +574,10 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     this.questProgress.set(player.name, saved?.questProgress ?? { active: [], objectiveIndex: {}, completed: [] });
     this.inventories.set(player.name, normalizeInventory(saved?.inventory));
     this.playerGold.set(player.name, saved?.gold ?? STARTING_GOLD);
-    this.playerEquipment.set(
-      player.name,
-      normalizeEquipment(saved?.equipment),
-    );
+    const eq = normalizeEquipment(saved?.equipment);
+    this.playerEquipment.set(player.name, eq);
+    player.weaponId = eq.weaponId ?? "";
+    player.toolId = eq.toolId ?? "";
     this.npcInteractAt.set(player.name, saved?.npcInteractAt ?? {});
     this.mobGoldClaimed.set(player.name, saved?.mobGoldClaimed ?? {});
     this.playerSkills.set(player.name, normalizeSkills(saved?.skills));
@@ -952,6 +954,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       currentHp: nextHp,
       maxHp: npc.combat.maxHp,
       defeated,
+      attackerName: player.name,
     });
 
     // Refresh the HUD so the stamina gauge reflects the swing's energy cost.
@@ -1991,6 +1994,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       const next: PlayerEquipment =
         slot === "tool" ? { ...current, toolId: null } : { ...current, weaponId: null };
       this.playerEquipment.set(player.name, normalizeEquipment(next));
+      player.weaponId = next.weaponId ?? "";
+      player.toolId = next.toolId ?? "";
       this.sendProfile(client, player);
       this.sendInventory(client, player.name);
       client.send("inventoryResult", {
@@ -2027,6 +2032,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         ? { ...current, toolId: itemId }
         : { ...current, weaponId: itemId };
     this.playerEquipment.set(player.name, normalizeEquipment(next));
+    player.weaponId = next.weaponId ?? "";
+    player.toolId = next.toolId ?? "";
     this.sendProfile(client, player);
     this.sendInventory(client, player.name);
 

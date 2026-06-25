@@ -1184,6 +1184,8 @@ export class NetworkManager {
         outfitColor: player.outfitColor,
         hairStyle: player.hairStyle as CharacterAppearance["hairStyle"],
         outfitStyle: player.outfitStyle as CharacterAppearance["outfitStyle"],
+        weaponId: player.weaponId,
+        toolId: player.toolId,
       }),
     };
   }

@@ -50,4 +50,5 @@ export interface AttackResultPayload {
   currentHp: number;
   maxHp: number;
   defeated: boolean;
+  attackerName?: string;
 }

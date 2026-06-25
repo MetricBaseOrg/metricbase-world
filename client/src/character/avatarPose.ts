@@ -103,22 +103,30 @@ interface MotionOffsets {
   legSwing: number;
   armSwing: number;
   bob: number;
+  hairSway?: number;
 }
 
 function walkOffsets(frame: number): MotionOffsets {
-  const phase = frame % 4;
-  // contact, passing, contact, passing — smooth alternating swing
-  const legSwing = [0, 4.5, 0, -4.5][phase];
+  const phase = frame % 8;
+  const legSwing = [0, 2.5, 4.5, 2.5, 0, -2.5, -4.5, -2.5][phase];
+  const bob = [0, -0.6, -1.2, -0.6, 0, -0.6, -1.2, -0.6][phase];
   return {
     legSwing,
     armSwing: -legSwing * 0.85,
-    bob: phase % 2 === 1 ? -1 : 0,
+    bob,
+    hairSway: [0, 0.4, 0.8, 0.4, 0, -0.4, -0.8, -0.4][phase],
   };
 }
 
 function idleOffsets(frame: number): MotionOffsets {
-  // gentle breathing: rise on alternate frames
-  return { legSwing: 0, armSwing: 0, bob: frame % 2 === 1 ? -0.8 : 0 };
+  const phase = frame % 4;
+  const bob = [0, -0.5, -1.0, -0.5][phase];
+  return {
+    legSwing: 0,
+    armSwing: 0,
+    bob,
+    hairSway: [0, 0.3, 0.6, 0.3][phase],
+  };
 }
 
 function drawShadow(ctx: CanvasRenderingContext2D, cx: number, bob: number) {
@@ -221,6 +229,98 @@ function drawArm(
   outline(ctx, OUTLINE, 1.2);
 }
 
+function drawTool(ctx: CanvasRenderingContext2D, tx: number, ty: number, angle: number, toolId: string | null | undefined) {
+  const isPickaxe = toolId?.includes("pickaxe");
+  let mainColor = "#d35400"; // copper default
+  if (toolId?.includes("iron")) {
+    mainColor = "#9fb6c8";
+  } else if (toolId?.includes("steel")) {
+    mainColor = "#374151";
+  }
+
+  ctx.save();
+  ctx.translate(tx, ty);
+  ctx.rotate(angle);
+
+  // draw tool head
+  ctx.fillStyle = mainColor;
+  if (isPickaxe) {
+    // curved pickaxe head
+    ctx.beginPath();
+    ctx.arc(0, 0, 5, Math.PI * 1.1, Math.PI * 1.9);
+    ctx.lineWidth = 2.2;
+    ctx.strokeStyle = mainColor;
+    ctx.stroke();
+    outline(ctx, OUTLINE, 0.8);
+  } else {
+    // axe head shape
+    ctx.beginPath();
+    ctx.moveTo(-1, -2);
+    ctx.lineTo(4, -4);
+    ctx.lineTo(5, 3);
+    ctx.lineTo(-1, 2);
+    ctx.closePath();
+    ctx.fill();
+    outline(ctx, OUTLINE, 0.8);
+  }
+  ctx.restore();
+}
+
+function drawWeapon(ctx: CanvasRenderingContext2D, wx: number, wy: number, angle: number, weaponId: string | null | undefined) {
+  let bladeColor = "#b0bec5"; // rusty blade grey default
+  let hiltColor = "#8d6e63"; // wooden default
+  let isGem = false;
+
+  if (weaponId === "item_gel_knife") {
+    bladeColor = "rgba(46, 204, 113, 0.85)"; // translucent slime green
+    hiltColor = "#27ae60";
+  } else if (weaponId === "item_copper_dagger") {
+    bladeColor = "#e67e22"; // copper orange
+    hiltColor = "#d35400";
+  } else if (weaponId === "item_gem_blade") {
+    bladeColor = "#9b59b6"; // amethyst purple
+    hiltColor = "#1abc9c"; // turquoise cyan guard
+    isGem = true;
+  }
+
+  ctx.save();
+  ctx.translate(wx, wy);
+  ctx.rotate(angle);
+
+  // draw blade
+  ctx.fillStyle = bladeColor;
+  ctx.beginPath();
+  ctx.moveTo(0, -1.5);
+  ctx.lineTo(9, -2);
+  ctx.lineTo(11, 0);
+  ctx.lineTo(9, 2);
+  ctx.lineTo(0, 1.5);
+  ctx.closePath();
+  ctx.fill();
+  outline(ctx, OUTLINE, 0.8);
+
+  // draw guard / hilt
+  ctx.fillStyle = hiltColor;
+  roundRect(ctx, -1.5, -3, 2, 6, 1);
+  ctx.fill();
+  outline(ctx, OUTLINE, 0.6);
+
+  // draw handle
+  ctx.fillStyle = "#3e2723";
+  roundRect(ctx, -4, -1, 3, 2, 0.5);
+  ctx.fill();
+
+  if (isGem) {
+    // cyan gem sparkle
+    ctx.fillStyle = "#00ffff";
+    ctx.beginPath();
+    ctx.arc(4, 0, 1.5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.restore();
+}
+
 function drawArms(
   ctx: CanvasRenderingContext2D,
   cx: number,
@@ -232,16 +332,21 @@ function drawArms(
   direction: AvatarDirection,
   action: AvatarAction,
   frame: number,
+  appearance: CharacterAppearance,
 ) {
   const profile = isProfile(direction);
   const sy = shoulderY + bob;
 
   if (action === "chop") {
-    drawChopArms(ctx, cx, sy, skinColor, sleeveColor, frame);
+    drawChopArms(ctx, cx, sy, skinColor, sleeveColor, frame, appearance.toolId);
     return;
   }
   if (action === "fish") {
-    drawFishArms(ctx, cx, sy, skinColor, sleeveColor, frame);
+    drawFishArms(ctx, cx, sy, skinColor, sleeveColor, frame, appearance.toolId);
+    return;
+  }
+  if (action === "attack") {
+    drawAttackArms(ctx, cx, sy, skinColor, sleeveColor, frame, appearance.weaponId);
     return;
   }
 
@@ -272,8 +377,9 @@ function drawChopArms(
   skinColor: number,
   sleeveColor: number,
   frame: number,
+  toolId: string | null | undefined,
 ) {
-  // three-frame wind-up → swing-down with an axe
+  // three-frame wind-up → swing-down with an axe/pickaxe
   const angles = [-1.5, -0.5, 0.7];
   const angle = angles[frame % 3] ?? 0;
   const pivotX = cx + 5;
@@ -281,21 +387,20 @@ function drawChopArms(
   const handX = pivotX + Math.cos(angle) * 11;
   const handY = pivotY + Math.sin(angle) * 11;
 
-  // axe handle
+  // wood/iron handle
   ctx.strokeStyle = "#6d4c41";
   ctx.lineCap = "round";
-  ctx.lineWidth = 3;
+  ctx.lineWidth = 2.6;
   ctx.beginPath();
   ctx.moveTo(handX - Math.cos(angle) * 4, handY - Math.sin(angle) * 4);
   ctx.lineTo(handX + Math.cos(angle) * 9, handY + Math.sin(angle) * 9);
   ctx.stroke();
-  // axe head
-  const axeX = handX + Math.cos(angle) * 9;
-  const axeY = handY + Math.sin(angle) * 9;
-  ctx.fillStyle = "#b0bec5";
-  roundRect(ctx, axeX - 3, axeY - 3, 6, 6, 1.5);
-  ctx.fill();
-  outline(ctx, OUTLINE, 1);
+  outline(ctx, OUTLINE, 0.8);
+
+  // tool head
+  const toolX = handX + Math.cos(angle) * 9;
+  const toolY = handY + Math.sin(angle) * 9;
+  drawTool(ctx, toolX, toolY, angle, toolId);
 
   // back arm (sleeve)
   ctx.strokeStyle = hex(sleeveColor);
@@ -304,6 +409,8 @@ function drawChopArms(
   ctx.moveTo(cx - 5, shoulderY);
   ctx.lineTo(pivotX - 2, pivotY + 2);
   ctx.stroke();
+  outline(ctx, OUTLINE, 0.8);
+
   // front arm (skin) to grip
   ctx.strokeStyle = hex(skinColor);
   ctx.lineWidth = 3.4;
@@ -325,26 +432,41 @@ function drawFishArms(
   skinColor: number,
   sleeveColor: number,
   frame: number,
+  toolId: string | null | undefined,
 ) {
   const bob = Math.sin(frame * 0.8) * 1.6;
   const rodTipX = cx + 17;
   const rodTipY = shoulderY - 9 + bob;
+  const isNet = toolId === "item_harvest_net";
 
-  // rod
-  ctx.strokeStyle = "#6d4c41";
+  // rod or net handle
+  ctx.strokeStyle = toolId === "item_pro_rod" ? "#d35400" : "#6d4c41"; // pro rod is bright orange
   ctx.lineCap = "round";
   ctx.lineWidth = 2.4;
   ctx.beginPath();
   ctx.moveTo(cx + 6, shoulderY + 4);
   ctx.lineTo(rodTipX, rodTipY);
   ctx.stroke();
-  // line
-  ctx.strokeStyle = "rgba(120, 144, 156, 0.8)";
-  ctx.lineWidth = 0.8;
-  ctx.beginPath();
-  ctx.moveTo(rodTipX, rodTipY);
-  ctx.lineTo(rodTipX + 2, shoulderY + 15);
-  ctx.stroke();
+  outline(ctx, OUTLINE, 0.6);
+
+  if (isNet) {
+    // draw a net mesh at the tip
+    ctx.fillStyle = "rgba(180, 220, 255, 0.5)";
+    ctx.strokeStyle = "#5d4037";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(rodTipX, rodTipY, 4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  } else {
+    // line
+    ctx.strokeStyle = "rgba(120, 144, 156, 0.8)";
+    ctx.lineWidth = 0.8;
+    ctx.beginPath();
+    ctx.moveTo(rodTipX, rodTipY);
+    ctx.lineTo(rodTipX + 2, shoulderY + 15);
+    ctx.stroke();
+  }
 
   // arm (sleeve + skin)
   ctx.strokeStyle = hex(sleeveColor);
@@ -353,12 +475,56 @@ function drawFishArms(
   ctx.moveTo(cx - 5, shoulderY);
   ctx.lineTo(cx + 2, shoulderY + 5);
   ctx.stroke();
+  outline(ctx, OUTLINE, 0.8);
   ctx.strokeStyle = hex(skinColor);
   ctx.lineWidth = 3.4;
   ctx.beginPath();
   ctx.moveTo(cx + 2, shoulderY + 5);
   ctx.lineTo(cx + 7, shoulderY + 5);
   ctx.stroke();
+  outline(ctx, OUTLINE, 0.8);
+}
+
+function drawAttackArms(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  shoulderY: number,
+  skinColor: number,
+  sleeveColor: number,
+  frame: number,
+  weaponId: string | null | undefined,
+) {
+  // 3-frame attack swing (windup, extension, recovery)
+  const angles = [-1.4, 0.1, 0.9];
+  const angle = angles[frame % 3] ?? 0;
+  const pivotX = cx + 4;
+  const pivotY = shoulderY + 2;
+  const handX = pivotX + Math.cos(angle) * 10;
+  const handY = pivotY + Math.sin(angle) * 10;
+
+  // weapon
+  drawWeapon(ctx, handX, handY, angle, weaponId);
+
+  // arms
+  ctx.strokeStyle = hex(sleeveColor);
+  ctx.lineWidth = 4.4;
+  ctx.beginPath();
+  ctx.moveTo(cx - 5, shoulderY);
+  ctx.lineTo(pivotX - 2, pivotY + 2);
+  ctx.stroke();
+  outline(ctx, OUTLINE, 0.8);
+
+  ctx.strokeStyle = hex(skinColor);
+  ctx.lineWidth = 3.4;
+  ctx.beginPath();
+  ctx.moveTo(cx + 5, shoulderY);
+  ctx.lineTo(handX, handY);
+  ctx.stroke();
+  ctx.fillStyle = hex(skinColor);
+  ctx.beginPath();
+  ctx.arc(handX, handY, 2.6, 0, Math.PI * 2);
+  ctx.fill();
+  outline(ctx, OUTLINE, 1.2);
 }
 
 function drawBody(
@@ -449,6 +615,71 @@ function drawBody(
     ctx.lineTo(cx + 2.5 + lean, top + 0.5);
     ctx.fill();
   }
+
+  if (outfitStyle === "tunic") {
+    const half = profile ? 6 : 8;
+    // draw tunic base
+    ctx.fillStyle = outfit;
+    roundRect(ctx, cx - half + lean, top, half * 2, bottom - top - 1, 3);
+    ctx.fill();
+    outline(ctx);
+
+    // v-neck showing undershirt
+    if (!profile && !isBack(direction)) {
+      ctx.fillStyle = "#3a2a1e"; // dark undershirt
+      ctx.beginPath();
+      ctx.moveTo(cx - 3 + lean, top);
+      ctx.lineTo(cx + lean, top + 5);
+      ctx.lineTo(cx + 3 + lean, top);
+      ctx.closePath();
+      ctx.fill();
+      outline(ctx, OUTLINE, 0.8);
+    }
+
+    // belt
+    ctx.fillStyle = outfitDark;
+    roundRect(ctx, cx - half - 0.5 + lean, top + 8, half * 2 + 1, 3, 1);
+    ctx.fill();
+    outline(ctx, OUTLINE, 0.8);
+    return;
+  }
+
+  if (outfitStyle === "explorer") {
+    const half = profile ? 5.5 : 7.5;
+    const shirtBottom = top + (bottom - top) * 0.75;
+    ctx.fillStyle = outfit;
+    roundRect(ctx, cx - half + lean, top, half * 2, shirtBottom - top, 3.5);
+    ctx.fill();
+    outline(ctx);
+
+    // harness straps
+    ctx.strokeStyle = "#5d4037"; // dark brown straps
+    ctx.lineWidth = 1.8;
+    ctx.lineCap = "round";
+    if (!isBack(direction)) {
+      ctx.beginPath();
+      ctx.moveTo(cx - half + 1.5 + lean, top + 1.5);
+      ctx.lineTo(cx + half - 1.5 + lean, shirtBottom - 1.5);
+      ctx.moveTo(cx + half - 1.5 + lean, top + 1.5);
+      ctx.lineTo(cx - half + 1.5 + lean, shirtBottom - 1.5);
+      ctx.stroke();
+    } else {
+      // back straps
+      ctx.beginPath();
+      ctx.moveTo(cx - half + 2 + lean, top + 2);
+      ctx.lineTo(cx + half - 2 + lean, shirtBottom - 2);
+      ctx.stroke();
+    }
+
+    // waist pouch
+    if (!isBack(direction) && !profile) {
+      ctx.fillStyle = "#8d6e63"; // lighter brown pouch
+      roundRect(ctx, cx - 2 + lean, shirtBottom - 4, 5, 4, 1.2);
+      ctx.fill();
+      outline(ctx);
+    }
+    return;
+  }
 }
 
 function drawHead(
@@ -486,13 +717,78 @@ function drawHair(
   hairColor: number,
   hairStyle: HairStyle,
   direction: AvatarDirection,
+  hairSway = 0,
 ) {
+  if (hairStyle === "bald") return;
+
   const hy = HEAD_Y - bob;
-  const offsetX = isThreeQuarter(direction) ? 1.5 : 0;
+  const offsetX = (isThreeQuarter(direction) ? 1.5 : 0) + hairSway;
   const x = cx + offsetX;
   const hair = hex(hairColor);
   const hairLight = hex(lighten(hairColor, 0.22));
   ctx.fillStyle = hair;
+
+  if (hairStyle === "mohawk") {
+    ctx.fillStyle = hair;
+    ctx.beginPath();
+    if (isProfile(direction) || isThreeQuarter(direction)) {
+      ctx.arc(x - 1, hy - 2, HEAD_R + 3, Math.PI * 0.9, Math.PI * 2.0);
+    } else {
+      ctx.moveTo(x - 3, hy - HEAD_R);
+      ctx.lineTo(x, hy - HEAD_R - 5);
+      ctx.lineTo(x + 3, hy - HEAD_R);
+    }
+    ctx.closePath();
+    ctx.fill();
+    outline(ctx);
+    return;
+  }
+
+  if (hairStyle === "ponytail") {
+    ctx.beginPath();
+    ctx.arc(x, hy, HEAD_R + 0.5, 0, Math.PI * 2);
+    ctx.fill();
+    outline(ctx);
+
+    ctx.fillStyle = hair;
+    if (isBack(direction)) {
+      ctx.fillStyle = "#3a2a1e";
+      roundRect(ctx, x - 2, hy + 2, 4, 3, 1);
+      ctx.fill();
+      ctx.fillStyle = hair;
+      ctx.beginPath();
+      ctx.moveTo(x - 2, hy + 5);
+      ctx.lineTo(x + 2, hy + 5);
+      ctx.lineTo(x + 4, hy + 16);
+      ctx.lineTo(x - 4, hy + 16);
+      ctx.closePath();
+      ctx.fill();
+      outline(ctx);
+    } else if (isProfile(direction)) {
+      const tieX = x - HEAD_R + 1;
+      ctx.fillStyle = "#3a2a1e";
+      roundRect(ctx, tieX - 1.5, hy + 1, 3, 3, 1);
+      ctx.fill();
+      ctx.fillStyle = hair;
+      ctx.beginPath();
+      ctx.moveTo(tieX, hy + 3);
+      ctx.lineTo(tieX - 4, hy + 13);
+      ctx.lineTo(tieX - 1, hy + 14);
+      ctx.closePath();
+      ctx.fill();
+      outline(ctx);
+    } else {
+      const peakX = x - HEAD_R + 2;
+      ctx.beginPath();
+      ctx.moveTo(peakX, hy + 2);
+      ctx.lineTo(peakX - 5, hy + 12);
+      ctx.lineTo(peakX - 1, hy + 13);
+      ctx.closePath();
+      ctx.fill();
+      outline(ctx);
+    }
+    return;
+  }
 
   if (isBack(direction)) {
     ctx.beginPath();
@@ -700,10 +996,11 @@ export function drawAvatarPose(
     drawDirection,
     pose.action,
     pose.frame,
+    appearance,
   );
   drawBody(ctx, CX, motion.bob, outfitColor, appearance.outfitStyle, drawDirection);
   drawHead(ctx, CX, motion.bob, skin, drawDirection);
-  drawHair(ctx, CX, motion.bob, appearance.hairColor, appearance.hairStyle, drawDirection);
+  drawHair(ctx, CX, motion.bob, appearance.hairColor, appearance.hairStyle, drawDirection, motion.hairSway);
   drawFace(ctx, CX, motion.bob, drawDirection);
 
   ctx.restore();

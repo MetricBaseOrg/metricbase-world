@@ -1,5 +1,5 @@
-export type HairStyle = "short" | "long" | "spiky";
-export type OutfitStyle = "robe" | "armor" | "casual";
+export type HairStyle = "short" | "long" | "spiky" | "bald" | "mohawk" | "ponytail";
+export type OutfitStyle = "robe" | "armor" | "casual" | "tunic" | "explorer";
 
 export interface CharacterAppearance {
   bodyColor: number;
@@ -7,17 +7,19 @@ export interface CharacterAppearance {
   outfitColor: number;
   hairStyle: HairStyle;
   outfitStyle: OutfitStyle;
+  weaponId?: string | null;
+  toolId?: string | null;
 }
 
-export const HAIR_STYLES: HairStyle[] = ["short", "long", "spiky"];
-export const OUTFIT_STYLES: OutfitStyle[] = ["robe", "armor", "casual"];
+export const HAIR_STYLES: HairStyle[] = ["short", "long", "spiky", "bald", "mohawk", "ponytail"];
+export const OUTFIT_STYLES: OutfitStyle[] = ["robe", "armor", "casual", "tunic", "explorer"];
 
 export const SKIN_TONES = [0xffd5b4, 0xffc857, 0xe0ac69, 0xc68642, 0x8d5524, 0x5c3a21];
 export const HAIR_COLORS = [0x2d3436, 0x6d4c41, 0xffc857, 0xe17055, 0x74b9ff, 0xfd79a8, 0xa29bfe];
 export const OUTFIT_COLORS = [0x355070, 0x4f8cff, 0x6c5ce7, 0x00b894, 0xe17055, 0xd63031, 0x2d3436];
 
 /** Bump when avatar art changes so Phaser regenerates cached textures. */
-export const CHARACTER_ART_VERSION = 11;
+export const CHARACTER_ART_VERSION = 12;
 
 export const DEFAULT_CHARACTER_APPEARANCE: CharacterAppearance = {
   bodyColor: 0xffc857,
@@ -44,6 +46,8 @@ export function normalizeCharacterAppearance(
     outfitStyle: OUTFIT_STYLES.includes(raw.outfitStyle as OutfitStyle)
       ? (raw.outfitStyle as OutfitStyle)
       : DEFAULT_CHARACTER_APPEARANCE.outfitStyle,
+    weaponId: typeof raw.weaponId === "string" ? raw.weaponId : null,
+    toolId: typeof raw.toolId === "string" ? raw.toolId : null,
   };
 }
 
@@ -55,6 +59,6 @@ function normalizeColor(value: unknown, fallback: number): number {
 }
 
 export function appearanceTextureKey(appearance: CharacterAppearance): string {
-  const { bodyColor, hairColor, outfitColor, hairStyle, outfitStyle } = appearance;
-  return `player-v${CHARACTER_ART_VERSION}-${bodyColor}-${hairColor}-${outfitColor}-${hairStyle}-${outfitStyle}`;
+  const { bodyColor, hairColor, outfitColor, hairStyle, outfitStyle, weaponId, toolId } = appearance;
+  return `player-v${CHARACTER_ART_VERSION}-${bodyColor}-${hairColor}-${outfitColor}-${hairStyle}-${outfitStyle}-${weaponId || ""}-${toolId || ""}`;
 }

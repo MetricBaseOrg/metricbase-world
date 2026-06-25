@@ -342,11 +342,64 @@ export class GameScene extends Phaser.Scene {
       } else {
         playSfx("attack_hit");
       }
+
+      // Red damage flash on Mob
+      const npc = this.renderedNpcs.find((entry) => entry.id === payload.npcId);
+      if (npc) {
+        npc.sprite.setTint(0xff4444);
+        this.time.delayedCall(150, () => npc.sprite.clearTint());
+      }
+
+      // Trigger attack action on remote attacker
+      if (payload.attackerName && payload.attackerName !== useGameStore.getState().playerName) {
+        const remote = this.renderedPlayers.get(payload.attackerName);
+        if (remote && npc) {
+          const direction = directionTowardTarget(
+            remote.sprite.x,
+            remote.sprite.y,
+            npc.worldX,
+            npc.worldY,
+            remote.direction,
+          );
+          this.setPlayerAction(remote, "attack", direction, 350);
+        }
+      }
+
+      // Spawn slash arc VFX
+      let attackerX = 0;
+      let attackerY = 0;
+      if (payload.attackerName === useGameStore.getState().playerName) {
+        if (this.localAvatar) {
+          attackerX = this.localAvatar.sprite.x;
+          attackerY = this.localAvatar.sprite.y;
+        }
+      } else if (payload.attackerName) {
+        const remote = this.renderedPlayers.get(payload.attackerName);
+        if (remote) {
+          attackerX = remote.sprite.x;
+          attackerY = remote.sprite.y;
+        }
+      }
+
+      if (npc && attackerX && attackerY) {
+        const angle = Phaser.Math.Angle.Between(attackerX, attackerY, npc.worldX, npc.worldY);
+        const midX = (attackerX + npc.worldX) / 2;
+        const midY = (attackerY + npc.worldY) / 2 - 10;
+        this.spawnSlashArc(midX, midY, angle);
+      }
     });
 
     const unsubscribePlayerDamage = networkManager.onPlayerDamage((payload) => {
       this.showPlayerDamageNumber(payload.amount);
       playSfx("player_hurt");
+
+      // Red damage flash on local player
+      if (this.localAvatar) {
+        this.localAvatar.sprite.setTint(0xff4444);
+        this.time.delayedCall(150, () => {
+          this.applyKnockedOutVisuals();
+        });
+      }
     });
 
     const unsubscribeFarmState = networkManager.onFarmState((payload) => {
@@ -1987,6 +2040,50 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
+  private spawnSlashArc(x: number, y: number, angle: number) {
+    const graphics = this.add.graphics();
+    graphics.setDepth(y + 10);
+    graphics.lineStyle(3, 0xffffff, 0.85);
+    graphics.beginPath();
+    // Draw a curved sweep arc
+    graphics.arc(0, 0, 16, angle - 0.7, angle + 0.7, false);
+    graphics.strokePath();
+
+    this.tweens.add({
+      targets: graphics,
+      alpha: 0,
+      scaleX: 1.5,
+      scaleY: 1.5,
+      duration: 160,
+      onComplete: () => {
+        graphics.destroy();
+      }
+    });
+    graphics.setPosition(x, y);
+  }
+
+  private spawnDustPuff(x: number, y: number) {
+    const graphics = this.add.graphics();
+    graphics.setDepth(y - 0.2); // draw just above shadow, below feet
+    graphics.fillStyle(0xffffff, 0.45);
+    graphics.beginPath();
+    graphics.arc(0, 0, 3, 0, Math.PI * 2);
+    graphics.fillPath();
+
+    this.tweens.add({
+      targets: graphics,
+      alpha: 0,
+      y: y - 8,
+      scaleX: 1.6,
+      scaleY: 1.6,
+      duration: 250,
+      onComplete: () => {
+        graphics.destroy();
+      }
+    });
+    graphics.setPosition(x + (Math.random() - 0.5) * 4, y);
+  }
+
   private updateNpcHealth(npcId: string, currentHp: number, maxHp: number) {
     const npc = this.renderedNpcs.find((entry) => entry.id === npcId);
     if (!npc) return;
@@ -2089,6 +2186,16 @@ export class GameScene extends Phaser.Scene {
     if (nearest) {
       playSfx("attack_swing");
       networkManager.sendAttack(nearest.id);
+      if (this.localAvatar) {
+        const direction = directionTowardTarget(
+          this.localAvatar.sprite.x,
+          this.localAvatar.sprite.y,
+          nearest.worldX,
+          nearest.worldY,
+          this.localAvatar.direction,
+        );
+        this.setPlayerAction(this.localAvatar, "attack", direction, 350);
+      }
       return;
     }
 
@@ -2307,6 +2414,13 @@ export class GameScene extends Phaser.Scene {
           playAction,
           frame,
         );
+      }
+
+      if (playAction === "walk") {
+        if (now - ((rendered as any).lastDustAt || 0) > 180) {
+          (rendered as any).lastDustAt = now;
+          this.spawnDustPuff(rendered.sprite.x, rendered.baseY);
+        }
       }
 
       // Gentle idle bob — the avatar breathes/hovers a hair above its shadow

@@ -6,7 +6,7 @@ export type AvatarDirection =
   | "threeQuarterLeft"
   | "threeQuarterRight";
 
-export type AvatarAction = "idle" | "walk" | "chop" | "fish";
+export type AvatarAction = "idle" | "walk" | "chop" | "fish" | "attack";
 
 export const AVATAR_DIRECTIONS: AvatarDirection[] = [
   "front",
@@ -17,20 +17,22 @@ export const AVATAR_DIRECTIONS: AvatarDirection[] = [
   "threeQuarterRight",
 ];
 
-export const AVATAR_ACTIONS: AvatarAction[] = ["idle", "walk", "chop", "fish"];
+export const AVATAR_ACTIONS: AvatarAction[] = ["idle", "walk", "chop", "fish", "attack"];
 
 export const AVATAR_ACTION_FRAMES: Record<AvatarAction, number> = {
-  idle: 2,
-  walk: 4,
+  idle: 4,
+  walk: 8,
   chop: 3,
   fish: 4,
+  attack: 3,
 };
 
 export const AVATAR_ACTION_FRAME_RATES: Record<AvatarAction, number> = {
-  idle: 2,
-  walk: 9,
+  idle: 4,
+  walk: 10,
   chop: 10,
   fish: 5,
+  attack: 10,
 };
 
 export const AVATAR_ACTION_DURATIONS_MS: Record<AvatarAction, number> = {
@@ -38,6 +40,7 @@ export const AVATAR_ACTION_DURATIONS_MS: Record<AvatarAction, number> = {
   walk: 0,
   chop: 700,
   fish: 3200,
+  attack: 350,
 };
 
 /** Resolve facing from movement input (isometric: +y = toward camera). */
