@@ -222,6 +222,9 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   private lastPlotLightSweepAt = 0;
   private playerEquipment = new Map<string, ReturnType<typeof normalizeEquipment>>();
   private playerWallets = new Map<string, string>();
+  /** Tracks which session ID is "active" for each player name. Used to prevent
+   *  a stale onLeave from wiping in-memory state belonging to a new session. */
+  private activePlayerSession = new Map<string, string>();
   private zoneConfig!: ZoneConfig;
 
   onCreate(options: ZoneRoomOptions) {
@@ -592,6 +595,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     }
 
     this.state.players.set(client.sessionId, player);
+    this.activePlayerSession.set(player.name, client.sessionId);
     setOnline(player.name, client, (type, payload) => client.send(type, payload));
     this.inputs.set(client.sessionId, { dx: 0, dy: 0 });
     this.questProgress.set(player.name, saved?.questProgress ?? { active: [], objectiveIndex: {}, completed: [] });
@@ -653,25 +657,36 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     }
 
     if (player) {
+      // Only tear down per-player in-memory state if this session is still
+      // the active one for the player name.  A rapid reconnect (e.g. avatar
+      // change) can cause a new session's onJoin to run before the old
+      // session's onLeave finishes – without this guard the stale onLeave
+      // would delete the new session's gold, inventory, quest progress, etc.
+      const isActive = this.activePlayerSession.get(player.name) === client.sessionId;
+      if (isActive) {
+        this.activePlayerSession.delete(player.name);
+      }
       clearOnline(player.name, client);
-      this.questProgress.delete(player.name);
-      this.inventories.delete(player.name);
-      this.playerGold.delete(player.name);
-      this.playerHp.delete(player.name);
-      this.playerEquipment.delete(player.name);
-      this.npcInteractAt.delete(player.name);
-      this.mobGoldClaimed.delete(player.name);
-      this.playerKnockedOutUntil.delete(player.name);
-      this.playerLastCombatAt.delete(player.name);
-      this.playerLastRegenAt.delete(player.name);
-      this.playerStamina.delete(player.name);
-      this.playerLastStaminaRegenAt.delete(player.name);
-      this.playerLastHungerNoticeAt.delete(player.name);
-      this.playerLastDarkNoticeAt.delete(player.name);
-      this.playerLastRestAt.delete(player.name);
-      this.craftingUntil.delete(player.name);
+      if (isActive) {
+        this.questProgress.delete(player.name);
+        this.inventories.delete(player.name);
+        this.playerGold.delete(player.name);
+        this.playerHp.delete(player.name);
+        this.playerEquipment.delete(player.name);
+        this.npcInteractAt.delete(player.name);
+        this.mobGoldClaimed.delete(player.name);
+        this.playerKnockedOutUntil.delete(player.name);
+        this.playerLastCombatAt.delete(player.name);
+        this.playerLastRegenAt.delete(player.name);
+        this.playerStamina.delete(player.name);
+        this.playerLastStaminaRegenAt.delete(player.name);
+        this.playerLastHungerNoticeAt.delete(player.name);
+        this.playerLastDarkNoticeAt.delete(player.name);
+        this.playerLastRestAt.delete(player.name);
+        this.craftingUntil.delete(player.name);
+        this.playerSkills.delete(player.name);
+      }
       this.playerWallets.delete(client.sessionId);
-      this.playerSkills.delete(player.name);
     }
 
     this.state.players.delete(client.sessionId);
