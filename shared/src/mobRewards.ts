@@ -34,5 +34,8 @@ export const MOB_REWARDS: Record<string, MobRewardConfig> = {
 };
 
 export function getMobRewardConfig(npcId: string): MobRewardConfig | null {
-  return MOB_REWARDS[npcId] ?? null;
+  if (npcId in MOB_REWARDS) return MOB_REWARDS[npcId];
+  // Wild slimes across all zones share the same reward config.
+  if (npcId.startsWith("wild_slime")) return MOB_REWARDS[WILD_SLIME_NPC_ID];
+  return null;
 }

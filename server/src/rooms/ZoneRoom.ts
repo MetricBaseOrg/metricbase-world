@@ -1053,7 +1053,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
     if (npc.combat) {
       const counterDamage =
-        npcId === "wild_slime" ? 30 : npcId === "slime_brute" ? 72 : TRAINING_DUMMY_COUNTER_DAMAGE;
+        npcId.startsWith("wild_slime") ? 30 : npcId === "slime_brute" ? 72 : TRAINING_DUMMY_COUNTER_DAMAGE;
       this.damagePlayer(client, player, counterDamage, `${npc.name} counter-attack`);
     }
 
@@ -1229,7 +1229,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       const quest = getQuestDefinition(questId);
       const objectiveIndex = progress.objectiveIndex[questId] ?? 0;
       const objective = quest.objectives[objectiveIndex];
-      if (!objective || objective.type !== "defeat_npc" || objective.target !== npcId) {
+      if (!objective || objective.type !== "defeat_npc" || !defeatTargetMatch(objective.target, npcId)) {
         continue;
       }
 
@@ -3416,6 +3416,14 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   private broadcastChat(message: ChatMessagePayload) {
     this.broadcast("chat", message);
   }
+}
+
+/** Match quest defeat targets against NPC IDs.  Wild slimes use IDs like
+ *  "wild_slime", "wild_slime_2", etc. — all prefixed with "wild_slime". */
+function defeatTargetMatch(target: string, npcId: string): boolean {
+  if (target === npcId) return true;
+  if (target === "wild_slime" && npcId.startsWith("wild_slime")) return true;
+  return false;
 }
 
 function clamp(value: number, min: number, max: number): number {
