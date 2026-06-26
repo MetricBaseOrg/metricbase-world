@@ -1700,10 +1700,10 @@ export class GameScene extends Phaser.Scene {
       const { x, y } = tileToWorld(npc.tileX, npc.tileY);
       const isCombat = Boolean(npc.combat);
       const mobTexture =
-        npc.id === WILD_SLIME_NPC_ID
-          ? "slime"
-          : npc.id === SLIME_BRUTE_NPC_ID
-            ? "brute"
+        npc.id === SLIME_BRUTE_NPC_ID
+          ? "brute"
+          : npc.id === WILD_SLIME_NPC_ID || npc.id.startsWith("wild_slime")
+            ? "slime"
             : isCombat
               ? "dummy"
               : "npc";
@@ -1761,7 +1761,7 @@ export class GameScene extends Phaser.Scene {
           color:
             npc.id === SLIME_BRUTE_NPC_ID
               ? "#4ade80"
-              : npc.id === WILD_SLIME_NPC_ID
+              : npc.id === WILD_SLIME_NPC_ID || npc.id.startsWith("wild_slime")
                 ? "#86efac"
                 : isCombat
                   ? "#fbbf24"
