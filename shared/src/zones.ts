@@ -125,7 +125,7 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
       {
         id: "wild_slime_3",
         name: "Wild Slime",
-        tileX: 18,
+        tileX: 19,
         tileY: 8,
         dialogue: "Gloop! A squishy slime. Easier than the dummy, but still fights back.",
         combat: { maxHp: 45, rewardXp: 20, respawnMs: 8_000 },
@@ -578,7 +578,7 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
       {
         id: "wild_slime_3",
         name: "Wild Slime",
-        tileX: 20,
+        tileX: 19,
         tileY: 8,
         dialogue: "Gloop! A squishy slime. Easier than the dummy, but still fights back.",
         combat: { maxHp: 45, rewardXp: 20, respawnMs: 8_000 },
@@ -625,30 +625,6 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
         tileY: 7,
         dialogue:
           "Welcome to the Community Lodge — a warm indoor place to gather with other adventurers. Step on the south doormat to head back out.",
-      },
-      {
-        id: "wild_slime_1",
-        name: "Wild Slime",
-        tileX: 9,
-        tileY: 9,
-        dialogue: "Gloop! A squishy slime. Easier than the dummy, but still fights back.",
-        combat: { maxHp: 45, rewardXp: 20, respawnMs: 8_000 },
-      },
-      {
-        id: "wild_slime_2",
-        name: "Wild Slime",
-        tileX: 13,
-        tileY: 9,
-        dialogue: "Gloop! A squishy slime. Easier than the dummy, but still fights back.",
-        combat: { maxHp: 45, rewardXp: 20, respawnMs: 8_000 },
-      },
-      {
-        id: "wild_slime_3",
-        name: "Wild Slime",
-        tileX: 11,
-        tileY: 10,
-        dialogue: "Gloop! A squishy slime. Easier than the dummy, but still fights back.",
-        combat: { maxHp: 45, rewardXp: 20, respawnMs: 8_000 },
       },
     ],
     scenery: [
