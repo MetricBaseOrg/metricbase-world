@@ -207,6 +207,9 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   private botTargetIndex = 0;
   private botNextActionAt = 0;
   private botMode: "idle" | "walk" = "idle";
+  private botSpawnedAt = 0;
+  private botWarningSent = false;
+  private botBanned = false;
   private resourceRespawnAt = new Map<string, number>();
   private resourceChopper = new Map<string, string>();
   private activeChopSessions = new Map<
@@ -637,6 +640,15 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       sentAt: Date.now(),
     });
 
+    client.send("chat", {
+      id: crypto.randomUUID(),
+      channel: "system",
+      senderId: "system",
+      senderName: "Anti-Bot",
+      body: "🛡️ Anti-Bot System is active. Automated macros or pathing will result in a permanent ban.",
+      sentAt: Date.now(),
+    });
+
     void this.checkVisitZoneObjectives(client, player.name, this.zoneConfig.id);
   }
 
@@ -841,16 +853,18 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       let chasedPlayer: InstanceType<typeof PlayerSchema> | null = null;
       let minDistance = 250; // CHASE_RANGE
 
-      // Find closest alive player in the room (always active, day or night!)
-      this.state.players.forEach((player, sessionId) => {
-        if (this.isKnockedOut(player.name)) return;
-        if (this.transferring.has(sessionId)) return;
-        const dist = Math.hypot(player.x - currentPos.x, player.y - currentPos.y);
-        if (dist < minDistance) {
-          minDistance = dist;
-          chasedPlayer = player;
-        }
-      });
+      if (isNightTime) {
+        // Find closest alive player in the room (active at night!)
+        this.state.players.forEach((player, sessionId) => {
+          if (this.isKnockedOut(player.name)) return;
+          if (this.transferring.has(sessionId)) return;
+          const dist = Math.hypot(player.x - currentPos.x, player.y - currentPos.y);
+          if (dist < minDistance) {
+            minDistance = dist;
+            chasedPlayer = player;
+          }
+        });
+      }
 
       if (chasedPlayer) {
         // Chase player
@@ -3329,9 +3343,42 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       sentAt: now,
     });
 
-    // Bot reply trigger
+    // Bot reply or report trigger
     if (this.zoneConfig.id === ZONE_HUB) {
       const lowerBody = body.toLowerCase();
+      
+      if ((lowerBody.includes("report") && (lowerBody.includes("tom") || lowerBody.includes("bot"))) || lowerBody.startsWith("/report")) {
+        if (!this.botBanned && !this.botWarningSent) {
+          this.botWarningSent = true;
+          this.broadcastChat({
+            id: crypto.randomUUID(),
+            channel: "system",
+            senderId: "system",
+            senderName: "Anti-Bot",
+            body: "🚨 Player report received. Analyzing 'TomExplorer' pathing signature...",
+            sentAt: now,
+          });
+          
+          this.clock.setTimeout(() => {
+            if (this.botBanned) return;
+            this.broadcastChat({
+              id: crypto.randomUUID(),
+              channel: "zone",
+              senderId: "tom_explorer_bot_session",
+              senderName: "TomExplorer",
+              body: "Wait! I am not botting! I am just playing with my mouse! 🐭",
+              sentAt: Date.now(),
+            });
+          }, 2000);
+
+          this.clock.setTimeout(() => {
+            const bot = this.state.players.get("tom_explorer_bot_session");
+            if (bot) this.banTomExplorerBot(bot);
+          }, 6000);
+        }
+        return;
+      }
+
       if (lowerBody.includes("tom") || lowerBody.includes("bot")) {
         this.clock.setTimeout(() => {
           if (this.isKnockedOut("TomExplorer")) return;
@@ -3456,6 +3503,10 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   }
 
   private spawnTomExplorerBot() {
+    this.botSpawnedAt = Date.now();
+    this.botWarningSent = false;
+    this.botBanned = false;
+
     const bot = new PlayerSchema();
     bot.sessionId = "tom_explorer_bot_session";
     bot.name = "TomExplorer";
@@ -3487,6 +3538,38 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
   private updateTomExplorerBot(bot: InstanceType<typeof PlayerSchema>) {
     const now = Date.now();
+
+    if (this.botBanned) {
+      this.inputs.set(bot.sessionId, { dx: 0, dy: 0 });
+      return;
+    }
+
+    const elapsed = now - this.botSpawnedAt;
+    if (elapsed >= 90000) {
+      this.banTomExplorerBot(bot);
+      return;
+    } else if (elapsed >= 80000 && !this.botWarningSent) {
+      this.botWarningSent = true;
+      this.broadcastChat({
+        id: crypto.randomUUID(),
+        channel: "system",
+        senderId: "system",
+        senderName: "Anti-Bot",
+        body: "🚨 Warning: Unresponsive automated inputs detected on player 'TomExplorer'. Please complete a Captcha.",
+        sentAt: now,
+      });
+      this.clock.setTimeout(() => {
+        if (this.botBanned) return;
+        this.broadcastChat({
+          id: crypto.randomUUID(),
+          channel: "zone",
+          senderId: bot.sessionId,
+          senderName: bot.name,
+          body: "Uh oh... beep boop... where is the Captcha button? 🤖",
+          sentAt: Date.now(),
+        });
+      }, 3000);
+    }
 
     if (this.isKnockedOut(bot.name)) {
       this.inputs.set(bot.sessionId, { dx: 0, dy: 0 });
@@ -3551,6 +3634,25 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       this.botMode = "walk";
       this.botNextActionAt = now + 500;
     }
+  }
+
+  private banTomExplorerBot(bot: InstanceType<typeof PlayerSchema>) {
+    if (this.botBanned) return;
+    this.botBanned = true;
+    
+    this.broadcastChat({
+      id: crypto.randomUUID(),
+      channel: "system",
+      senderId: "system",
+      senderName: "Anti-Bot",
+      body: "🚫 Player 'TomExplorer' has been permanently banned for botting (Reason: Automated input macro).",
+      sentAt: Date.now(),
+    });
+
+    this.state.players.delete(bot.sessionId);
+    this.inputs.delete(bot.sessionId);
+    this.playerHp.delete(bot.name);
+    this.playerStamina.delete(bot.name);
   }
 
   private damageBot(

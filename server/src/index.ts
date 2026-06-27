@@ -71,4 +71,5 @@ setInterval(() => void getBaseHolderCount(), 5 * 60 * 1000).unref();
 
 httpServer.listen(PORT, () => {
   console.log(`MetricBase game server listening on ws://localhost:${PORT}`);
+  console.log("[Anti-Bot] Anti-Bot System v1.0.0 is ACTIVATED and monitoring player inputs.");
 });
