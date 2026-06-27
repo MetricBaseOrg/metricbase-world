@@ -114,6 +114,7 @@ import {
   type ZoneStateInstance,
   getWeather,
   getWorldTime,
+  ZONE_INTERIOR,
 } from "@metricbase/shared";
 import { verifyAccessToken } from "../auth/accessToken.js";
 import { isTokenGateEnabled } from "../auth/tokenGate.js";
@@ -834,8 +835,9 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
       if (isNightTime) {
         // Find closest alive player in the room
-        this.state.players.forEach((player) => {
+        this.state.players.forEach((player, sessionId) => {
           if (this.isKnockedOut(player.name)) return;
+          if (this.transferring.has(sessionId)) return;
           const dist = Math.hypot(player.x - currentPos.x, player.y - currentPos.y);
           if (dist < minDistance) {
             minDistance = dist;
@@ -1508,6 +1510,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     amount: number,
     reason: string,
   ) {
+    if (this.zoneConfig.id === ZONE_INTERIOR) return;
     if (this.isKnockedOut(player.name)) return;
 
     const maxHp = getPlayerMaxHp(player.level);
