@@ -54,6 +54,7 @@ export interface RemotePlayer {
   guildTag: string;
   lampOn: boolean;
   appearance: CharacterAppearance;
+  spectator: boolean;
 }
 
 type ConnectionListener = (connected: boolean, playerCount: number) => void;
@@ -103,6 +104,7 @@ export class NetworkManager {
   private accessToken: string | null = null;
   private appearance: CharacterAppearance | null = null;
   private currentZoneId = ZONE_HUB;
+  private isSpectatorMode = false;
   private connectionListeners = new Set<ConnectionListener>();
   private playersListeners = new Set<PlayersListener>();
   private chatListeners = new Set<ChatListener>();
@@ -239,10 +241,12 @@ export class NetworkManager {
     accessToken?: string | null,
     appearance?: CharacterAppearance | null,
     inviteCode?: string,
+    spectate?: boolean,
   ): Promise<void> {
     this.playerName = playerName;
     this.accessToken = accessToken ?? null;
     this.appearance = appearance ? normalizeCharacterAppearance(appearance) : null;
+    this.isSpectatorMode = spectate || false;
 
     let zoneId = ZONE_HUB;
     try {
@@ -258,7 +262,7 @@ export class NetworkManager {
     }
 
     this.currentZoneId = zoneId;
-    await this.joinZone(zoneId, inviteCode);
+    await this.joinZone(zoneId, inviteCode, this.isSpectatorMode);
     if (this.accessToken) {
       await this.linkWallet();
     }
@@ -270,7 +274,7 @@ export class NetworkManager {
     try {
       await this.leaveCurrentRoom();
       this.currentZoneId = targetZone;
-      await this.joinZone(targetZone);
+      await this.joinZone(targetZone, undefined, this.isSpectatorMode);
       if (this.accessToken) {
         await this.linkWallet();
       }
@@ -752,7 +756,7 @@ export class NetworkManager {
     return () => this.skillStateListeners.delete(listener);
   }
 
-  private async joinZone(zoneId: string, inviteCode?: string) {
+  private async joinZone(zoneId: string, inviteCode?: string, spectate?: boolean) {
     if (!this.client) {
       this.client = new Client(getWebSocketUrl());
     }
@@ -764,6 +768,7 @@ export class NetworkManager {
       ...(this.accessToken ? { accessToken: this.accessToken } : {}),
       ...(this.appearance ? { appearance: this.appearance } : {}),
       ...(inviteCode ? { inviteCode } : {}),
+      ...(spectate !== undefined ? { spectate } : {}),
     };
     try {
       this.room = await this.client.joinOrCreate(config.roomName, options, ZoneState);
@@ -1197,6 +1202,7 @@ export class NetworkManager {
       xp: player.xp ?? 0,
       guildTag: player.guildTag ?? "",
       lampOn: Boolean(player.lampOn),
+      spectator: Boolean((player as any).spectator),
       appearance: normalizeCharacterAppearance({
         bodyColor: player.bodyColor,
         hairColor: player.hairColor,

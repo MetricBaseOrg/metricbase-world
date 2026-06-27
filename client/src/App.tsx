@@ -215,7 +215,9 @@ export function App() {
     accessToken: string | null | undefined,
     appearance: CharacterAppearance,
     inviteCode?: string,
+    spectate?: boolean,
   ) => {
+    useGameStore.getState().setSpectator(spectate || false);
     setPlayerName(name);
     setCharacterAppearance(appearance);
 
@@ -243,7 +245,7 @@ export function App() {
 
     try {
       await waitForGameSceneReady();
-      await networkManager.connect(name, token, appearance, inviteCode);
+      await networkManager.connect(name, token, appearance, inviteCode, spectate);
       setZoneName(networkManager.zoneName);
     } catch (error) {
       setJoined(false);

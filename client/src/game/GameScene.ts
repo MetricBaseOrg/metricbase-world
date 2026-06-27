@@ -146,6 +146,9 @@ interface RenderedResource {
 
 /** Nameplate text — prefixes the guild tag when the player is in a guild. */
 function nameplateText(player: RemotePlayer): string {
+  if (player.spectator) {
+    return `[SPECTATOR] ${player.name}`;
+  }
   return player.guildTag ? `[${player.guildTag}] ${player.name}` : player.name;
 }
 
@@ -1048,6 +1051,7 @@ export class GameScene extends Phaser.Scene {
       guildTag: "",
       lampOn: useGameStore.getState().lampOn,
       appearance: normalizeCharacterAppearance(appearance),
+      spectator: useGameStore.getState().spectator,
     });
   }
 
@@ -1160,6 +1164,12 @@ export class GameScene extends Phaser.Scene {
     } catch (error) {
       console.warn("Failed to apply avatar pose, using fallback sprite.", error);
       sprite.setTexture("player");
+    }
+
+    if (player.spectator) {
+      sprite.setAlpha(0.5);
+      shadow.setAlpha(0.2);
+      label.setAlpha(0.7);
     }
 
     return {

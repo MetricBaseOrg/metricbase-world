@@ -36,6 +36,7 @@ interface LoginOverlayProps {
     accessToken: string | null | undefined,
     appearance: CharacterAppearance,
     inviteCode?: string,
+    spectate?: boolean,
   ) => Promise<void>;
 }
 
@@ -368,6 +369,28 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
     }
   };
 
+  const handleSpectate = async (e: FormEvent) => {
+    e.preventDefault();
+    const trimmed = name.trim();
+    if (trimmed.length < 2) {
+      setError("Please enter a valid character name (at least 2 characters).");
+      return;
+    }
+    setError(null);
+    setJoining(true);
+
+    try {
+      const normalized = normalizeCharacterAppearance(appearance);
+      await onJoin(trimmed, null, normalized, undefined, true);
+    } catch (joinError) {
+      const message =
+        joinError instanceof Error ? joinError.message : "Could not connect to the game server.";
+      setError(message);
+    } finally {
+      setJoining(false);
+    }
+  };
+
   const nameReady = name.trim().length >= 2;
   const enterDisabled = bootstrapping || joining || loadingCharacter || connectingWallet || !nameReady;
 
@@ -587,14 +610,25 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
           </p>
         )}
 
-        <button
-          type="submit"
-          className="chibi-btn chibi-btn--primary"
-          disabled={enterDisabled}
-          style={{ width: "100%", marginTop: 20, padding: "13px 12px", fontSize: "1rem" }}
-        >
-          {enterButtonLabel}
-        </button>
+        <div style={{ display: "flex", gap: 12, marginTop: 20 }}>
+          <button
+            type="submit"
+            className="chibi-btn chibi-btn--primary"
+            disabled={enterDisabled}
+            style={{ flex: 1, padding: "13px 12px", fontSize: "1rem" }}
+          >
+            {enterButtonLabel}
+          </button>
+          <button
+            type="button"
+            className="chibi-btn chibi-btn--secondary"
+            disabled={bootstrapping || joining || !nameReady}
+            onClick={handleSpectate}
+            style={{ flex: 1, padding: "13px 12px", fontSize: "1rem" }}
+          >
+            👀 Spectate World
+          </button>
+        </div>
       </form>
 
       {walletPickerOpen && (

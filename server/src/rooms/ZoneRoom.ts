@@ -264,23 +264,23 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       void this.handleChat(client, message.body ?? "");
     });
 
-    this.onMessage("guildChat", (client, message: { body?: string }) => {
+    this.onProtectedMessage("guildChat", (client, message: { body?: string }) => {
       this.handleGuildChat(client, message.body ?? "");
     });
 
-    this.onMessage("partyInvite", (client, message: { targetName?: string }) => {
+    this.onProtectedMessage("partyInvite", (client, message: { targetName?: string }) => {
       this.handlePartyInvite(client, message.targetName ?? "");
     });
 
-    this.onMessage("partyAccept", (client) => {
+    this.onProtectedMessage("partyAccept", (client) => {
       this.handlePartyMutation(client, acceptInvite(this.nameFor(client)));
     });
 
-    this.onMessage("partyDecline", (client) => {
+    this.onProtectedMessage("partyDecline", (client) => {
       declineInvite(this.nameFor(client));
     });
 
-    this.onMessage("partyLeave", (client) => {
+    this.onProtectedMessage("partyLeave", (client) => {
       this.handlePartyMutation(client, leaveParty(this.nameFor(client)));
     });
 
@@ -289,27 +289,27 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       if (player) client.send("partyState", buildPartyStatePayload(player.name));
     });
 
-    this.onMessage("partyChat", (client, message: { body?: string }) => {
+    this.onProtectedMessage("partyChat", (client, message: { body?: string }) => {
       this.handlePartyChat(client, message.body ?? "");
     });
 
-    this.onMessage("interact", (client, message: { npcId?: string }) => {
+    this.onProtectedMessage("interact", (client, message: { npcId?: string }) => {
       void this.handleInteract(client, message.npcId ?? "");
     });
 
-    this.onMessage("attack", (client, message: { npcId?: string }) => {
+    this.onProtectedMessage("attack", (client, message: { npcId?: string }) => {
       void this.handleAttack(client, message.npcId ?? "");
     });
 
-    this.onMessage("chop", (client, message: { resourceId?: string }) => {
+    this.onProtectedMessage("chop", (client, message: { resourceId?: string }) => {
       void this.handleChop(client, message.resourceId ?? "");
     });
 
-    this.onMessage("shopBuy", (client, message: { shopId?: string; itemId?: string }) => {
+    this.onProtectedMessage("shopBuy", (client, message: { shopId?: string; itemId?: string }) => {
       void this.handleShopBuy(client, message.shopId ?? "", message.itemId ?? "");
     });
 
-    this.onMessage("shopSell", (client, message: { shopId?: string; itemId?: string; quantity?: number }) => {
+    this.onProtectedMessage("shopSell", (client, message: { shopId?: string; itemId?: string; quantity?: number }) => {
       void this.handleShopSell(
         client,
         message.shopId ?? "",
@@ -318,7 +318,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       );
     });
 
-    this.onMessage(
+    this.onProtectedMessage(
       "marketPlace",
       (client, message: { side?: string; goldAmount?: number; tokenPrice?: number; currency?: string }) => {
         void this.handleMarketPlace(
@@ -331,19 +331,19 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       },
     );
 
-    this.onMessage("marketCancel", (client, message: { orderId?: string }) => {
+    this.onProtectedMessage("marketCancel", (client, message: { orderId?: string }) => {
       void this.handleMarketCancel(client, message.orderId ?? "");
     });
 
-    this.onMessage("marketFillAsk", (client, message: { orderId?: string; signature?: string }) => {
+    this.onProtectedMessage("marketFillAsk", (client, message: { orderId?: string; signature?: string }) => {
       void this.handleMarketFillAsk(client, message.orderId ?? "", message.signature ?? "");
     });
 
-    this.onMessage("marketAcceptBid", (client, message: { orderId?: string }) => {
+    this.onProtectedMessage("marketAcceptBid", (client, message: { orderId?: string }) => {
       void this.handleMarketAcceptBid(client, message.orderId ?? "");
     });
 
-    this.onMessage("marketPayBid", (client, message: { orderId?: string; signature?: string }) => {
+    this.onProtectedMessage("marketPayBid", (client, message: { orderId?: string; signature?: string }) => {
       void this.handleMarketPayBid(client, message.orderId ?? "", message.signature ?? "");
     });
 
@@ -351,30 +351,30 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       void this.handleMarketRefresh(client);
     });
 
-    this.onMessage("linkWallet", (client, message: { accessToken?: string }) => {
+    this.onProtectedMessage("linkWallet", (client, message: { accessToken?: string }) => {
       void this.handleLinkWallet(client, message.accessToken ?? "");
     });
 
-    this.onMessage("useItem", (client, message: { itemId?: string }) => {
+    this.onProtectedMessage("useItem", (client, message: { itemId?: string }) => {
       void this.handleUseItem(client, message.itemId ?? "");
     });
 
-    this.onMessage(
+    this.onProtectedMessage(
       "equipItem",
       (client, message: { itemId?: string | null; slot?: "weapon" | "tool" }) => {
         void this.handleEquipItem(client, message.itemId ?? null, message.slot);
       },
     );
 
-    this.onMessage("craft", (client, message: { recipeId?: string }) => {
+    this.onProtectedMessage("craft", (client, message: { recipeId?: string }) => {
       void this.handleCraft(client, message.recipeId ?? "");
     });
 
-    this.onMessage("farmInteract", (client, message: { plotId?: string }) => {
+    this.onProtectedMessage("farmInteract", (client, message: { plotId?: string }) => {
       void this.handleFarmInteract(client, message.plotId ?? "");
     });
 
-    this.onMessage("housingBuy", (client, message: { plotId?: string; structure?: string }) => {
+    this.onProtectedMessage("housingBuy", (client, message: { plotId?: string; structure?: string }) => {
       void this.handleHousingBuy(
         client,
         message.plotId ?? "",
@@ -382,14 +382,14 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       );
     });
 
-    this.onMessage(
+    this.onProtectedMessage(
       "housingCustomize",
       (client, message: { plotId?: string; roof?: string | null; sign?: string | null }) => {
         this.handleHousingCustomize(client, message.plotId ?? "", message);
       },
     );
 
-    this.onMessage(
+    this.onProtectedMessage(
       "housingDecorate",
       (client, message: { plotId?: string; slot?: number; propId?: string | null }) => {
         this.handleHousingDecorate(
@@ -401,27 +401,27 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       },
     );
 
-    this.onMessage("housingLight", (client, message: { plotId?: string; on?: boolean }) => {
+    this.onProtectedMessage("housingLight", (client, message: { plotId?: string; on?: boolean }) => {
       this.handleHousingLight(client, message.plotId ?? "", Boolean(message.on));
     });
 
-    this.onMessage("housingRefuel", (client, message: { plotId?: string }) => {
+    this.onProtectedMessage("housingRefuel", (client, message: { plotId?: string }) => {
       this.handleHousingRefuel(client, message.plotId ?? "");
     });
 
-    this.onMessage("housingRest", (client, message: { plotId?: string }) => {
+    this.onProtectedMessage("housingRest", (client, message: { plotId?: string }) => {
       void this.handleHousingRest(client, message.plotId ?? "");
     });
 
-    this.onMessage("guildCreate", (client, message: { name?: string; tag?: string }) => {
+    this.onProtectedMessage("guildCreate", (client, message: { name?: string; tag?: string }) => {
       void this.handleGuildCreate(client, message.name ?? "", message.tag ?? "");
     });
 
-    this.onMessage("guildJoin", (client, message: { guildId?: string }) => {
+    this.onProtectedMessage("guildJoin", (client, message: { guildId?: string }) => {
       this.handleGuildJoin(client, message.guildId ?? "");
     });
 
-    this.onMessage("guildLeave", (client) => {
+    this.onProtectedMessage("guildLeave", (client) => {
       this.handleGuildLeave(client);
     });
 
@@ -439,7 +439,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       if (player) player.lampOn = Boolean(message.on);
     });
 
-    this.onMessage(
+    this.onProtectedMessage(
       "shopStock",
       (client, message: { plotId?: string; itemId?: string; quantity?: number; price?: number }) => {
         void this.handleShopStock(
@@ -452,11 +452,11 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       },
     );
 
-    this.onMessage("shopUnstock", (client, message: { plotId?: string; itemId?: string }) => {
+    this.onProtectedMessage("shopUnstock", (client, message: { plotId?: string; itemId?: string }) => {
       void this.handleShopUnstock(client, message.plotId ?? "", message.itemId ?? "");
     });
 
-    this.onMessage(
+    this.onProtectedMessage(
       "shopBuyListing",
       (client, message: { plotId?: string; itemId?: string; quantity?: number }) => {
         void this.handleShopBuyListing(
@@ -468,7 +468,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       },
     );
 
-    this.onMessage("shopCollect", (client, message: { plotId?: string }) => {
+    this.onProtectedMessage("shopCollect", (client, message: { plotId?: string }) => {
       void this.handleShopCollect(client, message.plotId ?? "");
     });
 
@@ -476,13 +476,31 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       void getLeaderboard().then((payload) => client.send("leaderboard", payload));
     });
 
-    this.onMessage("requestRespawn", (client, message: { payGold?: boolean }) => {
+    this.onProtectedMessage("requestRespawn", (client, message: { payGold?: boolean }) => {
       void this.handleRequestRespawn(client, Boolean(message.payGold));
+    });
+  }
+
+  private checkSpectator(client: Client): boolean {
+    const player = this.state.players.get(client.sessionId);
+    return !!player?.spectator;
+  }
+
+  private onProtectedMessage<T>(type: string, callback: (client: Client, message: T) => void | Promise<void>) {
+    this.onMessage(type, (client, message: T) => {
+      if (this.checkSpectator(client)) return;
+      void Promise.resolve(callback(client, message)).catch(err => {
+        console.error(`Error in protected handler ${type}:`, err);
+      });
     });
   }
 
   async onAuth(_client: Client, options: JoinOptions) {
     const payload = options.accessToken ? verifyAccessToken(options.accessToken) : null;
+
+    if (options.spectate) {
+      return payload ? { ...options, wallet: payload.wallet } : options;
+    }
 
     if (!isTokenGateEnabled()) {
       return payload ? { ...options, wallet: payload.wallet } : options;
@@ -524,7 +542,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       throw error;
     }
 
-    if (!saved && isInvitationSystemActive()) {
+    if (!options.spectate && !saved && isInvitationSystemActive()) {
       const inviteCode = options?.inviteCode ? String(options.inviteCode).trim() : "";
       if (!inviteCode) {
         throw new ServerError(403, "Invitation code is required to register.");
@@ -560,10 +578,11 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     player.outfitColor = appearance.outfitColor;
     player.hairStyle = appearance.hairStyle;
     player.outfitStyle = appearance.outfitStyle;
-    player.guildTag = tagForMember(name);
+    player.guildTag = options.spectate ? "" : tagForMember(name);
     player.lampOn = false;
     player.weaponId = "";
     player.toolId = "";
+    player.spectator = options.spectate || false;
 
     const maxHp = getPlayerMaxHp(player.level);
     const spawn = tileToWorld(this.zoneConfig.spawnTile.x, this.zoneConfig.spawnTile.y);
@@ -595,7 +614,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     // Safety net: never drop a player onto a blocked tile. Stale saved
     // coordinates inside a wall (e.g. the map corner) leave the player
     // unable to move in any direction — snap them back to the spawn tile.
-    if (!isWalkable(this.zoneConfig.id, player.x, player.y)) {
+    if (!player.spectator && !isWalkable(this.zoneConfig.id, player.x, player.y)) {
       player.x = spawn.x;
       player.y = spawn.y;
     }
@@ -816,10 +835,10 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       const nextX = player.x + nx * speed;
       const nextY = player.y + ny * speed;
 
-      if (isWalkable(this.zoneConfig.id, nextX, player.y)) {
+      if (player.spectator || isWalkable(this.zoneConfig.id, nextX, player.y)) {
         player.x = nextX;
       }
-      if (isWalkable(this.zoneConfig.id, player.x, nextY)) {
+      if (player.spectator || isWalkable(this.zoneConfig.id, player.x, nextY)) {
         player.y = nextY;
       }
 
@@ -850,6 +869,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       if (isNightTime) {
         // Find closest alive player in the room (active at night!)
         this.state.players.forEach((player, sessionId) => {
+          if (player.spectator) return;
           if (this.isKnockedOut(player.name)) return;
           if (this.transferring.has(sessionId)) return;
           const dist = Math.hypot(player.x - currentPos.x, player.y - currentPos.y);
@@ -3279,6 +3299,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     x = player.x,
     y = player.y,
   ) {
+    if (player.spectator) return;
     await saveCharacter({
       name: player.name,
       walletAddress: this.playerWallets.get(player.sessionId) ?? null,

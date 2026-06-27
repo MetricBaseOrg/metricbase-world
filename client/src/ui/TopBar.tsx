@@ -55,6 +55,7 @@ export function TopBar({ onLeave }: TopBarProps) {
     farmingLevel,
     farmingXp,
     setInvitationsOpen,
+    spectator,
   } = useGameStore();
 
   useEffect(() => {
@@ -88,14 +89,22 @@ export function TopBar({ onLeave }: TopBarProps) {
       </div>
 
       <div className="chibi-topbar__gauges">
-        <Badge value={hpRatio} label={`${playerHp}`} caption="HP" color="#ff6b6b" title={`HP ${playerHp}/${playerMaxHp}`} />
-        <Badge value={energyRatio} label={`${playerStamina}`} caption="Energy" color="#f5a623" title={`Energy ${playerStamina}/${playerMaxStamina}`} />
-        <Badge value={ratio(xp)} label={`${playerLevel}`} caption="Level" color="var(--chibi-lavender)" title={`Combat XP ${xp.current}/${xp.required}`} />
-        <Badge value={ratio(wood)} label={`${woodcuttingLevel}`} caption="Wood" color="#43a047" title={`Woodcutting ${wood.current}/${wood.required}`} />
-        <Badge value={ratio(mine)} label={`${miningLevel}`} caption="Mining" color="#b0833a" title={`Mining ${mine.current}/${mine.required}`} />
-        <Badge value={ratio(fish)} label={`${fishingLevel}`} caption="Fishing" color="#3690cf" title={`Fishing ${fish.current}/${fish.required}`} />
-        <Badge value={ratio(farm)} label={`${farmingLevel}`} caption="Farming" color="#e0a82e" title={`Farming ${farm.current}/${farm.required}`} />
-        <div className="chibi-topbar__gold">🪙 {playerGold}</div>
+        {spectator ? (
+          <span className="chibi-badge" style={{ fontSize: "0.82rem", padding: "6px 12px", background: "#3b82f6", color: "#fff", display: "inline-flex", alignItems: "center", gap: 6 }}>
+            👀 SPECTATOR MODE (FREE FLY)
+          </span>
+        ) : (
+          <>
+            <Badge value={hpRatio} label={`${playerHp}`} caption="HP" color="#ff6b6b" title={`HP ${playerHp}/${playerMaxHp}`} />
+            <Badge value={energyRatio} label={`${playerStamina}`} caption="Energy" color="#f5a623" title={`Energy ${playerStamina}/${playerMaxStamina}`} />
+            <Badge value={ratio(xp)} label={`${playerLevel}`} caption="Level" color="var(--chibi-lavender)" title={`Combat XP ${xp.current}/${xp.required}`} />
+            <Badge value={ratio(wood)} label={`${woodcuttingLevel}`} caption="Wood" color="#43a047" title={`Woodcutting ${wood.current}/${wood.required}`} />
+            <Badge value={ratio(mine)} label={`${miningLevel}`} caption="Mining" color="#b0833a" title={`Mining ${mine.current}/${mine.required}`} />
+            <Badge value={ratio(fish)} label={`${fishingLevel}`} caption="Fishing" color="#3690cf" title={`Fishing ${fish.current}/${fish.required}`} />
+            <Badge value={ratio(farm)} label={`${farmingLevel}`} caption="Farming" color="#e0a82e" title={`Farming ${farm.current}/${farm.required}`} />
+            <div className="chibi-topbar__gold">🪙 {playerGold}</div>
+          </>
+        )}
         <button
           type="button"
           className={`chibi-btn chibi-btn--ghost chibi-topbar__gear${menuOpen ? " active" : ""}`}

@@ -16,6 +16,7 @@ export const PlayerSchema = schema({
   lampOn: "boolean",
   weaponId: "string",
   toolId: "string",
+  spectator: "boolean",
 });
 
 export type Player = InstanceType<typeof PlayerSchema>;

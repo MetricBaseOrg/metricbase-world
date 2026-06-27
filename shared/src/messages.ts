@@ -20,6 +20,7 @@ export interface JoinOptions {
   accessToken?: string;
   appearance?: CharacterAppearance;
   inviteCode?: string;
+  spectate?: boolean;
 }
 
 export interface CharacterLookupResponse {

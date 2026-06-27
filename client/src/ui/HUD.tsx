@@ -54,6 +54,7 @@ export function HUD({ onLeave }: HUDProps) {
     farmingLevel,
     farmingXp,
     setInvitationsOpen,
+    spectator,
   } = useGameStore();
   // Desktop uses the compact TopBar instead of this left panel.
   if (!mobileLayout) return null;
@@ -91,13 +92,19 @@ export function HUD({ onLeave }: HUDProps) {
           aria-expanded={expanded}
         >
           <span className="chibi-hud-compact-bar__name">
-            {playerName} · Lv {playerLevel}
+            {playerName} {spectator ? "(Spectator)" : `· Lv ${playerLevel}`}
           </span>
           <span className="chibi-hud-compact-bar__stats">
-            <span>❤️ {playerHp}</span>
-            <span>🍗 {playerStamina}</span>
-            <span>🪙 {playerGold}</span>
-            {activeQuest && <span className="chibi-hud-compact-bar__quest">📜</span>}
+            {spectator ? (
+              <span className="chibi-badge" style={{ background: "#3b82f6", color: "#fff", padding: "2px 6px" }}>👀 SPECTATOR</span>
+            ) : (
+              <>
+                <span>❤️ {playerHp}</span>
+                <span>🍗 {playerStamina}</span>
+                <span>🪙 {playerGold}</span>
+                {activeQuest && <span className="chibi-hud-compact-bar__quest">📜</span>}
+              </>
+            )}
           </span>
           <span className="chibi-hud-compact-bar__chevron">{expanded ? "▲" : "▼"}</span>
         </button>
@@ -125,73 +132,81 @@ export function HUD({ onLeave }: HUDProps) {
             </div>
           )}
 
-          <div className="chibi-hud-gauges">
-            <div className="chibi-hud-gauge-item">
-              <CircleGauge
-                value={hpRatio}
-                label={`${playerHp}`}
-                detail={`/${playerMaxHp}`}
-                title={`HP ${playerHp} / ${playerMaxHp}`}
-                color="#ff6b6b"
-              />
-              <span className="chibi-hud-gauge-caption">HP</span>
+          {spectator ? (
+            <div style={{ margin: "12px 0 6px", display: "flex", justifyContent: "center" }}>
+              <span className="chibi-badge" style={{ fontSize: "0.85rem", padding: "6px 12px", background: "#3b82f6", color: "#fff" }}>
+                👀 SPECTATOR MODE (FREE FLY)
+              </span>
             </div>
-            <div className="chibi-hud-gauge-item">
-              <CircleGauge
-                value={staminaRatio}
-                label={`${playerStamina}`}
-                detail={`/${playerMaxStamina}`}
-                title={`Energy ${playerStamina} / ${playerMaxStamina} — eat food to refill`}
-                color="#f5a623"
-              />
-              <span className="chibi-hud-gauge-caption">Energy</span>
+          ) : (
+            <div className="chibi-hud-gauges">
+              <div className="chibi-hud-gauge-item">
+                <CircleGauge
+                  value={hpRatio}
+                  label={`${playerHp}`}
+                  detail={`/${playerMaxHp}`}
+                  title={`HP ${playerHp} / ${playerMaxHp}`}
+                  color="#ff6b6b"
+                />
+                <span className="chibi-hud-gauge-caption">HP</span>
+              </div>
+              <div className="chibi-hud-gauge-item">
+                <CircleGauge
+                  value={staminaRatio}
+                  label={`${playerStamina}`}
+                  detail={`/${playerMaxStamina}`}
+                  title={`Energy ${playerStamina} / ${playerMaxStamina} — eat food to refill`}
+                  color="#f5a623"
+                />
+                <span className="chibi-hud-gauge-caption">Energy</span>
+              </div>
+              <div className="chibi-hud-gauge-item">
+                <CircleGauge
+                  value={xpRatio}
+                  label={`${playerLevel}`}
+                  title={`Combat XP ${progress.current} / ${progress.required}`}
+                  color="var(--chibi-lavender)"
+                />
+                <span className="chibi-hud-gauge-caption">Level</span>
+              </div>
+              <div className="chibi-hud-gauge-item">
+                <CircleGauge
+                  value={woodcuttingRatio}
+                  label={`${woodcuttingLevel}`}
+                  title={`Woodcutting ${woodcuttingProgress.current} / ${woodcuttingProgress.required} XP`}
+                  color="#43a047"
+                />
+                <span className="chibi-hud-gauge-caption">Wood</span>
+              </div>
+              <div className="chibi-hud-gauge-item">
+                <CircleGauge
+                  value={miningRatio}
+                  label={`${miningLevel}`}
+                  title={`Mining ${miningProgress.current} / ${miningProgress.required} XP`}
+                  color="#b0833a"
+                />
+                <span className="chibi-hud-gauge-caption">Mining</span>
+              </div>
+              <div className="chibi-hud-gauge-item">
+                <CircleGauge
+                  value={fishingRatio}
+                  label={`${fishingLevel}`}
+                  title={`Fishing ${fishingProgress.current} / ${fishingProgress.required} XP`}
+                  color="#3690cf"
+                />
+                <span className="chibi-hud-gauge-caption">Fishing</span>
+              </div>
+              <div className="chibi-hud-gauge-item">
+                <CircleGauge
+                  value={farmingRatio}
+                  label={`${farmingLevel}`}
+                  title={`Farming ${farmingProgress.current} / ${farmingProgress.required} XP`}
+                  color="#e0a82e"
+                />
+                <span className="chibi-hud-gauge-caption">Farming</span>
+              </div>
             </div>
-            <div className="chibi-hud-gauge-item">
-              <CircleGauge
-                value={xpRatio}
-                label={`${playerLevel}`}
-                title={`Combat XP ${progress.current} / ${progress.required}`}
-                color="var(--chibi-lavender)"
-              />
-              <span className="chibi-hud-gauge-caption">Level</span>
-            </div>
-            <div className="chibi-hud-gauge-item">
-              <CircleGauge
-                value={woodcuttingRatio}
-                label={`${woodcuttingLevel}`}
-                title={`Woodcutting ${woodcuttingProgress.current} / ${woodcuttingProgress.required} XP`}
-                color="#43a047"
-              />
-              <span className="chibi-hud-gauge-caption">Wood</span>
-            </div>
-            <div className="chibi-hud-gauge-item">
-              <CircleGauge
-                value={miningRatio}
-                label={`${miningLevel}`}
-                title={`Mining ${miningProgress.current} / ${miningProgress.required} XP`}
-                color="#b0833a"
-              />
-              <span className="chibi-hud-gauge-caption">Mining</span>
-            </div>
-            <div className="chibi-hud-gauge-item">
-              <CircleGauge
-                value={fishingRatio}
-                label={`${fishingLevel}`}
-                title={`Fishing ${fishingProgress.current} / ${fishingProgress.required} XP`}
-                color="#3690cf"
-              />
-              <span className="chibi-hud-gauge-caption">Fishing</span>
-            </div>
-            <div className="chibi-hud-gauge-item">
-              <CircleGauge
-                value={farmingRatio}
-                label={`${farmingLevel}`}
-                title={`Farming ${farmingProgress.current} / ${farmingProgress.required} XP`}
-                color="#e0a82e"
-              />
-              <span className="chibi-hud-gauge-caption">Farming</span>
-            </div>
-          </div>
+          )}
 
           {equippedWeaponId && (
             <div className="chibi-text-muted" style={{ marginTop: 6, fontSize: "0.72rem" }}>
@@ -286,7 +301,7 @@ export function HUD({ onLeave }: HUDProps) {
             </button>
           </div>
 
-          {activeQuest && (
+          {!spectator && activeQuest && (
             <div className="chibi-card chibi-card--info" style={{ marginTop: 8, padding: "8px 10px" }}>
               <div className="chibi-quest-title">{activeQuest.title}</div>
               {activeQuest.objectives.map((objective) => (
@@ -300,7 +315,7 @@ export function HUD({ onLeave }: HUDProps) {
 
           {!mobileLayout && (
             <div className="chibi-key-hint chibi-key-hint--desktop">
-              WASD move · E interact · Space attack/chop · F chop · G fish · I inventory · C craft · L lamp
+              {spectator ? "WASD / Arrow keys to fly/spectate" : "WASD move · E interact · Space attack/chop · F chop · G fish · I inventory · C craft · L lamp"}
             </div>
           )}
 

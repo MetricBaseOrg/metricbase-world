@@ -49,7 +49,9 @@ interface GameStore {
   shop: ShopOpenPayload | null;
   shopOpen: boolean;
   invitationsOpen: boolean;
+  spectator: boolean;
   setInvitationsOpen: (open: boolean) => void;
+  setSpectator: (spectator: boolean) => void;
   setPlayerName: (name: string) => void;
   setCharacterAppearance: (appearance: CharacterAppearance | null) => void;
   setPlayerLevel: (level: number) => void;
@@ -141,6 +143,7 @@ export const useGameStore = create<GameStore>((set) => ({
   shop: null,
   shopOpen: false,
   invitationsOpen: false,
+  spectator: false,
   setPlayerName: (name) => set({ playerName: name }),
   setCharacterAppearance: (characterAppearance) => set({ characterAppearance }),
   setPlayerLevel: (level) => set({ playerLevel: level }),
@@ -230,4 +233,5 @@ export const useGameStore = create<GameStore>((set) => ({
   setShop: (shop) => set({ shop }),
   setShopOpen: (shopOpen) => set({ shopOpen }),
   setInvitationsOpen: (invitationsOpen) => set({ invitationsOpen }),
+  setSpectator: (spectator) => set({ spectator }),
 }));
