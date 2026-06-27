@@ -115,6 +115,7 @@ import {
   getWeather,
   getWorldTime,
   ZONE_INTERIOR,
+  ZONE_HUB,
 } from "@metricbase/shared";
 import { verifyAccessToken } from "../auth/accessToken.js";
 import { isTokenGateEnabled } from "../auth/tokenGate.js";
@@ -203,6 +204,9 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   private mobRespawnAt = new Map<string, number>();
   private npcPositions = new Map<string, { x: number; y: number }>();
   private npcLastAttackAt = new Map<string, number>();
+  private botTargetIndex = 0;
+  private botNextActionAt = 0;
+  private botMode: "idle" | "walk" = "idle";
   private resourceRespawnAt = new Map<string, number>();
   private resourceChopper = new Map<string, string>();
   private activeChopSessions = new Map<
@@ -232,6 +236,10 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     this.zoneConfig = getZoneConfig(options.zoneId);
     this.maxClients = MAX_PLAYERS_PER_ZONE;
     this.setState(new ZoneState());
+
+    if (options.zoneId === ZONE_HUB) {
+      this.spawnTomExplorerBot();
+    }
 
     for (const npc of this.zoneConfig.npcs) {
       if (npc.combat) {
@@ -833,18 +841,16 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       let chasedPlayer: InstanceType<typeof PlayerSchema> | null = null;
       let minDistance = 250; // CHASE_RANGE
 
-      if (isNightTime) {
-        // Find closest alive player in the room
-        this.state.players.forEach((player, sessionId) => {
-          if (this.isKnockedOut(player.name)) return;
-          if (this.transferring.has(sessionId)) return;
-          const dist = Math.hypot(player.x - currentPos.x, player.y - currentPos.y);
-          if (dist < minDistance) {
-            minDistance = dist;
-            chasedPlayer = player;
-          }
-        });
-      }
+      // Find closest alive player in the room (always active, day or night!)
+      this.state.players.forEach((player, sessionId) => {
+        if (this.isKnockedOut(player.name)) return;
+        if (this.transferring.has(sessionId)) return;
+        const dist = Math.hypot(player.x - currentPos.x, player.y - currentPos.y);
+        if (dist < minDistance) {
+          minDistance = dist;
+          chasedPlayer = player;
+        }
+      });
 
       if (chasedPlayer) {
         // Chase player
@@ -872,11 +878,16 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
           const lastAttack = this.npcLastAttackAt.get(npc.id) ?? 0;
           if (now - lastAttack >= 1500) {
             this.npcLastAttackAt.set(npc.id, now);
+            const isBot = (chasedPlayer as any).name === "TomExplorer";
             const client = this.clients.find((c) => c.sessionId === (chasedPlayer as any).sessionId);
-            if (client) {
+            if (client || isBot) {
               const baseDamage = 15;
               const dmg = isStorm ? baseDamage * 4 : baseDamage;
-              this.damagePlayer(client, chasedPlayer, dmg, `${npc.name} attack`);
+              if (isBot) {
+                this.damageBot(chasedPlayer, dmg, `${npc.name} attack`);
+              } else {
+                this.damagePlayer(client!, chasedPlayer, dmg, `${npc.name} attack`);
+              }
             }
           }
         }
@@ -3317,6 +3328,34 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       body,
       sentAt: now,
     });
+
+    // Bot reply trigger
+    if (this.zoneConfig.id === ZONE_HUB) {
+      const lowerBody = body.toLowerCase();
+      if (lowerBody.includes("tom") || lowerBody.includes("bot")) {
+        this.clock.setTimeout(() => {
+          if (this.isKnockedOut("TomExplorer")) return;
+          const replies = [
+            "Beep boop! Real players don't reply to bots.",
+            "I'm not a bot, I'm just very efficient at routing!",
+            "GRIND_MODE = true. Cannot talk right now.",
+            "Please do not report me, I am just trying to buy a house.",
+            "TomExplorer is a 100% human player certified by reCAPTCHA.",
+            "If I were a bot, could I do this? *chops air*",
+            "Beep? I mean, hello fellow adventurer!",
+          ];
+          const text = replies[Math.floor(Math.random() * replies.length)];
+          this.broadcastChat({
+            id: crypto.randomUUID(),
+            channel: "zone",
+            senderId: "tom_explorer_bot_session",
+            senderName: "TomExplorer",
+            body: text,
+            sentAt: Date.now(),
+          });
+        }, 1000);
+      }
+    }
   }
 
   private handleGuildChat(client: Client, rawBody: string) {
@@ -3414,6 +3453,147 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       body,
       sentAt: now,
     } satisfies ChatMessagePayload);
+  }
+
+  private spawnTomExplorerBot() {
+    const bot = new PlayerSchema();
+    bot.sessionId = "tom_explorer_bot_session";
+    bot.name = "TomExplorer";
+    bot.guildTag = "BOT";
+    bot.level = 5;
+    bot.xp = 1200;
+    
+    bot.bodyColor = 0xffd1a4;
+    bot.hairColor = 0x5a3825;
+    bot.outfitColor = 0x3b5998;
+    bot.hairStyle = "spiky";
+    bot.outfitStyle = "casual";
+    bot.weaponId = "sword_practice";
+    bot.toolId = "axe_iron";
+    bot.lampOn = false;
+
+    const spawnPos = tileToWorld(10, 10);
+    bot.x = spawnPos.x;
+    bot.y = spawnPos.y;
+
+    this.state.players.set(bot.sessionId, bot);
+    this.playerHp.set(bot.name, getPlayerMaxHp(bot.level));
+    this.playerStamina.set(bot.name, 100);
+
+    this.clock.setInterval(() => {
+      this.updateTomExplorerBot(bot);
+    }, 100);
+  }
+
+  private updateTomExplorerBot(bot: InstanceType<typeof PlayerSchema>) {
+    const now = Date.now();
+
+    if (this.isKnockedOut(bot.name)) {
+      this.inputs.set(bot.sessionId, { dx: 0, dy: 0 });
+      const until = this.playerKnockedOutUntil.get(bot.name);
+      if (until && now >= until) {
+        this.playerHp.set(bot.name, getPlayerMaxHp(bot.level));
+        this.playerKnockedOutUntil.delete(bot.name);
+        const spawn = tileToWorld(this.zoneConfig.spawnTile.x, this.zoneConfig.spawnTile.y);
+        bot.x = spawn.x;
+        bot.y = spawn.y;
+      }
+      return;
+    }
+
+    const targets = [
+      tileToWorld(10, 10), // Plaza spawn
+      tileToWorld(5, 5),   // NW forest
+      tileToWorld(5, 15),  // SW forest
+      tileToWorld(18, 10), // East area
+    ];
+
+    if (now < this.botNextActionAt) {
+      return;
+    }
+
+    const currentTarget = targets[this.botTargetIndex];
+    const dist = Math.hypot(currentTarget.x - bot.x, currentTarget.y - bot.y);
+
+    if (this.botMode === "walk") {
+      if (dist < 10) {
+        this.botMode = "idle";
+        this.inputs.set(bot.sessionId, { dx: 0, dy: 0 });
+        this.botNextActionAt = now + 3000 + Math.random() * 3000;
+
+        if (Math.random() < 0.3) {
+          const chats = [
+            "Beep boop! Real players don't reply to bots.",
+            "I'm not a bot, I'm just very efficient at routing!",
+            "GRIND_MODE = true. Cannot talk right now.",
+            "Please do not report me, I am just trying to buy a house.",
+            "TomExplorer is a 100% human player certified by reCAPTCHA.",
+            "If I were a bot, could I do this? *chops air*",
+            "Beep? I mean, hello fellow adventurer!",
+          ];
+          const text = chats[Math.floor(Math.random() * chats.length)];
+          this.broadcastChat({
+            id: crypto.randomUUID(),
+            channel: "zone",
+            senderId: bot.sessionId,
+            senderName: bot.name,
+            body: text,
+            sentAt: Date.now(),
+          });
+        }
+      } else {
+        const dx = currentTarget.x - bot.x;
+        const dy = currentTarget.y - bot.y;
+        this.inputs.set(bot.sessionId, { dx, dy });
+      }
+    } else {
+      this.botTargetIndex = (this.botTargetIndex + 1) % targets.length;
+      this.botMode = "walk";
+      this.botNextActionAt = now + 500;
+    }
+  }
+
+  private damageBot(
+    player: InstanceType<typeof PlayerSchema>,
+    amount: number,
+    reason: string,
+  ) {
+    if (this.isKnockedOut(player.name)) return;
+
+    const maxHp = getPlayerMaxHp(player.level);
+    const current = this.playerHp.get(player.name) ?? maxHp;
+    const next = Math.max(0, current - amount);
+    this.playerHp.set(player.name, next);
+    this.playerLastCombatAt.set(player.name, Date.now());
+
+    if (next === 0) {
+      const spawn = tileToWorld(this.zoneConfig.spawnTile.x, this.zoneConfig.spawnTile.y);
+      player.x = spawn.x;
+      player.y = spawn.y;
+      this.playerKnockedOutUntil.set(player.name, Date.now() + 10000); // 10s respawn
+      this.inputs.set("tom_explorer_bot_session", { dx: 0, dy: 0 });
+    }
+
+    const knockedOut = next === 0;
+
+    if (knockedOut) {
+      this.broadcastChat({
+        id: crypto.randomUUID(),
+        channel: "system",
+        senderId: "system",
+        senderName: "System",
+        body: `${player.name} was knocked out (${reason}).`,
+        sentAt: Date.now(),
+      });
+      this.broadcastChat({
+        id: crypto.randomUUID(),
+        channel: "zone",
+        senderId: "tom_explorer_bot_session",
+        senderName: "TomExplorer",
+        body: "Ouch! Those slimes are way too strong!",
+        sentAt: Date.now(),
+      });
+    }
   }
 
   private broadcastChat(message: ChatMessagePayload) {
