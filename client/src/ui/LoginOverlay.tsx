@@ -507,6 +507,28 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
             )}
 
             <div>
+              <div className="chibi-label" style={{ textTransform: "none", letterSpacing: 0 }}>Gender</div>
+              <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                <button
+                  type="button"
+                  className={`chibi-chip${appearance.gender === "male" ? " active" : ""}`}
+                  style={{ flex: 1, padding: "10px 14px", fontSize: "0.85rem", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
+                  onClick={() => updateAppearance({ gender: "male" })}
+                >
+                  ♂️ Boy
+                </button>
+                <button
+                  type="button"
+                  className={`chibi-chip${appearance.gender === "female" ? " active" : ""}`}
+                  style={{ flex: 1, padding: "10px 14px", fontSize: "0.85rem", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
+                  onClick={() => updateAppearance({ gender: "female" })}
+                >
+                  ♀️ Girl
+                </button>
+              </div>
+            </div>
+
+            <div>
               <div className="chibi-label" style={{ textTransform: "none", letterSpacing: 0 }}>Skin tone</div>
               <ColorSwatches
                 colors={SKIN_TONES}

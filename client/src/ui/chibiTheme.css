@@ -75,9 +75,21 @@ body {
   backdrop-filter: blur(8px);
 }
 
+@keyframes chibiFadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .chibi-panel--modal {
   width: min(920px, 100%);
   padding: 28px;
+  animation: chibiFadeInUp 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .chibi-panel--hud {
@@ -413,37 +425,53 @@ body {
 }
 
 .chibi-swatch {
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   border-radius: var(--chibi-radius-pill);
   border: 3px solid var(--chibi-outline-light);
   cursor: pointer;
-  box-shadow: 0 2px 0 var(--chibi-shadow);
-  transition: transform 0.1s ease;
+  box-shadow: 0 3px 0 var(--chibi-shadow);
+  transition: all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.chibi-swatch:hover {
+  transform: scale(1.12);
+  border-color: var(--chibi-outline);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.12), 0 3px 0 var(--chibi-shadow);
 }
 
 .chibi-swatch.active {
   border-color: var(--chibi-outline);
-  transform: scale(1.08);
-  box-shadow: 0 0 0 3px var(--chibi-lavender), 0 3px 0 var(--chibi-shadow);
+  transform: scale(1.18);
+  box-shadow: 0 0 0 4px var(--chibi-lavender), 0 4px 0 var(--chibi-shadow);
 }
 
 .chibi-chip {
-  padding: 8px 12px;
+  padding: 8px 14px;
   border-radius: var(--chibi-radius-pill);
-  border: 2px solid var(--chibi-outline-light);
+  border: 3px solid var(--chibi-outline-light);
   background: #fff;
   color: var(--chibi-ink);
-  font-size: 0.78rem;
-  font-weight: 700;
+  font-size: 0.82rem;
+  font-weight: 800;
   cursor: pointer;
   text-transform: capitalize;
+  box-shadow: 0 3px 0 var(--chibi-shadow);
+  transition: all 0.22s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.chibi-chip:hover {
+  transform: translateY(-2px);
+  border-color: var(--chibi-outline-light);
+  box-shadow: 0 5px 0 var(--chibi-shadow);
 }
 
 .chibi-chip.active {
-  border-color: var(--chibi-lavender);
-  background: #f3ebff;
+  transform: scale(1.04) translateY(-1px);
+  border-color: var(--chibi-outline);
+  background: #f1e6ff;
   color: var(--chibi-ink);
+  box-shadow: 0 0 0 3px var(--chibi-lavender), 0 4px 0 var(--chibi-shadow);
 }
 
 .chibi-progress {

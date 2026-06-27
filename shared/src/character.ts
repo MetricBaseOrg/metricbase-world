@@ -9,6 +9,7 @@ export interface CharacterAppearance {
   outfitStyle: OutfitStyle;
   weaponId?: string | null;
   toolId?: string | null;
+  gender?: "male" | "female";
 }
 
 export const HAIR_STYLES: HairStyle[] = ["short", "long", "spiky", "bald", "mohawk", "ponytail"];
@@ -27,6 +28,7 @@ export const DEFAULT_CHARACTER_APPEARANCE: CharacterAppearance = {
   outfitColor: 0x355070,
   hairStyle: "short",
   outfitStyle: "robe",
+  gender: "male",
 };
 
 export function normalizeCharacterAppearance(
@@ -48,6 +50,7 @@ export function normalizeCharacterAppearance(
       : DEFAULT_CHARACTER_APPEARANCE.outfitStyle,
     weaponId: typeof raw.weaponId === "string" ? raw.weaponId : null,
     toolId: typeof raw.toolId === "string" ? raw.toolId : null,
+    gender: raw.gender === "female" ? "female" : "male",
   };
 }
 
@@ -59,8 +62,8 @@ function normalizeColor(value: unknown, fallback: number): number {
 }
 
 export function appearanceTextureKey(appearance: CharacterAppearance): string {
-  const { bodyColor, hairColor, outfitColor, hairStyle, outfitStyle, weaponId, toolId } = appearance;
-  return `player-v${CHARACTER_ART_VERSION}-${bodyColor}-${hairColor}-${outfitColor}-${hairStyle}-${outfitStyle}-${weaponId || ""}-${toolId || ""}`;
+  const { bodyColor, hairColor, outfitColor, hairStyle, outfitStyle, weaponId, toolId, gender } = appearance;
+  return `player-v${CHARACTER_ART_VERSION}-${bodyColor}-${hairColor}-${outfitColor}-${hairStyle}-${outfitStyle}-${weaponId || ""}-${toolId || ""}-${gender || "male"}`;
 }
 
 export function getGrantedCodesCount(invitedCount: number): number {

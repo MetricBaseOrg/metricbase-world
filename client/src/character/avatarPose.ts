@@ -350,8 +350,9 @@ function drawArms(
     return;
   }
 
-  const reachLeftX = cx - 8;
-  const reachRightX = cx + 8;
+  const shoulderOffset = 8 - (appearance?.gender === "female" ? 0.8 : 0);
+  const reachLeftX = cx - shoulderOffset;
+  const reachRightX = cx + shoulderOffset;
   const handDrop = 9;
 
   if (profile) {
@@ -360,14 +361,16 @@ function drawArms(
     return;
   }
 
+  const startOffset = 6 - (appearance?.gender === "female" ? 0.6 : 0);
+
   if (isBack(direction)) {
-    drawArm(ctx, cx - 6, sy, reachLeftX - armSwing, sy + handDrop, sleeveColor, skinColor);
-    drawArm(ctx, cx + 6, sy, reachRightX + armSwing, sy + handDrop, sleeveColor, skinColor);
+    drawArm(ctx, cx - startOffset, sy, reachLeftX - armSwing, sy + handDrop, sleeveColor, skinColor);
+    drawArm(ctx, cx + startOffset, sy, reachRightX + armSwing, sy + handDrop, sleeveColor, skinColor);
     return;
   }
 
-  drawArm(ctx, cx - 6, sy, reachLeftX - armSwing, sy + handDrop, sleeveColor, skinColor);
-  drawArm(ctx, cx + 6, sy, reachRightX + armSwing, sy + handDrop, sleeveColor, skinColor);
+  drawArm(ctx, cx - startOffset, sy, reachLeftX - armSwing, sy + handDrop, sleeveColor, skinColor);
+  drawArm(ctx, cx + startOffset, sy, reachRightX + armSwing, sy + handDrop, sleeveColor, skinColor);
 }
 
 function drawChopArms(
@@ -534,6 +537,7 @@ function drawBody(
   outfitColor: number,
   outfitStyle: OutfitStyle,
   direction: AvatarDirection,
+  appearance?: CharacterAppearance,
 ) {
   const top = BODY_TOP + bob;
   const bottom = BODY_BOTTOM + bob;
@@ -544,9 +548,11 @@ function drawBody(
   const tq = isThreeQuarter(direction);
   const lean = tq ? 1.5 : 0;
 
+  const wDec = appearance?.gender === "female" ? 0.8 : 0;
+
   if (outfitStyle === "robe") {
-    const topHalf = profile ? 5 : 7;
-    const hemHalf = profile ? 8.5 : 11;
+    const topHalf = (profile ? 5 : 7) - wDec;
+    const hemHalf = (profile ? 8.5 : 11) - wDec;
     ctx.fillStyle = outfit;
     ctx.beginPath();
     ctx.moveTo(cx - topHalf + lean, top);
@@ -573,7 +579,7 @@ function drawBody(
   }
 
   if (outfitStyle === "armor") {
-    const half = profile ? 6 : 8.5;
+    const half = (profile ? 6 : 8.5) - wDec;
     ctx.fillStyle = outfit;
     roundRect(ctx, cx - half + lean, top, half * 2, bottom - top - 2, 3.5);
     ctx.fill();
@@ -600,7 +606,7 @@ function drawBody(
   }
 
   // casual: short shirt
-  const half = profile ? 5.5 : 7.5;
+  const half = (profile ? 5.5 : 7.5) - wDec;
   const shirtBottom = top + (bottom - top) * 0.66;
   ctx.fillStyle = outfit;
   roundRect(ctx, cx - half + lean, top, half * 2, shirtBottom - top, 3.5);
@@ -617,7 +623,7 @@ function drawBody(
   }
 
   if (outfitStyle === "tunic") {
-    const half = profile ? 6 : 8;
+    const half = (profile ? 6 : 8) - wDec;
     // draw tunic base
     ctx.fillStyle = outfit;
     roundRect(ctx, cx - half + lean, top, half * 2, bottom - top - 1, 3);
@@ -645,7 +651,7 @@ function drawBody(
   }
 
   if (outfitStyle === "explorer") {
-    const half = profile ? 5.5 : 7.5;
+    const half = (profile ? 5.5 : 7.5) - wDec;
     const shirtBottom = top + (bottom - top) * 0.75;
     ctx.fillStyle = outfit;
     roundRect(ctx, cx - half + lean, top, half * 2, shirtBottom - top, 3.5);
@@ -870,6 +876,7 @@ function drawFace(
   cx: number,
   bob: number,
   direction: AvatarDirection,
+  appearance?: CharacterAppearance,
 ) {
   if (isBack(direction)) return;
   const hy = HEAD_Y - bob;
@@ -880,19 +887,20 @@ function drawFace(
   const eyeY = hy + 1;
 
   // blush
-  ctx.fillStyle = "rgba(255, 140, 140, 0.4)";
+  ctx.fillStyle = appearance?.gender === "female" ? "rgba(255, 110, 140, 0.52)" : "rgba(255, 140, 140, 0.4)";
+  const blushR = appearance?.gender === "female" ? 2.2 : 1.9;
   if (!profile) {
     ctx.beginPath();
-    ctx.ellipse(x - eyeDX - 2, eyeY + 4, 1.9, 1.2, 0, 0, Math.PI * 2);
-    ctx.ellipse(x + eyeDX + 2, eyeY + 4, 1.9, 1.2, 0, 0, Math.PI * 2);
+    ctx.ellipse(x - eyeDX - 2, eyeY + 4, blushR, 1.2, 0, 0, Math.PI * 2);
+    ctx.ellipse(x + eyeDX + 2, eyeY + 4, blushR, 1.2, 0, 0, Math.PI * 2);
     ctx.fill();
   } else {
     ctx.beginPath();
-    ctx.ellipse(x - eyeDX - 1, eyeY + 4, 1.8, 1.2, 0, 0, Math.PI * 2);
+    ctx.ellipse(x - eyeDX - 1, eyeY + 4, blushR * 0.95, 1.2, 0, 0, Math.PI * 2);
     ctx.fill();
   }
 
-  const drawEye = (ex: number) => {
+  const drawEye = (ex: number, isRightEye: boolean) => {
     // white
     ctx.fillStyle = "#ffffff";
     ctx.beginPath();
@@ -901,6 +909,27 @@ function drawFace(
     ctx.strokeStyle = "rgba(58,42,30,0.55)";
     ctx.lineWidth = 0.6;
     ctx.stroke();
+
+    // eyelashes if female
+    if (appearance?.gender === "female") {
+      ctx.strokeStyle = "#34281f";
+      ctx.lineWidth = 1.1;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      if (isRightEye) {
+        ctx.moveTo(ex + 1.5, eyeY - 2);
+        ctx.quadraticCurveTo(ex + 3.2, eyeY - 2.8, ex + 4.2, eyeY - 1.8);
+        ctx.moveTo(ex + 1, eyeY - 2.5);
+        ctx.quadraticCurveTo(ex + 2.2, eyeY - 3.8, ex + 3.0, eyeY - 3.2);
+      } else {
+        ctx.moveTo(ex - 1.5, eyeY - 2);
+        ctx.quadraticCurveTo(ex - 3.2, eyeY - 2.8, ex - 4.2, eyeY - 1.8);
+        ctx.moveTo(ex - 1, eyeY - 2.5);
+        ctx.quadraticCurveTo(ex - 2.2, eyeY - 3.8, ex - 3.0, eyeY - 3.2);
+      }
+      ctx.stroke();
+    }
+
     // iris/pupil
     ctx.fillStyle = "#34281f";
     ctx.beginPath();
@@ -913,8 +942,8 @@ function drawFace(
     ctx.fill();
   };
 
-  drawEye(x - eyeDX);
-  if (!profile) drawEye(x + eyeDX);
+  drawEye(x - eyeDX, false);
+  if (!profile) drawEye(x + eyeDX, true);
 
   // smile
   ctx.strokeStyle = "#7a4a3a";
@@ -998,10 +1027,10 @@ export function drawAvatarPose(
     pose.frame,
     appearance,
   );
-  drawBody(ctx, CX, motion.bob, outfitColor, appearance.outfitStyle, drawDirection);
+  drawBody(ctx, CX, motion.bob, outfitColor, appearance.outfitStyle, drawDirection, appearance);
   drawHead(ctx, CX, motion.bob, skin, drawDirection);
   drawHair(ctx, CX, motion.bob, appearance.hairColor, appearance.hairStyle, drawDirection, motion.hairSway);
-  drawFace(ctx, CX, motion.bob, drawDirection);
+  drawFace(ctx, CX, motion.bob, drawDirection, appearance);
 
   ctx.restore();
 }
