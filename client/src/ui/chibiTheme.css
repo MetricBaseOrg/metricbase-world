@@ -1171,6 +1171,11 @@ body {
   font-weight: 800;
 }
 
+.chibi-chat-global {
+  color: #3b82f6;
+  font-weight: 800;
+}
+
 .chibi-quest-title {
   font-size: 0.85rem;
   font-weight: 800;

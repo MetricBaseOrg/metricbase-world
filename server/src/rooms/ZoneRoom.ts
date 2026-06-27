@@ -190,6 +190,7 @@ interface ZoneRoomOptions {
 type JoinAuthData = JoinOptions & { wallet?: string };
 
 export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
+  public static activeRooms = new Set<ZoneRoom>();
   private inputs = new Map<string, PendingInput>();
   private chatCooldowns = new Map<string, number>();
   private npcInteractAt = new Map<string, Record<string, number>>();
@@ -236,6 +237,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   private zoneConfig!: ZoneConfig;
 
   onCreate(options: ZoneRoomOptions) {
+    ZoneRoom.activeRooms.add(this);
     this.zoneConfig = getZoneConfig(options.zoneId);
     this.maxClients = MAX_PLAYERS_PER_ZONE;
     this.setState(new ZoneState());
@@ -3699,7 +3701,17 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   }
 
   private broadcastChat(message: ChatMessagePayload) {
-    this.broadcast("chat", message);
+    if (message.channel === "zone") {
+      for (const room of ZoneRoom.activeRooms) {
+        room.broadcast("chat", message);
+      }
+    } else {
+      this.broadcast("chat", message);
+    }
+  }
+
+  onDispose() {
+    ZoneRoom.activeRooms.delete(this);
   }
 }
 

@@ -42,7 +42,7 @@ export function ChatPanel() {
   ];
   const cycleChannel = () =>
     setChannel((c) => channels[(channels.indexOf(c) + 1) % channels.length] ?? "zone");
-  const channelLabel = channel === "guild" ? "Guild" : channel === "party" ? "Party" : "Zone";
+  const channelLabel = channel === "guild" ? "Guild" : channel === "party" ? "Party" : "Global";
 
   useEffect(() => {
     if (listRef.current) {
@@ -87,6 +87,7 @@ export function ChatPanel() {
     }
     return (
       <>
+        <span className="chibi-chat-global">[Global] </span>
         <span className="chibi-chat-name">{message.senderName}: </span>
         <span>{message.body}</span>
       </>
@@ -134,7 +135,7 @@ export function ChatPanel() {
         />
         <div className="chibi-chat-sheet">
           <div className="chibi-chat-sheet__header">
-            <span className="chibi-title chibi-title--sm">Zone Chat</span>
+            <span className="chibi-title chibi-title--sm">Global Chat</span>
             <button
               type="button"
               className="chibi-btn chibi-btn--ghost"
@@ -147,7 +148,7 @@ export function ChatPanel() {
 
           <div ref={listRef} className="chibi-chat-log chibi-card" style={{ background: "#fff" }}>
             {messages.length === 0 ? (
-              <div className="chibi-text-muted">💬 Zone chat is live. Say hello!</div>
+              <div className="chibi-text-muted">💬 Global chat is live. Say hello!</div>
             ) : (
               messages.map((message) => (
                 <div key={message.id} style={{ marginBottom: 6, fontSize: "0.84rem", lineHeight: 1.45 }}>
@@ -188,7 +189,7 @@ export function ChatPanel() {
     <div className="chibi-panel chibi-panel--floating chibi-panel--chat chibi-anchor chibi-anchor--bottom-left">
       <div ref={listRef} className="chibi-chat-log chibi-card" style={{ background: "#fff" }}>
         {messages.length === 0 ? (
-          <div className="chibi-text-muted">💬 Zone chat is live. Say hello!</div>
+          <div className="chibi-text-muted">💬 Global chat is live. Say hello!</div>
         ) : (
           messages.map((message) => (
             <div key={message.id} style={{ marginBottom: 6, fontSize: "0.84rem", lineHeight: 1.45 }}>
@@ -209,7 +210,7 @@ export function ChatPanel() {
             networkManager.sendInput(0, 0);
           }}
           onBlur={() => setUiTypingActive(false)}
-          placeholder={channel === "zone" ? "Press Enter to chat..." : `${channelLabel} chat — press Enter...`}
+          placeholder={channel === "zone" ? "Press Enter to chat global..." : `${channelLabel} chat — press Enter...`}
           style={{ flex: 1 }}
         />
         <button
