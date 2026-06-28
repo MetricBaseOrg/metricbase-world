@@ -14,9 +14,18 @@ The long-term goal (see `PLAN.md`) is a zero-install MMO with:
 
 The current build is a playable multiplayer prototype with the full **everyday
 loop** — Gather (woodcutting, mining, fishing, farming), Craft, Trade, and Build
-(housing + player-run shops) — plus combat, quests, a peer-to-peer gold market,
-a Community layer (emotes, online roster, $BASE-holder billboard), a leaderboard,
-and three explorable zones.
+(housing + player-run shops) — plus quests, a peer-to-peer gold market, a
+Community layer (emotes, online roster, $BASE-holder billboard), and a
+leaderboard.
+
+On top of that sits the **PvP Major Upgrade** (see the dedicated section below and
+`pvp-update.md`): a combat foundation (stats, armour, crit, weapon-driven
+abilities, equipment durability), open-world **PvP zones** (Safe/Yellow/Red/Black)
+with death loot, **crime & bounties**, **Guild Warfare** (ranks, bank, tax, wars),
+**Territory Control** (capturable points that pay guild income), and weekly-style
+**Castle Siege** for the King Crystal. There are five explorable zones including a
+burn-gated full-loot **Black Zone**, plus a VIP **Community Lodge** with a Base
+Rush arcade.
 
 ---
 
@@ -50,9 +59,11 @@ and three explorable zones.
 
 | Zone ID | Display Name | Notes |
 |---------|--------------|-------|
-| `zone_hub` | MetricBase Hub | Themed regions: NW forest (trees), W quarry (rocks), central plaza (Aria, Pip, billboard), NE house neighbourhood, SW farmland, SE lake (fishing). Portal to Wilderness at (20, 12) |
-| `zone_wilderness` | Wilderness | Rook (slime quests), Training Dummy, Wild Slime; a river with stepping-stone crossings; portals to Hub (2, 12) and Slime Grotto (22, 14) |
-| `zone_grotto` | Slime Grotto | Moss (brute quest), Slime Brute boss; portal back to Wilderness at (2, 12) |
+| `zone_hub` | MetricBase Hub | 🟢 Safe. Themed regions: NW forest, W quarry, central plaza (Aria, Pip, billboard), NE houses, SW farmland, SE lake. Portal to Wilderness; west door to the VIP Community Lodge |
+| `zone_wilderness` | Wilderness | 🟡 Yellow (opt-in PvP). Rook, Training Dummy, Wild Slimes; extra trees/rocks/fish; a capture point; portals to Hub and Slime Grotto |
+| `zone_grotto` | Slime Grotto | 🔴 Red (open PvP). Moss, Slime Brute; iron/gemstone/hardwood/fish nodes; a capture point; **Black Gate** to the Obsidian Reach |
+| `zone_black` | Obsidian Reach | ⚫ Black (full loot). Burn-gated lifetime entry; richest resources; two capture points; the **King Crystal** siege objective |
+| `zone_interior` | Community Lodge | 🟢 Safe, **VIP-only** (hold 20M $BASE or a 14-day pass). Base Rush arcade |
 
 ### Combat targets
 
@@ -107,6 +118,125 @@ On mobile, the D-pad, Attack, Interact, inventory, and quest log FAB replace key
 | Gel-Edged Knife | Commendation quest | — (+8 damage) |
 
 Starting gold: **25g**. Knockout respawn costs **100g**.
+
+---
+
+## Major Upgrade: PvP, Guilds & Territory (How to Play)
+
+Everything below is the **PvP Major Upgrade** layered on top of the everyday loop.
+Full design + build notes live in `docs/pvp-update.md`.
+
+### Controls (updated)
+
+Movement still uses **WASD / arrow keys** and the mobile **D-pad** — those always
+work. On top of that:
+
+| Input | Action |
+|-------|--------|
+| **Left-click / tap ground** | Walk there (click-to-move); a marker shows your destination |
+| **Left-click / tap an enemy** | Target a hostile mob **or player** (a reticle appears) |
+| **Right-click** (or **Space**, or mobile ⚔️) | Attack your target / nearest hostile |
+| **1–5 / Q / E / R** | Weapon abilities on the **skill hotbar** (desktop) |
+| **F** | Pick up a **loot bag** in reach (else gather) — mobile uses the ✨ button |
+| Left-click the **King Crystal** during a siege | Strike it (Black Zone) |
+
+The skill hotbar sits bottom-centre on desktop; the abilities it shows **change with
+your equipped weapon**.
+
+### Combat & Equipment
+
+- **Stats:** HP is 60 + 10/level. Damage is `Attack × SkillMod × Crit − Armour`,
+  where armour has **diminishing returns** (more armour always helps, never makes
+  you invulnerable). Base 5% crit at 1.5×; gear raises both.
+- **Equipment slots:** weapon, tool, helmet, chest, gloves, boots, two rings,
+  necklace, cape, offhand. Gear has **8 rarity tiers** (Common → Unique), shown by
+  name colour, that scale its stats.
+- **Crafting armour:** forge copper/iron/steel **helmets, chestplates, gauntlets,
+  greaves**, plus a gemstone ring, pearl amulet, and traveler's cape at the
+  Crafting panel (materials + a gold forge fee).
+- **Durability & repair:** your weapon and armour wear down as you fight; gear that
+  hits 0 **breaks** and unequips. Use **🔧 Repair all gear** in the Inventory panel
+  to restore everything for a gold fee (2g per point) — a steady gold sink.
+- **Weapon abilities:** each weapon type (sword, dagger, …) grants a 5-slot kit with
+  per-ability cooldown, stamina cost, and damage multiplier. Swap weapons to swap
+  your hotbar.
+- The Inventory panel shows your live **⚔️ attack / 🛡️ armour / 🎯 crit / 💥 crit
+  power** and a durability bar per equipped piece.
+
+### PvP Zones & Death
+
+Every zone has a **danger tier**, shown by a banner on entry and a corner chip:
+
+| Tier | Where | Rules |
+|------|-------|-------|
+| 🟢 **Safe** | Hub, Community Lodge | No PvP |
+| 🟡 **Yellow** | Wilderness | Opt-in PvP — toggle your **PvP flag**; both fighters must be flagged. No item loss. |
+| 🔴 **Red** | Slime Grotto | Open PvP. On death you drop your **gathered materials**; gear survives. |
+| ⚫ **Black** | Obsidian Reach | **Full loot** — drop everything in your bag + half your loose gold. Richest resources. |
+
+When you're knocked out in Red/Black, your dropped items spawn a **loot bag** on the
+ground that anyone can grab with **F**. Anti-grief is built in: players under level 5
+can't be drawn into PvP, there's brief **spawn immunity** after entering a zone, and
+if you get stuck on terrain you're auto-returned to spawn.
+
+### Crime, Reputation & Bounties
+
+Kill a non-consenting player (a "lawful" kill in a Yellow zone) and you become a
+**Criminal** — your name turns red and **town/Safe-zone gates are barred to you**
+until the flag expires (~10 min). Anyone can place a **bounty** (gold) on a target;
+whoever knocks them out claims the pooled gold. Guild-war kills are sanctioned and
+don't make you a criminal.
+
+### Community Lodge (VIP) & Base Rush Arcade
+
+The **Community Lodge** is VIP-only. Enter by **holding ≥ 20,000,000 $BASE**, or buy
+a **14-day VIP pass** for **10,000 gold + burning 10,000 $BASE** (prompted at the
+door; the pass is saved to your character). Inside, talk to the arcade host to open
+the **Base Rush** game (`apps.metricbase.org/base-rush`) in a full-screen cabinet.
+
+### The Black Zone (Obsidian Reach)
+
+Reached through the **Black Gate** in the Slime Grotto. Entry requires **burning
+1,000,000 $BASE on-chain — a one-time, LIFETIME unlock** (verified server-side;
+saved to your account). It's full-loot and holds the best resources (obsidian
+gemstone veins, ancient hardwood, dense iron) and the King Crystal.
+
+### Guild Warfare
+
+- **Found / join** a guild as before (1,000g to found). Members carry the tag.
+- **Ranks:** Leader 👑 / Officer ⭐ / Member. The leader promotes, demotes, and
+  kicks; officers can kick members and manage the bank + wars.
+- **Guild bank:** any member deposits gold; officers and the leader withdraw.
+- **Income tax:** the leader sets 0–10%; a slice of every member's gold earnings is
+  auto-skimmed into the bank.
+- **Wars:** declare war on another guild (mutual). Warring guilds can fight each
+  other **freely** — even in Yellow zones without flagging — and those kills are
+  lawful. End the war to make peace.
+
+All of this is in the **🛡️ Guild** panel.
+
+### Territory Control
+
+PvP zones contain **capture points** (e.g. Grotto Heart, Obsidian Throne). Stand on a
+point as a guild member for ~12 seconds **uncontested** to claim it — a rival guild
+member nearby **contests** it and freezes progress. A flag shows the owning guild's
+tag, a capture-progress ring, and contested state. Each point your guild holds pays
+**territory income** into your guild bank every 5 minutes. Ownership persists; if a
+guild disbands, its territory is released.
+
+### Castle Siege
+
+On a recurring schedule (default: a **10-minute window every 30 minutes**), the
+**King Crystal** in the Obsidian Reach becomes vulnerable — a red **"CASTLE SIEGE
+LIVE"** banner appears. Guilds race to destroy it (click the crystal to strike it).
+The guild that lands the killing blow is crowned **Sovereign of MetricBase** until
+the next siege, wins a large prize into its guild bank, and is announced
+server-wide. The reigning Sovereign is shown in a 👑 chip and persists across
+restarts.
+
+> **$BASE / on-chain note:** VIP passes and Black-Zone entry use real Solana token
+> burns/holdings, verified by the server. Configure `TOKEN_MINT` / `SOLANA_RPC_URL`
+> on the server (and the client RPC) for your live $BASE mint.
 
 ---
 
@@ -234,12 +364,14 @@ metricbase-world/
 
 From `PLAN.md`:
 
+- [x] Weapon-driven ability system (Phase 1)
+- [x] Guilds and parties (guild warfare added in Phase 3)
+- [x] More zones and bosses (Obsidian Reach / Black Zone + King Crystal)
+- [x] Open-world PvP, territory control, castle siege (Phases 2–5)
 - [ ] Redis session layer
-- [ ] Full ability system and class roles
-- [ ] Guilds and parties
-- [ ] More zones and bosses
 - [ ] Tiled/LDtk map pipeline (currently procedural placeholder tiles)
 - [ ] Deeper mobile UX polish
+- [ ] PvP Seasons — rating/rank, 90-day reset, seasonal leaderboards (Phase 6)
 
 ---
 

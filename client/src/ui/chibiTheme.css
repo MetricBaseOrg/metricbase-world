@@ -1699,3 +1699,56 @@ a.chibi-btn {
   color: #fff7ea;
   border-color: #b3322f;
 }
+
+/* ---- Castle Siege banner / sovereign chip ---- */
+.chibi-siege-banner {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  top: calc(var(--chibi-rail-top) + 134px);
+  z-index: 28;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 5px 14px;
+  border: 2px solid #b3322f;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #ff6b6b, #d63031);
+  color: #fff7ea;
+  font-family: var(--chibi-font-display);
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-align: center;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.25);
+  pointer-events: none;
+  animation: chibi-siege-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes chibi-siege-pulse {
+  0%, 100% { box-shadow: 0 3px 10px rgba(214, 48, 49, 0.4); }
+  50% { box-shadow: 0 3px 18px rgba(214, 48, 49, 0.85); }
+}
+
+.chibi-siege-sub {
+  font-size: 0.64rem;
+  font-weight: 600;
+  opacity: 0.92;
+}
+
+.chibi-siege-chip {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  top: calc(var(--chibi-rail-top) + 134px);
+  z-index: 27;
+  padding: 3px 12px;
+  border: 2px solid var(--chibi-gold-deep);
+  border-radius: var(--chibi-radius-pill, 999px);
+  background: rgba(255, 249, 240, 0.92);
+  font-family: var(--chibi-font-display);
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--chibi-ink);
+  pointer-events: none;
+}

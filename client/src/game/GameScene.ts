@@ -33,6 +33,10 @@ import {
   type HousingStatePayload,
   type LootBagState,
   type TerritoryPointState,
+  type SiegeStatePayload,
+  ZONE_BLACK,
+  KING_CRYSTAL_TILE,
+  SIEGE_ATTACK_RANGE,
 } from "@metricbase/shared";
 import {
   getAnimFrame,
@@ -232,6 +236,10 @@ export class GameScene extends Phaser.Scene {
     string,
     { flag: Phaser.GameObjects.Graphics; label: Phaser.GameObjects.Text }
   >();
+  /** Castle Siege King Crystal (Black zone). */
+  private crystalGfx: Phaser.GameObjects.Graphics | null = null;
+  private crystalLabel: Phaser.GameObjects.Text | null = null;
+  private siegeState: SiegeStatePayload | null = null;
   private chopKey: Phaser.Input.Keyboard.Key | null = null;
   private fishKey: Phaser.Input.Keyboard.Key | null = null;
   private lastSentInput = { dx: 0, dy: 0 };
@@ -287,6 +295,8 @@ export class GameScene extends Phaser.Scene {
           this.selectedPlayerName = null;
         } else if (this.selectPlayerAtPointer(pointer)) {
           // Targeted a player for PvP.
+        } else if (this.tryClickCrystal(pointer)) {
+          // Struck the King Crystal during a siege.
         } else {
           this.setMoveTarget(pointer.worldX, pointer.worldY);
         }
@@ -378,6 +388,8 @@ export class GameScene extends Phaser.Scene {
       this.clearMoveTarget();
       this.clearLootBags();
       this.clearTerritory();
+      this.clearCrystal();
+      this.siegeState = null;
       this.stopLocalChopHits();
       this.destroyLocalAvatar();
       this.renderedPlayers.forEach((entry) => {
@@ -486,6 +498,10 @@ export class GameScene extends Phaser.Scene {
 
     const unsubscribeTerritory = networkManager.onTerritoryState((payload) => {
       this.syncTerritory(payload.points);
+    });
+
+    const unsubscribeSiege = networkManager.onSiegeState((payload) => {
+      this.syncCrystal(payload);
     });
 
     const unsubscribePvpHit = networkManager.onPvpHit((payload) => {
@@ -633,9 +649,11 @@ export class GameScene extends Phaser.Scene {
       unsubscribeLootBags();
       unsubscribePvpHit();
       unsubscribeTerritory();
+      unsubscribeSiege();
       this.stopLocalChopHits();
       this.clearLootBags();
       this.clearTerritory();
+      this.clearCrystal();
       this.clearMap();
       this.clearNpcs();
       this.clearResources();
@@ -2586,6 +2604,79 @@ export class GameScene extends Phaser.Scene {
       entry.label.destroy();
     }
     this.renderedTerritory.clear();
+  }
+
+  /** Draw/update the King Crystal siege objective (Black zone only). */
+  private syncCrystal(state: SiegeStatePayload) {
+    this.siegeState = state;
+    if ((this.currentZoneId ?? networkManager.zoneId) !== ZONE_BLACK) return;
+
+    const { x, y } = tileToWorld(KING_CRYSTAL_TILE.x, KING_CRYSTAL_TILE.y);
+    if (!this.crystalGfx) {
+      this.crystalGfx = this.add.graphics().setDepth(y);
+      this.crystalLabel = this.add
+        .text(x, y - 46, "", {
+          fontFamily: "Nunito, sans-serif",
+          fontSize: "12px",
+          fontStyle: "700",
+          color: "#fff7ea",
+          stroke: "#2b1d12",
+          strokeThickness: 3,
+          align: "center",
+        })
+        .setOrigin(0.5, 1)
+        .setDepth(y + 1);
+    }
+
+    const g = this.crystalGfx;
+    g.clear();
+    g.setPosition(x, y);
+    const pct = state.maxHp > 0 ? Math.max(0, state.hp / state.maxHp) : 0;
+    const color = state.active ? 0xb15cff : 0x6b7280;
+    // Diamond crystal.
+    g.fillStyle(color, state.active ? 1 : 0.6);
+    g.beginPath();
+    g.moveTo(0, -34);
+    g.lineTo(14, -18);
+    g.lineTo(0, -2);
+    g.lineTo(-14, -18);
+    g.closePath();
+    g.fillPath();
+    g.lineStyle(2, 0xffffff, state.active ? 0.9 : 0.4);
+    g.strokePath();
+    // HP bar.
+    g.fillStyle(0x2b1d12, 0.8);
+    g.fillRect(-18, -46, 36, 5);
+    g.fillStyle(pct > 0.3 ? 0x6ad27e : 0xff5a5a, 1);
+    g.fillRect(-18, -46, 36 * pct, 5);
+
+    this.crystalLabel?.setText(
+      state.active
+        ? `King Crystal — ${Math.ceil(pct * 100)}%\n⚔️ SIEGE OPEN`
+        : `King Crystal (sealed)${state.sovereignTag ? `\n👑 [${state.sovereignTag}]` : ""}`,
+    );
+  }
+
+  private clearCrystal() {
+    this.crystalGfx?.destroy();
+    this.crystalLabel?.destroy();
+    this.crystalGfx = null;
+    this.crystalLabel = null;
+  }
+
+  /** Click the King Crystal during an open siege to strike it. */
+  private tryClickCrystal(pointer: Phaser.Input.Pointer): boolean {
+    if ((this.currentZoneId ?? networkManager.zoneId) !== ZONE_BLACK) return false;
+    if (!this.siegeState?.active) return false;
+    const { x, y } = tileToWorld(KING_CRYSTAL_TILE.x, KING_CRYSTAL_TILE.y);
+    if (Math.hypot(pointer.worldX - x, pointer.worldY - (y - 18)) > SIEGE_ATTACK_RANGE) return false;
+    networkManager.sendAttackCrystal();
+    playSfx("attack_swing");
+    if (this.localAvatar) {
+      const direction = directionTowardTarget(this.localAvatar.sprite.x, this.localAvatar.sprite.y, x, y, this.localAvatar.direction);
+      this.setPlayerAction(this.localAvatar, "attack", direction, 350);
+    }
+    return true;
   }
 
   /** Pick up the nearest loot bag in range (called on F). */

@@ -27,6 +27,7 @@ import { BlackZoneModal } from "./ui/BlackZoneModal";
 import { PvpFlagButton } from "./ui/PvpFlagButton";
 import { VipLodgeModal } from "./ui/VipLodgeModal";
 import { ShopPanel } from "./ui/ShopPanel";
+import { SiegeBanner } from "./ui/SiegeBanner";
 import { SkillBar } from "./ui/SkillBar";
 import { TouchControls } from "./ui/TouchControls";
 import { WhoPanel } from "./ui/WhoPanel";
@@ -329,6 +330,7 @@ export function App() {
       {joined && <BlackZoneModal />}
       {joined && <VipLodgeModal />}
       {joined && <PvpFlagButton />}
+      {joined && <SiegeBanner />}
       {joined && <SkillBar />}
       {joined && <EmoteBar />}
       {joined && <TouchControls />}

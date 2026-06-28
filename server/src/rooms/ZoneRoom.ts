@@ -94,6 +94,13 @@ import {
   TERRITORY_INCOME_INTERVAL_MS,
   type TerritoryStatePayload,
   type TerritoryPointState,
+  KING_CRYSTAL_MAX_HP,
+  SIEGE_PRIZE,
+  KING_CRYSTAL_TILE,
+  SIEGE_ATTACK_RANGE,
+  getSiegeWindow,
+  type SiegeStatePayload,
+  ZONE_BLACK,
   BLACK_ZONE_BURN_AMOUNT,
   VIP_PASS_GOLD_COST,
   VIP_PASS_BURN_AMOUNT,
@@ -213,6 +220,7 @@ import {
   depositToBankById,
 } from "../guild/guildRegistry.js";
 import { getTerritoryOwner, setTerritoryOwner } from "../territory/territoryRegistry.js";
+import { getSovereign, setSovereign } from "../siege/siegeRegistry.js";
 import { clearOnline, isOnline, sendToPlayer, sendToPlayers, setOnline } from "../social/presence.js";
 import {
   acceptInvite,
@@ -294,6 +302,10 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   private captureProgress = new Map<string, { guildId: string; progressMs: number }>();
   private contestedPoints = new Set<string>();
   private lastTerritoryIncomeAt = Date.now();
+  /** Castle Siege (Black zone only): King Crystal HP + last broadcast window state. */
+  private crystalHp = KING_CRYSTAL_MAX_HP;
+  private siegeWasActive = false;
+  private lastSiegeBroadcastAt = 0;
   /** Wallets with LIFETIME Black-zone access (one-time $BASE burn). DB-backed. */
   private static blackPassWallets = new Set<string>();
   /** VIP Lodge passes (wallet -> expiry) bought with gold + a $BASE burn.
@@ -381,6 +393,10 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
     this.onProtectedMessage("attackPlayer", (client, message: { targetName?: string }) => {
       void this.handleAttackPlayer(client, message.targetName ?? "");
+    });
+
+    this.onProtectedMessage("attackCrystal", (client) => {
+      this.handleAttackCrystal(client);
     });
 
     this.onProtectedMessage("togglePvpFlag", (client, message: { on?: boolean }) => {
@@ -792,6 +808,9 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     if (this.zoneConfig.capturePoints?.length) {
       client.send("territoryState", this.buildTerritoryState());
     }
+    if (this.isSiegeZone()) {
+      client.send("siegeState", this.buildSiegeState());
+    }
     ZoneRoom.broadcastWorldStatsToAll();
 
     this.broadcastChat({
@@ -958,6 +977,9 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       this.lastTerritoryIncomeAt = now;
       this.payTerritoryIncome();
     }
+
+    // Castle Siege upkeep (Black zone).
+    this.updateSiege(now);
 
     // While any plot light burns, re-broadcast housing state every ~12s so the
     // energy bar updates and a drained light visibly switches off for everyone.
@@ -1934,6 +1956,99 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   private broadcastTerritoryState() {
     if (!this.zoneConfig.capturePoints?.length) return;
     this.broadcast("territoryState", this.buildTerritoryState());
+  }
+
+  // ---- Castle Siege (Phase 5) — Black Zone only ----
+
+  private isSiegeZone(): boolean {
+    return this.zoneConfig.id === ZONE_BLACK;
+  }
+
+  private buildSiegeState(): SiegeStatePayload {
+    const window = getSiegeWindow(Date.now());
+    return {
+      active: window.active,
+      hp: this.crystalHp,
+      maxHp: KING_CRYSTAL_MAX_HP,
+      sovereignTag: guildTagById(getSovereign()),
+      nextChangeAt: window.nextChangeAt,
+    };
+  }
+
+  private broadcastSiegeState() {
+    if (this.isSiegeZone()) this.broadcast("siegeState", this.buildSiegeState());
+  }
+
+  /** Strike the King Crystal during an open siege window. */
+  private handleAttackCrystal(client: Client) {
+    if (!this.isSiegeZone()) return;
+    const player = this.state.players.get(client.sessionId);
+    if (!player || player.spectator || this.isKnockedOut(player.name)) return;
+    if (!getSiegeWindow(Date.now()).active) return;
+    if (this.crystalHp <= 0) return;
+
+    const guild = getGuildForMember(player.name);
+    if (!guild) {
+      client.send("chat", this.systemChat("Siege", "Only guild members can lay siege to the crystal."));
+      return;
+    }
+
+    const now = Date.now();
+    if (now - (this.attackCooldowns.get(client.sessionId) ?? 0) < ATTACK_COOLDOWN_MS) return;
+
+    const crystal = tileToWorld(KING_CRYSTAL_TILE.x, KING_CRYSTAL_TILE.y);
+    if (Math.hypot(player.x - crystal.x, player.y - crystal.y) > SIEGE_ATTACK_RANGE) return;
+    if (!this.spendStamina(client, player.name, STAMINA_COST_ATTACK)) {
+      this.notifyTooHungry(client, player.name, "siege");
+      return;
+    }
+    this.attackCooldowns.set(client.sessionId, now);
+    this.playerLastCombatAt.set(player.name, now);
+
+    const stats = getEquipmentStats(normalizeEquipment(this.playerEquipment.get(player.name)));
+    const hit = rollHit({ attack: stats.attack, critChance: stats.critChance, critMult: stats.critMult, targetArmor: 0 });
+    this.crystalHp = Math.max(0, this.crystalHp - hit.damage);
+    this.wearGear(client, player, ["weapon"]);
+
+    if (this.crystalHp <= 0) {
+      // Crown the victor: prize into the guild bank + a world-wide announcement.
+      setSovereign(guild.id);
+      depositToBankById(guild.id, SIEGE_PRIZE);
+      this.broadcastGuildState(guild.members);
+      const msg = this.systemChat(
+        "Castle Siege",
+        `👑 [${guild.tag}] ${guild.name} shattered the King Crystal and rules MetricBase! (+${SIEGE_PRIZE.toLocaleString()} guild gold)`,
+      );
+      for (const room of ZoneRoom.activeRooms) room.broadcast("chat", msg);
+    }
+
+    this.broadcastSiegeState();
+  }
+
+  /** Per-tick siege upkeep: announce window open/close, reset HP each new siege. */
+  private updateSiege(now: number) {
+    if (!this.isSiegeZone()) return;
+    const active = getSiegeWindow(now).active;
+
+    if (active !== this.siegeWasActive) {
+      this.siegeWasActive = active;
+      if (active) {
+        // Fresh crystal at the start of every siege window.
+        this.crystalHp = KING_CRYSTAL_MAX_HP;
+        this.broadcastChat(this.systemChat("Castle Siege", "⚔️ The siege has begun — strike the King Crystal in the Obsidian Reach!"));
+      } else {
+        this.crystalHp = KING_CRYSTAL_MAX_HP;
+        this.broadcastChat(this.systemChat("Castle Siege", "🛡️ The siege window has closed. The crystal is sealed again."));
+      }
+      this.broadcastSiegeState();
+      return;
+    }
+
+    // Heartbeat the siege state ~3s while a siege is open so HP/timer stay fresh.
+    if (active && now - this.lastSiegeBroadcastAt > 3_000) {
+      this.lastSiegeBroadcastAt = now;
+      this.broadcastSiegeState();
+    }
   }
 
   private markCriminal(name: string) {

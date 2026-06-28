@@ -185,8 +185,11 @@ The combat *shell*. No new combat math yet.
 - **Territory income**: each held point pays gold into the owning guild's bank every 5 min (`payTerritoryIncome` → `depositToBankById`); disbanding a guild releases its territories.
 - Also fixed: billboard "online" now counts **global** non-spectator players across all zones (was per-zone), rebroadcast to every zone on join/leave.
 
-### Phase 5 — Castle Siege · **→ 0.46.0**
-Scheduled large-scale objective battles (gates, king crystal).
+### Phase 5 — Castle Siege · **→ 0.46.0 (shipped)**
+
+- **King Crystal** objective in the Obsidian Reach (Black Zone), vulnerable on a recurring schedule (default 10-min window every 30 min, epoch-aligned via `getSiegeWindow`).
+- Guilds strike the crystal during the open window (click it); the guild that lands the killing blow is crowned **Sovereign of MetricBase** until the next siege, wins `SIEGE_PRIZE` gold into its bank, and is announced server-wide.
+- Sovereign persists (`siege_state` table, `siegeRegistry`); crystal HP resets each window. Client shows the crystal + HP bar in-world and a `SiegeBanner` (live banner / 👑 Sovereign chip).
 
 ### Phase 6 — PvP Seasons · **→ 0.47.0**
 Rating/rank, 90-day reset, seasonal leaderboards (`leaderboard.ts`).

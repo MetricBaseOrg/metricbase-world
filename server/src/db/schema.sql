@@ -157,3 +157,10 @@ CREATE TABLE IF NOT EXISTS territories (
   guild_id VARCHAR(64) NOT NULL,
   captured_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Castle Siege (Phase 5): the reigning Sovereign guild. Single 'global' row.
+CREATE TABLE IF NOT EXISTS siege_state (
+  id VARCHAR(16) PRIMARY KEY,
+  sovereign_guild_id VARCHAR(64),
+  won_at TIMESTAMPTZ
+);
