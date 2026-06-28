@@ -101,6 +101,10 @@ import {
   getSiegeWindow,
   type SiegeStatePayload,
   ZONE_BLACK,
+  STARTING_PVP_RATING,
+  PVP_KILL_RATING,
+  PVP_DEATH_RATING,
+  getPvpSeason,
   BLACK_ZONE_BURN_AMOUNT,
   VIP_PASS_GOLD_COST,
   VIP_PASS_BURN_AMOUNT,
@@ -293,6 +297,10 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   private playerImmuneUntil = new Map<string, number>();
   /** Criminal-flag expiry per player name. */
   private criminalUntil = new Map<string, number>();
+  /** PvP season stats per player name (Phase 6). */
+  private playerPvpRating = new Map<string, number>();
+  private playerPvpKills = new Map<string, number>();
+  private playerPvpSeason = new Map<string, number>();
   /** Open bounties: target name -> pooled gold. */
   private bounties = new Map<string, number>();
   /** Active loot bags in this room, keyed by bag id. */
@@ -781,6 +789,20 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     player.pvpFlagged = false;
     player.criminal = (this.criminalUntil.get(player.name) ?? 0) > Date.now();
 
+    // PvP season stats — lazy reset when the player's stored season has rolled over.
+    {
+      const season = getPvpSeason(Date.now());
+      let rating = saved?.pvpRating ?? STARTING_PVP_RATING;
+      let kills = saved?.pvpKills ?? 0;
+      if ((saved?.pvpSeason ?? 0) !== season) {
+        rating = STARTING_PVP_RATING;
+        kills = 0;
+      }
+      this.playerPvpRating.set(player.name, rating);
+      this.playerPvpKills.set(player.name, kills);
+      this.playerPvpSeason.set(player.name, season);
+    }
+
     this.state.players.set(client.sessionId, player);
     this.activePlayerSession.set(player.name, client.sessionId);
     setOnline(player.name, client, (type, payload) => client.send(type, payload));
@@ -888,6 +910,9 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         this.playerLastRestAt.delete(player.name);
         this.craftingUntil.delete(player.name);
         this.playerSkills.delete(player.name);
+        this.playerPvpRating.delete(player.name);
+        this.playerPvpKills.delete(player.name);
+        this.playerPvpSeason.delete(player.name);
       }
       this.playerWallets.delete(client.sessionId);
     }
@@ -1766,6 +1791,22 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       this.playerKnockedOutUntil.set(victim.name, Date.now() + RESPAWN_WAIT_MS);
       if (this.activePlayerSession.get(victim.name)) {
         this.inputs.set(this.activePlayerSession.get(victim.name)!, { dx: 0, dy: 0 });
+      }
+
+      // PvP season rating: reward the victor, dock the loser (floored at 0).
+      this.playerPvpRating.set(
+        attacker.name,
+        (this.playerPvpRating.get(attacker.name) ?? STARTING_PVP_RATING) + PVP_KILL_RATING,
+      );
+      this.playerPvpKills.set(attacker.name, (this.playerPvpKills.get(attacker.name) ?? 0) + 1);
+      this.playerPvpRating.set(
+        victim.name,
+        Math.max(0, (this.playerPvpRating.get(victim.name) ?? STARTING_PVP_RATING) - PVP_DEATH_RATING),
+      );
+      const attackerClient = this.clientForName(attacker.name);
+      if (attackerClient) {
+        this.sendProfile(attackerClient, attacker);
+        void this.persistPlayer(attacker);
       }
 
       this.broadcastChat(
@@ -4548,6 +4589,9 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         const wallet = this.playerWallets.get(player.sessionId);
         return wallet ? ZoneRoom.blackPassWallets.has(wallet) : false;
       })(),
+      pvpRating: this.playerPvpRating.get(player.name) ?? STARTING_PVP_RATING,
+      pvpKills: this.playerPvpKills.get(player.name) ?? 0,
+      pvpSeason: this.playerPvpSeason.get(player.name) ?? getPvpSeason(Date.now()),
     });
   }
 

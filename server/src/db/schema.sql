@@ -31,6 +31,11 @@ ALTER TABLE characters ADD COLUMN IF NOT EXISTS stamina INTEGER;
 ALTER TABLE characters ADD COLUMN IF NOT EXISTS vip_pass_until BIGINT;
 -- Lifetime Black Zone access from a one-time $BASE burn.
 ALTER TABLE characters ADD COLUMN IF NOT EXISTS black_pass BOOLEAN NOT NULL DEFAULT false;
+-- PvP Seasons (Phase 6): rating, kill count, and the season they belong to.
+ALTER TABLE characters ADD COLUMN IF NOT EXISTS pvp_rating INTEGER NOT NULL DEFAULT 1000;
+ALTER TABLE characters ADD COLUMN IF NOT EXISTS pvp_kills INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE characters ADD COLUMN IF NOT EXISTS pvp_season INTEGER NOT NULL DEFAULT 0;
+CREATE INDEX IF NOT EXISTS characters_pvp_rating_idx ON characters (pvp_rating DESC);
 
 CREATE TABLE IF NOT EXISTS token_purchases (
   signature VARCHAR(88) PRIMARY KEY,

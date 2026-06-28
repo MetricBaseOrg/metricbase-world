@@ -191,8 +191,12 @@ The combat *shell*. No new combat math yet.
 - Guilds strike the crystal during the open window (click it); the guild that lands the killing blow is crowned **Sovereign of MetricBase** until the next siege, wins `SIEGE_PRIZE` gold into its bank, and is announced server-wide.
 - Sovereign persists (`siege_state` table, `siegeRegistry`); crystal HP resets each window. Client shows the crystal + HP bar in-world and a `SiegeBanner` (live banner / 👑 Sovereign chip).
 
-### Phase 6 — PvP Seasons · **→ 0.47.0**
-Rating/rank, 90-day reset, seasonal leaderboards (`leaderboard.ts`).
+### Phase 6 — PvP Seasons · **→ 0.47.0 (shipped)**
+
+- **PvP rating** earned on kills (+25) / lost on death (−15, floored at 0), persisted per character (`pvp_rating`/`pvp_kills`/`pvp_season`).
+- **Rank tiers** Bronze → Legend from rating (`shared/src/pvprank.ts` `getPvpRank`).
+- **90-day seasons** (`getPvpSeason`) with **lazy reset** — a player's rating/kills reset to baseline on their first login of a new season.
+- **Seasonal leaderboard**: a new **PvP** tab (top by rating, shows rank + season) alongside Level/Richest/Skills.
 
 ---
 

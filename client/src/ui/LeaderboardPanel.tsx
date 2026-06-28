@@ -10,7 +10,7 @@ const MEDALS = ["🥇", "🥈", "🥉"];
 export function LeaderboardPanel() {
   const mobileLayout = useMobileLayout();
   const [open, setOpen] = useState(false);
-  const [tab, setTab] = useState<"level" | "gold" | "skill">("level");
+  const [tab, setTab] = useState<"level" | "gold" | "skill" | "pvp">("level");
   const [data, setData] = useState<LeaderboardPayload | null>(null);
   const playerName = useGameStore((s) => s.playerName);
 
@@ -26,7 +26,13 @@ export function LeaderboardPanel() {
   }, [open]);
 
   const rows: LeaderboardEntry[] =
-    (tab === "level" ? data?.topLevel : tab === "gold" ? data?.topGold : data?.topSkill) ?? [];
+    (tab === "level"
+      ? data?.topLevel
+      : tab === "gold"
+        ? data?.topGold
+        : tab === "skill"
+          ? data?.topSkill
+          : data?.topPvp) ?? [];
 
   return (
     <div className="chibi-leaderboard">
@@ -69,7 +75,20 @@ export function LeaderboardPanel() {
             >
               Skills
             </button>
+            <button
+              type="button"
+              className={`chibi-btn ${tab === "pvp" ? "chibi-btn--danger" : "chibi-btn--ghost"}`}
+              style={{ flex: 1, padding: "4px 6px", fontSize: "0.72rem" }}
+              onClick={() => setTab("pvp")}
+            >
+              PvP
+            </button>
           </div>
+          {tab === "pvp" && (
+            <div className="chibi-text-muted" style={{ fontSize: "0.68rem", textAlign: "center", marginBottom: 4 }}>
+              Season {(data?.season ?? 0) + 1} · top by rating
+            </div>
+          )}
           {rows.length === 0 && (
             <div className="chibi-text-muted" style={{ fontSize: "0.76rem", textAlign: "center", padding: "6px 0" }}>
               Loading…
@@ -90,7 +109,9 @@ export function LeaderboardPanel() {
                   ? `Lv ${entry.level}`
                   : tab === "gold"
                     ? `🪙 ${entry.gold.toLocaleString()}`
-                    : `⛏️ ${entry.skill ?? 0}`}
+                    : tab === "skill"
+                      ? `⛏️ ${entry.skill ?? 0}`
+                      : `⚔️ ${entry.rating ?? 0} · ${entry.rank ?? "Bronze"}`}
               </span>
             </div>
           ))}

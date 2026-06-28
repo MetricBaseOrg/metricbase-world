@@ -41,6 +41,12 @@ export interface CharacterRecord {
   vipPassUntil: number | null;
   /** Lifetime Black Zone access from a one-time $BASE burn. */
   blackPass: boolean;
+  /** PvP rating (Phase 6). */
+  pvpRating: number;
+  /** PvP kill count this season. */
+  pvpKills: number;
+  /** Season the rating/kills belong to (for lazy reset). */
+  pvpSeason: number;
 }
 
 type CharacterRow = {
@@ -64,6 +70,9 @@ type CharacterRow = {
   stamina: number | null;
   vip_pass_until: string | number | null;
   black_pass: boolean | null;
+  pvp_rating: number | null;
+  pvp_kills: number | null;
+  pvp_season: number | null;
 };
 
 export async function loadCharacterByName(name: string): Promise<CharacterRecord | null> {
@@ -71,7 +80,7 @@ export async function loadCharacterByName(name: string): Promise<CharacterRecord
   if (!db) return null;
 
   const result = await db.query<CharacterRow>(
-    `SELECT name, wallet_address, zone_id, x, y, level, xp, gold, quest_progress, appearance, inventory, hp, equipment, npc_interact_at, mob_gold_claimed, knocked_out_until, skills, stamina, vip_pass_until, black_pass
+    `SELECT name, wallet_address, zone_id, x, y, level, xp, gold, quest_progress, appearance, inventory, hp, equipment, npc_interact_at, mob_gold_claimed, knocked_out_until, skills, stamina, vip_pass_until, black_pass, pvp_rating, pvp_kills, pvp_season
      FROM characters
      WHERE name = $1`,
     [name],
@@ -86,7 +95,7 @@ export async function loadCharacterByWallet(wallet: string): Promise<CharacterRe
   if (!db) return null;
 
   const result = await db.query<CharacterRow>(
-    `SELECT name, wallet_address, zone_id, x, y, level, xp, gold, quest_progress, appearance, inventory, hp, equipment, npc_interact_at, mob_gold_claimed, knocked_out_until, skills, stamina, vip_pass_until, black_pass
+    `SELECT name, wallet_address, zone_id, x, y, level, xp, gold, quest_progress, appearance, inventory, hp, equipment, npc_interact_at, mob_gold_claimed, knocked_out_until, skills, stamina, vip_pass_until, black_pass, pvp_rating, pvp_kills, pvp_season
      FROM characters
      WHERE wallet_address = $1`,
     [wallet],
@@ -106,8 +115,8 @@ export async function saveCharacter(record: CharacterRecord): Promise<void> {
   if (!db) return;
 
   await db.query(
-    `INSERT INTO characters (name, wallet_address, zone_id, x, y, level, xp, gold, quest_progress, appearance, inventory, hp, equipment, npc_interact_at, mob_gold_claimed, knocked_out_until, skills, stamina, vip_pass_until, black_pass, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10::jsonb, $11::jsonb, $12, $13::jsonb, $14::jsonb, $15::jsonb, $16, $17::jsonb, $18, $19, $20, NOW())
+    `INSERT INTO characters (name, wallet_address, zone_id, x, y, level, xp, gold, quest_progress, appearance, inventory, hp, equipment, npc_interact_at, mob_gold_claimed, knocked_out_until, skills, stamina, vip_pass_until, black_pass, pvp_rating, pvp_kills, pvp_season, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10::jsonb, $11::jsonb, $12, $13::jsonb, $14::jsonb, $15::jsonb, $16, $17::jsonb, $18, $19, $20, $21, $22, $23, NOW())
      ON CONFLICT (name)
      DO UPDATE SET
        wallet_address = COALESCE(EXCLUDED.wallet_address, characters.wallet_address),
@@ -129,6 +138,9 @@ export async function saveCharacter(record: CharacterRecord): Promise<void> {
        stamina = EXCLUDED.stamina,
        vip_pass_until = COALESCE(EXCLUDED.vip_pass_until, characters.vip_pass_until),
        black_pass = characters.black_pass OR EXCLUDED.black_pass,
+       pvp_rating = EXCLUDED.pvp_rating,
+       pvp_kills = EXCLUDED.pvp_kills,
+       pvp_season = EXCLUDED.pvp_season,
        updated_at = NOW()`,
     [
       record.name,
@@ -151,6 +163,9 @@ export async function saveCharacter(record: CharacterRecord): Promise<void> {
       record.stamina,
       record.vipPassUntil,
       record.blackPass,
+      record.pvpRating,
+      record.pvpKills,
+      record.pvpSeason,
     ],
   );
 }
@@ -226,6 +241,9 @@ export async function bindCharacterToWallet(
     ),
     vipPassUntil: existingByWallet?.vipPassUntil ?? existingByName?.vipPassUntil ?? null,
     blackPass: existingByWallet?.blackPass ?? existingByName?.blackPass ?? false,
+    pvpRating: existingByWallet?.pvpRating ?? existingByName?.pvpRating ?? 1000,
+    pvpKills: existingByWallet?.pvpKills ?? existingByName?.pvpKills ?? 0,
+    pvpSeason: existingByWallet?.pvpSeason ?? existingByName?.pvpSeason ?? 0,
   };
 
   await saveCharacter(record);
@@ -290,6 +308,9 @@ function mapRow(row: CharacterRow): CharacterRecord {
     stamina: row.stamina === null ? STARTING_STAMINA : clampStamina(row.stamina),
     vipPassUntil: normalizeKnockedOutUntil(row.vip_pass_until),
     blackPass: row.black_pass === true,
+    pvpRating: row.pvp_rating ?? 1000,
+    pvpKills: row.pvp_kills ?? 0,
+    pvpSeason: row.pvp_season ?? 0,
   };
 }
 

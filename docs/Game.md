@@ -224,6 +224,15 @@ tag, a capture-progress ring, and contested state. Each point your guild holds p
 **territory income** into your guild bank every 5 minutes. Ownership persists; if a
 guild disbands, its territory is released.
 
+### PvP Seasons & Rank
+
+Every PvP knockout adjusts your **PvP rating** (+25 on a kill, −15 on a death,
+floored at 0), which maps to a **rank**: Bronze → Silver → Gold → Platinum →
+Diamond → Master → Grandmaster → Legend. The **🏆 Leaderboard** has a **PvP tab**
+showing the season's top fighters by rating. Seasons last **90 days**; at each
+rollover your rating resets to the baseline on your next login (your character,
+items, and gold are kept).
+
 ### Castle Siege
 
 On a recurring schedule (default: a **10-minute window every 30 minutes**), the
