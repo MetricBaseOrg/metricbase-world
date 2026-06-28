@@ -81,6 +81,15 @@ import {
   type AbilityDef,
   getAbilityById,
   weaponGrantsAbility,
+  getZoneDangerTier,
+  type DangerTier,
+  type LootBagState,
+  CRIMINAL_DURATION_MS,
+  STARTER_PROTECTION_LEVEL,
+  SPAWN_IMMUNITY_MS,
+  MIN_BOUNTY,
+  BLACK_ZONE_BURN_AMOUNT,
+  METRICBASE_TOKEN_MINT,
   type EquipmentSlot,
   type GearKindSlot,
   getToolSpeedMultiplier,
@@ -140,6 +149,7 @@ import {
 import { isInvitationSystemActive, validateAndUseInviteCode } from "../db/invitations.js";
 import { isWalkable, blockPlotFootprint } from "../map/collision.js";
 import { checkWalletTokenGate, getWalletTokenBalance } from "../solana/tokenBalance.js";
+import { verifyTokenBurn } from "../solana/verifyTokenBurn.js";
 import { getCachedHolderCount } from "../solana/holderCount.js";
 import { getLeaderboard } from "../db/leaderboard.js";
 import {
@@ -199,6 +209,11 @@ interface ZoneRoomOptions {
   zoneId: string;
 }
 
+/** The $BASE mint players burn to unlock the Black Zone (env-overridable). */
+function getBlackZoneBurnMint(): string {
+  return process.env.TOKEN_MINT ?? METRICBASE_TOKEN_MINT;
+}
+
 type JoinAuthData = JoinOptions & { wallet?: string };
 
 export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
@@ -237,6 +252,17 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   private lastPlotLightSweepAt = 0;
   private playerEquipment = new Map<string, ReturnType<typeof normalizeEquipment>>();
   private playerWallets = new Map<string, string>();
+  /** Spawn-immunity expiry per session (set on join/zone entry). */
+  private playerImmuneUntil = new Map<string, number>();
+  /** Criminal-flag expiry per player name. */
+  private criminalUntil = new Map<string, number>();
+  /** Open bounties: target name -> pooled gold. */
+  private bounties = new Map<string, number>();
+  /** Active loot bags in this room, keyed by bag id. */
+  private lootBags = new Map<string, LootBagState>();
+  private lastLootSweepAt = 0;
+  /** Black-zone access passes (wallet -> expiry) earned by burning $BASE. */
+  private static blackPassUntil = new Map<string, number>();
   /** Tracks which session ID is "active" for each player name. Used to prevent
    *  a stale onLeave from wiping in-memory state belonging to a new session. */
   private activePlayerSession = new Map<string, string>();
@@ -315,6 +341,26 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
     this.onProtectedMessage("ability", (client, message: { abilityId?: string; npcId?: string }) => {
       void this.handleAbility(client, message.abilityId ?? "", message.npcId ?? "");
+    });
+
+    this.onProtectedMessage("attackPlayer", (client, message: { targetName?: string }) => {
+      void this.handleAttackPlayer(client, message.targetName ?? "");
+    });
+
+    this.onProtectedMessage("togglePvpFlag", (client, message: { on?: boolean }) => {
+      this.handleTogglePvpFlag(client, Boolean(message.on));
+    });
+
+    this.onProtectedMessage("lootPickup", (client, message: { bagId?: string }) => {
+      void this.handleLootPickup(client, message.bagId ?? "");
+    });
+
+    this.onProtectedMessage("placeBounty", (client, message: { targetName?: string; gold?: number }) => {
+      void this.handlePlaceBounty(client, message.targetName ?? "", message.gold ?? 0);
+    });
+
+    this.onProtectedMessage("burnForBlackPass", (client, message: { signature?: string }) => {
+      void this.handleBurnForBlackPass(client, message.signature ?? "");
     });
 
     this.onProtectedMessage("chop", (client, message: { resourceId?: string }) => {
@@ -639,6 +685,11 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       player.y = spawn.y;
     }
 
+    // Fresh arrivals get brief spawn immunity; criminal flag persists by time.
+    this.playerImmuneUntil.set(client.sessionId, Date.now() + SPAWN_IMMUNITY_MS);
+    player.pvpFlagged = false;
+    player.criminal = (this.criminalUntil.get(player.name) ?? 0) > Date.now();
+
     this.state.players.set(client.sessionId, player);
     this.activePlayerSession.set(player.name, client.sessionId);
     setOnline(player.name, client, (type, payload) => client.send(type, payload));
@@ -662,6 +713,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     this.sendSkillState(client, player.name);
     client.send("farmState", this.buildFarmState());
     client.send("housingState", this.buildHousingState());
+    client.send("lootBags", { bags: [...this.lootBags.values()] });
     this.broadcast("worldStats", this.buildWorldStats());
 
     this.broadcastChat({
@@ -759,6 +811,28 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   private tick(deltaTime: number) {
     const dt = deltaTime / 1000;
     const now = Date.now();
+
+    // Sweep expired loot bags + criminal flags roughly once a second.
+    if (now - this.lastLootSweepAt > 1_000) {
+      this.lastLootSweepAt = now;
+      let bagsChanged = false;
+      for (const [id, bag] of this.lootBags) {
+        if (now >= bag.expiresAt) {
+          this.lootBags.delete(id);
+          bagsChanged = true;
+        }
+      }
+      if (bagsChanged) this.broadcastLootBags();
+
+      for (const [name, until] of this.criminalUntil) {
+        if (now >= until) {
+          this.criminalUntil.delete(name);
+          const session = this.activePlayerSession.get(name);
+          const player = session ? this.state.players.get(session) : undefined;
+          if (player) player.criminal = false;
+        }
+      }
+    }
 
     // While any plot light burns, re-broadcast housing state every ~12s so the
     // energy bar updates and a drained light visibly switches off for everyone.
@@ -1027,6 +1101,27 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   ) {
     try {
       const targetConfig = getZoneConfig(portal.targetZone);
+
+      // Criminals are barred from Safe zones (towns) until their flag expires.
+      if (
+        getZoneDangerTier(targetConfig.id) === "safe" &&
+        (this.criminalUntil.get(player.name) ?? 0) > Date.now()
+      ) {
+        this.transferring.delete(client.sessionId);
+        client.send("chat", this.systemChat("Guards", "Criminals can't enter town. Lie low until your bounty cools off."));
+        return;
+      }
+
+      // Black zone requires a burned-$BASE access pass.
+      if (getZoneDangerTier(targetConfig.id) === "black") {
+        const wallet = this.playerWallets.get(client.sessionId);
+        const pass = wallet ? (ZoneRoom.blackPassUntil.get(wallet) ?? 0) : 0;
+        if (pass <= Date.now()) {
+          this.transferring.delete(client.sessionId);
+          client.send("blackZoneLocked", { mint: getBlackZoneBurnMint(), amount: BLACK_ZONE_BURN_AMOUNT });
+          return;
+        }
+      }
 
       // VIP-gated zones (e.g. the Community Lodge) require a minimum $BASE hold.
       if (targetConfig.vipMinHold && targetConfig.vipMinHold > 0) {
@@ -1376,6 +1471,309 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       inventory: buildInventoryPayload(this.inventories.get(player.name) ?? [], equipment.weaponId ?? null),
     });
     await this.persistPlayer(player);
+  }
+
+  // ---- PvP combat, loot, and crime (Phase 2) ----
+
+  private clientForName(name: string): Client | undefined {
+    const sessionId = this.activePlayerSession.get(name);
+    if (!sessionId) return undefined;
+    return this.clients.find((entry) => entry.sessionId === sessionId);
+  }
+
+  private handleTogglePvpFlag(client: Client, on: boolean) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    player.pvpFlagged = on;
+    client.send("chat", {
+      id: crypto.randomUUID(),
+      channel: "system",
+      senderId: "system",
+      senderName: "PvP",
+      body: on ? "⚔️ PvP flag ON — you can fight (and be fought) in Yellow zones." : "🛡️ PvP flag OFF.",
+      sentAt: Date.now(),
+    } satisfies ChatMessagePayload);
+  }
+
+  private async handleAttackPlayer(client: Client, targetName: string) {
+    const attacker = this.state.players.get(client.sessionId);
+    if (!attacker || !targetName || targetName === attacker.name) return;
+    if (this.isKnockedOut(attacker.name)) return;
+
+    const tier: DangerTier = getZoneDangerTier(this.zoneConfig.id);
+    if (tier === "safe") {
+      client.send("chat", this.systemChat("PvP", "This is a Safe zone — no PvP here."));
+      return;
+    }
+
+    const victimSession = this.activePlayerSession.get(targetName);
+    const victim = victimSession ? this.state.players.get(victimSession) : undefined;
+    const victimClient = victimSession ? this.clients.find((c) => c.sessionId === victimSession) : undefined;
+    if (!victim || !victimClient || victim.spectator) return;
+    if (this.isKnockedOut(victim.name)) return;
+
+    // Starter protection — low levels can't be drawn into PvP.
+    if (attacker.level < STARTER_PROTECTION_LEVEL || victim.level < STARTER_PROTECTION_LEVEL) {
+      client.send("chat", this.systemChat("PvP", "Starter protection: low-level players can't be attacked."));
+      return;
+    }
+
+    // Spawn immunity grace.
+    if (Date.now() < (this.playerImmuneUntil.get(victimSession!) ?? 0)) {
+      client.send("chat", this.systemChat("PvP", `${victim.name} still has spawn immunity.`));
+      return;
+    }
+
+    // Yellow zones are opt-in: both fighters must be flagged.
+    if (tier === "yellow" && (!attacker.pvpFlagged || !victim.pvpFlagged)) {
+      client.send("chat", this.systemChat("PvP", "In a Yellow zone both players must flag for PvP (toggle your flag)."));
+      return;
+    }
+
+    const now = Date.now();
+    if (now - (this.attackCooldowns.get(client.sessionId) ?? 0) < ATTACK_COOLDOWN_MS) return;
+
+    const distance = Math.hypot(attacker.x - victim.x, attacker.y - victim.y);
+    if (distance > ATTACK_RANGE) return;
+
+    if (!this.spendStamina(client, attacker.name, STAMINA_COST_ATTACK)) {
+      this.attackCooldowns.set(client.sessionId, now);
+      this.notifyTooHungry(client, attacker.name, "fight");
+      this.sendProfile(client, attacker);
+      return;
+    }
+    this.attackCooldowns.set(client.sessionId, now);
+    this.playerLastCombatAt.set(attacker.name, now);
+    this.playerLastCombatAt.set(victim.name, now);
+
+    const attackerStats = getEquipmentStats(normalizeEquipment(this.playerEquipment.get(attacker.name)));
+    const victimStats = getEquipmentStats(normalizeEquipment(this.playerEquipment.get(victim.name)));
+    const hit = rollHit({
+      attack: attackerStats.attack,
+      critChance: attackerStats.critChance,
+      critMult: attackerStats.critMult,
+      targetArmor: victimStats.armor,
+    });
+
+    this.wearGear(client, attacker, ["weapon"]);
+    const knockedOut = this.damageVictimPvp(attacker, victimClient, victim, hit.damage, tier);
+
+    this.broadcast("pvpHit", {
+      attackerName: attacker.name,
+      victimName: victim.name,
+      damage: hit.damage,
+      crit: hit.crit,
+      knockedOut,
+    });
+    this.sendProfile(client, attacker);
+  }
+
+  /** Apply PvP damage to a victim; on knockout drop loot, pay bounty, flag crime. Returns knockout. */
+  private damageVictimPvp(
+    attacker: InstanceType<typeof PlayerSchema>,
+    victimClient: Client,
+    victim: InstanceType<typeof PlayerSchema>,
+    amount: number,
+    tier: DangerTier,
+  ): boolean {
+    const maxHp = getPlayerMaxHp(victim.level);
+    const current = this.playerHp.get(victim.name) ?? maxHp;
+    const next = Math.max(0, current - amount);
+    this.playerHp.set(victim.name, next);
+    this.playerLastCombatAt.set(victim.name, Date.now());
+
+    const knockedOut = next === 0;
+    if (knockedOut) {
+      const victimWasCriminal = victim.criminal;
+      // Drop loot per tier (red: resources; black: everything).
+      this.dropLootBag(victim, tier);
+
+      // Claim any bounty on the victim.
+      const bounty = this.bounties.get(victim.name) ?? 0;
+      if (bounty > 0) {
+        this.bounties.delete(victim.name);
+        const attackerClient = this.clientForName(attacker.name);
+        if (attackerClient) this.grantGold(attackerClient, attacker, bounty, `bounty on ${victim.name}`);
+        this.broadcastLootBags();
+      }
+
+      // Killing a non-criminal in a Yellow (lawful) zone makes the attacker a criminal.
+      if (tier === "yellow" && !victimWasCriminal) {
+        this.markCriminal(attacker.name);
+      }
+
+      const spawn = tileToWorld(this.zoneConfig.spawnTile.x, this.zoneConfig.spawnTile.y);
+      victim.x = spawn.x;
+      victim.y = spawn.y;
+      this.playerKnockedOutUntil.set(victim.name, Date.now() + RESPAWN_WAIT_MS);
+      if (this.activePlayerSession.get(victim.name)) {
+        this.inputs.set(this.activePlayerSession.get(victim.name)!, { dx: 0, dy: 0 });
+      }
+
+      this.broadcastChat(
+        this.systemChat("PvP", `${victim.name} was defeated by ${attacker.name}!`),
+      );
+      void this.persistPlayer(victim);
+    }
+
+    const freeRespawnAt = knockedOut ? (this.playerKnockedOutUntil.get(victim.name) ?? null) : null;
+    victimClient.send("playerDamage", { amount, currentHp: next, maxHp, knockedOut, freeRespawnAt });
+    this.sendProfile(victimClient, victim);
+    return knockedOut;
+  }
+
+  /** Spawn a loot bag at the victim with the dropped items for the zone tier. */
+  private dropLootBag(victim: InstanceType<typeof PlayerSchema>, tier: DangerTier) {
+    if (tier === "safe" || tier === "yellow") return; // no item loss in safe/yellow
+    const inventory = this.inventories.get(victim.name) ?? [];
+    const dropped: InventoryEntry[] = [];
+    const kept: InventoryEntry[] = [];
+    for (const entry of inventory) {
+      const def = ITEMS[entry.itemId];
+      // Red: only gathered materials drop. Black: everything in the bag drops.
+      const dropThis = tier === "black" ? true : def?.kind === "material";
+      if (dropThis) dropped.push({ ...entry });
+      else kept.push({ ...entry });
+    }
+
+    // Black zones also bleed half the victim's loose gold.
+    let goldDropped = 0;
+    if (tier === "black") {
+      const gold = this.playerGold.get(victim.name) ?? 0;
+      goldDropped = Math.floor(gold / 2);
+      if (goldDropped > 0) this.playerGold.set(victim.name, gold - goldDropped);
+    }
+
+    if (dropped.length === 0 && goldDropped === 0) return;
+    this.inventories.set(victim.name, kept);
+    const victimClient = this.clientForName(victim.name);
+    if (victimClient) this.sendInventory(victimClient, victim.name);
+
+    const bag: LootBagState = {
+      id: crypto.randomUUID(),
+      x: victim.x,
+      y: victim.y,
+      items: dropped,
+      gold: goldDropped,
+      expiresAt: Date.now() + 120_000,
+    };
+    this.lootBags.set(bag.id, bag);
+    this.broadcastLootBags();
+  }
+
+  private async handleLootPickup(client: Client, bagId: string) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !bagId) return;
+    if (this.isKnockedOut(player.name)) return;
+    const bag = this.lootBags.get(bagId);
+    if (!bag) return;
+
+    if (Math.hypot(player.x - bag.x, player.y - bag.y) > NPC_INTERACT_RANGE) {
+      client.send("chat", this.systemChat("Loot", "Move closer to grab the loot bag."));
+      return;
+    }
+
+    let inventory = this.inventories.get(player.name) ?? [];
+    const leftover: InventoryEntry[] = [];
+    for (const entry of bag.items) {
+      const { inventory: nextInv, added } = addItemToInventory(inventory, entry.itemId, entry.quantity);
+      inventory = nextInv;
+      if (added < entry.quantity) leftover.push({ itemId: entry.itemId, quantity: entry.quantity - added });
+    }
+    this.inventories.set(player.name, inventory);
+    if (bag.gold > 0) this.grantGold(client, player, bag.gold, "loot bag");
+
+    if (leftover.length > 0) {
+      // Inventory full — leave the rest in the bag.
+      bag.items = leftover;
+      bag.gold = 0;
+      client.send("chat", this.systemChat("Loot", "Your bag is full — some loot remains."));
+    } else {
+      this.lootBags.delete(bagId);
+    }
+    this.broadcastLootBags();
+    this.sendInventory(client, player.name);
+    await this.persistPlayer(player);
+  }
+
+  private broadcastLootBags() {
+    this.broadcast("lootBags", { bags: [...this.lootBags.values()] });
+  }
+
+  private markCriminal(name: string) {
+    this.criminalUntil.set(name, Date.now() + CRIMINAL_DURATION_MS);
+    const session = this.activePlayerSession.get(name);
+    const player = session ? this.state.players.get(session) : undefined;
+    if (player) player.criminal = true;
+    const client = this.clientForName(name);
+    if (client) {
+      client.send("chat", this.systemChat("Crime", "You attacked an innocent — you're now a Criminal (red name). Towns are barred to you."));
+    }
+  }
+
+  private async handlePlaceBounty(client: Client, targetName: string, gold: number) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !targetName) return;
+    const amount = Math.floor(gold);
+    if (amount < MIN_BOUNTY) {
+      client.send("chat", this.systemChat("Bounty", `Bounties start at ${MIN_BOUNTY} gold.`));
+      return;
+    }
+    const have = this.playerGold.get(player.name) ?? 0;
+    if (have < amount) {
+      client.send("chat", this.systemChat("Bounty", "Not enough gold for that bounty."));
+      return;
+    }
+    this.playerGold.set(player.name, have - amount);
+    this.bounties.set(targetName, (this.bounties.get(targetName) ?? 0) + amount);
+    this.sendProfile(client, player);
+    this.broadcastChat(
+      this.systemChat("Bounty", `${player.name} placed a ${amount}g bounty on ${targetName}!`),
+    );
+  }
+
+  private systemChat(senderName: string, body: string): ChatMessagePayload {
+    return {
+      id: crypto.randomUUID(),
+      channel: "system",
+      senderId: "system",
+      senderName,
+      body,
+      sentAt: Date.now(),
+    };
+  }
+
+  /** Verify an on-chain $BASE burn and grant a Black-zone access pass (1 hour). */
+  private async handleBurnForBlackPass(client: Client, signature: string) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const wallet = this.playerWallets.get(client.sessionId);
+    if (!wallet) {
+      client.send("blackPassResult", { ok: false, error: "Link a wallet first to burn $BASE." });
+      return;
+    }
+    if (!signature) {
+      client.send("blackPassResult", { ok: false, error: "Missing burn signature." });
+      return;
+    }
+
+    const result = await verifyTokenBurn(signature, {
+      ownerWallet: wallet,
+      mint: getBlackZoneBurnMint(),
+      minUiAmount: BLACK_ZONE_BURN_AMOUNT,
+    });
+
+    if (!result.ok) {
+      client.send("blackPassResult", { ok: false, error: result.error ?? "Burn could not be verified." });
+      return;
+    }
+
+    // Pass good for one hour of Black-zone access (survives zone hops).
+    ZoneRoom.blackPassUntil.set(wallet, Date.now() + 60 * 60 * 1000);
+    client.send("blackPassResult", { ok: true });
+    this.broadcastChat(
+      this.systemChat("Obsidian Gate", `${player.name} burned ${BLACK_ZONE_BURN_AMOUNT.toLocaleString()} $BASE and unlocked the Black Zone!`),
+    );
   }
 
   private async checkTalkObjectives(client: Client, playerName: string, npcId: string) {

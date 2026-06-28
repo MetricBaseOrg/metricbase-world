@@ -17,6 +17,10 @@ export const PlayerSchema = schema({
   weaponId: "string",
   toolId: "string",
   spectator: "boolean",
+  /** Opt-in PvP flag (required to fight in Yellow zones). */
+  pvpFlagged: "boolean",
+  /** Criminal status — shows a red name and bars Safe-zone entry. */
+  criminal: "boolean",
 });
 
 export type Player = InstanceType<typeof PlayerSchema>;

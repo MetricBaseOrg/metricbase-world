@@ -40,6 +40,32 @@ export interface InteractPayload {
   npcId: string;
 }
 
+import type { InventoryEntry } from "./items.js";
+
+/** A dropped loot bag in the world (from a PvP death). */
+export interface LootBagState {
+  id: string;
+  x: number;
+  y: number;
+  items: InventoryEntry[];
+  gold: number;
+  /** Epoch ms when the bag despawns. */
+  expiresAt: number;
+}
+
+export interface LootBagsPayload {
+  bags: LootBagState[];
+}
+
+/** Result of a player-vs-player hit, broadcast for FX. */
+export interface PvpHitPayload {
+  attackerName: string;
+  victimName: string;
+  damage: number;
+  crit: boolean;
+  knockedOut: boolean;
+}
+
 export interface ProfilePayload {
   level: number;
   xp: number;

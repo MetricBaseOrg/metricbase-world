@@ -11,6 +11,8 @@ import {
   InventoryResultPayload,
   InventoryStatePayload,
   type EquipmentStatePayload,
+  type LootBagsPayload,
+  type PvpHitPayload,
   CraftResultPayload,
   FarmStatePayload,
   FarmResultPayload,
@@ -56,6 +58,8 @@ export interface RemotePlayer {
   lampOn: boolean;
   appearance: CharacterAppearance;
   spectator: boolean;
+  pvpFlagged: boolean;
+  criminal: boolean;
 }
 
 type ConnectionListener = (connected: boolean, playerCount: number) => void;
@@ -66,6 +70,10 @@ type TransferListener = (payload: ZoneTransferPayload) => void;
 type ProfileListener = (profile: ProfilePayload) => void;
 type NpcDialogueListener = (npcName: string, dialogue: string) => void;
 type ArcadeListener = (payload: { name: string; url: string }) => void;
+type LootBagsListener = (payload: LootBagsPayload) => void;
+type PvpHitListener = (payload: PvpHitPayload) => void;
+type BlackZoneLockedListener = (payload: { mint: string; amount: number }) => void;
+type BlackPassResultListener = (payload: { ok: boolean; error?: string }) => void;
 type QuestStateListener = (state: QuestStatePayload) => void;
 type MobHealthListener = (payload: MobHealthPayload) => void;
 type AttackResultListener = (payload: AttackResultPayload) => void;
@@ -116,6 +124,11 @@ export class NetworkManager {
   private profileListeners = new Set<ProfileListener>();
   private npcDialogueListeners = new Set<NpcDialogueListener>();
   private arcadeListeners = new Set<ArcadeListener>();
+  private lootBagsListeners = new Set<LootBagsListener>();
+  private latestLootBags: LootBagsPayload = { bags: [] };
+  private pvpHitListeners = new Set<PvpHitListener>();
+  private blackZoneLockedListeners = new Set<BlackZoneLockedListener>();
+  private blackPassResultListeners = new Set<BlackPassResultListener>();
   private questStateListeners = new Set<QuestStateListener>();
   private mobHealthListeners = new Set<MobHealthListener>();
   private attackResultListeners = new Set<AttackResultListener>();
@@ -311,6 +324,26 @@ export class NetworkManager {
 
   sendAbility(abilityId: string, npcId: string) {
     this.room?.send("ability", { abilityId, npcId });
+  }
+
+  sendAttackPlayer(targetName: string) {
+    this.room?.send("attackPlayer", { targetName });
+  }
+
+  sendTogglePvpFlag(on: boolean) {
+    this.room?.send("togglePvpFlag", { on });
+  }
+
+  sendLootPickup(bagId: string) {
+    this.room?.send("lootPickup", { bagId });
+  }
+
+  sendPlaceBounty(targetName: string, gold: number) {
+    this.room?.send("placeBounty", { targetName, gold });
+  }
+
+  sendBurnForBlackPass(signature: string) {
+    this.room?.send("burnForBlackPass", { signature });
   }
 
   sendToggleLamp(on: boolean) {
@@ -640,6 +673,27 @@ export class NetworkManager {
     return () => this.arcadeListeners.delete(listener);
   }
 
+  onLootBags(listener: LootBagsListener) {
+    this.lootBagsListeners.add(listener);
+    listener(this.latestLootBags);
+    return () => this.lootBagsListeners.delete(listener);
+  }
+
+  onPvpHit(listener: PvpHitListener) {
+    this.pvpHitListeners.add(listener);
+    return () => this.pvpHitListeners.delete(listener);
+  }
+
+  onBlackZoneLocked(listener: BlackZoneLockedListener) {
+    this.blackZoneLockedListeners.add(listener);
+    return () => this.blackZoneLockedListeners.delete(listener);
+  }
+
+  onBlackPassResult(listener: BlackPassResultListener) {
+    this.blackPassResultListeners.add(listener);
+    return () => this.blackPassResultListeners.delete(listener);
+  }
+
   onNpcPositions(listener: NpcPositionsListener) {
     this.npcPositionsListeners.add(listener);
     return () => this.npcPositionsListeners.delete(listener);
@@ -834,6 +888,19 @@ export class NetworkManager {
       for (const listener of this.arcadeListeners) {
         listener(payload);
       }
+    });
+    this.room.onMessage("lootBags", (payload: LootBagsPayload) => {
+      this.latestLootBags = payload;
+      for (const listener of this.lootBagsListeners) listener(payload);
+    });
+    this.room.onMessage("pvpHit", (payload: PvpHitPayload) => {
+      for (const listener of this.pvpHitListeners) listener(payload);
+    });
+    this.room.onMessage("blackZoneLocked", (payload: { mint: string; amount: number }) => {
+      for (const listener of this.blackZoneLockedListeners) listener(payload);
+    });
+    this.room.onMessage("blackPassResult", (payload: { ok: boolean; error?: string }) => {
+      for (const listener of this.blackPassResultListeners) listener(payload);
     });
     this.room.onMessage("questState", (payload: QuestStatePayload) => {
       this.latestQuestState = payload;
@@ -1239,6 +1306,8 @@ export class NetworkManager {
       guildTag: player.guildTag ?? "",
       lampOn: Boolean(player.lampOn),
       spectator: Boolean((player as any).spectator),
+      pvpFlagged: Boolean((player as any).pvpFlagged),
+      criminal: Boolean((player as any).criminal),
       appearance: normalizeCharacterAppearance({
         bodyColor: player.bodyColor,
         hairColor: player.hairColor,

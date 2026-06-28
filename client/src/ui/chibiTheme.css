@@ -1637,3 +1637,38 @@ body {
   border: none;
   background: #0b1020;
 }
+
+/* ---- Modal scrim + PvP flag toggle ---- */
+.chibi-overlay-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(11, 16, 32, 0.62);
+}
+
+.chibi-pvp-flag {
+  position: fixed;
+  right: 16px;
+  bottom: 140px;
+  z-index: 30;
+  padding: 7px 12px;
+  border: 2px solid var(--chibi-outline);
+  border-radius: var(--chibi-radius-pill, 999px);
+  background: rgba(255, 249, 240, 0.92);
+  font-family: var(--chibi-font-display);
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--chibi-ink);
+  cursor: pointer;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
+}
+
+.chibi-pvp-flag.active {
+  background: var(--chibi-danger, #ff6b6b);
+  color: #fff7ea;
+  border-color: #b3322f;
+}

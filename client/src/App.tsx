@@ -23,6 +23,8 @@ import { InventoryPanel } from "./ui/InventoryPanel";
 import { QuestPanel } from "./ui/QuestPanel";
 import { ErrorBoundary } from "./ui/ErrorBoundary";
 import { ArcadeModal } from "./ui/ArcadeModal";
+import { BlackZoneModal } from "./ui/BlackZoneModal";
+import { PvpFlagButton } from "./ui/PvpFlagButton";
 import { ShopPanel } from "./ui/ShopPanel";
 import { SkillBar } from "./ui/SkillBar";
 import { TouchControls } from "./ui/TouchControls";
@@ -323,6 +325,8 @@ export function App() {
       )}
       {joined && <ZoneBanner />}
       {joined && <ArcadeModal />}
+      {joined && <BlackZoneModal />}
+      {joined && <PvpFlagButton />}
       {joined && <SkillBar />}
       {joined && <EmoteBar />}
       {joined && <TouchControls />}

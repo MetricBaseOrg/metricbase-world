@@ -31,6 +31,7 @@ import {
   tileToWorld,
   type FarmStatePayload,
   type HousingStatePayload,
+  type LootBagState,
 } from "@metricbase/shared";
 import {
   getAnimFrame,
@@ -218,6 +219,13 @@ export class GameScene extends Phaser.Scene {
   /** Click/tap-to-move destination in world coords; cleared on arrival or keyboard input. */
   private moveTarget: { x: number; y: number } | null = null;
   private moveMarker: Phaser.GameObjects.Graphics | null = null;
+  /** Left-click selected hostile player (PvP target). */
+  private selectedPlayerName: string | null = null;
+  /** Rendered loot bags by id. */
+  private renderedLootBags = new Map<
+    string,
+    { graphics: Phaser.GameObjects.Graphics; label: Phaser.GameObjects.Text; x: number; y: number }
+  >();
   private chopKey: Phaser.Input.Keyboard.Key | null = null;
   private fishKey: Phaser.Input.Keyboard.Key | null = null;
   private lastSentInput = { dx: 0, dy: 0 };
@@ -265,10 +273,15 @@ export class GameScene extends Phaser.Scene {
         this.pointerAttackQueued = true;
         return;
       }
-      // Primary button / touch: select a hostile under the cursor, else walk there.
+      // Primary button / touch: select a hostile (mob or player) under the
+      // cursor, else walk there.
       if (pointer.leftButtonDown() || pointer.wasTouch) {
         const hitHostile = this.selectNpcAtPointer(pointer);
-        if (!hitHostile) {
+        if (hitHostile) {
+          this.selectedPlayerName = null;
+        } else if (this.selectPlayerAtPointer(pointer)) {
+          // Targeted a player for PvP.
+        } else {
           this.setMoveTarget(pointer.worldX, pointer.worldY);
         }
       }
@@ -354,8 +367,10 @@ export class GameScene extends Phaser.Scene {
       this.localSessionId = null;
       this.localChoppingUntil = 0;
       this.selectedNpcId = null;
+      this.selectedPlayerName = null;
       this.targetReticle?.setVisible(false);
       this.clearMoveTarget();
+      this.clearLootBags();
       this.stopLocalChopHits();
       this.destroyLocalAvatar();
       this.renderedPlayers.forEach((entry) => {
@@ -455,6 +470,29 @@ export class GameScene extends Phaser.Scene {
         this.time.delayedCall(150, () => {
           this.applyKnockedOutVisuals();
         });
+      }
+    });
+
+    const unsubscribeLootBags = networkManager.onLootBags((payload) => {
+      this.syncLootBags(payload.bags);
+    });
+
+    const unsubscribePvpHit = networkManager.onPvpHit((payload) => {
+      // Floating damage number over the victim + slash FX between the fighters.
+      const victim = this.findRenderedPlayerByName(payload.victimName);
+      if (victim) {
+        this.showWorldDamageNumber(victim.sprite.x, victim.sprite.y - 44, payload.damage, payload.crit);
+        victim.sprite.setTint(0xff4444);
+        this.time.delayedCall(150, () => victim.sprite.clearTint());
+      }
+      const attacker = this.findRenderedPlayerByName(payload.attackerName);
+      if (attacker && victim) {
+        const angle = Phaser.Math.Angle.Between(attacker.sprite.x, attacker.sprite.y, victim.sprite.x, victim.sprite.y);
+        this.spawnSlashArc((attacker.sprite.x + victim.sprite.x) / 2, (attacker.sprite.y + victim.sprite.y) / 2 - 10, angle);
+      }
+      const localName = useGameStore.getState().playerName;
+      if (payload.attackerName === localName && payload.knockedOut) {
+        this.cameras.main.shake(140, 0.005);
       }
     });
 
@@ -581,7 +619,10 @@ export class GameScene extends Phaser.Scene {
       unsubscribeHousingState();
       unsubscribeEmote();
       unsubscribeWorldStats();
+      unsubscribeLootBags();
+      unsubscribePvpHit();
       this.stopLocalChopHits();
+      this.clearLootBags();
       this.clearMap();
       this.clearNpcs();
       this.clearResources();
@@ -1104,6 +1145,8 @@ export class GameScene extends Phaser.Scene {
       lampOn: useGameStore.getState().lampOn,
       appearance: normalizeCharacterAppearance(appearance),
       spectator: useGameStore.getState().spectator,
+      pvpFlagged: false,
+      criminal: false,
     });
   }
 
@@ -2127,6 +2170,30 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
+  /** Floating damage number at an arbitrary world point (used for PvP hits). */
+  private showWorldDamageNumber(x: number, y: number, damage: number, crit = false) {
+    if (damage <= 0) return;
+    const text = this.add
+      .text(x, y, crit ? `${damage}!` : `-${damage}`, {
+        fontFamily: "Segoe UI, sans-serif",
+        fontSize: crit ? "21px" : "15px",
+        color: crit ? "#ffcf33" : "#ff4466",
+        fontStyle: "bold",
+        stroke: crit ? "#7a4a00" : "#2d1b2e",
+        strokeThickness: crit ? 4 : 3,
+      })
+      .setOrigin(0.5)
+      .setDepth(210);
+    this.tweens.add({
+      targets: text,
+      y: y - (crit ? 40 : 30),
+      alpha: 0,
+      duration: crit ? 900 : 750,
+      ease: "Cubic.easeOut",
+      onComplete: () => text.destroy(),
+    });
+  }
+
   private spawnSlashArc(x: number, y: number, angle: number) {
     const graphics = this.add.graphics();
     graphics.setDepth(y + 10);
@@ -2342,6 +2409,98 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  /** Left-click PvP target selection: pick a remote player near the cursor. */
+  private selectPlayerAtPointer(pointer: Phaser.Input.Pointer): boolean {
+    const SELECT_PIXEL_RANGE = 40;
+    let picked: RenderedPlayer | null = null;
+    let pickedDistance = SELECT_PIXEL_RANGE;
+    for (const rendered of this.renderedPlayers.values()) {
+      const distance = Math.hypot(pointer.worldX - rendered.sprite.x, pointer.worldY - rendered.sprite.y);
+      if (distance <= pickedDistance) {
+        picked = rendered;
+        pickedDistance = distance;
+      }
+    }
+    if (picked) {
+      this.selectedPlayerName = picked.name;
+      this.selectedNpcId = null;
+      playSfx("hover");
+      return true;
+    }
+    return false;
+  }
+
+  /** Colour a player's nameplate red when criminal, with a ⚔ marker when flagged. */
+  private applyNameplateStatus(entry: RenderedPlayer, player: RemotePlayer) {
+    const base = nameplateText(player);
+    entry.label.setText(player.pvpFlagged ? `⚔ ${base}` : base);
+    entry.label.setColor(player.criminal ? "#ff5a5a" : "#fff7ea");
+  }
+
+  /** Reconcile rendered loot bags with the server's bag list. */
+  private syncLootBags(bags: LootBagState[]) {
+    const seen = new Set<string>();
+    for (const bag of bags) {
+      seen.add(bag.id);
+      if (this.renderedLootBags.has(bag.id)) continue;
+      const graphics = this.add.graphics().setDepth(bag.y);
+      // A little sack: brown body + tied neck.
+      graphics.fillStyle(0x7a4a2b, 1);
+      graphics.fillRoundedRect(-9, -10, 18, 16, 5);
+      graphics.fillStyle(0x5c3720, 1);
+      graphics.fillRect(-6, -13, 12, 4);
+      graphics.fillStyle(0xffd24a, 1);
+      graphics.fillCircle(0, -2, 3);
+      graphics.setPosition(bag.x, bag.y);
+      const label = this.add
+        .text(bag.x, bag.y - 20, "Loot (F)", {
+          fontFamily: "Nunito, sans-serif",
+          fontSize: "11px",
+          color: "#ffe9b0",
+          stroke: "#3b2c1e",
+          strokeThickness: 3,
+        })
+        .setOrigin(0.5, 1)
+        .setDepth(bag.y + 1);
+      this.tweens.add({ targets: graphics, y: bag.y - 3, duration: 900, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
+      this.renderedLootBags.set(bag.id, { graphics, label, x: bag.x, y: bag.y });
+    }
+    for (const [id, rendered] of this.renderedLootBags) {
+      if (!seen.has(id)) {
+        rendered.graphics.destroy();
+        rendered.label.destroy();
+        this.renderedLootBags.delete(id);
+      }
+    }
+  }
+
+  private clearLootBags() {
+    for (const rendered of this.renderedLootBags.values()) {
+      rendered.graphics.destroy();
+      rendered.label.destroy();
+    }
+    this.renderedLootBags.clear();
+  }
+
+  /** Pick up the nearest loot bag in range (called on F). */
+  private tryLootPickup(local: RenderedPlayer): boolean {
+    let nearestId: string | null = null;
+    let nearestDistance = CHOP_RANGE;
+    for (const [id, bag] of this.renderedLootBags) {
+      const distance = Math.hypot(local.predicted.x - bag.x, local.predicted.y - bag.y);
+      if (distance <= nearestDistance) {
+        nearestId = id;
+        nearestDistance = distance;
+      }
+    }
+    if (nearestId) {
+      networkManager.sendLootPickup(nearestId);
+      playSfx("item_pickup");
+      return true;
+    }
+    return false;
+  }
+
   /** Click-to-move axis toward the active move target, or null when none/arrived. */
   private getMoveTargetAxis(): { dx: number; dy: number } | null {
     if (!this.moveTarget) return null;
@@ -2366,47 +2525,58 @@ export class GameScene extends Phaser.Scene {
     const reticle = this.targetReticle;
     if (!reticle) return;
 
+    // Resolve the active target's world position (NPC takes priority over player).
+    let tx = 0;
+    let ty = 0;
+    let found = false;
+
     if (this.selectedNpcId) {
-      const target = this.renderedNpcs.find((npc) => npc.id === this.selectedNpcId);
-      if (!target || target.currentHp <= 0) {
+      const npc = this.renderedNpcs.find((entry) => entry.id === this.selectedNpcId);
+      if (!npc || npc.currentHp <= 0) {
         this.selectedNpcId = null;
+      } else {
+        tx = npc.worldX;
+        ty = npc.worldY;
+        found = true;
       }
     }
 
-    if (!this.selectedNpcId) {
-      reticle.setVisible(false);
-      return;
+    if (!found && this.selectedPlayerName) {
+      const target = [...this.renderedPlayers.values()].find((p) => p.name === this.selectedPlayerName);
+      if (!target) {
+        this.selectedPlayerName = null;
+      } else {
+        tx = target.sprite.x;
+        ty = target.sprite.y;
+        found = true;
+      }
     }
 
-    const target = this.renderedNpcs.find((npc) => npc.id === this.selectedNpcId);
-    if (!target) {
+    if (!found) {
       reticle.setVisible(false);
       return;
     }
 
     const local = this.findLocalPlayer();
-    const inRange = local
-      ? Math.hypot(local.predicted.x - target.worldX, local.predicted.y - target.worldY) <= ATTACK_RANGE
-      : false;
+    const inRange = local ? Math.hypot(local.predicted.x - tx, local.predicted.y - ty) <= ATTACK_RANGE : false;
     const color = inRange ? 0xff5a5a : 0xffd45a;
     const pulse = 1 + Math.sin(this.time.now / 180) * 0.08;
     const radius = 20 * pulse;
 
     reticle.clear();
     reticle.lineStyle(2, color, 0.95);
-    // Four corner brackets around the target's feet.
     for (let i = 0; i < 4; i++) {
       const sx = i % 2 === 0 ? -1 : 1;
       const sy = i < 2 ? -1 : 1;
-      const cx = target.worldX + sx * radius;
-      const cy = target.worldY - 6 + sy * radius;
+      const cx = tx + sx * radius;
+      const cy = ty - 6 + sy * radius;
       reticle.beginPath();
       reticle.moveTo(cx - sx * 7, cy);
       reticle.lineTo(cx, cy);
       reticle.lineTo(cx, cy - sy * 7);
       reticle.strokePath();
     }
-    reticle.setDepth(target.worldY + 1);
+    reticle.setDepth(ty + 1);
     reticle.setVisible(true);
   }
 
@@ -2421,6 +2591,33 @@ export class GameScene extends Phaser.Scene {
 
     const local = this.findLocalPlayer();
     if (!local) return;
+
+    // PvP: a selected player in range takes priority (server enforces the rules).
+    if (this.selectedPlayerName) {
+      const target = this.renderedPlayers.get(
+        [...this.renderedPlayers.entries()].find(([, p]) => p.name === this.selectedPlayerName)?.[0] ?? "",
+      );
+      if (target) {
+        const distance = Math.hypot(local.predicted.x - target.sprite.x, local.predicted.y - target.sprite.y);
+        if (distance <= ATTACK_RANGE) {
+          playSfx("attack_swing");
+          networkManager.sendAttackPlayer(this.selectedPlayerName);
+          if (this.localAvatar) {
+            const direction = directionTowardTarget(
+              this.localAvatar.sprite.x,
+              this.localAvatar.sprite.y,
+              target.sprite.x,
+              target.sprite.y,
+              this.localAvatar.direction,
+            );
+            this.setPlayerAction(this.localAvatar, "attack", direction, 350);
+          }
+          return;
+        }
+      } else {
+        this.selectedPlayerName = null;
+      }
+    }
 
     let nearest: RenderedNpc | null = null;
     let nearestDistance = ATTACK_RANGE;
@@ -2478,6 +2675,9 @@ export class GameScene extends Phaser.Scene {
 
     const local = this.findLocalPlayer();
     if (!local) return;
+
+    // F grabs a loot bag if one is in reach, otherwise falls back to gathering.
+    if (this.tryLootPickup(local)) return;
 
     this.chopNearestTree(local);
   }
@@ -2745,6 +2945,7 @@ export class GameScene extends Phaser.Scene {
 
       if (!existing) {
         const entry = this.createRenderedPlayerEntry(player, false);
+        this.applyNameplateStatus(entry, player);
         this.renderedPlayers.set(player.sessionId, entry);
       } else {
         existing.sprite.setDisplaySize(AVATAR_LOGICAL_WIDTH, AVATAR_LOGICAL_HEIGHT);
@@ -2755,6 +2956,7 @@ export class GameScene extends Phaser.Scene {
         existing.lampOn = player.lampOn;
         existing.name = player.name;
         existing.label.setText(nameplateText(player));
+        this.applyNameplateStatus(existing, player);
       }
     }
 

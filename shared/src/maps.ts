@@ -133,6 +133,37 @@ export function buildGrottoMap(): GroundLayer {
   stampLake(layer, 15, 14, 19, 18);
 
   stampPortal(layer, 1, 12);
+  // Sealed gate down into the Black Zone (burn-gated on entry).
+  stampPortal(layer, 12, 1);
+
+  return layer;
+}
+
+export function buildBlackMap(): GroundLayer {
+  const layer = createEmptyLayer();
+  stampBorder(layer);
+
+  // A scorched obsidian arena: mostly stone with jagged wall pillars and lava
+  // pools (rendered as water tiles — impassable hazards).
+  fillRect(layer, 1, 1, MAP_WIDTH - 2, MAP_HEIGHT - 2, TILE_STONE);
+
+  // Pillars dotted through the arena for cover.
+  for (const [px, py] of [
+    [6, 6],
+    [17, 6],
+    [6, 17],
+    [17, 17],
+    [12, 11],
+  ]) {
+    setTile(layer, px, py, TILE_WALL);
+  }
+
+  // Lava pools (hazard — block movement like water).
+  stampLake(layer, 3, 10, 5, 13);
+  stampLake(layer, 18, 10, 20, 13);
+
+  // Exit back to the Grotto.
+  stampPortal(layer, 1, 12);
 
   return layer;
 }
@@ -142,6 +173,7 @@ export const ZONE_MAP_BUILDERS: Record<string, () => GroundLayer> = {
   zone_wilderness: buildWildernessMap,
   zone_grotto: buildGrottoMap,
   zone_interior: buildInteriorMap,
+  zone_black: buildBlackMap,
 };
 
 export function buildZoneMap(zoneId: string): GroundLayer {

@@ -3,6 +3,7 @@ import { WebSocketTransport } from "@colyseus/ws-transport";
 import {
   GAME_VERSION,
   getZoneConfig,
+  ZONE_BLACK,
   ZONE_GROTTO,
   ZONE_HUB,
   ZONE_INTERIOR,
@@ -58,6 +59,7 @@ gameServer.define(ZONE_HUB, ZoneRoom, { zoneId: ZONE_HUB });
 gameServer.define(ZONE_WILDERNESS, ZoneRoom, { zoneId: ZONE_WILDERNESS });
 gameServer.define(ZONE_GROTTO, ZoneRoom, { zoneId: ZONE_GROTTO });
 gameServer.define(ZONE_INTERIOR, ZoneRoom, { zoneId: ZONE_INTERIOR });
+gameServer.define(ZONE_BLACK, ZoneRoom, { zoneId: ZONE_BLACK });
 
 await initDatabase();
 await initSellPressure();

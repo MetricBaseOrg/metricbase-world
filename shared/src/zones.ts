@@ -8,6 +8,10 @@ export const ZONE_HUB = "zone_hub";
 export const ZONE_WILDERNESS = "zone_wilderness";
 export const ZONE_GROTTO = "zone_grotto";
 export const ZONE_INTERIOR = "zone_interior";
+export const ZONE_BLACK = "zone_black";
+
+/** $BASE that must be burned on-chain to unlock Black-zone access. */
+export const BLACK_ZONE_BURN_AMOUNT = 1_000_000;
 
 export const MAX_PLAYERS_PER_ZONE = 20;
 
@@ -558,6 +562,12 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
         targetZone: ZONE_WILDERNESS,
         label: "Grotto Exit",
       },
+      {
+        tileX: 12,
+        tileY: 1,
+        targetZone: ZONE_BLACK,
+        label: "Black Gate",
+      },
     ],
     npcs: [
       {
@@ -619,6 +629,60 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
       { id: "grotto_lamp_1", tileX: 6, tileY: 8, prop: "lamppost" },
       { id: "grotto_lamp_2", tileX: 14, tileY: 10, prop: "lamppost" },
       { id: "grotto_lamp_3", tileX: 17, tileY: 13, prop: "lamppost" },
+    ],
+  },
+  [ZONE_BLACK]: {
+    id: ZONE_BLACK,
+    roomName: ZONE_BLACK,
+    displayName: "Obsidian Reach",
+    dangerTier: "black",
+    spawnTile: { x: 3, y: 12 },
+    portals: [
+      {
+        tileX: 1,
+        tileY: 12,
+        targetZone: ZONE_GROTTO,
+        label: "Flee the Reach",
+      },
+    ],
+    npcs: [
+      {
+        id: "black_warden",
+        name: "Charred Sentinel",
+        tileX: 12,
+        tileY: 4,
+        dialogue:
+          "You burned your way in. Few leave the Obsidian Reach with their loot — fall here and you lose everything.",
+      },
+      {
+        id: "void_brute",
+        name: "Void Brute",
+        tileX: 12,
+        tileY: 12,
+        dialogue: "A monstrous obsidian slime radiates heat.",
+        combat: { maxHp: 420, rewardXp: 180, respawnMs: 30_000 },
+      },
+      {
+        id: "wild_slime_1",
+        name: "Ember Slime",
+        tileX: 8,
+        tileY: 8,
+        dialogue: "An ember-cored slime hisses.",
+        combat: { maxHp: 90, rewardXp: 45, respawnMs: 10_000 },
+      },
+      {
+        id: "wild_slime_2",
+        name: "Ember Slime",
+        tileX: 16,
+        tileY: 16,
+        dialogue: "An ember-cored slime hisses.",
+        combat: { maxHp: 90, rewardXp: 45, respawnMs: 10_000 },
+      },
+    ],
+    scenery: [
+      { id: "black_lamp_1", tileX: 6, tileY: 6, prop: "lamppost" },
+      { id: "black_lamp_2", tileX: 17, tileY: 17, prop: "lamppost" },
+      { id: "black_sign", tileX: 3, tileY: 14, prop: "signpost" },
     ],
   },
   [ZONE_INTERIOR]: {

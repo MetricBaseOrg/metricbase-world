@@ -162,12 +162,12 @@ The combat *shell*. No new combat math yet.
 - **VIP Community Lodge**: entry gated to wallets holding ≥ 20,000,000 $BASE (`zones.ts` `vipMinHold`, server `walletHoldsAtLeast`).
 - **Arcade machine** in the Lodge → embeds Base Rush (`apps.metricbase.org/base-rush`) via `ArcadeModal` (full-screen iframe + open-in-tab).
 
-### Phase 2b — Open-World PvP combat · **→ 0.42.0 (next)**
-- PvP combat path + combat tagging + spawn immunity (`ZoneRoom.handleAttack` accepts player targets).
-- Tier-based death/loot drops + **loot bags on the ground** (pickup with F).
-- Crime / reputation / bounty (`shared/src/reputation.ts`, red name on `PlayerSchema`).
-- **Black zone** (full-loot) — a new zone whose entry **burns 1,000,000 $BASE on-chain** (reuse Solana settlement patterns).
-- *Done when:* two players fight in a red zone, loser drops a lootable bag, attacker flagged criminal in town; Black zone reachable only after a verified burn.
+### Phase 2b — Open-World PvP combat · **→ 0.42.0 (shipped)**
+- PvP combat path (`ZoneRoom.handleAttackPlayer`) with anti-grief: starter protection (<L5), spawn immunity, Yellow-zone opt-in flag (`togglePvpFlag`), combat tagging.
+- Tier-based death loot + **loot bags on the ground** (server `dropLootBag`/`handleLootPickup`, client render + F pickup). Red drops materials; Black drops everything + half loose gold.
+- Crime / reputation / bounty (`shared/src/reputation.ts`): unlawful kills flag you Criminal (red name on `PlayerSchema`, barred from Safe zones); `placeBounty` pays the killer.
+- **Black zone "Obsidian Reach"** (full-loot) reached via the Grotto's Black Gate — entry **burns 1,000,000 $BASE on-chain** (`verifyTokenBurn` server-side, `tokenBurn.ts` client, `BlackZoneModal`). A verified burn grants a 1-hour pass.
+- *Verify (manual QA needed):* two clients fight in the Grotto (Red), loser drops a lootable bag; killing in Yellow flags the attacker criminal and bars town entry; burning 1,000,000 $BASE opens the Black Gate. Build-verified; runtime needs DB + two clients + funded wallet.
 
 ### Phase 3 — Guild Warfare · **→ 0.42.0**
 Ranks, guild bank, tax, war declarations (`guildRegistry.ts`, `guild.ts`).
