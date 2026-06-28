@@ -641,7 +641,9 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
     roomName: ZONE_BLACK,
     displayName: "Obsidian Reach",
     dangerTier: "black",
-    spawnTile: { x: 3, y: 12 },
+    // Solid ground near the exit — clear of the lava pools (x3-5/18-20, y10-13)
+    // and the wall pillars. (3,12) was inside the west lava pool.
+    spawnTile: { x: 3, y: 7 },
     portals: [
       {
         tileX: 1,
