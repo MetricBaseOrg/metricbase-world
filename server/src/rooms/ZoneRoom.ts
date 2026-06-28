@@ -89,6 +89,9 @@ import {
   SPAWN_IMMUNITY_MS,
   MIN_BOUNTY,
   BLACK_ZONE_BURN_AMOUNT,
+  VIP_PASS_GOLD_COST,
+  VIP_PASS_BURN_AMOUNT,
+  VIP_PASS_DAYS,
   METRICBASE_TOKEN_MINT,
   type EquipmentSlot,
   type GearKindSlot,
@@ -214,6 +217,11 @@ function getBlackZoneBurnMint(): string {
   return process.env.TOKEN_MINT ?? METRICBASE_TOKEN_MINT;
 }
 
+/** The Solana RPC the client should use for burns (server-configured, reliable). */
+function getClientRpcUrl(): string {
+  return process.env.SOLANA_RPC_URL ?? "https://api.mainnet-beta.solana.com";
+}
+
 type JoinAuthData = JoinOptions & { wallet?: string };
 
 export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
@@ -263,6 +271,9 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   private lastLootSweepAt = 0;
   /** Black-zone access passes (wallet -> expiry) earned by burning $BASE. */
   private static blackPassUntil = new Map<string, number>();
+  /** VIP Lodge passes (wallet -> expiry) bought with gold + a $BASE burn.
+   *  NOTE: in-memory; resets on restart. Move to DB persistence for production. */
+  private static vipPassUntil = new Map<string, number>();
   /** Tracks which session ID is "active" for each player name. Used to prevent
    *  a stale onLeave from wiping in-memory state belonging to a new session. */
   private activePlayerSession = new Map<string, string>();
@@ -361,6 +372,10 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
     this.onProtectedMessage("burnForBlackPass", (client, message: { signature?: string }) => {
       void this.handleBurnForBlackPass(client, message.signature ?? "");
+    });
+
+    this.onProtectedMessage("buyVipPass", (client, message: { signature?: string }) => {
+      void this.handleBuyVipPass(client, message.signature ?? "");
     });
 
     this.onProtectedMessage("chop", (client, message: { resourceId?: string }) => {
@@ -606,6 +621,12 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         throw new ServerError(403, error.message);
       }
       throw error;
+    }
+
+    // Restore a persisted VIP Lodge pass into the in-memory map (survives restarts).
+    if (wallet && saved?.vipPassUntil && saved.vipPassUntil > Date.now()) {
+      const existing = ZoneRoom.vipPassUntil.get(wallet) ?? 0;
+      if (saved.vipPassUntil > existing) ZoneRoom.vipPassUntil.set(wallet, saved.vipPassUntil);
     }
 
     if (!options.spectate && !saved && isInvitationSystemActive()) {
@@ -1118,24 +1139,32 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         const pass = wallet ? (ZoneRoom.blackPassUntil.get(wallet) ?? 0) : 0;
         if (pass <= Date.now()) {
           this.transferring.delete(client.sessionId);
-          client.send("blackZoneLocked", { mint: getBlackZoneBurnMint(), amount: BLACK_ZONE_BURN_AMOUNT });
+          client.send("blackZoneLocked", {
+            mint: getBlackZoneBurnMint(),
+            amount: BLACK_ZONE_BURN_AMOUNT,
+            rpcUrl: getClientRpcUrl(),
+          });
           return;
         }
       }
 
-      // VIP-gated zones (e.g. the Community Lodge) require a minimum $BASE hold.
+      // VIP-gated zones (e.g. the Community Lodge): enter if you hold the minimum
+      // $BASE, OR hold an active timed VIP pass (gold + $BASE burn).
       if (targetConfig.vipMinHold && targetConfig.vipMinHold > 0) {
-        const allowed = await this.walletHoldsAtLeast(client, targetConfig.vipMinHold);
-        if (!allowed) {
+        const wallet = this.playerWallets.get(client.sessionId);
+        const hasPass = wallet ? (ZoneRoom.vipPassUntil.get(wallet) ?? 0) > Date.now() : false;
+        const isHolder = hasPass ? true : await this.walletHoldsAtLeast(client, targetConfig.vipMinHold);
+        if (!isHolder && !hasPass) {
           this.transferring.delete(client.sessionId);
-          client.send("chat", {
-            id: crypto.randomUUID(),
-            channel: "system",
-            senderId: "system",
-            senderName: "VIP Door",
-            body: `${targetConfig.displayName} is VIP-only — hold at least ${targetConfig.vipMinHold.toLocaleString()} $BASE to enter.`,
-            sentAt: Date.now(),
-          } satisfies ChatMessagePayload);
+          client.send("vipLodgeLocked", {
+            displayName: targetConfig.displayName,
+            minHold: targetConfig.vipMinHold,
+            passDays: VIP_PASS_DAYS,
+            passGold: VIP_PASS_GOLD_COST,
+            passBurn: VIP_PASS_BURN_AMOUNT,
+            mint: getBlackZoneBurnMint(),
+            rpcUrl: getClientRpcUrl(),
+          });
           return;
         }
       }
@@ -1773,6 +1802,46 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     client.send("blackPassResult", { ok: true });
     this.broadcastChat(
       this.systemChat("Obsidian Gate", `${player.name} burned ${BLACK_ZONE_BURN_AMOUNT.toLocaleString()} $BASE and unlocked the Black Zone!`),
+    );
+  }
+
+  /** Buy a timed VIP Lodge pass: costs gold AND a verified $BASE burn. */
+  private async handleBuyVipPass(client: Client, signature: string) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const wallet = this.playerWallets.get(client.sessionId);
+    if (!wallet) {
+      client.send("vipPassResult", { ok: false, error: "Link a wallet first to buy a VIP pass." });
+      return;
+    }
+    if (!signature) {
+      client.send("vipPassResult", { ok: false, error: "Missing burn signature." });
+      return;
+    }
+
+    const gold = this.playerGold.get(player.name) ?? STARTING_GOLD;
+    if (gold < VIP_PASS_GOLD_COST) {
+      client.send("vipPassResult", { ok: false, error: `A VIP pass costs ${VIP_PASS_GOLD_COST.toLocaleString()} gold.` });
+      return;
+    }
+
+    const result = await verifyTokenBurn(signature, {
+      ownerWallet: wallet,
+      mint: getBlackZoneBurnMint(),
+      minUiAmount: VIP_PASS_BURN_AMOUNT,
+    });
+    if (!result.ok) {
+      client.send("vipPassResult", { ok: false, error: result.error ?? "Burn could not be verified." });
+      return;
+    }
+
+    this.playerGold.set(player.name, gold - VIP_PASS_GOLD_COST);
+    ZoneRoom.vipPassUntil.set(wallet, Date.now() + VIP_PASS_DAYS * 24 * 60 * 60 * 1000);
+    this.sendProfile(client, player);
+    await this.persistPlayer(player);
+    client.send("vipPassResult", { ok: true, days: VIP_PASS_DAYS });
+    this.broadcastChat(
+      this.systemChat("VIP Lodge", `${player.name} bought a ${VIP_PASS_DAYS}-day VIP pass (${VIP_PASS_GOLD_COST.toLocaleString()}g + ${VIP_PASS_BURN_AMOUNT.toLocaleString()} $BASE burned)!`),
     );
   }
 
@@ -4029,6 +4098,11 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         : null,
       skills: normalizeSkills(this.playerSkills.get(player.name)),
       stamina: clampStamina(this.playerStamina.get(player.name) ?? STARTING_STAMINA),
+      vipPassUntil: (() => {
+        const wallet = this.playerWallets.get(player.sessionId);
+        const until = wallet ? ZoneRoom.vipPassUntil.get(wallet) ?? 0 : 0;
+        return until > Date.now() ? until : null;
+      })(),
     });
   }
 

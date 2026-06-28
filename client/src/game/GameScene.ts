@@ -2258,6 +2258,10 @@ export class GameScene extends Phaser.Scene {
     const local = this.findLocalPlayer();
     if (!local) return;
 
+    // A loot bag in reach is grabbed first (also the mobile path, since there's
+    // no F key on touch).
+    if (this.tryLootPickup(local)) return;
+
     // A nearby farm plot takes priority — plant on an empty plot or harvest a
     // ready one. The same key/button (E / ✨) drives plots and NPCs.
     let nearestPlot: RenderedFarmPlot | null = null;

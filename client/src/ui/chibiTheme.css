@@ -206,6 +206,9 @@ body {
 
 .chibi-panel--floating {
   pointer-events: auto;
+  /* Default breathing room so modal content never touches the outline. More
+     specific panels (--side, --chat) override this with their own padding. */
+  padding: 18px;
 }
 
 .chibi-panel--chat {
@@ -1524,10 +1527,11 @@ body {
 
 .chibi-zone-chip {
   position: fixed;
-  top: var(--chibi-rail-top);
+  /* Sit clear of the top HUD/TopBar rather than behind it. */
+  top: calc(var(--chibi-rail-top) + 52px);
   left: 50%;
   transform: translateX(-50%);
-  z-index: 19;
+  z-index: 26;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -1631,6 +1635,21 @@ body {
   gap: 8px;
 }
 
+/* Anchors styled as buttons (e.g. "Open in new tab") shouldn't look like links. */
+a.chibi-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  white-space: nowrap;
+  line-height: 1.1;
+}
+
+.chibi-arcade-actions .chibi-btn {
+  padding: 6px 12px;
+  font-size: 0.82rem;
+}
+
 .chibi-arcade-frame {
   flex: 1;
   width: 100%;
@@ -1652,9 +1671,10 @@ body {
 
 .chibi-pvp-flag {
   position: fixed;
+  /* Top-right, clear of the bottom touch controls on mobile. */
   right: 16px;
-  bottom: 140px;
-  z-index: 30;
+  top: calc(var(--chibi-rail-top) + 104px);
+  z-index: 27;
   padding: 7px 12px;
   border: 2px solid var(--chibi-outline);
   border-radius: var(--chibi-radius-pill, 999px);

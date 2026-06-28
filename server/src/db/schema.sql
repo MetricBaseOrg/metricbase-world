@@ -27,6 +27,8 @@ ALTER TABLE characters ADD COLUMN IF NOT EXISTS mob_gold_claimed JSONB NOT NULL 
 ALTER TABLE characters ADD COLUMN IF NOT EXISTS knocked_out_until BIGINT;
 ALTER TABLE characters ADD COLUMN IF NOT EXISTS skills JSONB NOT NULL DEFAULT '{"woodcutting":0}'::jsonb;
 ALTER TABLE characters ADD COLUMN IF NOT EXISTS stamina INTEGER;
+-- VIP Community Lodge pass expiry (epoch millis). NULL = no pass.
+ALTER TABLE characters ADD COLUMN IF NOT EXISTS vip_pass_until BIGINT;
 
 CREATE TABLE IF NOT EXISTS token_purchases (
   signature VARCHAR(88) PRIMARY KEY,

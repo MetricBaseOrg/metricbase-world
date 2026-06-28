@@ -1,37 +1,37 @@
 import { getCurrency } from "@metricbase/shared";
 import { useEffect, useState } from "react";
 import { playSfx } from "../audio/soundEffects";
-import { networkManager } from "../game/network";
+import { networkManager, type VipLodgeLockedPayload } from "../game/network";
 import { useGameStore } from "../store/gameStore";
 import { burnMetricbaseToken } from "../wallet/tokenBurn";
 
 /**
- * Prompts the player to burn $BASE to unlock the Black Zone. Opens when the
- * server reports the gate is locked; on a verified burn the server grants a
- * one-hour access pass and the player can step through the Black Gate.
+ * Shown when a non-VIP tries to enter the Community Lodge. Offers two ways in:
+ * hold the minimum $BASE, or buy a timed VIP pass (gold + a $BASE burn).
  */
-export function BlackZoneModal() {
+export function VipLodgeModal() {
   const walletAddress = useGameStore((state) => state.walletAddress);
-  const [gate, setGate] = useState<{ mint: string; amount: number; rpcUrl: string } | null>(null);
+  const playerGold = useGameStore((state) => state.playerGold);
+  const [gate, setGate] = useState<VipLodgeLockedPayload | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
 
   useEffect(() => {
-    const offLocked = networkManager.onBlackZoneLocked((payload) => {
+    const offLocked = networkManager.onVipLodgeLocked((payload) => {
       playSfx("ui_open");
       setError(null);
       setDone(false);
       setGate(payload);
     });
-    const offResult = networkManager.onBlackPassResult((payload) => {
+    const offResult = networkManager.onVipPassResult((payload) => {
       setBusy(false);
       if (payload.ok) {
         playSfx("quest_complete");
         setDone(true);
       } else {
         playSfx("shop_fail");
-        setError(payload.error ?? "Burn could not be verified.");
+        setError(payload.error ?? "Could not buy the VIP pass.");
       }
     });
     return () => {
@@ -47,9 +47,15 @@ export function BlackZoneModal() {
     setGate(null);
   };
 
-  const handleBurn = async () => {
+  const enoughGold = playerGold >= gate.passGold;
+
+  const handleBuy = async () => {
     if (!walletAddress) {
       setError("Connect your wallet first to burn $BASE.");
+      return;
+    }
+    if (!enoughGold) {
+      setError(`You need ${gate.passGold.toLocaleString()} gold for the pass.`);
       return;
     }
     setBusy(true);
@@ -58,12 +64,11 @@ export function BlackZoneModal() {
       const signature = await burnMetricbaseToken({
         ownerWallet: walletAddress,
         mint: gate.mint,
-        uiAmount: gate.amount,
+        uiAmount: gate.passBurn,
         decimals: getCurrency("base").decimals,
         rpcUrl: gate.rpcUrl,
       });
-      networkManager.sendBurnForBlackPass(signature);
-      // Server replies via onBlackPassResult; keep busy until then.
+      networkManager.sendBuyVipPass(signature);
     } catch (err) {
       setBusy(false);
       setError(err instanceof Error ? err.message : "Burn failed.");
@@ -71,27 +76,32 @@ export function BlackZoneModal() {
   };
 
   return (
-    <div className="chibi-overlay-scrim" role="dialog" aria-label="Black Zone gate">
+    <div className="chibi-overlay-scrim" role="dialog" aria-label="VIP Lodge">
       <div className="chibi-panel chibi-panel--floating" style={{ maxWidth: 380, textAlign: "center" }}>
-        <div className="chibi-title chibi-title--sm" style={{ color: "#b15cff" }}>
-          ⚫ The Black Gate
+        <div className="chibi-title chibi-title--sm" style={{ color: "var(--chibi-gold-deep)" }}>
+          ✨ {gate.displayName} — VIP only
         </div>
         {done ? (
           <>
             <p style={{ margin: "12px 0", fontSize: "0.9rem" }}>
-              🔥 Burn verified — the Obsidian Reach is open. Step through the Black Gate!
+              🎟️ VIP pass active for {gate.passDays} days — head back through the door to enter!
             </p>
             <button type="button" className="chibi-btn chibi-btn--gold" onClick={close} style={{ width: "100%" }}>
-              Enter
+              Got it
             </button>
           </>
         ) : (
           <>
-            <p style={{ margin: "12px 0", fontSize: "0.88rem" }}>
-              The Obsidian Reach is full-loot territory — fall here and you lose everything you carry.
-              Passage demands a sacrifice: <strong>burn {gate.amount.toLocaleString()} $BASE</strong> to unlock
-              one hour of access.
+            <p style={{ margin: "10px 0", fontSize: "0.86rem" }}>
+              Enter by holding <strong>{gate.minHold.toLocaleString()} $BASE</strong>, or buy a{" "}
+              <strong>{gate.passDays}-day VIP pass</strong>:
             </p>
+            <div className="chibi-card" style={{ fontSize: "0.84rem", marginBottom: 10 }}>
+              💰 {gate.passGold.toLocaleString()} gold &nbsp;+&nbsp; 🔥 burn {gate.passBurn.toLocaleString()} $BASE
+              <div style={{ marginTop: 4, opacity: 0.8 }}>
+                You have {playerGold.toLocaleString()} gold.
+              </div>
+            </div>
             {error && (
               <div className="chibi-card chibi-card--danger" style={{ fontSize: "0.78rem", marginBottom: 10 }}>
                 {error}
@@ -105,16 +115,16 @@ export function BlackZoneModal() {
                 disabled={busy}
                 style={{ flex: 1 }}
               >
-                Not yet
+                Maybe later
               </button>
               <button
                 type="button"
                 className="chibi-btn chibi-btn--gold"
-                onClick={() => void handleBurn()}
-                disabled={busy}
+                onClick={() => void handleBuy()}
+                disabled={busy || !enoughGold}
                 style={{ flex: 1 }}
               >
-                {busy ? "Burning…" : `Burn ${gate.amount.toLocaleString()} $BASE`}
+                {busy ? "Processing…" : "Buy VIP pass"}
               </button>
             </div>
           </>

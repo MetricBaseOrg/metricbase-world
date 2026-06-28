@@ -25,6 +25,7 @@ import { ErrorBoundary } from "./ui/ErrorBoundary";
 import { ArcadeModal } from "./ui/ArcadeModal";
 import { BlackZoneModal } from "./ui/BlackZoneModal";
 import { PvpFlagButton } from "./ui/PvpFlagButton";
+import { VipLodgeModal } from "./ui/VipLodgeModal";
 import { ShopPanel } from "./ui/ShopPanel";
 import { SkillBar } from "./ui/SkillBar";
 import { TouchControls } from "./ui/TouchControls";
@@ -326,6 +327,7 @@ export function App() {
       {joined && <ZoneBanner />}
       {joined && <ArcadeModal />}
       {joined && <BlackZoneModal />}
+      {joined && <VipLodgeModal />}
       {joined && <PvpFlagButton />}
       {joined && <SkillBar />}
       {joined && <EmoteBar />}

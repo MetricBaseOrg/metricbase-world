@@ -72,8 +72,19 @@ type NpcDialogueListener = (npcName: string, dialogue: string) => void;
 type ArcadeListener = (payload: { name: string; url: string }) => void;
 type LootBagsListener = (payload: LootBagsPayload) => void;
 type PvpHitListener = (payload: PvpHitPayload) => void;
-type BlackZoneLockedListener = (payload: { mint: string; amount: number }) => void;
+type BlackZoneLockedListener = (payload: { mint: string; amount: number; rpcUrl: string }) => void;
 type BlackPassResultListener = (payload: { ok: boolean; error?: string }) => void;
+export interface VipLodgeLockedPayload {
+  displayName: string;
+  minHold: number;
+  passDays: number;
+  passGold: number;
+  passBurn: number;
+  mint: string;
+  rpcUrl: string;
+}
+type VipLodgeLockedListener = (payload: VipLodgeLockedPayload) => void;
+type VipPassResultListener = (payload: { ok: boolean; error?: string; days?: number }) => void;
 type QuestStateListener = (state: QuestStatePayload) => void;
 type MobHealthListener = (payload: MobHealthPayload) => void;
 type AttackResultListener = (payload: AttackResultPayload) => void;
@@ -129,6 +140,8 @@ export class NetworkManager {
   private pvpHitListeners = new Set<PvpHitListener>();
   private blackZoneLockedListeners = new Set<BlackZoneLockedListener>();
   private blackPassResultListeners = new Set<BlackPassResultListener>();
+  private vipLodgeLockedListeners = new Set<VipLodgeLockedListener>();
+  private vipPassResultListeners = new Set<VipPassResultListener>();
   private questStateListeners = new Set<QuestStateListener>();
   private mobHealthListeners = new Set<MobHealthListener>();
   private attackResultListeners = new Set<AttackResultListener>();
@@ -344,6 +357,10 @@ export class NetworkManager {
 
   sendBurnForBlackPass(signature: string) {
     this.room?.send("burnForBlackPass", { signature });
+  }
+
+  sendBuyVipPass(signature: string) {
+    this.room?.send("buyVipPass", { signature });
   }
 
   sendToggleLamp(on: boolean) {
@@ -694,6 +711,16 @@ export class NetworkManager {
     return () => this.blackPassResultListeners.delete(listener);
   }
 
+  onVipLodgeLocked(listener: VipLodgeLockedListener) {
+    this.vipLodgeLockedListeners.add(listener);
+    return () => this.vipLodgeLockedListeners.delete(listener);
+  }
+
+  onVipPassResult(listener: VipPassResultListener) {
+    this.vipPassResultListeners.add(listener);
+    return () => this.vipPassResultListeners.delete(listener);
+  }
+
   onNpcPositions(listener: NpcPositionsListener) {
     this.npcPositionsListeners.add(listener);
     return () => this.npcPositionsListeners.delete(listener);
@@ -896,11 +923,17 @@ export class NetworkManager {
     this.room.onMessage("pvpHit", (payload: PvpHitPayload) => {
       for (const listener of this.pvpHitListeners) listener(payload);
     });
-    this.room.onMessage("blackZoneLocked", (payload: { mint: string; amount: number }) => {
+    this.room.onMessage("blackZoneLocked", (payload: { mint: string; amount: number; rpcUrl: string }) => {
       for (const listener of this.blackZoneLockedListeners) listener(payload);
     });
     this.room.onMessage("blackPassResult", (payload: { ok: boolean; error?: string }) => {
       for (const listener of this.blackPassResultListeners) listener(payload);
+    });
+    this.room.onMessage("vipLodgeLocked", (payload: VipLodgeLockedPayload) => {
+      for (const listener of this.vipLodgeLockedListeners) listener(payload);
+    });
+    this.room.onMessage("vipPassResult", (payload: { ok: boolean; error?: string; days?: number }) => {
+      for (const listener of this.vipPassResultListeners) listener(payload);
     });
     this.room.onMessage("questState", (payload: QuestStatePayload) => {
       this.latestQuestState = payload;

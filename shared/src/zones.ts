@@ -13,6 +13,11 @@ export const ZONE_BLACK = "zone_black";
 /** $BASE that must be burned on-chain to unlock Black-zone access. */
 export const BLACK_ZONE_BURN_AMOUNT = 1_000_000;
 
+/** Alternative VIP Lodge access: a timed pass bought with gold + a $BASE burn. */
+export const VIP_PASS_DAYS = 14;
+export const VIP_PASS_GOLD_COST = 10_000;
+export const VIP_PASS_BURN_AMOUNT = 10_000;
+
 export const MAX_PLAYERS_PER_ZONE = 20;
 
 /** $BASE a wallet must hold to enter the VIP Community Lodge. */

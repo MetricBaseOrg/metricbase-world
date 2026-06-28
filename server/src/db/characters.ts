@@ -37,6 +37,8 @@ export interface CharacterRecord {
   knockedOutUntil: number | null;
   skills: SkillXpMap;
   stamina: number;
+  /** VIP Lodge pass expiry (epoch ms), or null when none. */
+  vipPassUntil: number | null;
 }
 
 type CharacterRow = {
@@ -58,6 +60,7 @@ type CharacterRow = {
   knocked_out_until: string | number | null;
   skills: SkillXpMap | null;
   stamina: number | null;
+  vip_pass_until: string | number | null;
 };
 
 export async function loadCharacterByName(name: string): Promise<CharacterRecord | null> {
@@ -65,7 +68,7 @@ export async function loadCharacterByName(name: string): Promise<CharacterRecord
   if (!db) return null;
 
   const result = await db.query<CharacterRow>(
-    `SELECT name, wallet_address, zone_id, x, y, level, xp, gold, quest_progress, appearance, inventory, hp, equipment, npc_interact_at, mob_gold_claimed, knocked_out_until, skills, stamina
+    `SELECT name, wallet_address, zone_id, x, y, level, xp, gold, quest_progress, appearance, inventory, hp, equipment, npc_interact_at, mob_gold_claimed, knocked_out_until, skills, stamina, vip_pass_until
      FROM characters
      WHERE name = $1`,
     [name],
@@ -80,7 +83,7 @@ export async function loadCharacterByWallet(wallet: string): Promise<CharacterRe
   if (!db) return null;
 
   const result = await db.query<CharacterRow>(
-    `SELECT name, wallet_address, zone_id, x, y, level, xp, gold, quest_progress, appearance, inventory, hp, equipment, npc_interact_at, mob_gold_claimed, knocked_out_until, skills, stamina
+    `SELECT name, wallet_address, zone_id, x, y, level, xp, gold, quest_progress, appearance, inventory, hp, equipment, npc_interact_at, mob_gold_claimed, knocked_out_until, skills, stamina, vip_pass_until
      FROM characters
      WHERE wallet_address = $1`,
     [wallet],
@@ -100,8 +103,8 @@ export async function saveCharacter(record: CharacterRecord): Promise<void> {
   if (!db) return;
 
   await db.query(
-    `INSERT INTO characters (name, wallet_address, zone_id, x, y, level, xp, gold, quest_progress, appearance, inventory, hp, equipment, npc_interact_at, mob_gold_claimed, knocked_out_until, skills, stamina, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10::jsonb, $11::jsonb, $12, $13::jsonb, $14::jsonb, $15::jsonb, $16, $17::jsonb, $18, NOW())
+    `INSERT INTO characters (name, wallet_address, zone_id, x, y, level, xp, gold, quest_progress, appearance, inventory, hp, equipment, npc_interact_at, mob_gold_claimed, knocked_out_until, skills, stamina, vip_pass_until, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10::jsonb, $11::jsonb, $12, $13::jsonb, $14::jsonb, $15::jsonb, $16, $17::jsonb, $18, $19, NOW())
      ON CONFLICT (name)
      DO UPDATE SET
        wallet_address = COALESCE(EXCLUDED.wallet_address, characters.wallet_address),
@@ -121,6 +124,7 @@ export async function saveCharacter(record: CharacterRecord): Promise<void> {
        knocked_out_until = EXCLUDED.knocked_out_until,
        skills = EXCLUDED.skills,
        stamina = EXCLUDED.stamina,
+       vip_pass_until = COALESCE(EXCLUDED.vip_pass_until, characters.vip_pass_until),
        updated_at = NOW()`,
     [
       record.name,
@@ -141,6 +145,7 @@ export async function saveCharacter(record: CharacterRecord): Promise<void> {
       record.knockedOutUntil,
       JSON.stringify(record.skills),
       record.stamina,
+      record.vipPassUntil,
     ],
   );
 }
@@ -214,6 +219,7 @@ export async function bindCharacterToWallet(
     stamina: clampStamina(
       existingByWallet?.stamina ?? existingByName?.stamina ?? STARTING_STAMINA,
     ),
+    vipPassUntil: existingByWallet?.vipPassUntil ?? existingByName?.vipPassUntil ?? null,
   };
 
   await saveCharacter(record);
@@ -276,6 +282,7 @@ function mapRow(row: CharacterRow): CharacterRecord {
     knockedOutUntil: normalizeKnockedOutUntil(row.knocked_out_until),
     skills: normalizeSkills(row.skills),
     stamina: row.stamina === null ? STARTING_STAMINA : clampStamina(row.stamina),
+    vipPassUntil: normalizeKnockedOutUntil(row.vip_pass_until),
   };
 }
 
