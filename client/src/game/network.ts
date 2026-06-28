@@ -15,6 +15,9 @@ import {
   type PvpHitPayload,
   type TerritoryStatePayload,
   type SiegeStatePayload,
+  type DuelInvitePayload,
+  type DuelStartPayload,
+  type DuelEndPayload,
   CraftResultPayload,
   FarmStatePayload,
   FarmResultPayload,
@@ -77,6 +80,9 @@ type LootBagsListener = (payload: LootBagsPayload) => void;
 type PvpHitListener = (payload: PvpHitPayload) => void;
 type TerritoryStateListener = (payload: TerritoryStatePayload) => void;
 type SiegeStateListener = (payload: SiegeStatePayload) => void;
+type DuelInviteListener = (payload: DuelInvitePayload) => void;
+type DuelStartListener = (payload: DuelStartPayload) => void;
+type DuelEndListener = (payload: DuelEndPayload) => void;
 type BlackZoneLockedListener = (payload: { mint: string; amount: number; rpcUrl: string }) => void;
 type BlackPassResultListener = (payload: { ok: boolean; error?: string }) => void;
 export interface VipLodgeLockedPayload {
@@ -147,6 +153,9 @@ export class NetworkManager {
   private latestTerritory: TerritoryStatePayload = { points: [] };
   private siegeStateListeners = new Set<SiegeStateListener>();
   private latestSiege: SiegeStatePayload | null = null;
+  private duelInviteListeners = new Set<DuelInviteListener>();
+  private duelStartListeners = new Set<DuelStartListener>();
+  private duelEndListeners = new Set<DuelEndListener>();
   private blackZoneLockedListeners = new Set<BlackZoneLockedListener>();
   private blackPassResultListeners = new Set<BlackPassResultListener>();
   private vipLodgeLockedListeners = new Set<VipLodgeLockedListener>();
@@ -758,6 +767,29 @@ export class NetworkManager {
     this.room?.send("attackCrystal", {});
   }
 
+  sendDuelChallenge(targetName: string) {
+    this.room?.send("duelChallenge", { targetName });
+  }
+
+  sendDuelRespond(fromName: string, accept: boolean) {
+    this.room?.send("duelRespond", { fromName, accept });
+  }
+
+  onDuelInvite(listener: DuelInviteListener) {
+    this.duelInviteListeners.add(listener);
+    return () => this.duelInviteListeners.delete(listener);
+  }
+
+  onDuelStart(listener: DuelStartListener) {
+    this.duelStartListeners.add(listener);
+    return () => this.duelStartListeners.delete(listener);
+  }
+
+  onDuelEnd(listener: DuelEndListener) {
+    this.duelEndListeners.add(listener);
+    return () => this.duelEndListeners.delete(listener);
+  }
+
   onBlackZoneLocked(listener: BlackZoneLockedListener) {
     this.blackZoneLockedListeners.add(listener);
     return () => this.blackZoneLockedListeners.delete(listener);
@@ -987,6 +1019,15 @@ export class NetworkManager {
     this.room.onMessage("siegeState", (payload: SiegeStatePayload) => {
       this.latestSiege = payload;
       for (const listener of this.siegeStateListeners) listener(payload);
+    });
+    this.room.onMessage("duelInvite", (payload: DuelInvitePayload) => {
+      for (const listener of this.duelInviteListeners) listener(payload);
+    });
+    this.room.onMessage("duelStart", (payload: DuelStartPayload) => {
+      for (const listener of this.duelStartListeners) listener(payload);
+    });
+    this.room.onMessage("duelEnd", (payload: DuelEndPayload) => {
+      for (const listener of this.duelEndListeners) listener(payload);
     });
     this.room.onMessage("blackZoneLocked", (payload: { mint: string; amount: number; rpcUrl: string }) => {
       for (const listener of this.blackZoneLockedListeners) listener(payload);

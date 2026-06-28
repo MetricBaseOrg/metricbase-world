@@ -24,6 +24,7 @@ import { QuestPanel } from "./ui/QuestPanel";
 import { ErrorBoundary } from "./ui/ErrorBoundary";
 import { ArcadeModal } from "./ui/ArcadeModal";
 import { BlackZoneModal } from "./ui/BlackZoneModal";
+import { DuelControls } from "./ui/DuelControls";
 import { PvpFlagButton } from "./ui/PvpFlagButton";
 import { VipLodgeModal } from "./ui/VipLodgeModal";
 import { ShopPanel } from "./ui/ShopPanel";
@@ -330,6 +331,7 @@ export function App() {
       {joined && <BlackZoneModal />}
       {joined && <VipLodgeModal />}
       {joined && <PvpFlagButton />}
+      {joined && <DuelControls />}
       {joined && <SiegeBanner />}
       {joined && <SkillBar />}
       {joined && <EmoteBar />}

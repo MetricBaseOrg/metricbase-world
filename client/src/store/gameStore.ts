@@ -38,6 +38,8 @@ interface GameStore {
   playerCount: number;
   zoneName: string;
   zoneId: string;
+  /** Currently left-click-targeted player (for duel challenges), or null. */
+  selectedPlayer: string | null;
   chatMessages: ChatMessagePayload[];
   questState: QuestStatePayload;
   inventory: InventoryStatePayload;
@@ -88,6 +90,7 @@ interface GameStore {
   setPlayerCount: (count: number) => void;
   setZoneName: (zoneName: string) => void;
   setZoneId: (zoneId: string) => void;
+  setSelectedPlayer: (name: string | null) => void;
   addChatMessage: (message: ChatMessagePayload) => void;
   clearChat: () => void;
   setQuestState: (questState: QuestStatePayload) => void;
@@ -136,6 +139,7 @@ export const useGameStore = create<GameStore>((set) => ({
   playerCount: 0,
   zoneName: "MetricBase Hub",
   zoneId: "zone_hub",
+  selectedPlayer: null,
   chatMessages: [],
   questState: { active: [], completed: [] },
   inventory: { items: [], capacity: 16 },
@@ -213,6 +217,7 @@ export const useGameStore = create<GameStore>((set) => ({
   setPlayerCount: (count) => set({ playerCount: count }),
   setZoneName: (zoneName) => set({ zoneName }),
   setZoneId: (zoneId) => set({ zoneId }),
+  setSelectedPlayer: (selectedPlayer) => set({ selectedPlayer }),
   addChatMessage: (message) =>
     set((state) => ({
       chatMessages: [...state.chatMessages, message].slice(-MAX_CHAT_MESSAGES),

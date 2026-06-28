@@ -1752,3 +1752,63 @@ a.chibi-btn {
   color: var(--chibi-ink);
   pointer-events: none;
 }
+
+/* ---- Duels ---- */
+.chibi-duel-challenge {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 128px;
+  z-index: 30;
+  padding: 7px 16px;
+  border: 2px solid #b3322f;
+  border-radius: var(--chibi-radius-pill, 999px);
+  background: linear-gradient(180deg, var(--chibi-danger, #ff6b6b), #d63031);
+  color: #fff7ea;
+  font-family: var(--chibi-font-display);
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.22);
+}
+
+.chibi-duel-banner {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  top: calc(var(--chibi-rail-top) + 134px);
+  z-index: 28;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 5px 16px;
+  border: 2px solid #b3322f;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #ff6b6b, #d63031);
+  color: #fff7ea;
+  font-family: var(--chibi-font-display);
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-align: center;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.25);
+  pointer-events: none;
+}
+
+.chibi-duel-result {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  top: 30%;
+  z-index: 30;
+  padding: 10px 22px;
+  border: 2px solid var(--chibi-outline);
+  border-radius: 14px;
+  background: rgba(20, 14, 10, 0.88);
+  color: #fff7ea;
+  font-family: var(--chibi-font-display);
+  font-size: 1rem;
+  font-weight: 700;
+  pointer-events: none;
+  animation: chibi-zone-banner-in 0.3s ease;
+}

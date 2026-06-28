@@ -104,6 +104,9 @@ import {
   ZONE_BLACK,
   ZONE_JAIL,
   JAIL_DURATION_MS,
+  DUEL_MAX_MS,
+  DUEL_CHALLENGE_TTL_MS,
+  DUEL_CHALLENGE_RANGE,
   STARTING_PVP_RATING,
   PVP_KILL_RATING,
   PVP_DEATH_RATING,
@@ -300,6 +303,12 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   private playerImmuneUntil = new Map<string, number>();
   /** Criminal-flag expiry per player name. */
   private criminalUntil = new Map<string, number>();
+  /** Active duels: each participant -> their opponent (both directions stored). */
+  private activeDuels = new Map<string, string>();
+  /** Duel timeout per participant. */
+  private duelEndsAt = new Map<string, number>();
+  /** Pending duel challenges: target name -> { from, expires }. */
+  private pendingDuels = new Map<string, { from: string; expires: number }>();
   /** PvP season stats per player name (Phase 6). */
   private playerPvpRating = new Map<string, number>();
   private playerPvpKills = new Map<string, number>();
@@ -410,6 +419,13 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
     this.onProtectedMessage("attackCrystal", (client) => {
       this.handleAttackCrystal(client);
+    });
+
+    this.onProtectedMessage("duelChallenge", (client, message: { targetName?: string }) => {
+      this.handleDuelChallenge(client, message.targetName ?? "");
+    });
+    this.onProtectedMessage("duelRespond", (client, message: { fromName?: string; accept?: boolean }) => {
+      this.handleDuelRespond(client, message.fromName ?? "", Boolean(message.accept));
     });
 
     this.onProtectedMessage("togglePvpFlag", (client, message: { on?: boolean }) => {
@@ -920,6 +936,10 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         this.playerPvpKills.delete(player.name);
         this.playerPvpSeason.delete(player.name);
       }
+      // Leaving (or changing zone) mid-duel forfeits — the opponent wins.
+      const duelOpponent = this.activeDuels.get(player.name);
+      if (duelOpponent) this.endDuel(player.name, duelOpponent, duelOpponent);
+      this.pendingDuels.delete(player.name);
       this.playerWallets.delete(client.sessionId);
     }
 
@@ -981,6 +1001,17 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
           const player = session ? this.state.players.get(session) : undefined;
           if (player) player.criminal = false;
         }
+      }
+
+      // Duels: time out to a draw, and drop stale challenge invites.
+      for (const [name, endsAt] of [...this.duelEndsAt]) {
+        if (now >= endsAt) {
+          const opp = this.activeDuels.get(name);
+          if (opp) this.endDuel(name, opp, "");
+        }
+      }
+      for (const [to, pend] of [...this.pendingDuels]) {
+        if (pend.expires < now) this.pendingDuels.delete(to);
       }
 
       // Safety net: rescue any player stranded on a blocked tile (e.g. stale
@@ -1699,6 +1730,17 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     if (!attacker || !targetName || targetName === attacker.name) return;
     if (this.isKnockedOut(attacker.name)) return;
 
+    // Duel: if these two are dueling, route to the duel path — it bypasses all
+    // zone/flag/war rules (consensual, works even in safe towns).
+    if (this.areDueling(attacker.name, targetName)) {
+      const dSession = this.activePlayerSession.get(targetName);
+      const dVictim = dSession ? this.state.players.get(dSession) : undefined;
+      if (dVictim) {
+        this.duelStrike(client, attacker, dVictim);
+        return;
+      }
+    }
+
     const tier: DangerTier = getZoneDangerTier(this.zoneConfig.id);
     if (tier === "safe") {
       client.send("chat", this.systemChat("PvP", "This is a Safe zone — no PvP here."));
@@ -1767,6 +1809,143 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       knockedOut,
     });
     this.sendProfile(client, attacker);
+  }
+
+  // ---- Duels (consensual 1v1, no loot/crime/penalty) ----
+
+  private areDueling(a: string, b: string): boolean {
+    return this.activeDuels.get(a) === b;
+  }
+
+  private handleDuelChallenge(client: Client, targetName: string) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !targetName || targetName === player.name) return;
+    if (player.spectator || this.isKnockedOut(player.name) || this.activeDuels.has(player.name)) return;
+
+    const targetSession = this.activePlayerSession.get(targetName);
+    const target = targetSession ? this.state.players.get(targetSession) : undefined;
+    if (!target || target.spectator || this.isKnockedOut(target.name) || this.activeDuels.has(target.name)) {
+      client.send("chat", this.systemChat("Duel", "They're not available to duel right now."));
+      return;
+    }
+    if (Math.hypot(player.x - target.x, player.y - target.y) > DUEL_CHALLENGE_RANGE) {
+      client.send("chat", this.systemChat("Duel", "Get closer to challenge them."));
+      return;
+    }
+
+    this.pendingDuels.set(target.name, { from: player.name, expires: Date.now() + DUEL_CHALLENGE_TTL_MS });
+    sendToPlayer(target.name, "duelInvite", { fromName: player.name });
+    client.send("chat", this.systemChat("Duel", `Challenge sent to ${target.name}.`));
+  }
+
+  private handleDuelRespond(client: Client, fromName: string, accept: boolean) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const pending = this.pendingDuels.get(player.name);
+    if (!pending || pending.from !== fromName || pending.expires < Date.now()) return;
+    this.pendingDuels.delete(player.name);
+
+    if (!accept) {
+      sendToPlayer(fromName, "chat", this.systemChat("Duel", `${player.name} declined your duel.`));
+      return;
+    }
+
+    const challengerSession = this.activePlayerSession.get(fromName);
+    const challenger = challengerSession ? this.state.players.get(challengerSession) : undefined;
+    if (!challenger || this.activeDuels.has(fromName) || this.activeDuels.has(player.name)) {
+      client.send("chat", this.systemChat("Duel", "The duel could not start."));
+      return;
+    }
+
+    const endsAt = Date.now() + DUEL_MAX_MS;
+    this.activeDuels.set(fromName, player.name);
+    this.activeDuels.set(player.name, fromName);
+    this.duelEndsAt.set(fromName, endsAt);
+    this.duelEndsAt.set(player.name, endsAt);
+    // Both start fresh.
+    for (const p of [challenger, player]) {
+      this.playerHp.set(p.name, getPlayerMaxHp(p.level));
+      this.sendProfile(this.clientForName(p.name) ?? client, p);
+    }
+    sendToPlayer(fromName, "duelStart", { opponent: player.name, endsAt });
+    sendToPlayer(player.name, "duelStart", { opponent: fromName, endsAt });
+    this.broadcastChat(this.systemChat("Duel", `⚔️ ${fromName} vs ${player.name} — duel on!`));
+  }
+
+  /** Resolve a single duel strike; ends the duel when the loser is downed. */
+  private duelStrike(
+    client: Client,
+    attacker: InstanceType<typeof PlayerSchema>,
+    victim: InstanceType<typeof PlayerSchema>,
+  ) {
+    const now = Date.now();
+    if (now - (this.attackCooldowns.get(client.sessionId) ?? 0) < ATTACK_COOLDOWN_MS) return;
+    if (Math.hypot(attacker.x - victim.x, attacker.y - victim.y) > ATTACK_RANGE) return;
+    if (!this.spendStamina(client, attacker.name, STAMINA_COST_ATTACK)) {
+      this.attackCooldowns.set(client.sessionId, now);
+      this.notifyTooHungry(client, attacker.name, "duel");
+      this.sendProfile(client, attacker);
+      return;
+    }
+    this.attackCooldowns.set(client.sessionId, now);
+
+    const aStats = getEquipmentStats(normalizeEquipment(this.playerEquipment.get(attacker.name)));
+    const vStats = getEquipmentStats(normalizeEquipment(this.playerEquipment.get(victim.name)));
+    const hit = rollHit({
+      attack: aStats.attack,
+      critChance: aStats.critChance,
+      critMult: aStats.critMult,
+      targetArmor: vStats.armor,
+    });
+    const vHp = Math.max(0, (this.playerHp.get(victim.name) ?? getPlayerMaxHp(victim.level)) - hit.damage);
+    this.playerHp.set(victim.name, vHp);
+
+    const down = vHp <= 0;
+    this.broadcast("pvpHit", {
+      attackerName: attacker.name,
+      victimName: victim.name,
+      damage: hit.damage,
+      crit: hit.crit,
+      knockedOut: down,
+    });
+    const victimClient = this.clientForName(victim.name);
+    if (victimClient) {
+      victimClient.send("playerDamage", {
+        amount: hit.damage,
+        currentHp: down ? getPlayerMaxHp(victim.level) : vHp,
+        maxHp: getPlayerMaxHp(victim.level),
+        knockedOut: false,
+        freeRespawnAt: null,
+      });
+    }
+
+    if (down) this.endDuel(attacker.name, victim.name, attacker.name);
+    else this.sendProfile(client, attacker);
+  }
+
+  /** End a duel: restore both fighters and announce the result. winner "" = draw. */
+  private endDuel(a: string, b: string, winner: string) {
+    for (const name of [a, b]) {
+      this.activeDuels.delete(name);
+      this.duelEndsAt.delete(name);
+      const session = this.activePlayerSession.get(name);
+      const player = session ? this.state.players.get(session) : undefined;
+      if (player) {
+        this.playerHp.set(name, getPlayerMaxHp(player.level));
+        const c = this.clientForName(name);
+        if (c) {
+          this.sendProfile(c, player);
+          c.send("duelEnd", {
+            winner,
+            opponent: name === a ? b : a,
+            result: winner === "" ? "draw" : winner === name ? "win" : "loss",
+          });
+        }
+      }
+    }
+    this.broadcastChat(
+      this.systemChat("Duel", winner ? `🏅 ${winner} won the duel!` : `🤝 ${a} vs ${b} ended in a draw.`),
+    );
   }
 
   /** Apply PvP damage to a victim; on knockout drop loot, pay bounty, flag crime. Returns knockout. */

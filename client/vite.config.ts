@@ -17,28 +17,16 @@ export default defineConfig({
   build: {
     outDir: "dist",
     emptyOutDir: true,
-    // Phaser is a ~1.5 MB engine isolated in its own cacheable chunk; that's
-    // expected, so keep the advisory limit above it.
+    // Only isolate Phaser (a ~1.5 MB self-contained engine) into its own
+    // cacheable chunk. It's a leaf dependency so there's no init-order cycle —
+    // splitting React/Solana out previously caused a circular chunk that broke
+    // module evaluation and left a blank page, so we deliberately don't.
     chunkSizeWarningLimit: 1600,
     rollupOptions: {
       output: {
-        // Split heavy vendors into their own cacheable chunks so the initial
-        // load parallelises and returning players get long-lived cache hits.
         manualChunks(id) {
-          if (!id.includes("node_modules")) return undefined;
-          if (id.includes("phaser")) return "phaser";
-          if (
-            id.includes("@solana") ||
-            id.includes("@wallet-standard") ||
-            id.includes("bs58") ||
-            id.includes("buffer")
-          ) {
-            return "solana";
-          }
-          if (id.includes("react") || id.includes("zustand") || id.includes("scheduler")) {
-            return "react";
-          }
-          return "vendor";
+          if (id.includes("node_modules") && id.includes("phaser")) return "phaser";
+          return undefined;
         },
       },
     },

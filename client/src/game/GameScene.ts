@@ -295,6 +295,7 @@ export class GameScene extends Phaser.Scene {
         const hitHostile = this.selectNpcAtPointer(pointer);
         if (hitHostile) {
           this.selectedPlayerName = null;
+          useGameStore.getState().setSelectedPlayer(null);
         } else if (this.selectPlayerAtPointer(pointer)) {
           // Targeted a player for PvP.
         } else if (this.tryClickCrystal(pointer)) {
@@ -386,6 +387,7 @@ export class GameScene extends Phaser.Scene {
       this.localChoppingUntil = 0;
       this.selectedNpcId = null;
       this.selectedPlayerName = null;
+      useGameStore.getState().setSelectedPlayer(null);
       this.targetReticle?.setVisible(false);
       this.clearMoveTarget();
       this.clearLootBags();
@@ -2463,6 +2465,7 @@ export class GameScene extends Phaser.Scene {
     if (picked) {
       this.selectedPlayerName = picked.name;
       this.selectedNpcId = null;
+      useGameStore.getState().setSelectedPlayer(picked.name);
       playSfx("hover");
       return true;
     }
@@ -2746,6 +2749,7 @@ export class GameScene extends Phaser.Scene {
       const target = [...this.renderedPlayers.values()].find((p) => p.name === this.selectedPlayerName);
       if (!target) {
         this.selectedPlayerName = null;
+        useGameStore.getState().setSelectedPlayer(null);
       } else {
         tx = target.sprite.x;
         ty = target.sprite.y;
