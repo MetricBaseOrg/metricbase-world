@@ -42,6 +42,16 @@ export interface MarketOrderView {
   payFromWallet?: string;
 }
 
+export interface MarketTradeView {
+  /** Trade time (ms since epoch). */
+  time: number;
+  goldAmount: number;
+  tokenAmount: number;
+  currency: string;
+  /** Tokens per 1 gold for this trade. */
+  price: number;
+}
+
 export interface MarketStatePayload {
   enabled: boolean;
   mint: string;
@@ -53,6 +63,8 @@ export interface MarketStatePayload {
   chart: MarketChartPayload;
   /** Currency the chart's prices are denominated in (the trades it aggregates). */
   chartCurrency: string;
+  /** Most recent trades across all currencies, newest first. */
+  recentTrades: MarketTradeView[];
   minGold: number;
   maxGold: number;
 }
@@ -93,6 +105,7 @@ export function buildEmptyMarketState(
     myOrders: [],
     chart: buildEmptyMarketChart(),
     chartCurrency: DEFAULT_CURRENCY_ID,
+    recentTrades: [],
     minGold: MIN_MARKET_GOLD,
     maxGold: MAX_MARKET_GOLD,
   };
@@ -114,6 +127,7 @@ export function normalizeMarketState(
     myOrders: market.myOrders ?? [],
     chart: normalizeMarketChart(market.chart),
     chartCurrency: market.chartCurrency ?? base.chartCurrency,
+    recentTrades: market.recentTrades ?? [],
     mint: market.mint ?? base.mint,
     rpcUrl: market.rpcUrl ?? base.rpcUrl,
     decimals: market.decimals ?? base.decimals,

@@ -24,6 +24,7 @@ import {
   getMarketOrder,
   isTradeSignatureUsed,
   listMarketOrdersForWallet,
+  listLatestMarketTrades,
   listOpenMarketOrders,
   listRecentMarketTrades,
   recordMarketTrade,
@@ -100,7 +101,16 @@ export async function buildMarketState(
   const chartBids = bids.filter((order) => order.currency === currency);
   const chart = buildMarketChartPayload({ trades, asks: chartAsks, bids: chartBids });
 
-  return { ...base, asks, bids, myOrders, chart, chartCurrency: currency };
+  // Latest fills across all currencies — a ticker shown under the chart.
+  const recentTrades = (await listLatestMarketTrades(10)).map((trade) => ({
+    time: trade.createdAt,
+    goldAmount: trade.goldAmount,
+    tokenAmount: trade.tokenAmount,
+    currency: trade.currency,
+    price: tradePricePerGold(trade.tokenAmount, trade.goldAmount),
+  }));
+
+  return { ...base, asks, bids, myOrders, chart, chartCurrency: currency, recentTrades };
 }
 
 export async function placeMarketOrder(input: {

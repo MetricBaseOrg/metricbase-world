@@ -227,6 +227,39 @@ export interface MarketTradeRecord {
   createdAt: number;
 }
 
+export interface MarketTradeDetail {
+  goldAmount: number;
+  tokenAmount: number;
+  currency: string;
+  createdAt: number;
+}
+
+/** The most recent trades across all currencies, newest first (for the ticker). */
+export async function listLatestMarketTrades(limit = 10): Promise<MarketTradeDetail[]> {
+  const db = getPool();
+  if (!db) return [];
+
+  const result = await db.query<{
+    gold_amount: number;
+    token_amount: number;
+    currency: string;
+    created_at: Date;
+  }>(
+    `SELECT gold_amount, token_amount, currency, created_at
+     FROM market_trades
+     ORDER BY created_at DESC
+     LIMIT $1`,
+    [limit],
+  );
+
+  return result.rows.map((row) => ({
+    goldAmount: row.gold_amount,
+    tokenAmount: row.token_amount,
+    currency: row.currency,
+    createdAt: row.created_at.getTime(),
+  }));
+}
+
 export async function listRecentMarketTrades(
   sinceMs: number,
   currency = "base",

@@ -56,6 +56,17 @@ function orderRowStyle(): React.CSSProperties {
   };
 }
 
+/** Compact relative time for the recent-trades ticker (e.g. "3m", "2h", "5d"). */
+function formatTradeTime(time: number): string {
+  const diff = Math.max(0, Date.now() - time);
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}
+
 async function waitForMarketResult() {
   return new Promise<MarketResultPayload>((resolve) => {
     const timeout = window.setTimeout(() => resolve({ ok: false, error: "Market request timed out." }), 30000);
@@ -427,6 +438,30 @@ export function ShopPanel() {
 
           {market?.enabled && (
             <GoldMarketChart chart={market.chart} currencyLabel={getCurrency(market.chartCurrency ?? currency).label} />
+          )}
+
+          {market?.enabled && market.recentTrades.length > 0 && (
+            <div className="chibi-card" style={{ marginTop: 12, background: "#fff" }}>
+              <div className="chibi-label" style={{ textTransform: "none", letterSpacing: 0, marginBottom: 6 }}>
+                Recent transactions
+              </div>
+              <div style={{ display: "grid", gap: 4 }}>
+                {market.recentTrades.map((trade, i) => (
+                  <div
+                    key={`${trade.time}-${i}`}
+                    style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8, fontSize: "0.76rem", borderTop: i === 0 ? "none" : "1px solid rgba(74,55,40,0.1)", paddingTop: i === 0 ? 0 : 4 }}
+                  >
+                    <span style={{ fontWeight: 700 }}>🪙 {trade.goldAmount}</span>
+                    <span style={{ color: "var(--chibi-gold-deep)", fontWeight: 700 }}>
+                      {trade.tokenAmount} {getCurrency(trade.currency).label}
+                    </span>
+                    <span className="chibi-text-muted" style={{ flex: 1, textAlign: "right" }}>
+                      {formatTradeTime(trade.time)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
 
           {!market?.enabled ? (
