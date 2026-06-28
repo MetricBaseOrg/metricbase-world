@@ -65,10 +65,14 @@ export function isMarketEnabled(): boolean {
   return isTokenGateEnabled() && Boolean(getPool());
 }
 
-export async function buildMarketState(wallet: string | null): Promise<MarketStatePayload> {
+export async function buildMarketState(
+  wallet: string | null,
+  chartCurrency: string = DEFAULT_CURRENCY_ID,
+): Promise<MarketStatePayload> {
+  const currency = isKnownCurrency(chartCurrency) ? chartCurrency : DEFAULT_CURRENCY_ID;
   const enabled = isMarketEnabled();
   const base = buildEmptyMarketState(getRpcUrl(), enabled);
-  if (!enabled) return base;
+  if (!enabled) return { ...base, chartCurrency: currency };
 
   const orders = await listOpenMarketOrders();
   // Group by currency, then price (best first). Prices across currencies aren't
@@ -85,14 +89,18 @@ export async function buildMarketState(wallet: string | null): Promise<MarketSta
   const myOrders = wallet ? (await listMarketOrdersForWallet(wallet)).map(toMarketOrderView) : [];
 
   const sinceMs = Date.now() - MARKET_CHART_CANDLE_COUNT * MARKET_CHART_INTERVAL_MS;
-  const trades = (await listRecentMarketTrades(sinceMs)).map((trade) => ({
+  const trades = (await listRecentMarketTrades(sinceMs, currency)).map((trade) => ({
     time: trade.createdAt,
     price: tradePricePerGold(trade.tokenAmount, trade.goldAmount),
     goldVolume: trade.goldAmount,
   }));
-  const chart = buildMarketChartPayload({ trades, asks, bids });
+  // The chart is single-currency (prices across currencies aren't comparable),
+  // so the order-book mid fallback only uses this currency's open orders.
+  const chartAsks = asks.filter((order) => order.currency === currency);
+  const chartBids = bids.filter((order) => order.currency === currency);
+  const chart = buildMarketChartPayload({ trades, asks: chartAsks, bids: chartBids });
 
-  return { ...base, asks, bids, myOrders, chart };
+  return { ...base, asks, bids, myOrders, chart, chartCurrency: currency };
 }
 
 export async function placeMarketOrder(input: {
@@ -152,7 +160,7 @@ export async function placeMarketOrder(input: {
     return { result: { ok: false, error: "Could not create market order." }, playerGold: input.playerGold };
   }
 
-  const market = await buildMarketState(input.wallet);
+  const market = await buildMarketState(input.wallet, currency);
   return {
     result: { ok: true, gold: playerGold, market },
     playerGold,
@@ -176,7 +184,7 @@ export async function cancelPlayerMarketOrder(input: {
   }
 
   const playerGold = input.playerGold + escrowRefund;
-  const market = await buildMarketState(input.wallet);
+  const market = await buildMarketState(input.wallet, order.currency);
   return { result: { ok: true, gold: playerGold, market }, playerGold };
 }
 
@@ -233,7 +241,7 @@ export async function fillAskOrder(input: {
 
   const received = goldAfterMarketFee(order.goldAmount);
   const buyerGold = input.buyerGold + received;
-  const market = await buildMarketState(input.buyerWallet);
+  const market = await buildMarketState(input.buyerWallet, order.currency);
   return {
     result: { ok: true, gold: buyerGold, fee: marketFee(order.goldAmount), market },
     buyerGold,
@@ -265,7 +273,7 @@ export async function acceptBidOrder(input: {
   }
 
   const sellerGold = input.sellerGold - order.goldAmount;
-  const market = await buildMarketState(input.sellerWallet);
+  const market = await buildMarketState(input.sellerWallet, order.currency);
 
   return {
     result: {
@@ -337,7 +345,7 @@ export async function completeBidPayment(input: {
 
   const received = goldAfterMarketFee(order.goldAmount);
   const buyerGold = input.buyerGold + received;
-  const market = await buildMarketState(input.buyerWallet);
+  const market = await buildMarketState(input.buyerWallet, order.currency);
 
   return {
     result: { ok: true, gold: buyerGold, fee: marketFee(order.goldAmount), market },

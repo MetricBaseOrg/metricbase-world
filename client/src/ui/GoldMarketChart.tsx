@@ -6,6 +6,8 @@ import {
 
 interface GoldMarketChartProps {
   chart?: MarketChartPayload;
+  /** Currency the chart is priced in (e.g. "$BASE", "USDC"). */
+  currencyLabel?: string;
 }
 
 const VIEW_WIDTH = 480;
@@ -29,7 +31,7 @@ function chartPanelStyle(): React.CSSProperties {
   return { marginTop: 16 };
 }
 
-export function GoldMarketChart({ chart }: GoldMarketChartProps) {
+export function GoldMarketChart({ chart, currencyLabel = "tokens" }: GoldMarketChartProps) {
   const payload = normalizeMarketChart(chart);
 
   if (!payload.hasTrades) {
@@ -45,13 +47,13 @@ export function GoldMarketChart({ chart }: GoldMarketChartProps) {
             textAlign: "center",
           }}
         >
-          <div style={{ fontSize: "0.9rem", fontWeight: 800, color: "var(--chibi-ink)" }}>No trades yet</div>
+          <div style={{ fontSize: "0.9rem", fontWeight: 800, color: "var(--chibi-ink)" }}>No {currencyLabel} trades yet</div>
           <div className="chibi-text-muted" style={{ marginTop: 6, lineHeight: 1.45 }}>
-            Candlesticks appear after the first gold market trade fills on-chain.
+            Candlesticks appear after the first {currencyLabel} gold-market trade fills on-chain. Switch the currency above to see other markets.
           </div>
           {payload.indicativePrice !== null && (
             <div style={{ fontSize: "0.82rem", marginTop: 10, color: "var(--chibi-gold-deep)", fontWeight: 800 }}>
-              Order book mid: {formatPrice(payload.indicativePrice)} tokens/gold
+              Order book mid: {formatPrice(payload.indicativePrice)} {currencyLabel}/gold
             </div>
           )}
         </div>
@@ -111,7 +113,7 @@ export function GoldMarketChart({ chart }: GoldMarketChartProps) {
         <div>
           <div className="chibi-title chibi-title--sm">Gold / Token Price</div>
           <div className="chibi-text-muted" style={{ marginTop: 4 }}>
-            Tokens per 1 gold · {payload.intervalLabel} candles
+            {currencyLabel} per 1 gold · {payload.intervalLabel} candles
           </div>
         </div>
         <div style={{ textAlign: "right" }}>

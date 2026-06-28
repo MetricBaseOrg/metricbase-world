@@ -101,6 +101,16 @@ export function ShopPanel() {
     }
   };
 
+  // Re-fetch the order book + chart for a given currency. The price chart is
+  // single-currency, so switching the currency picker must refresh it (otherwise
+  // it keeps showing "No trades yet" for whatever currency loaded first).
+  const refreshMarket = (chartCurrency: string) => {
+    networkManager.sendMarketRefresh(chartCurrency);
+    void waitForMarketResult().then((result) => {
+      if (result.ok) applyMarketResult(result);
+    });
+  };
+
   const handleClose = () => {
     playSfx("ui_close");
     setShopOpen(false);
@@ -367,7 +377,7 @@ export function ShopPanel() {
 
       <div className="chibi-tabs">
         <button type="button" className={`chibi-btn chibi-btn--tab${tab === "gold" ? " active" : ""}`} onClick={() => { playSfx("ui_click"); setTab("gold"); }}>🪙 Gold Shop</button>
-        <button type="button" className={`chibi-btn chibi-btn--tab${tab === "market" ? " active" : ""}`} onClick={() => { playSfx("ui_click"); setTab("market"); }}>📈 Gold Market</button>
+        <button type="button" className={`chibi-btn chibi-btn--tab${tab === "market" ? " active" : ""}`} onClick={() => { playSfx("ui_click"); setTab("market"); refreshMarket(currency); }}>📈 Gold Market</button>
       </div>
 
       {tab === "gold" ? (
@@ -415,7 +425,9 @@ export function ShopPanel() {
             <WalletConnectBar />
           </div>
 
-          {market?.enabled && <GoldMarketChart chart={market.chart} />}
+          {market?.enabled && (
+            <GoldMarketChart chart={market.chart} currencyLabel={getCurrency(market.chartCurrency ?? currency).label} />
+          )}
 
           {!market?.enabled ? (
             <div style={{ marginTop: 16, fontSize: 13, opacity: 0.7 }}>Gold market requires wallet login and database persistence.</div>
@@ -431,7 +443,7 @@ export function ShopPanel() {
                       key={cur.id}
                       type="button"
                       className={`chibi-btn ${currency === cur.id ? "chibi-btn--primary" : "chibi-btn--secondary"}`}
-                      onClick={() => { playSfx("ui_click"); setCurrency(cur.id); }}
+                      onClick={() => { playSfx("ui_click"); setCurrency(cur.id); refreshMarket(cur.id); }}
                       style={{ padding: "6px 12px", fontSize: "0.76rem" }}
                     >
                       {cur.label}

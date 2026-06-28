@@ -227,7 +227,10 @@ export interface MarketTradeRecord {
   createdAt: number;
 }
 
-export async function listRecentMarketTrades(sinceMs: number): Promise<MarketTradeRecord[]> {
+export async function listRecentMarketTrades(
+  sinceMs: number,
+  currency = "base",
+): Promise<MarketTradeRecord[]> {
   const db = getPool();
   if (!db) return [];
 
@@ -238,9 +241,9 @@ export async function listRecentMarketTrades(sinceMs: number): Promise<MarketTra
   }>(
     `SELECT gold_amount, token_amount, created_at
      FROM market_trades
-     WHERE created_at >= $1 AND currency = 'base'
+     WHERE created_at >= $1 AND currency = $2
      ORDER BY created_at ASC`,
-    [new Date(sinceMs)],
+    [new Date(sinceMs), currency],
   );
 
   return result.rows.map((row) => ({

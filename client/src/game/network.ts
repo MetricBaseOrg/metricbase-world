@@ -339,8 +339,8 @@ export class NetworkManager {
     this.room?.send("marketPayBid", { orderId, signature });
   }
 
-  sendMarketRefresh() {
-    this.room?.send("marketRefresh", {});
+  sendMarketRefresh(currency?: string) {
+    this.room?.send("marketRefresh", currency ? { currency } : {});
   }
 
   sendUseItem(itemId: string) {

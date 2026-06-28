@@ -347,8 +347,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       void this.handleMarketPayBid(client, message.orderId ?? "", message.signature ?? "");
     });
 
-    this.onMessage("marketRefresh", (client) => {
-      void this.handleMarketRefresh(client);
+    this.onMessage("marketRefresh", (client, message: { currency?: string }) => {
+      void this.handleMarketRefresh(client, message?.currency);
     });
 
     this.onProtectedMessage("linkWallet", (client, message: { accessToken?: string }) => {
@@ -1628,12 +1628,12 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     return this.playerWallets.get(client.sessionId);
   }
 
-  private async handleMarketRefresh(client: Client) {
+  private async handleMarketRefresh(client: Client, chartCurrency?: string) {
     const player = this.state.players.get(client.sessionId);
     if (!player) return;
 
     const wallet = this.getClientWallet(client) ?? null;
-    client.send("marketResult", { ok: true, market: await buildMarketState(wallet) });
+    client.send("marketResult", { ok: true, market: await buildMarketState(wallet, chartCurrency) });
   }
 
   private async handleMarketPlace(

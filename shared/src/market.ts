@@ -1,5 +1,6 @@
 import type { MarketChartPayload } from "./marketChart.js";
 import { buildEmptyMarketChart, normalizeMarketChart } from "./marketChart.js";
+import { DEFAULT_CURRENCY_ID } from "./currencies.js";
 import { METRICBASE_TOKEN_MINT } from "./tokenGate.js";
 import { TOKEN_DECIMALS } from "./tokenShop.js";
 
@@ -50,6 +51,8 @@ export interface MarketStatePayload {
   bids: MarketOrderView[];
   myOrders: MarketOrderView[];
   chart: MarketChartPayload;
+  /** Currency the chart's prices are denominated in (the trades it aggregates). */
+  chartCurrency: string;
   minGold: number;
   maxGold: number;
 }
@@ -89,6 +92,7 @@ export function buildEmptyMarketState(
     bids: [],
     myOrders: [],
     chart: buildEmptyMarketChart(),
+    chartCurrency: DEFAULT_CURRENCY_ID,
     minGold: MIN_MARKET_GOLD,
     maxGold: MAX_MARKET_GOLD,
   };
@@ -109,6 +113,7 @@ export function normalizeMarketState(
     bids: market.bids ?? [],
     myOrders: market.myOrders ?? [],
     chart: normalizeMarketChart(market.chart),
+    chartCurrency: market.chartCurrency ?? base.chartCurrency,
     mint: market.mint ?? base.mint,
     rpcUrl: market.rpcUrl ?? base.rpcUrl,
     decimals: market.decimals ?? base.decimals,

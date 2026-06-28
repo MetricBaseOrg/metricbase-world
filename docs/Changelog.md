@@ -9,6 +9,10 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **Gold market chart said "No trades yet" when trades existed** — The price chart only ever aggregated `base`-currency trades, so trades settled in IDRX / USDC / SOL never showed up. The chart is now **currency-aware**: it follows the selected currency in the picker (and refreshes when you switch), shows prices in that currency's units (e.g. "IDRX per 1 gold"), and the empty state names the currency ("No USDC trades yet — switch the currency above to see other markets"). Threaded a `chartCurrency` through `buildMarketState` → `listRecentMarketTrades` and the `marketRefresh` message.
+
 ### Changed
 
 - **Mobs hit much harder** — Counter-attack damage from the **Training Dummy** (8 → 48), **Wild Slime** (5 → 30), and **Slime Brute** (12 → 72) is increased by 500% (×6). Combat is now far riskier — keep food/potions handy and don't trade blows carelessly.
