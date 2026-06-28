@@ -49,6 +49,8 @@ function ColorSwatches({
   selected: number;
   onSelect: (color: number) => void;
 }) {
+  const customActive = !colors.includes(selected);
+  const customHex = `#${selected.toString(16).padStart(6, "0")}`;
   return (
     <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
       {colors.map((color) => {
@@ -64,6 +66,20 @@ function ColorSwatches({
           />
         );
       })}
+      {/* Free-form dye picker — any colour outside the presets. */}
+      <label
+        className={`chibi-swatch chibi-swatch--custom${customActive ? " active" : ""}`}
+        title="Custom dye"
+        style={customActive ? { background: customHex } : undefined}
+      >
+        {!customActive && <span aria-hidden="true">🎨</span>}
+        <input
+          type="color"
+          value={customHex}
+          onChange={(event) => onSelect(parseInt(event.target.value.slice(1), 16))}
+          aria-label="Custom dye color"
+        />
+      </label>
     </div>
   );
 }

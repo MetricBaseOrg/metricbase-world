@@ -210,6 +210,11 @@ export class GameScene extends Phaser.Scene {
   private billboardOnlineText: Phaser.GameObjects.Text | null = null;
   private interactKey: Phaser.Input.Keyboard.Key | null = null;
   private attackKey: Phaser.Input.Keyboard.Key | null = null;
+  /** Right-click attack queued from the pointer; consumed by tryAttack(). */
+  private pointerAttackQueued = false;
+  /** Left-click selected hostile NPC id; drives the target reticle + attack priority. */
+  private selectedNpcId: string | null = null;
+  private targetReticle: Phaser.GameObjects.Graphics | null = null;
   private chopKey: Phaser.Input.Keyboard.Key | null = null;
   private fishKey: Phaser.Input.Keyboard.Key | null = null;
   private lastSentInput = { dx: 0, dy: 0 };
@@ -247,6 +252,23 @@ export class GameScene extends Phaser.Scene {
     this.input.on("wheel", (_p: unknown, _o: unknown, _dx: number, dy: number) => {
       this.adjustZoom(dy < 0 ? 0.15 : -0.15);
     });
+
+    // Mouse combat: left-click selects the hostile under the cursor (target
+    // reticle), right-click attacks. WASD movement is unchanged. Suppress the
+    // browser context menu so right-click reads as an attack.
+    this.input.mouse?.disableContextMenu();
+    this.input.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
+      if (pointer.rightButtonDown()) {
+        this.pointerAttackQueued = true;
+        return;
+      }
+      if (pointer.leftButtonDown()) {
+        this.selectNpcAtPointer(pointer);
+      }
+    });
+
+    // Targeting reticle drawn over the currently selected / engaged hostile.
+    this.targetReticle = this.add.graphics().setDepth(120).setVisible(false);
 
     // Day/night lighting tint. A rectangle pinned over the visible world each
     // frame (origin top-left); colour + opacity come from the shared clock.
@@ -322,6 +344,8 @@ export class GameScene extends Phaser.Scene {
       networkManager.sendInput(0, 0);
       this.localSessionId = null;
       this.localChoppingUntil = 0;
+      this.selectedNpcId = null;
+      this.targetReticle?.setVisible(false);
       this.stopLocalChopHits();
       this.destroyLocalAvatar();
       this.renderedPlayers.forEach((entry) => {
@@ -352,11 +376,15 @@ export class GameScene extends Phaser.Scene {
     });
 
     const unsubscribeAttackResult = networkManager.onAttackResult((payload) => {
-      this.showMobDamageNumber(payload.npcId, payload.damage);
+      this.showMobDamageNumber(payload.npcId, payload.damage, payload.crit ?? false);
+      const localAttacker = payload.attackerName === useGameStore.getState().playerName;
       if (payload.defeated) {
         playSfx("attack_defeat");
+        // Satisfying punch on a kill landed by the local player.
+        if (localAttacker) this.cameras.main.shake(140, 0.005);
       } else {
         playSfx("attack_hit");
+        if (localAttacker && payload.crit) this.cameras.main.shake(90, 0.004);
       }
 
       // Red damage flash on Mob
@@ -408,6 +436,8 @@ export class GameScene extends Phaser.Scene {
     const unsubscribePlayerDamage = networkManager.onPlayerDamage((payload) => {
       this.showPlayerDamageNumber(payload.amount);
       playSfx("player_hurt");
+      // Camera shake scales with the size of the hit taken.
+      this.cameras.main.shake(110, Math.min(0.008, 0.002 + payload.amount * 0.00012));
 
       // Red damage flash on local player
       if (this.localAvatar) {
@@ -621,6 +651,7 @@ export class GameScene extends Phaser.Scene {
     this.updateWaterShimmer();
     this.updateWeather();
     this.updateInteractHint();
+    this.updateTargetReticle();
     this.updateNpcMovement();
     this.updatePinchZoom();
   }
@@ -2042,27 +2073,34 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
-  private showMobDamageNumber(npcId: string, damage: number) {
+  private showMobDamageNumber(npcId: string, damage: number, crit = false) {
     const npc = this.renderedNpcs.find((entry) => entry.id === npcId);
     if (!npc || damage <= 0) return;
 
     const text = this.add
-      .text(npc.worldX, npc.worldY - 44, `-${damage}`, {
+      .text(npc.worldX, npc.worldY - 44, crit ? `${damage}!` : `-${damage}`, {
         fontFamily: "Segoe UI, sans-serif",
-        fontSize: "15px",
-        color: "#ff4466",
+        fontSize: crit ? "21px" : "15px",
+        color: crit ? "#ffcf33" : "#ff4466",
         fontStyle: "bold",
-        stroke: "#2d1b2e",
-        strokeThickness: 3,
+        stroke: crit ? "#7a4a00" : "#2d1b2e",
+        strokeThickness: crit ? 4 : 3,
       })
       .setOrigin(0.5)
       .setDepth(200);
 
+    if (crit) {
+      // Crit pop: a quick scale punch before the float-up.
+      text.setScale(0.5);
+      this.tweens.add({ targets: text, scale: 1, duration: 130, ease: "Back.easeOut" });
+    }
+
     this.tweens.add({
       targets: text,
-      y: text.y - 30,
+      y: text.y - (crit ? 40 : 30),
       alpha: 0,
-      duration: 750,
+      duration: crit ? 900 : 750,
+      delay: crit ? 110 : 0,
       ease: "Cubic.easeOut",
       onComplete: () => text.destroy(),
     });
@@ -2189,11 +2227,83 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  /** Left-click target selection: pick the hostile NPC nearest the cursor. */
+  private selectNpcAtPointer(pointer: Phaser.Input.Pointer) {
+    const SELECT_PIXEL_RANGE = 52;
+    let picked: RenderedNpc | null = null;
+    let pickedDistance = SELECT_PIXEL_RANGE;
+    for (const npc of this.renderedNpcs) {
+      if (!npc.combat || npc.currentHp <= 0) continue;
+      const distance = Math.hypot(pointer.worldX - npc.worldX, pointer.worldY - npc.worldY);
+      if (distance <= pickedDistance) {
+        picked = npc;
+        pickedDistance = distance;
+      }
+    }
+    if (picked) {
+      this.selectedNpcId = picked.id;
+      playSfx("hover");
+    } else {
+      this.selectedNpcId = null;
+    }
+  }
+
+  /** Draw the reticle over the selected hostile (clears it when the target dies). */
+  private updateTargetReticle() {
+    const reticle = this.targetReticle;
+    if (!reticle) return;
+
+    if (this.selectedNpcId) {
+      const target = this.renderedNpcs.find((npc) => npc.id === this.selectedNpcId);
+      if (!target || target.currentHp <= 0) {
+        this.selectedNpcId = null;
+      }
+    }
+
+    if (!this.selectedNpcId) {
+      reticle.setVisible(false);
+      return;
+    }
+
+    const target = this.renderedNpcs.find((npc) => npc.id === this.selectedNpcId);
+    if (!target) {
+      reticle.setVisible(false);
+      return;
+    }
+
+    const local = this.findLocalPlayer();
+    const inRange = local
+      ? Math.hypot(local.predicted.x - target.worldX, local.predicted.y - target.worldY) <= ATTACK_RANGE
+      : false;
+    const color = inRange ? 0xff5a5a : 0xffd45a;
+    const pulse = 1 + Math.sin(this.time.now / 180) * 0.08;
+    const radius = 20 * pulse;
+
+    reticle.clear();
+    reticle.lineStyle(2, color, 0.95);
+    // Four corner brackets around the target's feet.
+    for (let i = 0; i < 4; i++) {
+      const sx = i % 2 === 0 ? -1 : 1;
+      const sy = i < 2 ? -1 : 1;
+      const cx = target.worldX + sx * radius;
+      const cy = target.worldY - 6 + sy * radius;
+      reticle.beginPath();
+      reticle.moveTo(cx - sx * 7, cy);
+      reticle.lineTo(cx, cy);
+      reticle.lineTo(cx, cy - sy * 7);
+      reticle.strokePath();
+    }
+    reticle.setDepth(target.worldY + 1);
+    reticle.setVisible(true);
+  }
+
   private tryAttack() {
     const mobileAttack = consumeMobileAttack();
     const keyboardAttack =
       this.attackKey !== null && Phaser.Input.Keyboard.JustDown(this.attackKey);
-    if (!mobileAttack && !keyboardAttack) return;
+    const pointerAttack = this.pointerAttackQueued;
+    this.pointerAttackQueued = false;
+    if (!mobileAttack && !keyboardAttack && !pointerAttack) return;
     if (!this.localSessionId) return;
 
     const local = this.findLocalPlayer();
@@ -2202,7 +2312,23 @@ export class GameScene extends Phaser.Scene {
     let nearest: RenderedNpc | null = null;
     let nearestDistance = ATTACK_RANGE;
 
+    // Prefer the explicitly selected target when it's alive and in range.
+    if (this.selectedNpcId) {
+      const selected = this.renderedNpcs.find((npc) => npc.id === this.selectedNpcId);
+      if (selected && selected.combat && selected.currentHp > 0) {
+        const distance = Math.hypot(
+          local.predicted.x - selected.worldX,
+          local.predicted.y - selected.worldY,
+        );
+        if (distance <= ATTACK_RANGE) {
+          nearest = selected;
+          nearestDistance = distance;
+        }
+      }
+    }
+
     for (const npc of this.renderedNpcs) {
+      if (nearest) break;
       if (!npc.combat || npc.currentHp <= 0) continue;
       const distance = Math.hypot(local.predicted.x - npc.worldX, local.predicted.y - npc.worldY);
       if (distance <= nearestDistance) {

@@ -115,6 +115,15 @@ export function queueMobileAttack() {
   pendingMobileAttack = true;
 }
 
+/**
+ * Fire the player's basic attack from outside the Phaser scene (e.g. the
+ * combat hotbar). Routes through the same queue the mobile attack button uses,
+ * so GameScene.tryAttack() picks the nearest hostile and runs the swing.
+ */
+export function triggerPrimaryAttack() {
+  pendingMobileAttack = true;
+}
+
 export function consumeMobileInteract(): boolean {
   if (!pendingMobileInteract) return false;
   pendingMobileInteract = false;

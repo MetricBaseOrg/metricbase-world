@@ -446,6 +446,28 @@ body {
   box-shadow: 0 0 0 4px var(--chibi-lavender), 0 4px 0 var(--chibi-shadow);
 }
 
+/* Free-form dye picker swatch — wraps a hidden native colour input. */
+.chibi-swatch--custom {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  background: conic-gradient(#ff6b6b, #ffd93c, #7ed957, #4ecdc4, #4f8cff, #b794f6, #ff6b6b);
+  overflow: hidden;
+}
+
+.chibi-swatch--custom input[type="color"] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: none;
+  opacity: 0;
+  cursor: pointer;
+}
+
 .chibi-chip {
   padding: 8px 14px;
   border-radius: var(--chibi-radius-pill);
@@ -1383,4 +1405,111 @@ body {
   .chibi-hud-compact-bar__name {
     font-size: 0.78rem;
   }
+}
+
+/* ---- Combat hotbar (SkillBar) ---- */
+.chibi-skillbar {
+  position: fixed;
+  left: 50%;
+  bottom: 72px;
+  transform: translateX(-50%);
+  z-index: 30;
+  display: flex;
+  gap: 7px;
+  padding: 7px 9px;
+  background: rgba(255, 249, 240, 0.9);
+  border: 2px solid var(--chibi-outline);
+  border-radius: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  pointer-events: auto;
+}
+
+.chibi-skill-slot {
+  position: relative;
+  width: 46px;
+  height: 46px;
+  padding: 0;
+  border: 2px solid var(--chibi-outline);
+  border-radius: 12px;
+  background: linear-gradient(180deg, var(--chibi-cream), var(--chibi-cream-deep));
+  cursor: pointer;
+  overflow: hidden;
+  transition: transform 0.08s ease, box-shadow 0.12s ease;
+}
+
+.chibi-skill-slot:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 0 var(--chibi-shadow);
+}
+
+.chibi-skill-slot:active {
+  transform: translateY(1px);
+}
+
+.chibi-skill-slot.primary {
+  border-color: var(--chibi-pink-deep);
+  box-shadow: 0 0 0 2px var(--chibi-pink) inset;
+}
+
+.chibi-skill-slot.locked {
+  filter: grayscale(0.55);
+  opacity: 0.72;
+}
+
+.chibi-skill-slot.shake {
+  animation: chibi-skill-shake 0.26s ease;
+}
+
+@keyframes chibi-skill-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-3px); }
+  75% { transform: translateX(3px); }
+}
+
+.chibi-skill-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+.chibi-skill-key {
+  position: absolute;
+  top: 1px;
+  left: 3px;
+  font-family: var(--chibi-font-display);
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: var(--chibi-ink);
+  opacity: 0.85;
+  pointer-events: none;
+}
+
+.chibi-skill-lock {
+  position: absolute;
+  bottom: 1px;
+  right: 2px;
+  font-size: 0.6rem;
+  pointer-events: none;
+}
+
+.chibi-skill-cooldown {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  pointer-events: none;
+}
+
+.chibi-skill-cooldown-text {
+  font-family: var(--chibi-font-display);
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #fff7ea;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
 }

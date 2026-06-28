@@ -23,6 +23,7 @@ import { InventoryPanel } from "./ui/InventoryPanel";
 import { QuestPanel } from "./ui/QuestPanel";
 import { ErrorBoundary } from "./ui/ErrorBoundary";
 import { ShopPanel } from "./ui/ShopPanel";
+import { SkillBar } from "./ui/SkillBar";
 import { TouchControls } from "./ui/TouchControls";
 import { WhoPanel } from "./ui/WhoPanel";
 import { LeaderboardPanel } from "./ui/LeaderboardPanel";
@@ -312,6 +313,7 @@ export function App() {
           <WhoPanel />
         </div>
       )}
+      {joined && <SkillBar />}
       {joined && <EmoteBar />}
       {joined && <TouchControls />}
       {joined && <DeathOverlay />}

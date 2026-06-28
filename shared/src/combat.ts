@@ -51,4 +51,6 @@ export interface AttackResultPayload {
   maxHp: number;
   defeated: boolean;
   attackerName?: string;
+  /** True when the hit rolled a critical strike (Phase 1+). Drives gold crit numbers. */
+  crit?: boolean;
 }
