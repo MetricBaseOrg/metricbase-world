@@ -37,6 +37,7 @@ interface GameStore {
   connected: boolean;
   playerCount: number;
   zoneName: string;
+  zoneId: string;
   chatMessages: ChatMessagePayload[];
   questState: QuestStatePayload;
   inventory: InventoryStatePayload;
@@ -86,6 +87,7 @@ interface GameStore {
   setConnected: (connected: boolean) => void;
   setPlayerCount: (count: number) => void;
   setZoneName: (zoneName: string) => void;
+  setZoneId: (zoneId: string) => void;
   addChatMessage: (message: ChatMessagePayload) => void;
   clearChat: () => void;
   setQuestState: (questState: QuestStatePayload) => void;
@@ -133,6 +135,7 @@ export const useGameStore = create<GameStore>((set) => ({
   connected: false,
   playerCount: 0,
   zoneName: "MetricBase Hub",
+  zoneId: "zone_hub",
   chatMessages: [],
   questState: { active: [], completed: [] },
   inventory: { items: [], capacity: 16 },
@@ -209,6 +212,7 @@ export const useGameStore = create<GameStore>((set) => ({
   setConnected: (connected) => set({ connected }),
   setPlayerCount: (count) => set({ playerCount: count }),
   setZoneName: (zoneName) => set({ zoneName }),
+  setZoneId: (zoneId) => set({ zoneId }),
   addChatMessage: (message) =>
     set((state) => ({
       chatMessages: [...state.chatMessages, message].slice(-MAX_CHAT_MESSAGES),

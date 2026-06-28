@@ -11,6 +11,9 @@ export const ZONE_INTERIOR = "zone_interior";
 
 export const MAX_PLAYERS_PER_ZONE = 20;
 
+/** $BASE a wallet must hold to enter the VIP Community Lodge. */
+export const VIP_LODGE_MIN_HOLD = 20_000_000;
+
 /** How close (world pixels) a player must be to trigger a portal tile. */
 export const PORTAL_TRIGGER_RANGE = 48;
 
@@ -32,7 +35,12 @@ export interface ZoneNpc {
   dialogue: string;
   shopId?: string;
   combat?: NpcCombatConfig;
+  /** If set, interacting opens this external arcade game URL (e.g. Base Rush). */
+  arcadeUrl?: string;
 }
+
+/** External arcade game reachable from the Community Lodge arcade machine. */
+export const BASE_RUSH_URL = "https://apps.metricbase.org/base-rush";
 
 /** Decorative, non-interactive scenery (furniture, plants) placed in a zone. */
 export interface SceneryNode {
@@ -45,10 +53,17 @@ export interface SceneryNode {
   flat?: boolean;
 }
 
+/** PvP danger tier of a zone. Drives PvP rules, death penalties, and UI tint. */
+export type DangerTier = "safe" | "yellow" | "red" | "black";
+
 export interface ZoneConfig {
   id: string;
   roomName: string;
   displayName: string;
+  /** PvP danger tier (defaults to "safe" when omitted). */
+  dangerTier?: DangerTier;
+  /** Minimum $BASE (UI amount) a wallet must hold to enter — VIP-gated zones. */
+  vipMinHold?: number;
   spawnTile: { x: number; y: number };
   portals: ZonePortal[];
   npcs: ZoneNpc[];
@@ -284,6 +299,7 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
     id: ZONE_WILDERNESS,
     roomName: ZONE_WILDERNESS,
     displayName: "Wilderness",
+    dangerTier: "yellow",
     spawnTile: { x: 4, y: 12 },
     portals: [
       {
@@ -533,6 +549,7 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
     id: ZONE_GROTTO,
     roomName: ZONE_GROTTO,
     displayName: "Slime Grotto",
+    dangerTier: "red",
     spawnTile: { x: 20, y: 12 },
     portals: [
       {
@@ -608,6 +625,7 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
     id: ZONE_INTERIOR,
     roomName: ZONE_INTERIOR,
     displayName: "Community Lodge",
+    vipMinHold: VIP_LODGE_MIN_HOLD,
     spawnTile: { x: 11, y: 9 },
     portals: [
       {
@@ -625,6 +643,14 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
         tileY: 7,
         dialogue:
           "Welcome to the Community Lodge — a warm indoor place to gather with other adventurers. Step on the south doormat to head back out.",
+      },
+      {
+        id: "lodge_arcade",
+        name: "Bit · Arcade Host",
+        tileX: 15,
+        tileY: 9,
+        dialogue: "Step right up to the BASE RUSH cabinet — insert coin and play!",
+        arcadeUrl: BASE_RUSH_URL,
       },
     ],
     scenery: [
@@ -667,4 +693,48 @@ export function getZoneConfig(zoneId: string): ZoneConfig {
     throw new Error(`Unknown zone: ${zoneId}`);
   }
   return config;
+}
+
+export interface DangerTierMeta {
+  tier: DangerTier;
+  label: string;
+  /** UI accent colour for the zone banner/tint. */
+  color: string;
+  /** Short rule summary shown to players entering the zone. */
+  rule: string;
+  /** Whether players can damage each other here. */
+  pvp: boolean;
+}
+
+export const DANGER_TIER_META: Record<DangerTier, DangerTierMeta> = {
+  safe: { tier: "safe", label: "Safe Zone", color: "#6ad27e", rule: "No PvP. Rest easy.", pvp: false },
+  yellow: {
+    tier: "yellow",
+    label: "Yellow Zone",
+    color: "#ffce4d",
+    rule: "Opt-in PvP. Flag up to fight; small penalty on death.",
+    pvp: true,
+  },
+  red: {
+    tier: "red",
+    label: "Red Zone",
+    color: "#ff7a4d",
+    rule: "Open PvP. Drop gathered resources on death — gear survives.",
+    pvp: true,
+  },
+  black: {
+    tier: "black",
+    label: "Black Zone",
+    color: "#b15cff",
+    rule: "Full loot. Drop everything on death. Highest rewards.",
+    pvp: true,
+  },
+};
+
+export function getZoneDangerTier(zoneId: string): DangerTier {
+  return ZONE_CONFIGS[zoneId]?.dangerTier ?? "safe";
+}
+
+export function getDangerTierMeta(zoneId: string): DangerTierMeta {
+  return DANGER_TIER_META[getZoneDangerTier(zoneId)];
 }

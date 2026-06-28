@@ -156,12 +156,18 @@ The combat *shell*. No new combat math yet.
 - Weapon-driven abilities (`shared/src/abilities.ts`, server `handleAbility`).
 - *Done when:* armor reduces damage server-side; weapon swap changes hotbar; gear wears and repairs.
 
-### Phase 2 — Open-World PvP · **→ 0.41.0**
-- Zone danger tiers (`zones.ts`) + client tint/banner.
-- PvP combat path + combat tagging + spawn immunity (`ZoneRoom.handleAttack`).
-- Tier-based death/loot drops + loot bags.
+### Phase 2a — Zones, Controls & Venue · **→ 0.41.0 (shipped)**
+- Zone danger tiers (`zones.ts`: Wilderness=Yellow, Grotto=Red) + client `ZoneBanner` tint/banner/chip.
+- **Click/tap-to-move** alongside WASD + touch D-pad (`GameScene` pointer + move marker) — mobile-friendly.
+- **VIP Community Lodge**: entry gated to wallets holding ≥ 20,000,000 $BASE (`zones.ts` `vipMinHold`, server `walletHoldsAtLeast`).
+- **Arcade machine** in the Lodge → embeds Base Rush (`apps.metricbase.org/base-rush`) via `ArcadeModal` (full-screen iframe + open-in-tab).
+
+### Phase 2b — Open-World PvP combat · **→ 0.42.0 (next)**
+- PvP combat path + combat tagging + spawn immunity (`ZoneRoom.handleAttack` accepts player targets).
+- Tier-based death/loot drops + **loot bags on the ground** (pickup with F).
 - Crime / reputation / bounty (`shared/src/reputation.ts`, red name on `PlayerSchema`).
-- *Done when:* two players fight in a red zone, loser drops tier loot, attacker flagged criminal in town.
+- **Black zone** (full-loot) — a new zone whose entry **burns 1,000,000 $BASE on-chain** (reuse Solana settlement patterns).
+- *Done when:* two players fight in a red zone, loser drops a lootable bag, attacker flagged criminal in town; Black zone reachable only after a verified burn.
 
 ### Phase 3 — Guild Warfare · **→ 0.42.0**
 Ranks, guild bank, tax, war declarations (`guildRegistry.ts`, `guild.ts`).

@@ -65,6 +65,7 @@ type ZoneListener = (zoneId: string, zoneName: string) => void;
 type TransferListener = (payload: ZoneTransferPayload) => void;
 type ProfileListener = (profile: ProfilePayload) => void;
 type NpcDialogueListener = (npcName: string, dialogue: string) => void;
+type ArcadeListener = (payload: { name: string; url: string }) => void;
 type QuestStateListener = (state: QuestStatePayload) => void;
 type MobHealthListener = (payload: MobHealthPayload) => void;
 type AttackResultListener = (payload: AttackResultPayload) => void;
@@ -114,6 +115,7 @@ export class NetworkManager {
   private transferListeners = new Set<TransferListener>();
   private profileListeners = new Set<ProfileListener>();
   private npcDialogueListeners = new Set<NpcDialogueListener>();
+  private arcadeListeners = new Set<ArcadeListener>();
   private questStateListeners = new Set<QuestStateListener>();
   private mobHealthListeners = new Set<MobHealthListener>();
   private attackResultListeners = new Set<AttackResultListener>();
@@ -633,6 +635,11 @@ export class NetworkManager {
     return () => this.npcDialogueListeners.delete(listener);
   }
 
+  onArcade(listener: ArcadeListener) {
+    this.arcadeListeners.add(listener);
+    return () => this.arcadeListeners.delete(listener);
+  }
+
   onNpcPositions(listener: NpcPositionsListener) {
     this.npcPositionsListeners.add(listener);
     return () => this.npcPositionsListeners.delete(listener);
@@ -821,6 +828,11 @@ export class NetworkManager {
     this.room.onMessage("npcDialogue", (payload: { npcName: string; dialogue: string }) => {
       for (const listener of this.npcDialogueListeners) {
         listener(payload.npcName, payload.dialogue);
+      }
+    });
+    this.room.onMessage("openArcade", (payload: { name: string; url: string }) => {
+      for (const listener of this.arcadeListeners) {
+        listener(payload);
       }
     });
     this.room.onMessage("questState", (payload: QuestStatePayload) => {

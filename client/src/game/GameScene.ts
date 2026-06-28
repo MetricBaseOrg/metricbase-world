@@ -215,6 +215,9 @@ export class GameScene extends Phaser.Scene {
   /** Left-click selected hostile NPC id; drives the target reticle + attack priority. */
   private selectedNpcId: string | null = null;
   private targetReticle: Phaser.GameObjects.Graphics | null = null;
+  /** Click/tap-to-move destination in world coords; cleared on arrival or keyboard input. */
+  private moveTarget: { x: number; y: number } | null = null;
+  private moveMarker: Phaser.GameObjects.Graphics | null = null;
   private chopKey: Phaser.Input.Keyboard.Key | null = null;
   private fishKey: Phaser.Input.Keyboard.Key | null = null;
   private lastSentInput = { dx: 0, dy: 0 };
@@ -262,13 +265,19 @@ export class GameScene extends Phaser.Scene {
         this.pointerAttackQueued = true;
         return;
       }
-      if (pointer.leftButtonDown()) {
-        this.selectNpcAtPointer(pointer);
+      // Primary button / touch: select a hostile under the cursor, else walk there.
+      if (pointer.leftButtonDown() || pointer.wasTouch) {
+        const hitHostile = this.selectNpcAtPointer(pointer);
+        if (!hitHostile) {
+          this.setMoveTarget(pointer.worldX, pointer.worldY);
+        }
       }
     });
 
     // Targeting reticle drawn over the currently selected / engaged hostile.
     this.targetReticle = this.add.graphics().setDepth(120).setVisible(false);
+    // Click-to-move destination marker.
+    this.moveMarker = this.add.graphics().setDepth(119).setVisible(false);
 
     // Day/night lighting tint. A rectangle pinned over the visible world each
     // frame (origin top-left); colour + opacity come from the shared clock.
@@ -346,6 +355,7 @@ export class GameScene extends Phaser.Scene {
       this.localChoppingUntil = 0;
       this.selectedNpcId = null;
       this.targetReticle?.setVisible(false);
+      this.clearMoveTarget();
       this.stopLocalChopHits();
       this.destroyLocalAvatar();
       this.renderedPlayers.forEach((entry) => {
@@ -598,8 +608,19 @@ export class GameScene extends Phaser.Scene {
     }
 
     if (!blocked) {
-      const dx = this.getAxisInput();
-      const dy = this.getAxisInputY();
+      let dx = this.getAxisInput();
+      let dy = this.getAxisInputY();
+
+      if (dx !== 0 || dy !== 0) {
+        // Manual movement (WASD / arrows / touch D-pad) cancels click-to-move.
+        this.clearMoveTarget();
+      } else {
+        const moveAxis = this.getMoveTargetAxis();
+        if (moveAxis) {
+          dx = moveAxis.dx;
+          dy = moveAxis.dy;
+        }
+      }
 
       if (dx !== this.lastSentInput.dx || dy !== this.lastSentInput.dy) {
         networkManager.sendInput(dx, dy);
@@ -2272,8 +2293,9 @@ export class GameScene extends Phaser.Scene {
     return true;
   }
 
-  /** Left-click target selection: pick the hostile NPC nearest the cursor. */
-  private selectNpcAtPointer(pointer: Phaser.Input.Pointer) {
+  /** Left-click target selection: pick the hostile NPC nearest the cursor.
+   *  Returns true if a hostile was selected (so the click isn't also a move). */
+  private selectNpcAtPointer(pointer: Phaser.Input.Pointer): boolean {
     const SELECT_PIXEL_RANGE = 52;
     let picked: RenderedNpc | null = null;
     let pickedDistance = SELECT_PIXEL_RANGE;
@@ -2288,9 +2310,55 @@ export class GameScene extends Phaser.Scene {
     if (picked) {
       this.selectedNpcId = picked.id;
       playSfx("hover");
-    } else {
-      this.selectedNpcId = null;
+      return true;
     }
+    this.selectedNpcId = null;
+    return false;
+  }
+
+  /** Set a click/tap-to-move destination and pop a marker there. */
+  private setMoveTarget(worldX: number, worldY: number) {
+    this.moveTarget = { x: worldX, y: worldY };
+    const marker = this.moveMarker;
+    if (!marker) return;
+    marker.clear();
+    marker.lineStyle(2, 0x9ad7ff, 0.95);
+    marker.strokeCircle(0, 0, 9);
+    marker.lineStyle(2, 0xffffff, 0.8);
+    marker.strokeCircle(0, 0, 4);
+    marker.setPosition(worldX, worldY);
+    marker.setAlpha(1);
+    marker.setScale(1);
+    marker.setVisible(true);
+    this.tweens.killTweensOf(marker);
+    this.tweens.add({ targets: marker, alpha: 0.2, scale: 0.7, duration: 600, ease: "Sine.easeOut", yoyo: true, repeat: -1 });
+  }
+
+  private clearMoveTarget() {
+    this.moveTarget = null;
+    if (this.moveMarker) {
+      this.tweens.killTweensOf(this.moveMarker);
+      this.moveMarker.setVisible(false);
+    }
+  }
+
+  /** Click-to-move axis toward the active move target, or null when none/arrived. */
+  private getMoveTargetAxis(): { dx: number; dy: number } | null {
+    if (!this.moveTarget) return null;
+    const local = this.findLocalPlayer();
+    if (!local) {
+      this.clearMoveTarget();
+      return null;
+    }
+    const dx = this.moveTarget.x - local.predicted.x;
+    const dy = this.moveTarget.y - local.predicted.y;
+    const distance = Math.hypot(dx, dy);
+    // Arrived (within a few pixels) — stop and clear.
+    if (distance <= 6) {
+      this.clearMoveTarget();
+      return null;
+    }
+    return { dx: dx / distance, dy: dy / distance };
   }
 
   /** Draw the reticle over the selected hostile (clears it when the target dies). */

@@ -139,7 +139,7 @@ import {
 } from "../db/characters.js";
 import { isInvitationSystemActive, validateAndUseInviteCode } from "../db/invitations.js";
 import { isWalkable, blockPlotFootprint } from "../map/collision.js";
-import { checkWalletTokenGate } from "../solana/tokenBalance.js";
+import { checkWalletTokenGate, getWalletTokenBalance } from "../solana/tokenBalance.js";
 import { getCachedHolderCount } from "../solana/holderCount.js";
 import { getLeaderboard } from "../db/leaderboard.js";
 import {
@@ -991,6 +991,23 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     void this.transferPlayer(client, player, portal);
   }
 
+  /**
+   * Whether the client's linked wallet holds at least `minHold` $BASE.
+   * Requires a linked wallet; on an RPC error we fail OPEN (a valid session
+   * already proved holdings) rather than lock out a legitimate VIP.
+   */
+  private async walletHoldsAtLeast(client: Client, minHold: number): Promise<boolean> {
+    const wallet = this.playerWallets.get(client.sessionId);
+    if (!wallet) return false;
+    try {
+      const balance = await getWalletTokenBalance(wallet);
+      return balance >= minHold;
+    } catch (error) {
+      console.warn(`[vip] balance lookup failed for ${wallet}; allowing on valid session.`, error);
+      return true;
+    }
+  }
+
   private isNearPortal(worldX: number, worldY: number, tileX: number, tileY: number): boolean {
     const portalPos = tileToWorld(tileX, tileY);
     if (Math.hypot(worldX - portalPos.x, worldY - portalPos.y) <= PORTAL_TRIGGER_RANGE) {
@@ -1010,6 +1027,24 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   ) {
     try {
       const targetConfig = getZoneConfig(portal.targetZone);
+
+      // VIP-gated zones (e.g. the Community Lodge) require a minimum $BASE hold.
+      if (targetConfig.vipMinHold && targetConfig.vipMinHold > 0) {
+        const allowed = await this.walletHoldsAtLeast(client, targetConfig.vipMinHold);
+        if (!allowed) {
+          this.transferring.delete(client.sessionId);
+          client.send("chat", {
+            id: crypto.randomUUID(),
+            channel: "system",
+            senderId: "system",
+            senderName: "VIP Door",
+            body: `${targetConfig.displayName} is VIP-only — hold at least ${targetConfig.vipMinHold.toLocaleString()} $BASE to enter.`,
+            sentAt: Date.now(),
+          } satisfies ChatMessagePayload);
+          return;
+        }
+      }
+
       const spawn = tileToWorld(targetConfig.spawnTile.x, targetConfig.spawnTile.y);
 
       this.grantXp(client, player, XP_PORTAL_TRAVEL, `traveled through ${portal.label}`);
@@ -1059,6 +1094,9 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     const canEarnXp = now - lastInteract >= NPC_INTERACT_COOLDOWN_MS;
 
     client.send("npcDialogue", { npcName: npc.name, dialogue: npc.dialogue });
+    if (npc.arcadeUrl) {
+      client.send("openArcade", { name: npc.name, url: npc.arcadeUrl });
+    }
     void this.openShopForNpc(client, player, npc);
 
     if (canEarnXp) {

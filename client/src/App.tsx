@@ -22,10 +22,12 @@ import { InventoryHotkey } from "./ui/InventoryHotkey";
 import { InventoryPanel } from "./ui/InventoryPanel";
 import { QuestPanel } from "./ui/QuestPanel";
 import { ErrorBoundary } from "./ui/ErrorBoundary";
+import { ArcadeModal } from "./ui/ArcadeModal";
 import { ShopPanel } from "./ui/ShopPanel";
 import { SkillBar } from "./ui/SkillBar";
 import { TouchControls } from "./ui/TouchControls";
 import { WhoPanel } from "./ui/WhoPanel";
+import { ZoneBanner } from "./ui/ZoneBanner";
 import { LeaderboardPanel } from "./ui/LeaderboardPanel";
 import { GuildPanel } from "./ui/GuildPanel";
 import { PartyPanel } from "./ui/PartyPanel";
@@ -77,8 +79,9 @@ export function App() {
       addChatMessage(message);
     });
 
-    const unsubscribeZone = networkManager.onZoneChange((_zoneId, zoneName) => {
+    const unsubscribeZone = networkManager.onZoneChange((zoneId, zoneName) => {
       setZoneName(zoneName);
+      useGameStore.getState().setZoneId(zoneId);
     });
 
     const applyProfilePatch = useGameStore.getState().applyProfilePatch;
@@ -318,6 +321,8 @@ export function App() {
           <WhoPanel />
         </div>
       )}
+      {joined && <ZoneBanner />}
+      {joined && <ArcadeModal />}
       {joined && <SkillBar />}
       {joined && <EmoteBar />}
       {joined && <TouchControls />}
