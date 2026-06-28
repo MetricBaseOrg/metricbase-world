@@ -39,6 +39,8 @@ export interface CharacterRecord {
   stamina: number;
   /** VIP Lodge pass expiry (epoch ms), or null when none. */
   vipPassUntil: number | null;
+  /** Lifetime Black Zone access from a one-time $BASE burn. */
+  blackPass: boolean;
 }
 
 type CharacterRow = {
@@ -61,6 +63,7 @@ type CharacterRow = {
   skills: SkillXpMap | null;
   stamina: number | null;
   vip_pass_until: string | number | null;
+  black_pass: boolean | null;
 };
 
 export async function loadCharacterByName(name: string): Promise<CharacterRecord | null> {
@@ -68,7 +71,7 @@ export async function loadCharacterByName(name: string): Promise<CharacterRecord
   if (!db) return null;
 
   const result = await db.query<CharacterRow>(
-    `SELECT name, wallet_address, zone_id, x, y, level, xp, gold, quest_progress, appearance, inventory, hp, equipment, npc_interact_at, mob_gold_claimed, knocked_out_until, skills, stamina, vip_pass_until
+    `SELECT name, wallet_address, zone_id, x, y, level, xp, gold, quest_progress, appearance, inventory, hp, equipment, npc_interact_at, mob_gold_claimed, knocked_out_until, skills, stamina, vip_pass_until, black_pass
      FROM characters
      WHERE name = $1`,
     [name],
@@ -83,7 +86,7 @@ export async function loadCharacterByWallet(wallet: string): Promise<CharacterRe
   if (!db) return null;
 
   const result = await db.query<CharacterRow>(
-    `SELECT name, wallet_address, zone_id, x, y, level, xp, gold, quest_progress, appearance, inventory, hp, equipment, npc_interact_at, mob_gold_claimed, knocked_out_until, skills, stamina, vip_pass_until
+    `SELECT name, wallet_address, zone_id, x, y, level, xp, gold, quest_progress, appearance, inventory, hp, equipment, npc_interact_at, mob_gold_claimed, knocked_out_until, skills, stamina, vip_pass_until, black_pass
      FROM characters
      WHERE wallet_address = $1`,
     [wallet],
@@ -103,8 +106,8 @@ export async function saveCharacter(record: CharacterRecord): Promise<void> {
   if (!db) return;
 
   await db.query(
-    `INSERT INTO characters (name, wallet_address, zone_id, x, y, level, xp, gold, quest_progress, appearance, inventory, hp, equipment, npc_interact_at, mob_gold_claimed, knocked_out_until, skills, stamina, vip_pass_until, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10::jsonb, $11::jsonb, $12, $13::jsonb, $14::jsonb, $15::jsonb, $16, $17::jsonb, $18, $19, NOW())
+    `INSERT INTO characters (name, wallet_address, zone_id, x, y, level, xp, gold, quest_progress, appearance, inventory, hp, equipment, npc_interact_at, mob_gold_claimed, knocked_out_until, skills, stamina, vip_pass_until, black_pass, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10::jsonb, $11::jsonb, $12, $13::jsonb, $14::jsonb, $15::jsonb, $16, $17::jsonb, $18, $19, $20, NOW())
      ON CONFLICT (name)
      DO UPDATE SET
        wallet_address = COALESCE(EXCLUDED.wallet_address, characters.wallet_address),
@@ -125,6 +128,7 @@ export async function saveCharacter(record: CharacterRecord): Promise<void> {
        skills = EXCLUDED.skills,
        stamina = EXCLUDED.stamina,
        vip_pass_until = COALESCE(EXCLUDED.vip_pass_until, characters.vip_pass_until),
+       black_pass = characters.black_pass OR EXCLUDED.black_pass,
        updated_at = NOW()`,
     [
       record.name,
@@ -146,6 +150,7 @@ export async function saveCharacter(record: CharacterRecord): Promise<void> {
       JSON.stringify(record.skills),
       record.stamina,
       record.vipPassUntil,
+      record.blackPass,
     ],
   );
 }
@@ -220,6 +225,7 @@ export async function bindCharacterToWallet(
       existingByWallet?.stamina ?? existingByName?.stamina ?? STARTING_STAMINA,
     ),
     vipPassUntil: existingByWallet?.vipPassUntil ?? existingByName?.vipPassUntil ?? null,
+    blackPass: existingByWallet?.blackPass ?? existingByName?.blackPass ?? false,
   };
 
   await saveCharacter(record);
@@ -283,6 +289,7 @@ function mapRow(row: CharacterRow): CharacterRecord {
     skills: normalizeSkills(row.skills),
     stamina: row.stamina === null ? STARTING_STAMINA : clampStamina(row.stamina),
     vipPassUntil: normalizeKnockedOutUntil(row.vip_pass_until),
+    blackPass: row.black_pass === true,
   };
 }
 

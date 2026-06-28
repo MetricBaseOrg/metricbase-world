@@ -29,6 +29,8 @@ ALTER TABLE characters ADD COLUMN IF NOT EXISTS skills JSONB NOT NULL DEFAULT '{
 ALTER TABLE characters ADD COLUMN IF NOT EXISTS stamina INTEGER;
 -- VIP Community Lodge pass expiry (epoch millis). NULL = no pass.
 ALTER TABLE characters ADD COLUMN IF NOT EXISTS vip_pass_until BIGINT;
+-- Lifetime Black Zone access from a one-time $BASE burn.
+ALTER TABLE characters ADD COLUMN IF NOT EXISTS black_pass BOOLEAN NOT NULL DEFAULT false;
 
 CREATE TABLE IF NOT EXISTS token_purchases (
   signature VARCHAR(88) PRIMARY KEY,

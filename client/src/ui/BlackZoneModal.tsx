@@ -79,7 +79,7 @@ export function BlackZoneModal() {
         {done ? (
           <>
             <p style={{ margin: "12px 0", fontSize: "0.9rem" }}>
-              🔥 Burn verified — the Obsidian Reach is open. Step through the Black Gate!
+              🔥 Burn verified — the Obsidian Reach is yours forever. Step through the Black Gate!
             </p>
             <button type="button" className="chibi-btn chibi-btn--gold" onClick={close} style={{ width: "100%" }}>
               Enter
@@ -89,8 +89,8 @@ export function BlackZoneModal() {
           <>
             <p style={{ margin: "12px 0", fontSize: "0.88rem" }}>
               The Obsidian Reach is full-loot territory — fall here and you lose everything you carry.
-              Passage demands a sacrifice: <strong>burn {gate.amount.toLocaleString()} $BASE</strong> to unlock
-              one hour of access.
+              Passage demands a one-time sacrifice: <strong>burn {gate.amount.toLocaleString()} $BASE</strong> to
+              unlock the Reach <strong>forever</strong>.
             </p>
             {error && (
               <div className="chibi-card chibi-card--danger" style={{ fontSize: "0.78rem", marginBottom: 10 }}>

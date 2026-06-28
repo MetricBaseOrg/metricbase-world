@@ -587,7 +587,7 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
         id: "slime_brute",
         name: "Slime Brute",
         tileX: 16,
-        tileY: 16,
+        tileY: 13,
         dialogue: "GLORP! A massive slime blocks the cavern.",
         combat: { maxHp: 150, rewardXp: 55, respawnMs: 20_000 },
       },

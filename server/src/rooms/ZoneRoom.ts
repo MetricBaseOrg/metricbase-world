@@ -269,8 +269,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   /** Active loot bags in this room, keyed by bag id. */
   private lootBags = new Map<string, LootBagState>();
   private lastLootSweepAt = 0;
-  /** Black-zone access passes (wallet -> expiry) earned by burning $BASE. */
-  private static blackPassUntil = new Map<string, number>();
+  /** Wallets with LIFETIME Black-zone access (one-time $BASE burn). DB-backed. */
+  private static blackPassWallets = new Set<string>();
   /** VIP Lodge passes (wallet -> expiry) bought with gold + a $BASE burn.
    *  NOTE: in-memory; resets on restart. Move to DB persistence for production. */
   private static vipPassUntil = new Map<string, number>();
@@ -627,6 +627,10 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     if (wallet && saved?.vipPassUntil && saved.vipPassUntil > Date.now()) {
       const existing = ZoneRoom.vipPassUntil.get(wallet) ?? 0;
       if (saved.vipPassUntil > existing) ZoneRoom.vipPassUntil.set(wallet, saved.vipPassUntil);
+    }
+    // Restore lifetime Black-zone access.
+    if (wallet && saved?.blackPass) {
+      ZoneRoom.blackPassWallets.add(wallet);
     }
 
     if (!options.spectate && !saved && isInvitationSystemActive()) {
@@ -1133,11 +1137,10 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         return;
       }
 
-      // Black zone requires a burned-$BASE access pass.
+      // Black zone requires a one-time lifetime $BASE burn.
       if (getZoneDangerTier(targetConfig.id) === "black") {
         const wallet = this.playerWallets.get(client.sessionId);
-        const pass = wallet ? (ZoneRoom.blackPassUntil.get(wallet) ?? 0) : 0;
-        if (pass <= Date.now()) {
+        if (!wallet || !ZoneRoom.blackPassWallets.has(wallet)) {
           this.transferring.delete(client.sessionId);
           client.send("blackZoneLocked", {
             mint: getBlackZoneBurnMint(),
@@ -1797,11 +1800,12 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       return;
     }
 
-    // Pass good for one hour of Black-zone access (survives zone hops).
-    ZoneRoom.blackPassUntil.set(wallet, Date.now() + 60 * 60 * 1000);
+    // One-time burn grants LIFETIME Black-zone access; persist it.
+    ZoneRoom.blackPassWallets.add(wallet);
+    await this.persistPlayer(player);
     client.send("blackPassResult", { ok: true });
     this.broadcastChat(
-      this.systemChat("Obsidian Gate", `${player.name} burned ${BLACK_ZONE_BURN_AMOUNT.toLocaleString()} $BASE and unlocked the Black Zone!`),
+      this.systemChat("Obsidian Gate", `${player.name} burned ${BLACK_ZONE_BURN_AMOUNT.toLocaleString()} $BASE and unlocked the Black Zone forever!`),
     );
   }
 
@@ -4102,6 +4106,10 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         const wallet = this.playerWallets.get(player.sessionId);
         const until = wallet ? ZoneRoom.vipPassUntil.get(wallet) ?? 0 : 0;
         return until > Date.now() ? until : null;
+      })(),
+      blackPass: (() => {
+        const wallet = this.playerWallets.get(player.sessionId);
+        return wallet ? ZoneRoom.blackPassWallets.has(wallet) : false;
       })(),
     });
   }
