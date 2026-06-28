@@ -225,11 +225,15 @@
           <li><a href="#farm">5. Farming</a></li>
           <li><a href="#food">5b. Energy &amp; Food</a></li>
           <li><a href="#craft">6. Crafting &amp; Tools</a></li>
-          <li><a href="#combat">7. Combat &amp; Leveling</a></li>
+          <li><a href="#combat">7. Combat, Gear &amp; Leveling</a></li>
+          <li><a href="#pvp">7b. PvP &amp; Danger Zones</a></li>
+          <li><a href="#guildwar">7c. Guild Warfare &amp; Territory</a></li>
+          <li><a href="#siege">7d. Castle Siege</a></li>
           <li><a href="#quests">8. Quests</a></li>
           <li><a href="#economy">9. Trade &amp; Economy</a></li>
           <li><a href="#housing">10. Housing &amp; Shops</a></li>
           <li><a href="#social">11. Social Play</a></li>
+          <li><a href="#vip">11b. VIP Lodge &amp; Arcade</a></li>
           <li><a href="#world">12. The World</a></li>
           <li><a href="#tips">13. Tips</a></li>
         </ul>
@@ -240,6 +244,12 @@
         simulation. You play a chibi adventurer in a shared world: gather raw materials, craft
         them into gear, farm crops, fight monsters, trade with other players, and build a home of
         your own. Everything runs in your browser — no download required.
+        <br /><br />
+        On top of the everyday loop sits a full <strong>open-world PvP</strong> layer: danger zones
+        with real loot stakes, deep gear with armour, crit and weapon abilities, <strong>guild
+        warfare</strong> (ranks, banks, tax, wars), <strong>territory control</strong>, and a
+        weekly-style <strong>Castle Siege</strong> for the crown. Fight only where you choose — towns
+        stay safe.
       </p>
 
       <!-- 1 -->
@@ -282,14 +292,15 @@
         <h3>Desktop (keyboard)</h3>
         <table>
           <tr><th>Action</th><th>Key</th></tr>
-          <tr><td>Move</td><td><span class="kbd">W</span> <span class="kbd">A</span> <span class="kbd">S</span> <span class="kbd">D</span> or the <span class="kbd">↑ ↓ ← →</span> arrow keys</td></tr>
+          <tr><td>Move</td><td><span class="kbd">W</span> <span class="kbd">A</span> <span class="kbd">S</span> <span class="kbd">D</span> / arrows — <em>or left-click / tap the ground to walk there</em></td></tr>
+          <tr><td>Target an enemy (monster or player)</td><td>Left-click / tap them</td></tr>
+          <tr><td>Attack your target</td><td>Right-click · <span class="kbd">Space</span> · mobile ⚔️</td></tr>
+          <tr><td>Weapon abilities (skill hotbar)</td><td><span class="kbd">1</span>–<span class="kbd">5</span> <span class="kbd">Q</span> <span class="kbd">E</span> <span class="kbd">R</span></td></tr>
           <tr><td>Talk / Interact (NPCs, shops, plots)</td><td><span class="kbd">E</span></td></tr>
-          <tr><td>Attack a monster</td><td><span class="kbd">Space</span></td></tr>
-          <tr><td>Gather (chop trees / mine rocks)</td><td><span class="kbd">F</span></td></tr>
-          <tr><td>Fish</td><td><span class="kbd">G</span></td></tr>
-          <tr><td>Open Crafting</td><td><span class="kbd">C</span></td></tr>
-          <tr><td>Open Inventory</td><td><span class="kbd">I</span></td></tr>
+          <tr><td>Gather, or grab a loot bag in reach</td><td><span class="kbd">F</span> (fish with <span class="kbd">G</span>)</td></tr>
+          <tr><td>Open Crafting / Inventory</td><td><span class="kbd">C</span> / <span class="kbd">I</span></td></tr>
           <tr><td>Toggle your lamp</td><td><span class="kbd">L</span></td></tr>
+          <tr><td>Toggle PvP flag (Yellow zones)</td><td>🛡️/⚔️ button (top-centre)</td></tr>
           <tr><td>Zoom the camera</td><td>Mouse wheel · two-finger pinch · 🔍+ / 🔍− buttons</td></tr>
         </table>
         <h3>Mobile (touch)</h3>
@@ -441,6 +452,90 @@
         <p>If your HP hits 0 you're <strong>knocked out</strong>. Pay <strong>100 gold</strong> to
         respawn immediately, or wait <strong>30 minutes</strong> for a free revival. You can't move
         or fight while knocked out.</p>
+
+        <h3>⚔️ Gear, armour &amp; abilities</h3>
+        <p>Damage is <strong>Attack × Skill × Crit − Armour</strong>. Armour has
+        <strong>diminishing returns</strong> — it always helps but never makes you invincible. Base
+        crit is 5% at 1.5×; gear raises both.</p>
+        <ul class="list">
+          <li><strong>Equipment slots:</strong> weapon, tool, helmet, chest, gloves, boots, two
+          rings, necklace, cape, offhand. Craft <strong>copper / iron / steel armour sets</strong>
+          plus a gemstone ring, pearl amulet, and cape.</li>
+          <li><strong>Rarity:</strong> gear comes in 8 tiers (Common → Unique, shown by name colour)
+          that scale its stats.</li>
+          <li><strong>Durability:</strong> weapons and armour wear as you fight and <strong>break</strong>
+          at 0. Use <strong>🔧 Repair all gear</strong> in the Inventory panel for a gold fee.</li>
+          <li><strong>Weapon abilities:</strong> each weapon type fills the <strong>skill hotbar</strong>
+          (1–5 / Q / E / R) with its own kit — swap weapons to swap abilities.</li>
+        </ul>
+        <p>The Inventory panel shows your live <strong>⚔️ attack · 🛡️ armour · 🎯 crit · 💥 crit
+        power</strong> and a durability bar for each piece.</p>
+      </section>
+
+      <!-- 7b -->
+      <section id="pvp">
+        <h2><span class="emoji">🗡️</span> 7b. PvP &amp; Danger Zones</h2>
+        <p>Player-vs-player combat is <strong>opt-in by where you go</strong>. Every zone shows a
+        <strong>danger tier</strong> banner when you enter:</p>
+        <table>
+          <tr><th>Tier</th><th>Where</th><th>Rules</th></tr>
+          <tr><td>🟢 <strong>Safe</strong></td><td>Hub, Community Lodge</td><td>No PvP, ever.</td></tr>
+          <tr><td>🟡 <strong>Yellow</strong></td><td>Wilderness</td><td>Opt-in: toggle your <strong>PvP flag</strong>; both fighters must be flagged. No item loss.</td></tr>
+          <tr><td>🔴 <strong>Red</strong></td><td>Slime Grotto</td><td>Open PvP. On death you drop your <strong>gathered materials</strong>; gear survives.</td></tr>
+          <tr><td>⚫ <strong>Black</strong></td><td>Obsidian Reach</td><td><strong>Full loot</strong> — drop your whole bag + half your loose gold. Richest rewards.</td></tr>
+        </table>
+        <p>To fight: <strong>left-click a player</strong> to target them, then attack. When someone
+        is knocked out in a Red/Black zone, their dropped items form a <strong>loot bag</strong>
+        anyone can grab with <span class="kbd">F</span>.</p>
+        <div class="callout leaf">🛡️ <strong>Anti-grief built in:</strong> players under level 5 can't
+        be pulled into PvP, you get a few seconds of <strong>spawn immunity</strong> after entering a
+        zone, and Safe zones are always off-limits to fighting.</div>
+        <h3>👮 Crime, reputation &amp; bounties</h3>
+        <p>Strike down a non-consenting player and you become a <strong>Criminal</strong> — your name
+        turns red and <strong>towns lock you out</strong> until it cools off (~10 min). Anyone can put
+        a <strong>bounty</strong> (gold) on a target; whoever defeats them claims the pot. Guild-war
+        kills are sanctioned and don't make you a criminal.</p>
+      </section>
+
+      <!-- 7c -->
+      <section id="guildwar">
+        <h2><span class="emoji">🛡️</span> 7c. Guild Warfare &amp; Territory</h2>
+        <p>Guilds are now full power structures. Open the <strong>🛡️ Guild</strong> panel to manage
+        yours.</p>
+        <ul class="list">
+          <li><strong>Ranks:</strong> Leader 👑 / Officer ⭐ / Member. The leader promotes, demotes,
+          and kicks; officers can kick members and run the bank &amp; wars.</li>
+          <li><strong>Guild bank:</strong> any member deposits gold; officers and the leader withdraw.</li>
+          <li><strong>Income tax:</strong> the leader sets 0–10%; a slice of every member's gold
+          earnings auto-funds the bank.</li>
+          <li><strong>Wars:</strong> declare war on a rival guild (mutual). Warring guilds fight each
+          other <strong>freely</strong> — even in Yellow zones without flagging — and those kills are
+          lawful. Make peace to end it.</li>
+        </ul>
+        <h3>🏴 Territory control</h3>
+        <p>PvP zones contain <strong>capture points</strong>. Stand on one as a guild member for about
+        <strong>12 seconds uncontested</strong> to claim it — a rival nearby <strong>contests</strong>
+        it and freezes progress. A flag shows the owning tag, a capture ring, and contested state.
+        Every point your guild holds pays <strong>territory income</strong> into the guild bank every
+        5 minutes. Ownership persists; disband and you lose your land.</p>
+      </section>
+
+      <!-- 7d -->
+      <section id="siege">
+        <h2><span class="emoji">👑</span> 7d. Castle Siege</h2>
+        <p>On a recurring schedule (a roughly <strong>10-minute window every 30 minutes</strong>), the
+        <strong>King Crystal</strong> in the Obsidian Reach (Black Zone) becomes vulnerable and a red
+        <strong>“CASTLE SIEGE LIVE”</strong> banner appears.</p>
+        <ul class="list">
+          <li>Guild members <strong>click the crystal</strong> to strike it during the window.</li>
+          <li>The guild that lands the <strong>killing blow</strong> is crowned
+          <strong>Sovereign of MetricBase</strong> until the next siege, wins a large prize into its
+          guild bank, and is announced server-wide.</li>
+          <li>The reigning Sovereign shows in a 👑 chip and persists across restarts; the crystal
+          resets each window.</li>
+        </ul>
+        <div class="callout">Reaching the crystal means braving the full-loot Black Zone — bring your
+        guild, your best gear, and watch for rivals.</div>
       </section>
 
       <!-- 8 -->
@@ -551,20 +646,40 @@
         </div>
       </section>
 
+      <!-- 11b -->
+      <section id="vip">
+        <h2><span class="emoji">✨</span> 11b. VIP Lodge, Arcade &amp; the Black Zone</h2>
+        <h3>🏛️ Community Lodge (VIP)</h3>
+        <p>The Community Lodge off the Hub is <strong>VIP-only</strong>. Get in by
+        <strong>holding 20,000,000 $BASE</strong>, or buy a <strong>14-day VIP pass</strong> for
+        <strong>10,000 gold + burning 10,000 $BASE</strong> (you'll be prompted at the door; the pass
+        saves to your character). Inside, talk to the arcade host to launch the <strong>Base Rush</strong>
+        arcade game in a full-screen cabinet.</p>
+        <h3>⚫ The Black Zone (Obsidian Reach)</h3>
+        <p>Reached through the <strong>Black Gate</strong> in the Slime Grotto. Entry costs a one-time
+        <strong>burn of 1,000,000 $BASE</strong> — a <strong>lifetime unlock</strong> tied to your
+        account. It's full-loot and holds the best resources in the game (obsidian gemstone veins,
+        ancient hardwood, dense iron) plus the King Crystal and its weekly siege.</p>
+        <div class="callout">$BASE burns and VIP holdings are real on-chain actions, verified by the
+        server. Burning is permanent — make sure you mean it before you confirm.</div>
+      </section>
+
       <!-- 12 -->
       <section id="world">
         <h2><span class="emoji">🗺️</span> 12. The World</h2>
         <p>Travel between zones through glowing <strong>portals</strong>. Each zone is themed:</p>
         <table>
-          <tr><th>Zone</th><th>What's there</th></tr>
-          <tr><td><strong>MetricBase Hub</strong></td><td>The town square. Pip, Aria, Brenna, the
+          <tr><th>Zone</th><th>Danger</th><th>What's there</th></tr>
+          <tr><td><strong>MetricBase Hub</strong></td><td>🟢 Safe</td><td>The town square. Pip, Aria, Brenna, the
           billboard, the lake, beginner gathering nodes, farms, and homesteads.</td></tr>
-          <tr><td><strong>Wilderness</strong></td><td>Rook, the Training Dummy, Wild Slimes,
-          higher-tier trees/ore/fish, a river — plus frontier farms &amp; housing.</td></tr>
-          <tr><td><strong>Slime Grotto</strong></td><td>A cave past the Wilderness with pools, Moss,
-          the Slime Brute boss, and a small cavern settlement.</td></tr>
-          <tr><td><strong>Community Lodge</strong></td><td>A cosy indoor space off the Hub plaza to
-          gather and hang out with other adventurers.</td></tr>
+          <tr><td><strong>Wilderness</strong></td><td>🟡 Yellow</td><td>Rook, the Training Dummy, Wild Slimes,
+          higher-tier trees/ore/fish, a river, a capture point — plus frontier farms &amp; housing.</td></tr>
+          <tr><td><strong>Slime Grotto</strong></td><td>🔴 Red</td><td>A cave past the Wilderness with pools, Moss,
+          the Slime Brute, rich nodes, a capture point, and the <strong>Black Gate</strong>.</td></tr>
+          <tr><td><strong>Obsidian Reach</strong></td><td>⚫ Black</td><td>Burn-gated, full-loot end-game zone: the
+          best resources, two capture points, and the <strong>King Crystal</strong> siege.</td></tr>
+          <tr><td><strong>Community Lodge</strong></td><td>🟢 Safe · VIP</td><td>A cosy VIP indoor space with the
+          Base Rush arcade.</td></tr>
         </table>
         <div class="callout brand">MetricBase World is fully multiplayer — you'll see other players
         move, fight, and gather in real time. Very busy zones split into multiple copies of about
