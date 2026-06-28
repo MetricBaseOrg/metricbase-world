@@ -1676,10 +1676,12 @@ a.chibi-btn {
 
 .chibi-pvp-flag {
   position: fixed;
-  /* Top-right, clear of the bottom touch controls on mobile. */
-  right: 16px;
-  top: calc(var(--chibi-rail-top) + 104px);
-  z-index: 27;
+  /* Centered just under the zone chip — clear of the TopBar, Quest log
+     (top-right), and the side HUD/social rail on both desktop and mobile. */
+  left: 50%;
+  transform: translateX(-50%);
+  top: calc(var(--chibi-rail-top) + 90px);
+  z-index: 28;
   padding: 7px 12px;
   border: 2px solid var(--chibi-outline);
   border-radius: var(--chibi-radius-pill, 999px);

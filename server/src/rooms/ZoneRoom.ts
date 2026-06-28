@@ -893,6 +893,18 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
           if (player) player.criminal = false;
         }
       }
+
+      // Safety net: rescue any player stranded on a blocked tile (e.g. stale
+      // saved coords inside lava/water) by snapping them back to spawn.
+      const spawn = tileToWorld(this.zoneConfig.spawnTile.x, this.zoneConfig.spawnTile.y);
+      for (const [sessionId, player] of this.state.players) {
+        if (player.spectator || this.isKnockedOut(player.name)) continue;
+        if (!isWalkable(this.zoneConfig.id, player.x, player.y)) {
+          player.x = spawn.x;
+          player.y = spawn.y;
+          this.inputs.set(sessionId, { dx: 0, dy: 0 });
+        }
+      }
     }
 
     // While any plot light burns, re-broadcast housing state every ~12s so the
