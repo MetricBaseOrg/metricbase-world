@@ -11,6 +11,19 @@ export const GUILD_TAG_MAX_LENGTH = 4;
 export const GUILD_TAG_MIN_LENGTH = 2;
 export const MAX_GUILD_MEMBERS = 30;
 
+/** Guild ranks, ascending in authority. */
+export type GuildRank = "member" | "officer" | "leader";
+
+/** Max guild income tax rate (fraction of members' gold earnings). */
+export const GUILD_MAX_TAX_RATE = 0.1;
+
+/** A guild this guild is currently at war with. */
+export interface GuildWarInfo {
+  id: string;
+  name: string;
+  tag: string;
+}
+
 export interface GuildSummary {
   id: string;
   name: string;
@@ -22,6 +35,26 @@ export interface GuildSummary {
 export interface GuildDetail extends GuildSummary {
   /** Member display names (leader included). */
   members: string[];
+  /** Officer names (subset of members). */
+  officers: string[];
+  /** Shared guild bank balance (gold). */
+  bank: number;
+  /** Income tax rate (0–GUILD_MAX_TAX_RATE) skimmed from members' earnings to the bank. */
+  taxRate: number;
+  /** Guilds this guild is at war with. */
+  wars: GuildWarInfo[];
+  /** The requesting player's rank in this guild. */
+  myRank: GuildRank;
+}
+
+/** Resolve a member's rank from the guild's leader + officer lists. */
+export function guildRankOf(
+  member: string,
+  leaderName: string,
+  officers: string[],
+): GuildRank {
+  if (member === leaderName) return "leader";
+  return officers.includes(member) ? "officer" : "member";
 }
 
 export interface GuildStatePayload {

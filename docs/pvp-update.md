@@ -169,16 +169,22 @@ The combat *shell*. No new combat math yet.
 - **Black zone "Obsidian Reach"** (full-loot) reached via the Grotto's Black Gate — entry **burns 1,000,000 $BASE on-chain** (`verifyTokenBurn` server-side, `tokenBurn.ts` client, `BlackZoneModal`). A verified burn grants a 1-hour pass.
 - *Verify (manual QA needed):* two clients fight in the Grotto (Red), loser drops a lootable bag; killing in Yellow flags the attacker criminal and bars town entry; burning 1,000,000 $BASE opens the Black Gate. Build-verified; runtime needs DB + two clients + funded wallet.
 
-### Phase 3 — Guild Warfare · **→ 0.42.0**
-Ranks, guild bank, tax, war declarations (`guildRegistry.ts`, `guild.ts`).
+### Phase 3 — Guild Warfare · **→ 0.44.0 (shipped)**
 
-### Phase 4 — Territory Control · **→ 0.43.0**
+- **Ranks** (leader / officer / member): leader promotes/demotes/kicks; officers kick members + manage war/bank.
+- **Guild bank**: members deposit, officers+ withdraw (`depositToBank`/`withdrawFromBank`, persisted `guilds.bank`).
+- **Income tax** (leader-set, 0–10%): a slice of members' gold earnings auto-skims to the bank (`applyGuildTax` hooked in `grantGold`).
+- **War declarations** (mutual): warring guilds fight freely (bypass Yellow opt-in) and war kills are lawful (no criminal flag). `declareWar`/`endWar`, war list in `GuildPanel`.
+- Persisted via new `guilds` columns (officers, bank, tax_rate, wars); state pushed to all members via presence (`broadcastGuildState`).
+- *Verify (manual QA):* two guilds declare war and fight in a Yellow zone without flagging; tax skims to the bank on mob kills; officers withdraw.
+
+### Phase 4 — Territory Control · **→ 0.45.0**
 Capture points, resource ownership, territory income tied to zones.
 
-### Phase 5 — Castle Siege · **→ 0.44.0**
+### Phase 5 — Castle Siege · **→ 0.46.0**
 Scheduled large-scale objective battles (gates, king crystal).
 
-### Phase 6 — PvP Seasons · **→ 0.45.0**
+### Phase 6 — PvP Seasons · **→ 0.47.0**
 Rating/rank, 90-day reset, seasonal leaderboards (`leaderboard.ts`).
 
 ---

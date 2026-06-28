@@ -120,6 +120,12 @@ CREATE TABLE IF NOT EXISTS guilds (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Guild Warfare (Phase 3): officers, shared bank, income tax, war list.
+ALTER TABLE guilds ADD COLUMN IF NOT EXISTS officers JSONB NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE guilds ADD COLUMN IF NOT EXISTS bank INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE guilds ADD COLUMN IF NOT EXISTS tax_rate DOUBLE PRECISION NOT NULL DEFAULT 0;
+ALTER TABLE guilds ADD COLUMN IF NOT EXISTS wars JSONB NOT NULL DEFAULT '[]'::jsonb;
+
 -- Active (planted) farm plots. One row per growing crop; the row is deleted on
 -- harvest. Growth is time-based (planted_at/ready_at are epoch millis), so crops
 -- keep maturing across server restarts.

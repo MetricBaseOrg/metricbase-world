@@ -467,6 +467,38 @@ export class NetworkManager {
     this.room?.send("guildLeave", {});
   }
 
+  sendGuildPromote(target: string) {
+    this.room?.send("guildPromote", { target });
+  }
+
+  sendGuildDemote(target: string) {
+    this.room?.send("guildDemote", { target });
+  }
+
+  sendGuildKick(target: string) {
+    this.room?.send("guildKick", { target });
+  }
+
+  sendGuildSetTax(rate: number) {
+    this.room?.send("guildSetTax", { rate });
+  }
+
+  sendGuildDeposit(amount: number) {
+    this.room?.send("guildDeposit", { amount });
+  }
+
+  sendGuildWithdraw(amount: number) {
+    this.room?.send("guildWithdraw", { amount });
+  }
+
+  sendGuildDeclareWar(guildId: string) {
+    this.room?.send("guildDeclareWar", { guildId });
+  }
+
+  sendGuildEndWar(guildId: string) {
+    this.room?.send("guildEndWar", { guildId });
+  }
+
   requestGuilds() {
     this.room?.send("requestGuilds", {});
   }

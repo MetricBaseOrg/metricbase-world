@@ -369,6 +369,11 @@ body {
   color: var(--chibi-ink);
 }
 
+.chibi-btn--danger {
+  background: linear-gradient(180deg, var(--chibi-danger, #ff6b6b), #d63031);
+  color: #fff7ea;
+}
+
 .chibi-btn--secondary {
   background: var(--chibi-cream-deep);
   color: var(--chibi-ink);

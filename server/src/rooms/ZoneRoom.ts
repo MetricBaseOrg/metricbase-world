@@ -191,6 +191,17 @@ import {
   joinGuild,
   leaveGuild,
   tagForMember,
+  promoteMember,
+  demoteMember,
+  kickMember,
+  setGuildTax,
+  depositToBank,
+  withdrawFromBank,
+  applyGuildTax,
+  declareWar,
+  endWar,
+  arePlayersAtWar,
+  guildMemberNames,
 } from "../guild/guildRegistry.js";
 import { clearOnline, isOnline, sendToPlayer, sendToPlayers, setOnline } from "../social/presence.js";
 import {
@@ -504,6 +515,31 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
     this.onProtectedMessage("guildLeave", (client) => {
       this.handleGuildLeave(client);
+    });
+
+    this.onProtectedMessage("guildPromote", (client, message: { target?: string }) => {
+      this.handleGuildRankAction(client, "promote", message.target ?? "");
+    });
+    this.onProtectedMessage("guildDemote", (client, message: { target?: string }) => {
+      this.handleGuildRankAction(client, "demote", message.target ?? "");
+    });
+    this.onProtectedMessage("guildKick", (client, message: { target?: string }) => {
+      this.handleGuildRankAction(client, "kick", message.target ?? "");
+    });
+    this.onProtectedMessage("guildSetTax", (client, message: { rate?: number }) => {
+      this.handleGuildSetTax(client, message.rate ?? 0);
+    });
+    this.onProtectedMessage("guildDeposit", (client, message: { amount?: number }) => {
+      void this.handleGuildBank(client, "deposit", message.amount ?? 0);
+    });
+    this.onProtectedMessage("guildWithdraw", (client, message: { amount?: number }) => {
+      void this.handleGuildBank(client, "withdraw", message.amount ?? 0);
+    });
+    this.onProtectedMessage("guildDeclareWar", (client, message: { guildId?: string }) => {
+      this.handleGuildWar(client, "declare", message.guildId ?? "");
+    });
+    this.onProtectedMessage("guildEndWar", (client, message: { guildId?: string }) => {
+      this.handleGuildWar(client, "end", message.guildId ?? "");
     });
 
     this.onMessage("requestGuilds", (client) => {
@@ -1556,9 +1592,11 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       return;
     }
 
-    // Yellow zones are opt-in: both fighters must be flagged.
-    if (tier === "yellow" && (!attacker.pvpFlagged || !victim.pvpFlagged)) {
-      client.send("chat", this.systemChat("PvP", "In a Yellow zone both players must flag for PvP (toggle your flag)."));
+    // Guilds at war can fight freely (anywhere PvP is allowed); otherwise Yellow
+    // zones are opt-in and need both fighters flagged.
+    const atWar = arePlayersAtWar(attacker.name, victim.name);
+    if (tier === "yellow" && !atWar && (!attacker.pvpFlagged || !victim.pvpFlagged)) {
+      client.send("chat", this.systemChat("PvP", "In a Yellow zone both players must flag for PvP (or be at guild war)."));
       return;
     }
 
@@ -1588,7 +1626,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     });
 
     this.wearGear(client, attacker, ["weapon"]);
-    const knockedOut = this.damageVictimPvp(attacker, victimClient, victim, hit.damage, tier);
+    const knockedOut = this.damageVictimPvp(attacker, victimClient, victim, hit.damage, tier, atWar);
 
     this.broadcast("pvpHit", {
       attackerName: attacker.name,
@@ -1607,6 +1645,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     victim: InstanceType<typeof PlayerSchema>,
     amount: number,
     tier: DangerTier,
+    atWar = false,
   ): boolean {
     const maxHp = getPlayerMaxHp(victim.level);
     const current = this.playerHp.get(victim.name) ?? maxHp;
@@ -1629,8 +1668,9 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         this.broadcastLootBags();
       }
 
-      // Killing a non-criminal in a Yellow (lawful) zone makes the attacker a criminal.
-      if (tier === "yellow" && !victimWasCriminal) {
+      // Killing a non-criminal in a Yellow (lawful) zone makes the attacker a
+      // criminal — unless it was a sanctioned guild-war kill.
+      if (tier === "yellow" && !victimWasCriminal && !atWar) {
         this.markCriminal(attacker.name);
       }
 
@@ -2296,7 +2336,11 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   ) {
     if (amount <= 0) return;
 
-    const next = (this.playerGold.get(player.name) ?? STARTING_GOLD) + amount;
+    // Guild income tax: a slice of earnings is skimmed straight to the guild bank.
+    const tax = applyGuildTax(player.name, amount);
+    const kept = amount - tax;
+
+    const next = (this.playerGold.get(player.name) ?? STARTING_GOLD) + kept;
     this.playerGold.set(player.name, next);
     this.sendProfile(client, player);
 
@@ -2305,9 +2349,15 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       channel: "system",
       senderId: "system",
       senderName: "System",
-      body: `${player.name} earned ${amount} gold (${reason}).`,
+      body:
+        tax > 0
+          ? `${player.name} earned ${kept} gold (${reason}; ${tax} to guild bank).`
+          : `${player.name} earned ${amount} gold (${reason}).`,
       sentAt: Date.now(),
     });
+
+    // Keep guildmates' bank display fresh after a tax deposit.
+    if (tax > 0) this.broadcastGuildState(guildMemberNames(player.name));
   }
 
   private async handleLinkWallet(client: Client, accessToken: string) {
@@ -4021,6 +4071,114 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     this.sendProfile(client, player);
     client.send("guildResult", { ok: true });
     client.send("guildState", buildGuildStatePayload(player.name));
+  }
+
+  /** Push a fresh, per-recipient guild state to every online member by name. */
+  private broadcastGuildState(memberNames: string[]) {
+    for (const member of memberNames) {
+      sendToPlayer(member, "guildState", buildGuildStatePayload(member));
+    }
+  }
+
+  private handleGuildRankAction(
+    client: Client,
+    action: "promote" | "demote" | "kick",
+    target: string,
+  ) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !target) return;
+    const members = guildMemberNames(player.name);
+    const result =
+      action === "promote"
+        ? promoteMember(player.name, target)
+        : action === "demote"
+          ? demoteMember(player.name, target)
+          : kickMember(player.name, target);
+    if (!result.ok) {
+      client.send("guildResult", { ok: false, error: result.error });
+      return;
+    }
+    client.send("guildResult", { ok: true });
+    // Notify everyone who was in the guild (incl. a kicked member, so their UI clears).
+    this.broadcastGuildState(members);
+    if (action === "kick") {
+      // Refresh the kicked player's nameplate tag.
+      const session = this.activePlayerSession.get(target);
+      const kicked = session ? this.state.players.get(session) : undefined;
+      if (kicked) kicked.guildTag = tagForMember(target);
+      sendToPlayer(target, "guildState", buildGuildStatePayload(target));
+    }
+  }
+
+  private handleGuildSetTax(client: Client, rate: number) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const result = setGuildTax(player.name, rate);
+    if (!result.ok) {
+      client.send("guildResult", { ok: false, error: result.error });
+      return;
+    }
+    client.send("guildResult", { ok: true });
+    this.broadcastGuildState(guildMemberNames(player.name));
+  }
+
+  private async handleGuildBank(client: Client, action: "deposit" | "withdraw", amount: number) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const want = Math.floor(amount);
+
+    if (action === "deposit") {
+      const gold = this.playerGold.get(player.name) ?? STARTING_GOLD;
+      if (want <= 0 || gold < want) {
+        client.send("guildResult", { ok: false, error: "Not enough gold to deposit." });
+        return;
+      }
+      const result = depositToBank(player.name, want);
+      if (!result.ok) {
+        client.send("guildResult", { ok: false, error: result.error });
+        return;
+      }
+      this.playerGold.set(player.name, gold - want);
+    } else {
+      const result = withdrawFromBank(player.name, want);
+      if (!result.ok || !result.amount) {
+        client.send("guildResult", { ok: false, error: result.error });
+        return;
+      }
+      const gold = this.playerGold.get(player.name) ?? STARTING_GOLD;
+      this.playerGold.set(player.name, gold + result.amount);
+    }
+
+    this.sendProfile(client, player);
+    client.send("guildResult", { ok: true });
+    this.broadcastGuildState(guildMemberNames(player.name));
+    await this.persistPlayer(player);
+  }
+
+  private handleGuildWar(client: Client, action: "declare" | "end", guildId: string) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !guildId) return;
+    const result = action === "declare" ? declareWar(player.name, guildId) : endWar(player.name, guildId);
+    if (!result.ok) {
+      client.send("guildResult", { ok: false, error: result.error });
+      return;
+    }
+    client.send("guildResult", { ok: true });
+
+    const myGuild = getGuildForMember(player.name);
+    const myMembers = myGuild?.members ?? [];
+    const theirMembers = result.against?.members ?? [];
+    this.broadcastGuildState([...myMembers, ...theirMembers]);
+
+    if (action === "declare" && myGuild && result.against) {
+      this.broadcastChat(
+        this.systemChat("War", `⚔️ [${myGuild.tag}] declared WAR on [${result.against.tag}]!`),
+      );
+    } else if (action === "end" && myGuild && result.against) {
+      this.broadcastChat(
+        this.systemChat("War", `🕊️ [${myGuild.tag}] made peace with [${result.against.tag}].`),
+      );
+    }
   }
 
   private sendSkillState(client: Client, playerName: string) {
