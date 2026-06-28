@@ -138,7 +138,20 @@ export type EquipmentSlot =
   | "ring2"
   | "necklace"
   | "cape"
-  | "offhand";
+  | "offhand"
+  | "mount";
+
+/** Movement-speed multiplier granted by each equippable mount (1 = base speed). */
+export const MOUNT_SPEED: Record<string, number> = {
+  item_pony: 1.25,
+  item_steed: 1.45,
+  item_dire_wolf: 1.7,
+};
+
+export function getMountSpeed(mountId: string | null | undefined): number {
+  if (!mountId) return 1;
+  return MOUNT_SPEED[mountId] ?? 1;
+}
 
 export interface GearStat {
   /** Which slot kind this piece fits (rings fit ring1/ring2). */
@@ -231,6 +244,7 @@ export interface PlayerEquipment {
   necklaceId: string | null;
   capeId: string | null;
   offhandId: string | null;
+  mountId: string | null;
   /** Per-slot remaining durability for gear that wears (weapon + armor). */
   durability?: Partial<Record<EquipmentSlot, number>>;
 }
@@ -247,6 +261,7 @@ export const EMPTY_EQUIPMENT: PlayerEquipment = {
   necklaceId: null,
   capeId: null,
   offhandId: null,
+  mountId: null,
   durability: {},
 };
 
@@ -263,6 +278,7 @@ const GEAR_FIELD_TO_SLOT: Record<keyof PlayerEquipment & string, GearKindSlot | 
   necklaceId: "necklace",
   capeId: "cape",
   offhandId: "offhand",
+  mountId: null,
   durability: null,
 };
 
@@ -320,6 +336,7 @@ export function normalizeEquipment(raw: Partial<PlayerEquipment> | null | undefi
     necklaceId: null,
     capeId: null,
     offhandId: null,
+    mountId: typeof raw.mountId === "string" && MOUNT_SPEED[raw.mountId] !== undefined ? raw.mountId : null,
     durability: {},
   };
 
@@ -417,6 +434,7 @@ const ALL_EQUIP_FIELDS: [keyof PlayerEquipment & string, EquipmentSlot][] = [
   ["necklaceId", "necklace"],
   ["capeId", "cape"],
   ["offhandId", "offhand"],
+  ["mountId", "mount"],
 ];
 
 /** Build the client-facing equipment snapshot (slots + durability + aggregate stats). */

@@ -1,4 +1,4 @@
-export type ItemKind = "material" | "consumable" | "weapon" | "tool" | "armor";
+export type ItemKind = "material" | "consumable" | "weapon" | "tool" | "armor" | "mount";
 
 export interface ItemDefinition {
   id: string;
@@ -450,6 +450,32 @@ export const ITEMS: Record<string, ItemDefinition> = {
     stackable: false,
     maxStack: 1,
     kind: "armor",
+  },
+
+  // ---- Mounts (speed). Multiplier lives in MOUNT_SPEED (equipment.ts). ----
+  item_pony: {
+    id: "item_pony",
+    name: "Sturdy Pony",
+    description: "A dependable little pony. +25% movement speed when equipped.",
+    stackable: false,
+    maxStack: 1,
+    kind: "mount",
+  },
+  item_steed: {
+    id: "item_steed",
+    name: "Swift Steed",
+    description: "A fleet-footed horse. +45% movement speed when equipped.",
+    stackable: false,
+    maxStack: 1,
+    kind: "mount",
+  },
+  item_dire_wolf: {
+    id: "item_dire_wolf",
+    name: "Dire Wolf",
+    description: "A fearsome mount from the deep wilds. +70% movement speed when equipped.",
+    stackable: false,
+    maxStack: 1,
+    kind: "mount",
   },
 };
 

@@ -12,12 +12,13 @@ export function stepPrediction(
   dx: number,
   dy: number,
   deltaMs: number,
+  speedMult = 1,
 ): PredictedPosition {
   const length = Math.hypot(dx, dy);
   if (length === 0) return position;
 
   const dt = deltaMs / 1000;
-  const speed = PLAYER_SPEED * dt;
+  const speed = PLAYER_SPEED * (speedMult || 1) * dt;
 
   return {
     x: position.x + (dx / length) * speed,

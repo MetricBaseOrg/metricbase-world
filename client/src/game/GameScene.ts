@@ -240,6 +240,8 @@ export class GameScene extends Phaser.Scene {
   private crystalGfx: Phaser.GameObjects.Graphics | null = null;
   private crystalLabel: Phaser.GameObjects.Text | null = null;
   private siegeState: SiegeStatePayload | null = null;
+  /** Local player's mount speed multiplier, mirrored for client prediction. */
+  private localSpeedMult = 1;
   private chopKey: Phaser.Input.Keyboard.Key | null = null;
   private fishKey: Phaser.Input.Keyboard.Key | null = null;
   private lastSentInput = { dx: 0, dy: 0 };
@@ -1178,12 +1180,14 @@ export class GameScene extends Phaser.Scene {
       spectator: useGameStore.getState().spectator,
       pvpFlagged: false,
       criminal: false,
+      speedMult: 1,
     });
   }
 
   private upsertLocalPlayer(player: RemotePlayer) {
     const sessionId = networkManager.sessionId ?? player.sessionId;
     this.localSessionId = sessionId;
+    this.localSpeedMult = player.speedMult || 1;
 
     if (this.localAvatar) {
       const existing = this.localAvatar;
@@ -3172,7 +3176,7 @@ export class GameScene extends Phaser.Scene {
     if (!local) return;
 
     if (dx !== 0 || dy !== 0) {
-      local.predicted = stepPrediction(local.predicted, dx, dy, delta);
+      local.predicted = stepPrediction(local.predicted, dx, dy, delta, this.localSpeedMult);
     }
 
     const x = Math.round(local.predicted.x);

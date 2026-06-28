@@ -20,16 +20,23 @@ export const PVP_KILL_RATING = 25;
 /** Rating lost by the loser of a PvP knockout (never below 0). */
 export const PVP_DEATH_RATING = 15;
 
-/** A PvP season lasts 90 days, epoch-aligned so all players agree. */
+/** A PvP season lasts 90 days. */
 export const PVP_SEASON_LENGTH_MS = 90 * 24 * 60 * 60 * 1000;
 
+/**
+ * Anchor for season counting — Season 1 begins here. Without this, seasons were
+ * measured from the Unix epoch (1970), so the count read ~228 instead of 1.
+ */
+export const SEASON_EPOCH_MS = Date.UTC(2026, 5, 1); // 2026-06-01
+
+/** Zero-based season index since the anchor (display as `season + 1`). */
 export function getPvpSeason(now: number): number {
-  return Math.floor(now / PVP_SEASON_LENGTH_MS);
+  return Math.max(0, Math.floor((now - SEASON_EPOCH_MS) / PVP_SEASON_LENGTH_MS));
 }
 
 /** Epoch ms when the current season ends / the next begins. */
 export function getSeasonEndsAt(now: number): number {
-  return (getPvpSeason(now) + 1) * PVP_SEASON_LENGTH_MS;
+  return SEASON_EPOCH_MS + (getPvpSeason(now) + 1) * PVP_SEASON_LENGTH_MS;
 }
 
 interface RankBand {

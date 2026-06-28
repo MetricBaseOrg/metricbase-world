@@ -62,6 +62,7 @@ export interface RemotePlayer {
   spectator: boolean;
   pvpFlagged: boolean;
   criminal: boolean;
+  speedMult: number;
 }
 
 type ConnectionListener = (connected: boolean, playerCount: number) => void;
@@ -1405,6 +1406,7 @@ export class NetworkManager {
       spectator: Boolean((player as any).spectator),
       pvpFlagged: Boolean((player as any).pvpFlagged),
       criminal: Boolean((player as any).criminal),
+      speedMult: Number((player as any).speedMult) || 1,
       appearance: normalizeCharacterAppearance({
         bodyColor: player.bodyColor,
         hairColor: player.hairColor,

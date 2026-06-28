@@ -21,6 +21,8 @@ export const PlayerSchema = schema({
   pvpFlagged: "boolean",
   /** Criminal status — shows a red name and bars Safe-zone entry. */
   criminal: "boolean",
+  /** Movement-speed multiplier from the equipped mount (1 = base). */
+  speedMult: "number",
 });
 
 export type Player = InstanceType<typeof PlayerSchema>;

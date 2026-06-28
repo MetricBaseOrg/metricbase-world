@@ -21,6 +21,7 @@ const SLOT_LABELS: Record<EquipmentSlot, string> = {
   necklace: "Necklace",
   cape: "Cape",
   offhand: "Offhand",
+  mount: "Mount",
 };
 
 export function InventoryPanel() {
@@ -104,6 +105,7 @@ export function InventoryPanel() {
     const item = getItemDefinition(itemId);
     if (item.kind === "tool") return "tool";
     if (item.kind === "weapon") return "weapon";
+    if (item.kind === "mount") return "mount";
     return undefined; // armor — server resolves the slot
   };
 
@@ -207,7 +209,11 @@ export function InventoryPanel() {
             const item = getItemDefinition(entry.itemId);
             const gear = getGearStat(entry.itemId);
             const isEquipped = equippedItemIds.has(entry.itemId);
-            const equippable = item.kind === "weapon" || item.kind === "tool" || item.kind === "armor";
+            const equippable =
+              item.kind === "weapon" ||
+              item.kind === "tool" ||
+              item.kind === "armor" ||
+              item.kind === "mount";
             const nameColor = gear ? RARITY_COLORS[gear.rarity] : undefined;
             return (
               <div key={entry.itemId} className="chibi-card">

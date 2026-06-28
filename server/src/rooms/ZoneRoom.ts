@@ -71,6 +71,7 @@ import {
   isCollectObjectiveMet,
   normalizeEquipment,
   getEquipmentStats,
+  getMountSpeed,
   buildEquipmentState,
   getGearStat,
   fieldForGearSlot,
@@ -814,6 +815,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     this.playerEquipment.set(player.name, eq);
     player.weaponId = eq.weaponId ?? "";
     player.toolId = eq.toolId ?? "";
+    player.speedMult = getMountSpeed(eq.mountId);
     this.npcInteractAt.set(player.name, saved?.npcInteractAt ?? {});
     this.mobGoldClaimed.set(player.name, saved?.mobGoldClaimed ?? {});
     this.playerSkills.set(player.name, normalizeSkills(saved?.skills));
@@ -1096,7 +1098,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
       const nx = input.dx / length;
       const ny = input.dy / length;
-      const speed = PLAYER_SPEED * dt;
+      const speed = PLAYER_SPEED * (player.speedMult || 1) * dt;
 
       const nextX = player.x + nx * speed;
       const nextY = player.y + ny * speed;
@@ -3264,6 +3266,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         return "capeId";
       case "offhand":
         return "offhandId";
+      case "mount":
+        return "mountId";
       default:
         return null;
     }
@@ -3290,6 +3294,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       this.playerEquipment.set(player.name, normalized);
       player.weaponId = normalized.weaponId ?? "";
       player.toolId = normalized.toolId ?? "";
+      player.speedMult = getMountSpeed(normalized.mountId);
       this.sendProfile(client, player);
       this.sendInventory(client, player.name);
       client.send("inventoryResult", {
@@ -3310,7 +3315,12 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       return;
     }
 
-    if (item.kind !== "weapon" && item.kind !== "tool" && item.kind !== "armor") {
+    if (
+      item.kind !== "weapon" &&
+      item.kind !== "tool" &&
+      item.kind !== "armor" &&
+      item.kind !== "mount"
+    ) {
       client.send("inventoryResult", { ok: false, error: "That item cannot be equipped." });
       return;
     }
@@ -3328,6 +3338,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       wearSlot = "weapon";
     } else if (item.kind === "tool") {
       field = "toolId";
+    } else if (item.kind === "mount") {
+      field = "mountId";
     } else {
       const gear = getGearStat(itemId);
       if (!gear) {
@@ -3361,6 +3373,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     this.playerEquipment.set(player.name, normalized);
     player.weaponId = normalized.weaponId ?? "";
     player.toolId = normalized.toolId ?? "";
+    player.speedMult = getMountSpeed(normalized.mountId);
     this.sendProfile(client, player);
     this.sendInventory(client, player.name);
 

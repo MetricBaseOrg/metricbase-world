@@ -356,6 +356,43 @@ export const CRAFT_RECIPES: CraftRecipe[] = [
     output: { itemId: "item_traveler_cape", quantity: 1 },
     goldCost: 30,
   },
+
+  // ---- Mounts ----
+  {
+    id: "craft_pony",
+    name: "Sturdy Pony",
+    description: "Rig up tack for a pony. +25% movement speed.",
+    inputs: [
+      { itemId: "item_plank", quantity: 4 },
+      { itemId: "item_wheat", quantity: 5 },
+    ],
+    output: { itemId: "item_pony", quantity: 1 },
+    goldCost: 120,
+  },
+  {
+    id: "craft_steed",
+    name: "Swift Steed",
+    description: "Outfit a fast horse. +45% movement speed.",
+    inputs: [
+      { itemId: "item_hardwood_plank", quantity: 3 },
+      { itemId: "item_iron_bar", quantity: 2 },
+      { itemId: "item_wheat", quantity: 10 },
+    ],
+    output: { itemId: "item_steed", quantity: 1 },
+    goldCost: 320,
+  },
+  {
+    id: "craft_dire_wolf",
+    name: "Dire Wolf",
+    description: "Tame a dire wolf with steel barding. +70% movement speed.",
+    inputs: [
+      { itemId: "item_steel_bar", quantity: 3 },
+      { itemId: "item_slime_core", quantity: 2 },
+      { itemId: "item_grilled_salmon", quantity: 3 },
+    ],
+    output: { itemId: "item_dire_wolf", quantity: 1 },
+    goldCost: 600,
+  },
 ];
 
 export function getRecipe(recipeId: string): CraftRecipe | undefined {
