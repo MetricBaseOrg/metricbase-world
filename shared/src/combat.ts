@@ -3,9 +3,58 @@ import { getWeaponBonusDamage } from "./equipment.js";
 export const ATTACK_RANGE = 72;
 export const ATTACK_COOLDOWN_MS = 450;
 export const PLAYER_ATTACK_DAMAGE = 18;
-export const PLAYER_MAX_HP_BASE = 40;
-export const PLAYER_MAX_HP_PER_LEVEL = 8;
+// PvP retune (0.40.0): a bigger HP pool so positioning, armor, and crits
+// matter rather than fights ending in two hits.
+export const PLAYER_MAX_HP_BASE = 60;
+export const PLAYER_MAX_HP_PER_LEVEL = 10;
 export const RESPAWN_GOLD_COST = 100;
+
+// ---- Combat stat model ----
+/** Baseline crit chance (0–1) before gear bonuses. */
+export const BASE_CRIT_CHANCE = 0.05;
+/** Baseline crit damage multiplier before gear bonuses. */
+export const BASE_CRIT_MULT = 1.5;
+/** Armor constant for diminishing returns — at armor == K, damage is halved. */
+export const ARMOR_K = 100;
+
+/**
+ * Fraction of damage mitigated by `armor`, with diminishing returns:
+ * 0 armor → 0%, armor == ARMOR_K → 50%, asymptotic toward 100%.
+ */
+export function armorReduction(armor: number): number {
+  if (armor <= 0) return 0;
+  return armor / (armor + ARMOR_K);
+}
+
+export interface HitInput {
+  /** Attacker's total attack power (base + weapon). */
+  attack: number;
+  /** Crit chance 0–1. */
+  critChance: number;
+  /** Crit damage multiplier (e.g. 1.5). */
+  critMult: number;
+  /** Defender's total armor. */
+  targetArmor: number;
+  /** Skill/ability damage multiplier (1 for a basic swing). */
+  skillMult?: number;
+}
+
+export interface HitResult {
+  damage: number;
+  crit: boolean;
+}
+
+/**
+ * Resolve a single hit: Attack × SkillMod × Crit − ArmorReduction.
+ * Always deals at least 1 damage. `rng` is injectable for deterministic tests.
+ */
+export function rollHit(input: HitInput, rng: () => number = Math.random): HitResult {
+  const critChance = Math.max(0, Math.min(0.95, input.critChance));
+  const crit = rng() < critChance;
+  const raw = input.attack * (input.skillMult ?? 1) * (crit ? input.critMult : 1);
+  const reduced = raw * (1 - armorReduction(Math.max(0, input.targetArmor)));
+  return { damage: Math.max(1, Math.round(reduced)), crit };
+}
 export const RESPAWN_WAIT_MS = 30 * 60 * 1000;
 export const HP_REGEN_AMOUNT = 1;
 export const HP_REGEN_INTERVAL_MS = 3000;

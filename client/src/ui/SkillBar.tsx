@@ -1,42 +1,30 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ATTACK_COOLDOWN_MS } from "@metricbase/shared";
+import { ATTACK_COOLDOWN_MS, getAbilitiesForWeapon } from "@metricbase/shared";
 import { playSfx } from "../audio/soundEffects";
-import { triggerPrimaryAttack } from "../game/inputControl";
-import { isUiTypingActive } from "../game/inputControl";
+import {
+  isUiTypingActive,
+  triggerAbility,
+  triggerPrimaryAttack,
+} from "../game/inputControl";
 import { useGameStore } from "../store/gameStore";
 import { useMobileLayout } from "./useMobileLayout";
 
 /**
- * Combat hotbar (Phase 0 shell). The primary "Strike" slot fires the real
- * basic attack; weapon skill slots (1–5 / Q / E / R) are placeholders that
- * light up and animate cooldowns now — they bind to weapon-driven abilities in
- * Phase 1. Keeps WASD movement + Space/right-click attack untouched.
+ * Combat hotbar. The primary "Strike" slot fires the basic attack; the
+ * remaining slots are the abilities granted by the equipped weapon (swap your
+ * weapon, swap your kit). Cooldowns animate as a conic sweep. WASD movement +
+ * Space/right-click attack remain untouched.
  */
-interface SkillSlot {
-  /** Stable id used for cooldown tracking. */
+interface RenderSlot {
   id: string;
-  /** Keybind label shown on the slot. */
   keyLabel: string;
-  /** Lowercased keyboard key that triggers it, or null for the primary slot. */
   keyCode: string | null;
   name: string;
   icon: string;
   cooldownMs: number;
-  /** Phase 1+ ability — visually locked until the ability system lands. */
-  locked?: boolean;
+  /** null = primary basic attack; otherwise a weapon ability id. */
+  abilityId: string | null;
 }
-
-const SLOTS: SkillSlot[] = [
-  { id: "primary", keyLabel: "RMB", keyCode: null, name: "Strike", icon: "⚔️", cooldownMs: ATTACK_COOLDOWN_MS },
-  { id: "skill1", keyLabel: "1", keyCode: "1", name: "Slash", icon: "🗡️", cooldownMs: 4000, locked: true },
-  { id: "skill2", keyLabel: "2", keyCode: "2", name: "Charge", icon: "💨", cooldownMs: 6000, locked: true },
-  { id: "skill3", keyLabel: "3", keyCode: "3", name: "Spin", icon: "🌀", cooldownMs: 8000, locked: true },
-  { id: "skill4", keyLabel: "4", keyCode: "4", name: "Guard", icon: "🛡️", cooldownMs: 10000, locked: true },
-  { id: "skill5", keyLabel: "5", keyCode: "5", name: "Quake", icon: "💥", cooldownMs: 15000, locked: true },
-  { id: "dash", keyLabel: "Q", keyCode: "q", name: "Dash", icon: "🌬️", cooldownMs: 5000, locked: true },
-  { id: "utility", keyLabel: "E", keyCode: "e", name: "Utility", icon: "✨", cooldownMs: 7000, locked: true },
-  { id: "ultimate", keyLabel: "R", keyCode: "r", name: "Ultimate", icon: "🔥", cooldownMs: 30000, locked: true },
-];
 
 export function SkillBar() {
   const mobile = useMobileLayout();
@@ -46,12 +34,33 @@ export function SkillBar() {
   const craftOpen = useGameStore((state) => state.craftOpen);
   const housingOpen = useGameStore((state) => state.housingOpen);
   const playerShopOpen = useGameStore((state) => state.playerShopOpen);
+  const equippedWeaponId = useGameStore((state) => state.equippedWeaponId);
 
-  // Map of slot id -> { endsAt, durationMs }. Drives the cooldown sweep.
   const cooldowns = useRef<Map<string, { endsAt: number; durationMs: number }>>(new Map());
   const [, forceTick] = useState(0);
   const rafRef = useRef<number | null>(null);
   const [shake, setShake] = useState<string | null>(null);
+
+  const slots: RenderSlot[] = [
+    {
+      id: "primary",
+      keyLabel: "RMB",
+      keyCode: null,
+      name: "Strike",
+      icon: "⚔️",
+      cooldownMs: ATTACK_COOLDOWN_MS,
+      abilityId: null,
+    },
+    ...getAbilitiesForWeapon(equippedWeaponId).map((ability) => ({
+      id: ability.id,
+      keyLabel: ability.key,
+      keyCode: ability.key,
+      name: ability.name,
+      icon: ability.icon,
+      cooldownMs: ability.cooldownMs,
+      abilityId: ability.id,
+    })),
+  ];
 
   const animate = useCallback(() => {
     const now = Date.now();
@@ -63,41 +72,41 @@ export function SkillBar() {
   }, []);
 
   const startCooldown = useCallback(
-    (slot: SkillSlot) => {
-      cooldowns.current.set(slot.id, { endsAt: Date.now() + slot.cooldownMs, durationMs: slot.cooldownMs });
+    (id: string, durationMs: number) => {
+      cooldowns.current.set(id, { endsAt: Date.now() + durationMs, durationMs });
       if (rafRef.current === null) rafRef.current = requestAnimationFrame(animate);
     },
     [animate],
   );
 
   const activate = useCallback(
-    (slot: SkillSlot) => {
+    (slot: RenderSlot) => {
       if (cooldowns.current.has(slot.id)) return;
-      if (slot.locked) {
-        // Not yet implemented — give clear feedback without faking a cast.
+      const fired = slot.abilityId === null ? (triggerPrimaryAttack(), true) : triggerAbility(slot.abilityId);
+      if (!fired) {
+        // No valid target in range — nudge the player rather than burn the cooldown.
         playSfx("shop_fail");
         setShake(slot.id);
         window.setTimeout(() => setShake((current) => (current === slot.id ? null : current)), 260);
         return;
       }
-      triggerPrimaryAttack();
       playSfx("attack_swing");
-      startCooldown(slot);
+      startCooldown(slot.id, slot.cooldownMs);
     },
     [startCooldown],
   );
 
-  // Keyboard activation for skill slots (respects the typing guard).
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (isUiTypingActive() || event.repeat) return;
       const key = event.key.toLowerCase();
-      const slot = SLOTS.find((entry) => entry.keyCode === key);
+      const slot = slots.find((entry) => entry.keyCode === key);
       if (slot) activate(slot);
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [activate]);
+    // slots are recomputed each render from equippedWeaponId; activate is stable.
+  }, [activate, equippedWeaponId]);
 
   useEffect(() => {
     return () => {
@@ -112,7 +121,7 @@ export function SkillBar() {
 
   return (
     <div className="chibi-skillbar" aria-label="Combat skills">
-      {SLOTS.map((slot) => {
+      {slots.map((slot) => {
         const cd = cooldowns.current.get(slot.id);
         const remaining = cd ? Math.max(0, cd.endsAt - now) : 0;
         const progress = cd ? remaining / cd.durationMs : 0;
@@ -122,8 +131,8 @@ export function SkillBar() {
           <button
             key={slot.id}
             type="button"
-            className={`chibi-skill-slot${slot.locked ? " locked" : ""}${slot.id === "primary" ? " primary" : ""}${shake === slot.id ? " shake" : ""}`}
-            title={slot.locked ? `${slot.name} — unlocks in Phase 1` : `${slot.name} (${slot.keyLabel})`}
+            className={`chibi-skill-slot${slot.id === "primary" ? " primary" : ""}${shake === slot.id ? " shake" : ""}`}
+            title={`${slot.name} (${slot.keyLabel})`}
             aria-label={`${slot.name} ${slot.keyLabel}`}
             onPointerDown={(event) => event.preventDefault()}
             onClick={() => activate(slot)}
@@ -132,7 +141,6 @@ export function SkillBar() {
               {slot.icon}
             </span>
             <span className="chibi-skill-key">{slot.keyLabel}</span>
-            {slot.locked && <span className="chibi-skill-lock" aria-hidden="true">🔒</span>}
             {remaining > 0 && (
               <span
                 className="chibi-skill-cooldown"

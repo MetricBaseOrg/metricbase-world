@@ -124,6 +124,18 @@ export function triggerPrimaryAttack() {
   pendingMobileAttack = true;
 }
 
+type AbilityScene = Phaser.Scene & { useAbility?: (abilityId: string) => boolean };
+
+/**
+ * Fire a weapon ability at the current target. Returns true if the scene found
+ * a target and sent the ability (so the hotbar only starts a cooldown on a hit).
+ */
+export function triggerAbility(abilityId: string): boolean {
+  if (!game) return false;
+  const scene = game.scene.getScene("GameScene") as AbilityScene | undefined;
+  return scene?.useAbility?.(abilityId) ?? false;
+}
+
 export function consumeMobileInteract(): boolean {
   if (!pendingMobileInteract) return false;
   pendingMobileInteract = false;

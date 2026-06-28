@@ -3,6 +3,7 @@ import {
   ProfilePayload,
   QuestStatePayload,
   type CharacterAppearance,
+  type EquipmentStatePayload,
   type InventoryStatePayload,
   type LandPlotState,
   type ShopOpenPayload,
@@ -39,6 +40,7 @@ interface GameStore {
   chatMessages: ChatMessagePayload[];
   questState: QuestStatePayload;
   inventory: InventoryStatePayload;
+  equipment: EquipmentStatePayload | null;
   inventoryOpen: boolean;
   craftOpen: boolean;
   housingOpen: boolean;
@@ -88,6 +90,7 @@ interface GameStore {
   clearChat: () => void;
   setQuestState: (questState: QuestStatePayload) => void;
   setInventory: (inventory: InventoryStatePayload) => void;
+  setEquipment: (equipment: EquipmentStatePayload | null) => void;
   setInventoryOpen: (open: boolean) => void;
   toggleInventoryOpen: () => void;
   setCraftOpen: (open: boolean) => void;
@@ -133,6 +136,7 @@ export const useGameStore = create<GameStore>((set) => ({
   chatMessages: [],
   questState: { active: [], completed: [] },
   inventory: { items: [], capacity: 16 },
+  equipment: null,
   inventoryOpen: false,
   craftOpen: false,
   housingOpen: false,
@@ -212,6 +216,7 @@ export const useGameStore = create<GameStore>((set) => ({
   clearChat: () => set({ chatMessages: [] }),
   setQuestState: (questState) => set({ questState }),
   setInventory: (inventory) => set({ inventory }),
+  setEquipment: (equipment) => set({ equipment }),
   setInventoryOpen: (inventoryOpen) => set({ inventoryOpen, craftOpen: false }),
   toggleInventoryOpen: () =>
     set((state) => ({ inventoryOpen: !state.inventoryOpen, craftOpen: false })),

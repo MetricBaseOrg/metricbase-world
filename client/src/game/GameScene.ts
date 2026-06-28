@@ -2227,6 +2227,51 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  /**
+   * Fire a weapon ability at the current target (selected hostile, else nearest
+   * in range). Called from the React hotbar via inputControl. Returns true if a
+   * target was found and the ability was sent.
+   */
+  useAbility(abilityId: string): boolean {
+    if (!this.localSessionId) return false;
+    const local = this.findLocalPlayer();
+    if (!local) return false;
+
+    let target: RenderedNpc | null = null;
+    if (this.selectedNpcId) {
+      const selected = this.renderedNpcs.find((npc) => npc.id === this.selectedNpcId);
+      if (selected && selected.combat && selected.currentHp > 0) {
+        const distance = Math.hypot(local.predicted.x - selected.worldX, local.predicted.y - selected.worldY);
+        if (distance <= ATTACK_RANGE) target = selected;
+      }
+    }
+    if (!target) {
+      let nearestDistance = ATTACK_RANGE;
+      for (const npc of this.renderedNpcs) {
+        if (!npc.combat || npc.currentHp <= 0) continue;
+        const distance = Math.hypot(local.predicted.x - npc.worldX, local.predicted.y - npc.worldY);
+        if (distance <= nearestDistance) {
+          target = npc;
+          nearestDistance = distance;
+        }
+      }
+    }
+    if (!target) return false;
+
+    networkManager.sendAbility(abilityId, target.id);
+    if (this.localAvatar) {
+      const direction = directionTowardTarget(
+        this.localAvatar.sprite.x,
+        this.localAvatar.sprite.y,
+        target.worldX,
+        target.worldY,
+        this.localAvatar.direction,
+      );
+      this.setPlayerAction(this.localAvatar, "attack", direction, 350);
+    }
+    return true;
+  }
+
   /** Left-click target selection: pick the hostile NPC nearest the cursor. */
   private selectNpcAtPointer(pointer: Phaser.Input.Pointer) {
     const SELECT_PIXEL_RANGE = 52;

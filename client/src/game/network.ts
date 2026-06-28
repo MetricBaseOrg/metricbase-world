@@ -10,6 +10,7 @@ import {
   JoinOptions,
   InventoryResultPayload,
   InventoryStatePayload,
+  type EquipmentStatePayload,
   CraftResultPayload,
   FarmStatePayload,
   FarmResultPayload,
@@ -68,6 +69,7 @@ type QuestStateListener = (state: QuestStatePayload) => void;
 type MobHealthListener = (payload: MobHealthPayload) => void;
 type AttackResultListener = (payload: AttackResultPayload) => void;
 type InventoryListener = (state: InventoryStatePayload) => void;
+type EquipmentStateListener = (state: EquipmentStatePayload) => void;
 type InventoryResultListener = (payload: InventoryResultPayload) => void;
 type CraftResultListener = (payload: CraftResultPayload) => void;
 type FarmStateListener = (payload: FarmStatePayload) => void;
@@ -116,6 +118,8 @@ export class NetworkManager {
   private mobHealthListeners = new Set<MobHealthListener>();
   private attackResultListeners = new Set<AttackResultListener>();
   private inventoryListeners = new Set<InventoryListener>();
+  private equipmentStateListeners = new Set<EquipmentStateListener>();
+  private latestEquipmentState: EquipmentStatePayload | null = null;
   private inventoryResultListeners = new Set<InventoryResultListener>();
   private craftResultListeners = new Set<CraftResultListener>();
   private farmStateListeners = new Set<FarmStateListener>();
@@ -303,6 +307,10 @@ export class NetworkManager {
     this.room?.send("attack", { npcId });
   }
 
+  sendAbility(abilityId: string, npcId: string) {
+    this.room?.send("ability", { abilityId, npcId });
+  }
+
   sendToggleLamp(on: boolean) {
     this.room?.send("toggleLamp", { on });
   }
@@ -347,8 +355,12 @@ export class NetworkManager {
     this.room?.send("useItem", { itemId });
   }
 
-  sendEquipItem(itemId: string | null, slot?: "weapon" | "tool") {
+  sendEquipItem(itemId: string | null, slot?: string) {
     this.room?.send("equipItem", { itemId, slot });
+  }
+
+  sendRepairGear() {
+    this.room?.send("repairGear", {});
   }
 
   sendCraft(recipeId: string) {
@@ -651,6 +663,12 @@ export class NetworkManager {
     return () => this.inventoryListeners.delete(listener);
   }
 
+  onEquipmentState(listener: EquipmentStateListener) {
+    this.equipmentStateListeners.add(listener);
+    if (this.latestEquipmentState) listener(this.latestEquipmentState);
+    return () => this.equipmentStateListeners.delete(listener);
+  }
+
   onInventoryResult(listener: InventoryResultListener) {
     this.inventoryResultListeners.add(listener);
     return () => this.inventoryResultListeners.delete(listener);
@@ -877,6 +895,12 @@ export class NetworkManager {
     this.room.onMessage("inventory", (payload: InventoryStatePayload) => {
       this.latestInventory = payload;
       for (const listener of this.inventoryListeners) {
+        listener(payload);
+      }
+    });
+    this.room.onMessage("equipmentState", (payload: EquipmentStatePayload) => {
+      this.latestEquipmentState = payload;
+      for (const listener of this.equipmentStateListeners) {
         listener(payload);
       }
     });

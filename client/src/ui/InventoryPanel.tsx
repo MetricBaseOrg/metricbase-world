@@ -1,13 +1,31 @@
-import { getItemDefinition } from "@metricbase/shared";
+import {
+  getItemDefinition,
+  getGearStat,
+  RARITY_COLORS,
+  type EquipmentSlot,
+} from "@metricbase/shared";
 import { useState } from "react";
 import { playSfx } from "../audio/soundEffects";
 import { networkManager } from "../game/network";
 import { useGameStore } from "../store/gameStore";
 
+const SLOT_LABELS: Record<EquipmentSlot, string> = {
+  weapon: "Weapon",
+  tool: "Tool",
+  helmet: "Helmet",
+  chest: "Chest",
+  gloves: "Gloves",
+  boots: "Boots",
+  ring1: "Ring",
+  ring2: "Ring",
+  necklace: "Necklace",
+  cape: "Cape",
+  offhand: "Offhand",
+};
+
 export function InventoryPanel() {
   const inventory = useGameStore((state) => state.inventory);
-  const equippedWeaponId = useGameStore((state) => state.equippedWeaponId);
-  const equippedToolId = useGameStore((state) => state.equippedToolId);
+  const equipment = useGameStore((state) => state.equipment);
   const open = useGameStore((state) => state.inventoryOpen);
   const setInventoryOpen = useGameStore((state) => state.setInventoryOpen);
   const setInventory = useGameStore((state) => state.setInventory);
@@ -17,18 +35,28 @@ export function InventoryPanel() {
 
   if (!open) return null;
 
+  const equippedItemIds = new Set((equipment?.slots ?? []).map((slot) => slot.itemId));
+  const needsRepair = (equipment?.slots ?? []).some(
+    (slot) => slot.maxDurability !== undefined && (slot.durability ?? 0) < slot.maxDurability,
+  );
+
+  const awaitInventoryResult = () =>
+    new Promise<{ ok: boolean; error?: string; hp?: number; maxHp?: number; inventory?: typeof inventory }>(
+      (resolve) => {
+        const timeout = window.setTimeout(() => resolve({ ok: false, error: "Request timed out." }), 8000);
+        const unsubscribe = networkManager.onInventoryResult((payload) => {
+          window.clearTimeout(timeout);
+          unsubscribe();
+          resolve(payload);
+        });
+      },
+    );
+
   const handleUse = async (itemId: string) => {
     setPending(true);
     setError(null);
     networkManager.sendUseItem(itemId);
-    const result = await new Promise<{ ok: boolean; error?: string; hp?: number; maxHp?: number; inventory?: typeof inventory }>((resolve) => {
-      const timeout = window.setTimeout(() => resolve({ ok: false, error: "Request timed out." }), 8000);
-      const unsubscribe = networkManager.onInventoryResult((payload) => {
-        window.clearTimeout(timeout);
-        unsubscribe();
-        resolve(payload);
-      });
-    });
+    const result = await awaitInventoryResult();
     setPending(false);
     if (!result.ok) {
       playSfx("shop_fail");
@@ -42,18 +70,11 @@ export function InventoryPanel() {
     }
   };
 
-  const handleEquip = async (itemId: string | null, slot?: "weapon" | "tool") => {
+  const handleEquip = async (itemId: string | null, slot?: string) => {
     setPending(true);
     setError(null);
     networkManager.sendEquipItem(itemId, slot);
-    const result = await new Promise<{ ok: boolean; error?: string; inventory?: typeof inventory }>((resolve) => {
-      const timeout = window.setTimeout(() => resolve({ ok: false, error: "Request timed out." }), 8000);
-      const unsubscribe = networkManager.onInventoryResult((payload) => {
-        window.clearTimeout(timeout);
-        unsubscribe();
-        resolve(payload);
-      });
-    });
+    const result = await awaitInventoryResult();
     setPending(false);
     if (!result.ok) {
       playSfx("shop_fail");
@@ -62,6 +83,28 @@ export function InventoryPanel() {
     }
     playSfx("equip");
     if (result.inventory) setInventory(result.inventory);
+  };
+
+  const handleRepair = async () => {
+    setPending(true);
+    setError(null);
+    networkManager.sendRepairGear();
+    const result = await awaitInventoryResult();
+    setPending(false);
+    if (!result.ok) {
+      playSfx("shop_fail");
+      setError(result.error ?? "Could not repair.");
+      return;
+    }
+    playSfx("craft");
+    if (result.inventory) setInventory(result.inventory);
+  };
+
+  const equipSlotFor = (itemId: string): string | undefined => {
+    const item = getItemDefinition(itemId);
+    if (item.kind === "tool") return "tool";
+    if (item.kind === "weapon") return "weapon";
+    return undefined; // armor — server resolves the slot
   };
 
   return (
@@ -81,18 +124,77 @@ export function InventoryPanel() {
         </button>
       </div>
 
-      <div className="chibi-text-muted" style={{ margin: "6px 0 12px" }}>
+      {/* Combat stats from equipped gear */}
+      {equipment && (
+        <div className="chibi-card" style={{ margin: "6px 0 10px", display: "flex", gap: 10, flexWrap: "wrap", fontSize: "0.74rem", fontWeight: 700 }}>
+          <span title="Attack power">⚔️ {Math.round(equipment.attack)}</span>
+          <span title="Armor">🛡️ {Math.round(equipment.armor)}</span>
+          <span title="Critical chance">🎯 {Math.round(equipment.critChance * 100)}%</span>
+          <span title="Critical damage">💥 {equipment.critMult.toFixed(2)}×</span>
+        </div>
+      )}
+
+      {/* Equipped gear with durability */}
+      {equipment && equipment.slots.length > 0 && (
+        <div style={{ display: "grid", gap: 6, marginBottom: 10 }}>
+          {equipment.slots.map((slot) => {
+            const item = getItemDefinition(slot.itemId);
+            const gear = getGearStat(slot.itemId);
+            const color = gear ? RARITY_COLORS[gear.rarity] : "var(--chibi-ink)";
+            const durPct =
+              slot.maxDurability && slot.maxDurability > 0
+                ? Math.max(0, Math.min(1, (slot.durability ?? 0) / slot.maxDurability))
+                : null;
+            const low = durPct !== null && durPct <= 0.25;
+            return (
+              <div key={slot.slot} className="chibi-card" style={{ padding: "6px 8px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
+                  <div style={{ minWidth: 0 }}>
+                    <span style={{ fontSize: "0.62rem", opacity: 0.6, textTransform: "uppercase" }}>
+                      {SLOT_LABELS[slot.slot]}
+                    </span>
+                    <div style={{ fontWeight: 800, fontSize: "0.78rem", color }}>{item.name}</div>
+                  </div>
+                  <button
+                    type="button"
+                    className="chibi-btn chibi-btn--secondary"
+                    disabled={pending}
+                    onClick={() => void handleEquip(null, slot.slot)}
+                    style={{ padding: "4px 8px", fontSize: "0.66rem" }}
+                  >
+                    Unequip
+                  </button>
+                </div>
+                {durPct !== null && (
+                  <div style={{ height: 4, borderRadius: 3, background: "var(--chibi-outline-light)", marginTop: 5, overflow: "hidden" }}>
+                    <div
+                      style={{
+                        width: `${durPct * 100}%`,
+                        height: "100%",
+                        background: low ? "var(--chibi-danger)" : "var(--chibi-mint)",
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          {needsRepair && (
+            <button
+              type="button"
+              className="chibi-btn chibi-btn--gold"
+              disabled={pending}
+              onClick={() => void handleRepair()}
+              style={{ padding: "6px 10px", fontSize: "0.74rem" }}
+            >
+              🔧 Repair all gear
+            </button>
+          )}
+        </div>
+      )}
+
+      <div className="chibi-text-muted" style={{ margin: "6px 0 8px" }}>
         {inventory.items.length} / {inventory.capacity} slots
-        {equippedWeaponId && (
-          <span style={{ display: "block", marginTop: 4, color: "var(--chibi-gold-deep)", fontWeight: 700 }}>
-            ⚔️ {getItemDefinition(equippedWeaponId).name}
-          </span>
-        )}
-        {equippedToolId && (
-          <span style={{ display: "block", marginTop: 4, color: "var(--chibi-mint-deep)", fontWeight: 700 }}>
-            🛠️ {getItemDefinition(equippedToolId).name}
-          </span>
-        )}
       </div>
 
       {inventory.items.length === 0 ? (
@@ -103,13 +205,15 @@ export function InventoryPanel() {
         <div style={{ display: "grid", gap: 8 }}>
           {inventory.items.map((entry) => {
             const item = getItemDefinition(entry.itemId);
-            const isEquipped =
-              equippedWeaponId === entry.itemId || equippedToolId === entry.itemId;
+            const gear = getGearStat(entry.itemId);
+            const isEquipped = equippedItemIds.has(entry.itemId);
+            const equippable = item.kind === "weapon" || item.kind === "tool" || item.kind === "armor";
+            const nameColor = gear ? RARITY_COLORS[gear.rarity] : undefined;
             return (
               <div key={entry.itemId} className="chibi-card">
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "flex-start" }}>
                   <div style={{ flex: 1 }}>
-                    <span style={{ fontWeight: 800, fontSize: "0.85rem" }}>
+                    <span style={{ fontWeight: 800, fontSize: "0.85rem", color: nameColor }}>
                       {item.name}
                       {isEquipped && <span style={{ color: "var(--chibi-mint-deep)" }}> (equipped)</span>}
                     </span>
@@ -131,14 +235,12 @@ export function InventoryPanel() {
                       Use
                     </button>
                   )}
-                  {(item.kind === "weapon" || item.kind === "tool") && (
+                  {equippable && (
                     <button
                       type="button"
                       className="chibi-btn chibi-btn--gold"
                       disabled={pending || isEquipped}
-                      onClick={() =>
-                        void handleEquip(entry.itemId, item.kind === "tool" ? "tool" : "weapon")
-                      }
+                      onClick={() => void handleEquip(entry.itemId, equipSlotFor(entry.itemId))}
                       style={{ padding: "6px 10px", fontSize: "0.72rem" }}
                     >
                       {isEquipped ? "Equipped" : "Equip"}
@@ -149,30 +251,6 @@ export function InventoryPanel() {
             );
           })}
         </div>
-      )}
-
-      {equippedWeaponId && (
-        <button
-          type="button"
-          className="chibi-btn chibi-btn--secondary"
-          disabled={pending}
-          onClick={() => void handleEquip(null, "weapon")}
-          style={{ marginTop: 12, width: "100%", padding: "8px 10px", fontSize: "0.78rem" }}
-        >
-          Unequip weapon
-        </button>
-      )}
-
-      {equippedToolId && (
-        <button
-          type="button"
-          className="chibi-btn chibi-btn--secondary"
-          disabled={pending}
-          onClick={() => void handleEquip(null, "tool")}
-          style={{ marginTop: 8, width: "100%", padding: "8px 10px", fontSize: "0.78rem" }}
-        >
-          Unequip tool
-        </button>
       )}
 
       {error && (

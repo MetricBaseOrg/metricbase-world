@@ -132,6 +132,10 @@ export function App() {
       setInventory(state);
     });
 
+    const unsubscribeEquipment = networkManager.onEquipmentState((state) => {
+      useGameStore.getState().setEquipment(state);
+    });
+
     const unsubscribeShopOpen = networkManager.onShopOpen((payload) => {
       playSfx("ui_open");
       setShop(payload);
@@ -192,6 +196,7 @@ export function App() {
       unsubscribeQuestState();
       unsubscribeTransfer();
       unsubscribeInventory();
+      unsubscribeEquipment();
       unsubscribeShopOpen();
       unsubscribeNpcDialogue();
       unsubscribeSkillState();

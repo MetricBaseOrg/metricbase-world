@@ -67,10 +67,22 @@ import {
   MAX_PLAYERS_PER_ZONE,
   NPC_INTERACT_COOLDOWN_MS,
   NPC_INTERACT_RANGE,
-  getPlayerAttackDamage,
   getPlayerMaxHp,
   isCollectObjectiveMet,
   normalizeEquipment,
+  getEquipmentStats,
+  buildEquipmentState,
+  getGearStat,
+  fieldForGearSlot,
+  maxDurabilityForSlot,
+  armorReduction,
+  rollHit,
+  WEARABLE_SLOTS,
+  type AbilityDef,
+  getAbilityById,
+  weaponGrantsAbility,
+  type EquipmentSlot,
+  type GearKindSlot,
   getToolSpeedMultiplier,
   getToolYieldBonus,
   rollRareGatherDrop,
@@ -301,6 +313,10 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       void this.handleAttack(client, message.npcId ?? "");
     });
 
+    this.onProtectedMessage("ability", (client, message: { abilityId?: string; npcId?: string }) => {
+      void this.handleAbility(client, message.abilityId ?? "", message.npcId ?? "");
+    });
+
     this.onProtectedMessage("chop", (client, message: { resourceId?: string }) => {
       void this.handleChop(client, message.resourceId ?? "");
     });
@@ -361,10 +377,14 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
     this.onProtectedMessage(
       "equipItem",
-      (client, message: { itemId?: string | null; slot?: "weapon" | "tool" }) => {
+      (client, message: { itemId?: string | null; slot?: string }) => {
         void this.handleEquipItem(client, message.itemId ?? null, message.slot);
       },
     );
+
+    this.onProtectedMessage("repairGear", (client) => {
+      void this.handleRepairGear(client);
+    });
 
     this.onProtectedMessage("craft", (client, message: { recipeId?: string }) => {
       void this.handleCraft(client, message.recipeId ?? "");
@@ -1052,7 +1072,24 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     await this.persistPlayer(player);
   }
 
-  private async handleAttack(client: Client, npcId: string) {
+  /** Use a weapon ability against a target — validates the equipped weapon grants it. */
+  private async handleAbility(client: Client, abilityId: string, npcId: string) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !abilityId || !npcId) return;
+
+    const ability = getAbilityById(abilityId);
+    if (!ability) return;
+
+    const weaponId = this.playerEquipment.get(player.name)?.weaponId ?? null;
+    if (!weaponGrantsAbility(weaponId, abilityId)) {
+      client.send("inventoryResult", { ok: false, error: "Your weapon can't use that skill." });
+      return;
+    }
+
+    await this.handleAttack(client, npcId, ability);
+  }
+
+  private async handleAttack(client: Client, npcId: string, ability?: AbilityDef) {
     const player = this.state.players.get(client.sessionId);
     if (!player || !npcId) return;
 
@@ -1060,8 +1097,11 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     if (!npc?.combat) return;
 
     const now = Date.now();
-    const lastAttack = this.attackCooldowns.get(client.sessionId) ?? 0;
-    if (now - lastAttack < ATTACK_COOLDOWN_MS) return;
+    // Abilities track their own cooldown; the basic swing uses the shared one.
+    const cooldownKey = ability ? `${client.sessionId}:${ability.id}` : client.sessionId;
+    const cooldownMs = ability ? ability.cooldownMs : ATTACK_COOLDOWN_MS;
+    const lastAttack = this.attackCooldowns.get(cooldownKey) ?? 0;
+    if (now - lastAttack < cooldownMs) return;
 
     const npcPosition = tileToWorld(npc.tileX, npc.tileY);
     const distance = Math.hypot(player.x - npcPosition.x, player.y - npcPosition.y);
@@ -1073,24 +1113,41 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     const playerHp = this.playerHp.get(player.name) ?? getPlayerMaxHp(player.level);
     if (playerHp <= 0) return;
 
-    if (!this.spendStamina(client, player.name, STAMINA_COST_ATTACK)) {
-      this.attackCooldowns.set(client.sessionId, now); // throttle repeated swings
+    const staminaCost = ability ? ability.staminaCost : STAMINA_COST_ATTACK;
+    if (!this.spendStamina(client, player.name, staminaCost)) {
+      this.attackCooldowns.set(cooldownKey, now); // throttle repeated swings
       this.notifyTooHungry(client, player.name, "fight");
       this.sendProfile(client, player);
       return;
     }
 
-    this.attackCooldowns.set(client.sessionId, now);
+    this.attackCooldowns.set(cooldownKey, now);
     this.playerLastCombatAt.set(player.name, now);
-    const equipment = this.playerEquipment.get(player.name);
-    const damage = getPlayerAttackDamage(equipment?.weaponId);
+    const equipment = normalizeEquipment(this.playerEquipment.get(player.name));
+    const stats = getEquipmentStats(equipment);
+    // Mobs have no armor (Phase 1); PvP in Phase 2 passes the target's armor.
+    const hit = rollHit({
+      attack: stats.attack,
+      critChance: stats.critChance,
+      critMult: stats.critMult,
+      targetArmor: 0,
+      skillMult: ability?.damageMult ?? 1,
+    });
+    const damage = hit.damage;
     const nextHp = Math.max(0, currentHp - damage);
     this.mobHp.set(npcId, nextHp);
 
+    // Swinging wears the weapon (and a random armor piece below when hit back).
+    this.wearGear(client, player, ["weapon"]);
+
     if (npc.combat) {
-      const counterDamage =
+      const counterRaw =
         npcId.startsWith("wild_slime") ? 30 : npcId === "slime_brute" ? 72 : TRAINING_DUMMY_COUNTER_DAMAGE;
+      // Armor mitigates incoming counter-damage with diminishing returns.
+      const counterDamage = Math.max(1, Math.round(counterRaw * (1 - armorReduction(stats.armor))));
       this.damagePlayer(client, player, counterDamage, `${npc.name} counter-attack`);
+      // Taking a hit wears a random worn armor piece.
+      this.wearGear(client, player, this.randomWornArmorSlots(equipment));
     }
 
     const defeated = nextHp === 0;
@@ -1136,10 +1193,151 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       maxHp: npc.combat.maxHp,
       defeated,
       attackerName: player.name,
+      crit: hit.crit,
     });
 
     // Refresh the HUD so the stamina gauge reflects the swing's energy cost.
     this.sendProfile(client, player);
+  }
+
+  /** Equipment field name that holds a given wearable slot. */
+  private slotField(slot: EquipmentSlot): keyof PlayerEquipment & string {
+    switch (slot) {
+      case "weapon":
+        return "weaponId";
+      case "helmet":
+        return "helmetId";
+      case "chest":
+        return "chestId";
+      case "gloves":
+        return "glovesId";
+      case "boots":
+        return "bootsId";
+      case "cape":
+        return "capeId";
+      case "offhand":
+        return "offhandId";
+      default:
+        return "weaponId";
+    }
+  }
+
+  /** Pick one currently-equipped worn armor slot at random (excludes weapon/jewelry). */
+  private randomWornArmorSlots(equipment: PlayerEquipment): EquipmentSlot[] {
+    const candidates = WEARABLE_SLOTS.filter((slot) => {
+      if (slot === "weapon") return false;
+      const itemId = equipment[this.slotField(slot)] as string | null;
+      return Boolean(itemId) && maxDurabilityForSlot(slot, itemId) > 0 && Number.isFinite(maxDurabilityForSlot(slot, itemId));
+    });
+    if (candidates.length === 0) return [];
+    return [candidates[Math.floor(Math.random() * candidates.length)]];
+  }
+
+  /** Reduce durability of the given equipped slots; break gear that hits 0. */
+  private wearGear(
+    client: Client,
+    player: InstanceType<typeof PlayerSchema>,
+    slots: EquipmentSlot[],
+  ) {
+    if (slots.length === 0) return;
+    const equipment = normalizeEquipment(this.playerEquipment.get(player.name));
+    const durability = { ...(equipment.durability ?? {}) };
+    let broke = false;
+
+    for (const slot of slots) {
+      const field = this.slotField(slot);
+      const itemId = equipment[field] as string | null;
+      if (!itemId) continue;
+      const max = maxDurabilityForSlot(slot, itemId);
+      if (!Number.isFinite(max) || max <= 0) continue; // jewelry / non-wearing
+
+      const current = durability[slot] ?? max;
+      const next = current - 1;
+      if (next <= 0) {
+        // Gear breaks: remove it from the slot.
+        (equipment as unknown as Record<string, unknown>)[field] = null;
+        delete durability[slot];
+        broke = true;
+        const name = getItemDefinition(itemId).name;
+        this.broadcastChat({
+          id: crypto.randomUUID(),
+          channel: "system",
+          senderId: "system",
+          senderName: "Gear",
+          body: `${player.name}'s ${name} broke!`,
+          sentAt: Date.now(),
+        });
+      } else {
+        durability[slot] = next;
+      }
+    }
+
+    equipment.durability = durability;
+    this.playerEquipment.set(player.name, equipment);
+
+    if (broke) {
+      player.weaponId = equipment.weaponId ?? "";
+      this.sendProfile(client, player);
+      this.sendInventory(client, player.name);
+      void this.persistPlayer(player);
+    }
+  }
+
+  /** Repair all equipped gear to full durability for a gold fee. */
+  private async handleRepairGear(client: Client) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    if (this.isKnockedOut(player.name)) return;
+
+    const equipment = normalizeEquipment(this.playerEquipment.get(player.name));
+    const durability = { ...(equipment.durability ?? {}) };
+
+    let missing = 0;
+    const full: [EquipmentSlot, number][] = [];
+    for (const slot of WEARABLE_SLOTS) {
+      const itemId = equipment[this.slotField(slot)] as string | null;
+      if (!itemId) continue;
+      const max = maxDurabilityForSlot(slot, itemId);
+      if (!Number.isFinite(max) || max <= 0) continue;
+      const current = durability[slot] ?? max;
+      missing += Math.max(0, max - current);
+      full.push([slot, max]);
+    }
+
+    if (missing <= 0) {
+      client.send("inventoryResult", { ok: false, error: "Your gear is already in good repair." });
+      return;
+    }
+
+    // 2 gold per durability point restored — a steady gold sink for fighters.
+    const cost = Math.max(5, Math.ceil(missing * 2));
+    const gold = this.playerGold.get(player.name) ?? STARTING_GOLD;
+    if (gold < cost) {
+      client.send("inventoryResult", { ok: false, error: `Repair costs ${cost}g — not enough gold.` });
+      return;
+    }
+
+    this.playerGold.set(player.name, gold - cost);
+    for (const [slot, max] of full) durability[slot] = max;
+    equipment.durability = durability;
+    this.playerEquipment.set(player.name, equipment);
+
+    this.broadcastChat({
+      id: crypto.randomUUID(),
+      channel: "system",
+      senderId: "system",
+      senderName: "Smith",
+      body: `${player.name} repaired their gear for ${cost}g.`,
+      sentAt: Date.now(),
+    });
+
+    this.sendProfile(client, player);
+    this.sendInventory(client, player.name);
+    client.send("inventoryResult", {
+      ok: true,
+      inventory: buildInventoryPayload(this.inventories.get(player.name) ?? [], equipment.weaponId ?? null),
+    });
+    await this.persistPlayer(player);
   }
 
   private async checkTalkObjectives(client: Client, playerName: string, npcId: string) {
@@ -1412,6 +1610,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       knockedOut,
       freeRespawnAt: knockedOut ? (this.playerKnockedOutUntil.get(player.name) ?? null) : null,
     });
+    // Keep the client's equipment + combat-stat panel in sync with every profile push.
+    client.send("equipmentState", buildEquipmentState(this.playerEquipment.get(player.name)));
   }
 
   /**
@@ -2160,31 +2360,64 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     await this.persistPlayer(player);
   }
 
+  /** Map an equip-slot label (from the client) to its PlayerEquipment field. */
+  private equipFieldForSlot(slot: string): (keyof PlayerEquipment & string) | null {
+    switch (slot) {
+      case "weapon":
+        return "weaponId";
+      case "tool":
+        return "toolId";
+      case "helmet":
+        return "helmetId";
+      case "chest":
+        return "chestId";
+      case "gloves":
+        return "glovesId";
+      case "boots":
+        return "bootsId";
+      case "ring1":
+        return "ring1Id";
+      case "ring2":
+        return "ring2Id";
+      case "necklace":
+        return "necklaceId";
+      case "cape":
+        return "capeId";
+      case "offhand":
+        return "offhandId";
+      default:
+        return null;
+    }
+  }
+
   private async handleEquipItem(
     client: Client,
     itemId: string | null,
-    slot?: "weapon" | "tool",
+    slot?: string,
   ) {
     const player = this.state.players.get(client.sessionId);
     if (!player) return;
     if (this.isKnockedOut(player.name)) return;
 
     const current = normalizeEquipment(this.playerEquipment.get(player.name));
+    const inventory = this.inventories.get(player.name) ?? [];
 
     if (itemId === null) {
-      // Unequip the requested slot (default weapon for older clients), keeping the other.
-      const next: PlayerEquipment =
-        slot === "tool" ? { ...current, toolId: null } : { ...current, weaponId: null };
-      this.playerEquipment.set(player.name, normalizeEquipment(next));
-      player.weaponId = next.weaponId ?? "";
-      player.toolId = next.toolId ?? "";
+      // Unequip the named slot (default weapon for older clients).
+      const field = this.equipFieldForSlot(slot ?? "weapon") ?? "weaponId";
+      const next = normalizeEquipment(current);
+      (next as unknown as Record<string, unknown>)[field] = null;
+      const normalized = normalizeEquipment(next);
+      this.playerEquipment.set(player.name, normalized);
+      player.weaponId = normalized.weaponId ?? "";
+      player.toolId = normalized.toolId ?? "";
       this.sendProfile(client, player);
       this.sendInventory(client, player.name);
       client.send("inventoryResult", {
         ok: true,
-        equippedWeaponId: next.weaponId,
-        equippedToolId: next.toolId,
-        inventory: buildInventoryPayload(this.inventories.get(player.name) ?? [], next.weaponId),
+        equippedWeaponId: normalized.weaponId,
+        equippedToolId: normalized.toolId,
+        inventory: buildInventoryPayload(inventory, normalized.weaponId),
       });
       await this.persistPlayer(player);
       return;
@@ -2198,24 +2431,57 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       return;
     }
 
-    if (item.kind !== "weapon" && item.kind !== "tool") {
+    if (item.kind !== "weapon" && item.kind !== "tool" && item.kind !== "armor") {
       client.send("inventoryResult", { ok: false, error: "That item cannot be equipped." });
       return;
     }
 
-    const inventory = this.inventories.get(player.name) ?? [];
     if (getItemQuantity(inventory, itemId) <= 0) {
       client.send("inventoryResult", { ok: false, error: "You don't have that item." });
       return;
     }
 
-    const next: PlayerEquipment =
-      item.kind === "tool"
-        ? { ...current, toolId: itemId }
-        : { ...current, weaponId: itemId };
-    this.playerEquipment.set(player.name, normalizeEquipment(next));
-    player.weaponId = next.weaponId ?? "";
-    player.toolId = next.toolId ?? "";
+    // Resolve the target equipment field + wearable slot for the item.
+    let field: (keyof PlayerEquipment & string) | null;
+    let wearSlot: EquipmentSlot | null = null;
+    if (item.kind === "weapon") {
+      field = "weaponId";
+      wearSlot = "weapon";
+    } else if (item.kind === "tool") {
+      field = "toolId";
+    } else {
+      const gear = getGearStat(itemId);
+      if (!gear) {
+        client.send("inventoryResult", { ok: false, error: "That item cannot be equipped." });
+        return;
+      }
+      // Rings: fill the first empty ring slot, else replace ring1.
+      const preferSecond = gear.slot === "ring" && current.ring1Id !== null && current.ring2Id === null;
+      const gearField = fieldForGearSlot(gear.slot as GearKindSlot, preferSecond);
+      field = `${gearField}Id` as keyof PlayerEquipment & string;
+      if (WEARABLE_SLOTS.includes(gearField as EquipmentSlot)) {
+        wearSlot = gearField as EquipmentSlot;
+      }
+    }
+
+    if (!field) {
+      client.send("inventoryResult", { ok: false, error: "That item cannot be equipped." });
+      return;
+    }
+
+    const next = normalizeEquipment(current);
+    (next as unknown as Record<string, unknown>)[field] = itemId;
+    // Fresh gear starts at full durability.
+    if (wearSlot) {
+      const max = maxDurabilityForSlot(wearSlot, itemId);
+      if (Number.isFinite(max) && max > 0) {
+        next.durability = { ...(next.durability ?? {}), [wearSlot]: max };
+      }
+    }
+    const normalized = normalizeEquipment(next);
+    this.playerEquipment.set(player.name, normalized);
+    player.weaponId = normalized.weaponId ?? "";
+    player.toolId = normalized.toolId ?? "";
     this.sendProfile(client, player);
     this.sendInventory(client, player.name);
 
@@ -2230,9 +2496,9 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
     client.send("inventoryResult", {
       ok: true,
-      equippedWeaponId: next.weaponId,
-      equippedToolId: next.toolId,
-      inventory: buildInventoryPayload(inventory, next.weaponId),
+      equippedWeaponId: normalized.weaponId,
+      equippedToolId: normalized.toolId,
+      inventory: buildInventoryPayload(inventory, normalized.weaponId),
     });
     await this.persistPlayer(player);
   }
