@@ -13,6 +13,7 @@ import {
   type EquipmentStatePayload,
   type LootBagsPayload,
   type PvpHitPayload,
+  type TerritoryStatePayload,
   CraftResultPayload,
   FarmStatePayload,
   FarmResultPayload,
@@ -72,6 +73,7 @@ type NpcDialogueListener = (npcName: string, dialogue: string) => void;
 type ArcadeListener = (payload: { name: string; url: string }) => void;
 type LootBagsListener = (payload: LootBagsPayload) => void;
 type PvpHitListener = (payload: PvpHitPayload) => void;
+type TerritoryStateListener = (payload: TerritoryStatePayload) => void;
 type BlackZoneLockedListener = (payload: { mint: string; amount: number; rpcUrl: string }) => void;
 type BlackPassResultListener = (payload: { ok: boolean; error?: string }) => void;
 export interface VipLodgeLockedPayload {
@@ -138,6 +140,8 @@ export class NetworkManager {
   private lootBagsListeners = new Set<LootBagsListener>();
   private latestLootBags: LootBagsPayload = { bags: [] };
   private pvpHitListeners = new Set<PvpHitListener>();
+  private territoryStateListeners = new Set<TerritoryStateListener>();
+  private latestTerritory: TerritoryStatePayload = { points: [] };
   private blackZoneLockedListeners = new Set<BlackZoneLockedListener>();
   private blackPassResultListeners = new Set<BlackPassResultListener>();
   private vipLodgeLockedListeners = new Set<VipLodgeLockedListener>();
@@ -733,6 +737,12 @@ export class NetworkManager {
     return () => this.pvpHitListeners.delete(listener);
   }
 
+  onTerritoryState(listener: TerritoryStateListener) {
+    this.territoryStateListeners.add(listener);
+    listener(this.latestTerritory);
+    return () => this.territoryStateListeners.delete(listener);
+  }
+
   onBlackZoneLocked(listener: BlackZoneLockedListener) {
     this.blackZoneLockedListeners.add(listener);
     return () => this.blackZoneLockedListeners.delete(listener);
@@ -954,6 +964,10 @@ export class NetworkManager {
     });
     this.room.onMessage("pvpHit", (payload: PvpHitPayload) => {
       for (const listener of this.pvpHitListeners) listener(payload);
+    });
+    this.room.onMessage("territoryState", (payload: TerritoryStatePayload) => {
+      this.latestTerritory = payload;
+      for (const listener of this.territoryStateListeners) listener(payload);
     });
     this.room.onMessage("blackZoneLocked", (payload: { mint: string; amount: number; rpcUrl: string }) => {
       for (const listener of this.blackZoneLockedListeners) listener(payload);

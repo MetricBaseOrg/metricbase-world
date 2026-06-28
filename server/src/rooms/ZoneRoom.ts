@@ -88,6 +88,12 @@ import {
   STARTER_PROTECTION_LEVEL,
   SPAWN_IMMUNITY_MS,
   MIN_BOUNTY,
+  CAPTURE_RANGE,
+  CAPTURE_TIME_MS,
+  TERRITORY_INCOME,
+  TERRITORY_INCOME_INTERVAL_MS,
+  type TerritoryStatePayload,
+  type TerritoryPointState,
   BLACK_ZONE_BURN_AMOUNT,
   VIP_PASS_GOLD_COST,
   VIP_PASS_BURN_AMOUNT,
@@ -202,7 +208,11 @@ import {
   endWar,
   arePlayersAtWar,
   guildMemberNames,
+  guildTagById,
+  guildMembersById,
+  depositToBankById,
 } from "../guild/guildRegistry.js";
+import { getTerritoryOwner, setTerritoryOwner } from "../territory/territoryRegistry.js";
 import { clearOnline, isOnline, sendToPlayer, sendToPlayers, setOnline } from "../social/presence.js";
 import {
   acceptInvite,
@@ -280,6 +290,10 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   /** Active loot bags in this room, keyed by bag id. */
   private lootBags = new Map<string, LootBagState>();
   private lastLootSweepAt = 0;
+  /** Capture progress per control point in this zone (transient). */
+  private captureProgress = new Map<string, { guildId: string; progressMs: number }>();
+  private contestedPoints = new Set<string>();
+  private lastTerritoryIncomeAt = Date.now();
   /** Wallets with LIFETIME Black-zone access (one-time $BASE burn). DB-backed. */
   private static blackPassWallets = new Set<string>();
   /** VIP Lodge passes (wallet -> expiry) bought with gold + a $BASE burn.
@@ -775,7 +789,10 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     client.send("farmState", this.buildFarmState());
     client.send("housingState", this.buildHousingState());
     client.send("lootBags", { bags: [...this.lootBags.values()] });
-    this.broadcast("worldStats", this.buildWorldStats());
+    if (this.zoneConfig.capturePoints?.length) {
+      client.send("territoryState", this.buildTerritoryState());
+    }
+    ZoneRoom.broadcastWorldStatsToAll();
 
     this.broadcastChat({
       id: crypto.randomUUID(),
@@ -862,11 +879,33 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     this.attackCooldowns.delete(client.sessionId);
     this.cancelChopSession(client.sessionId, "left");
     this.transferring.delete(client.sessionId);
-    this.broadcast("worldStats", this.buildWorldStats());
+    ZoneRoom.broadcastWorldStatsToAll();
+  }
+
+  /** Total real (non-spectator) players online across every zone room. */
+  private static globalOnlineCount(): number {
+    let online = 0;
+    for (const room of ZoneRoom.activeRooms) {
+      for (const player of room.state.players.values()) {
+        if (!player.spectator) online++;
+      }
+    }
+    return online;
+  }
+
+  /** Push fresh world stats to every zone so the global online count stays in sync. */
+  private static broadcastWorldStatsToAll() {
+    const payload: WorldStatsPayload = {
+      baseHolders: getCachedHolderCount(),
+      online: ZoneRoom.globalOnlineCount(),
+    };
+    for (const room of ZoneRoom.activeRooms) {
+      room.broadcast("worldStats", payload);
+    }
   }
 
   private buildWorldStats(): WorldStatsPayload {
-    return { baseHolders: getCachedHolderCount(), online: this.state.players.size };
+    return { baseHolders: getCachedHolderCount(), online: ZoneRoom.globalOnlineCount() };
   }
 
   private tick(deltaTime: number) {
@@ -905,6 +944,19 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
           this.inputs.set(sessionId, { dx: 0, dy: 0 });
         }
       }
+
+      // Push territory state ~1s while a point is being captured or contested
+      // so clients see the capture ring advance.
+      if (this.captureProgress.size > 0 || this.contestedPoints.size > 0) {
+        this.broadcastTerritoryState();
+      }
+    }
+
+    // Territory: advance capture progress + pay periodic income to owners.
+    this.updateTerritories(deltaTime);
+    if (now - this.lastTerritoryIncomeAt >= TERRITORY_INCOME_INTERVAL_MS) {
+      this.lastTerritoryIncomeAt = now;
+      this.payTerritoryIncome();
     }
 
     // While any plot light burns, re-broadcast housing state every ~12s so the
@@ -1782,6 +1834,106 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
   private broadcastLootBags() {
     this.broadcast("lootBags", { bags: [...this.lootBags.values()] });
+  }
+
+  // ---- Territory Control (Phase 4) ----
+
+  /** Advance capture progress for this zone's points (called each tick). */
+  private updateTerritories(dtMs: number) {
+    const points = this.zoneConfig.capturePoints;
+    if (!points || points.length === 0) return;
+    let ownershipChanged = false;
+
+    for (const point of points) {
+      const pos = tileToWorld(point.tileX, point.tileY);
+      const owner = getTerritoryOwner(point.id);
+
+      // Guild ids of players standing on the point.
+      const present = new Set<string>();
+      for (const player of this.state.players.values()) {
+        if (player.spectator || this.isKnockedOut(player.name)) continue;
+        if (Math.hypot(player.x - pos.x, player.y - pos.y) > CAPTURE_RANGE) continue;
+        const gid = getGuildForMember(player.name)?.id;
+        if (gid) present.add(gid);
+      }
+
+      if (present.size >= 2) {
+        // Contested — capture is frozen.
+        this.contestedPoints.add(point.id);
+        continue;
+      }
+      this.contestedPoints.delete(point.id);
+
+      if (present.size === 1) {
+        const capGuild = [...present][0];
+        if (capGuild === owner) {
+          this.captureProgress.delete(point.id);
+          continue;
+        }
+        const cur = this.captureProgress.get(point.id);
+        if (!cur || cur.guildId !== capGuild) {
+          this.captureProgress.set(point.id, { guildId: capGuild, progressMs: dtMs });
+        } else {
+          cur.progressMs += dtMs;
+          if (cur.progressMs >= CAPTURE_TIME_MS) {
+            setTerritoryOwner(point.id, this.zoneConfig.id, capGuild);
+            this.captureProgress.delete(point.id);
+            ownershipChanged = true;
+            this.broadcastChat(
+              this.systemChat("Territory", `🏴 [${guildTagById(capGuild)}] captured ${point.name}!`),
+            );
+          }
+        }
+      } else {
+        // Empty — reset any partial capture.
+        this.captureProgress.delete(point.id);
+      }
+    }
+
+    if (ownershipChanged) this.broadcastTerritoryState();
+  }
+
+  /** Pay territory income into each owning guild's bank (called on an interval). */
+  private payTerritoryIncome() {
+    for (const point of this.zoneConfig.capturePoints ?? []) {
+      const owner = getTerritoryOwner(point.id);
+      if (!owner) continue;
+      if (depositToBankById(owner, TERRITORY_INCOME)) {
+        sendToPlayers(guildMembersById(owner), "chat", {
+          id: crypto.randomUUID(),
+          channel: "guild",
+          senderId: "system",
+          senderName: "Territory",
+          body: `${point.name} paid ${TERRITORY_INCOME} gold into the guild bank.`,
+          sentAt: Date.now(),
+        } satisfies ChatMessagePayload);
+        this.broadcastGuildState(guildMembersById(owner));
+      }
+    }
+  }
+
+  private buildTerritoryState(): TerritoryStatePayload {
+    const points = this.zoneConfig.capturePoints ?? [];
+    return {
+      points: points.map((p): TerritoryPointState => {
+        const owner = getTerritoryOwner(p.id);
+        const cap = this.captureProgress.get(p.id);
+        return {
+          id: p.id,
+          name: p.name,
+          ownerGuildId: owner,
+          ownerTag: guildTagById(owner),
+          capturingTag: cap ? guildTagById(cap.guildId) : "",
+          progress: cap ? Math.min(1, cap.progressMs / CAPTURE_TIME_MS) : 0,
+          contested: this.contestedPoints.has(p.id),
+        };
+      }),
+    };
+  }
+
+  private broadcastTerritoryState() {
+    if (!this.zoneConfig.capturePoints?.length) return;
+    this.broadcast("territoryState", this.buildTerritoryState());
   }
 
   private markCriminal(name: string) {

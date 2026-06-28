@@ -32,6 +32,7 @@ import {
   type FarmStatePayload,
   type HousingStatePayload,
   type LootBagState,
+  type TerritoryPointState,
 } from "@metricbase/shared";
 import {
   getAnimFrame,
@@ -226,6 +227,11 @@ export class GameScene extends Phaser.Scene {
     string,
     { graphics: Phaser.GameObjects.Graphics; label: Phaser.GameObjects.Text; x: number; y: number }
   >();
+  /** Rendered territory capture flags by point id. */
+  private renderedTerritory = new Map<
+    string,
+    { flag: Phaser.GameObjects.Graphics; label: Phaser.GameObjects.Text }
+  >();
   private chopKey: Phaser.Input.Keyboard.Key | null = null;
   private fishKey: Phaser.Input.Keyboard.Key | null = null;
   private lastSentInput = { dx: 0, dy: 0 };
@@ -371,6 +377,7 @@ export class GameScene extends Phaser.Scene {
       this.targetReticle?.setVisible(false);
       this.clearMoveTarget();
       this.clearLootBags();
+      this.clearTerritory();
       this.stopLocalChopHits();
       this.destroyLocalAvatar();
       this.renderedPlayers.forEach((entry) => {
@@ -475,6 +482,10 @@ export class GameScene extends Phaser.Scene {
 
     const unsubscribeLootBags = networkManager.onLootBags((payload) => {
       this.syncLootBags(payload.bags);
+    });
+
+    const unsubscribeTerritory = networkManager.onTerritoryState((payload) => {
+      this.syncTerritory(payload.points);
     });
 
     const unsubscribePvpHit = networkManager.onPvpHit((payload) => {
@@ -621,8 +632,10 @@ export class GameScene extends Phaser.Scene {
       unsubscribeWorldStats();
       unsubscribeLootBags();
       unsubscribePvpHit();
+      unsubscribeTerritory();
       this.stopLocalChopHits();
       this.clearLootBags();
+      this.clearTerritory();
       this.clearMap();
       this.clearNpcs();
       this.clearResources();
@@ -2484,6 +2497,95 @@ export class GameScene extends Phaser.Scene {
       rendered.label.destroy();
     }
     this.renderedLootBags.clear();
+  }
+
+  /** Draw/update the territory capture flags from server state. */
+  private syncTerritory(points: TerritoryPointState[]) {
+    const config = getZoneConfig(this.currentZoneId ?? networkManager.zoneId);
+    const tiles = new Map((config.capturePoints ?? []).map((p) => [p.id, p]));
+
+    for (const point of points) {
+      const def = tiles.get(point.id);
+      if (!def) continue;
+      const { x, y } = tileToWorld(def.tileX, def.tileY);
+
+      let entry = this.renderedTerritory.get(point.id);
+      if (!entry) {
+        const flag = this.add.graphics().setDepth(y);
+        const label = this.add
+          .text(x, y - 40, "", {
+            fontFamily: "Nunito, sans-serif",
+            fontSize: "12px",
+            fontStyle: "700",
+            color: "#fff7ea",
+            stroke: "#2b1d12",
+            strokeThickness: 3,
+            align: "center",
+          })
+          .setOrigin(0.5, 1)
+          .setDepth(y + 1);
+        entry = { flag, label };
+        this.renderedTerritory.set(point.id, entry);
+      }
+
+      const color = point.contested
+        ? 0xff5a5a
+        : point.ownerTag
+          ? 0x6ad27e
+          : point.capturingTag
+            ? 0xffce4d
+            : 0xb7c3cc;
+
+      // Flag: a pole with a triangular banner, tinted by control state.
+      const g = entry.flag;
+      g.clear();
+      g.setPosition(x, y);
+      g.fillStyle(0x4a3728, 1);
+      g.fillRect(-1.5, -34, 3, 34); // pole
+      g.fillStyle(color, 1);
+      g.beginPath();
+      g.moveTo(2, -34);
+      g.lineTo(20, -28);
+      g.lineTo(2, -22);
+      g.closePath();
+      g.fillPath();
+      // Capture progress arc at the base while a capture is underway.
+      if (point.progress > 0 && point.progress < 1) {
+        g.lineStyle(3, 0xffce4d, 0.95);
+        g.beginPath();
+        g.arc(0, 0, 16, -Math.PI / 2, -Math.PI / 2 + point.progress * Math.PI * 2, false);
+        g.strokePath();
+      }
+
+      entry.label.setText(
+        point.contested
+          ? `⚔ ${def.name} — contested!`
+          : point.ownerTag
+            ? `🏴 [${point.ownerTag}] ${def.name}`
+            : point.capturingTag
+              ? `[${point.capturingTag}] capturing ${Math.round(point.progress * 100)}%`
+              : `⚐ ${def.name} (neutral)`,
+      );
+      entry.label.setColor(point.contested ? "#ffb3b3" : "#fff7ea");
+    }
+
+    // Remove flags no longer reported.
+    const live = new Set(points.map((p) => p.id));
+    for (const [id, entry] of this.renderedTerritory) {
+      if (!live.has(id)) {
+        entry.flag.destroy();
+        entry.label.destroy();
+        this.renderedTerritory.delete(id);
+      }
+    }
+  }
+
+  private clearTerritory() {
+    for (const entry of this.renderedTerritory.values()) {
+      entry.flag.destroy();
+      entry.label.destroy();
+    }
+    this.renderedTerritory.clear();
   }
 
   /** Pick up the nearest loot bag in range (called on F). */

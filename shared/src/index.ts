@@ -1,4 +1,4 @@
-export const GAME_VERSION = "0.44.2";
+export const GAME_VERSION = "0.45.0";
 
 export const TICK_RATE = 20;
 
@@ -39,6 +39,7 @@ export * from "./quests.js";
 export * from "./combat.js";
 export * from "./abilities.js";
 export * from "./reputation.js";
+export * from "./territory.js";
 export * from "./mobRewards.js";
 export * from "./tokenGate.js";
 export * from "./character.js";

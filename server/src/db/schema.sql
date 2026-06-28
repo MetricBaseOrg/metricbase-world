@@ -149,3 +149,11 @@ CREATE TABLE IF NOT EXISTS invitations (
 
 CREATE INDEX IF NOT EXISTS invitations_inviter_wallet_idx ON invitations (inviter_wallet);
 CREATE INDEX IF NOT EXISTS invitations_invitee_wallet_idx ON invitations (invitee_wallet);
+
+-- Territory Control (Phase 4): which guild owns each capture point.
+CREATE TABLE IF NOT EXISTS territories (
+  point_id VARCHAR(64) PRIMARY KEY,
+  zone_id VARCHAR(64) NOT NULL,
+  guild_id VARCHAR(64) NOT NULL,
+  captured_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);

@@ -12,6 +12,7 @@ import {
   type GuildWarInfo,
 } from "@metricbase/shared";
 import { deleteGuild, loadGuilds, saveGuild, type StoredGuild } from "../db/guilds.js";
+import { releaseGuildTerritories } from "../territory/territoryRegistry.js";
 
 // Process-global registry of guilds, shared across zone rooms and persisted to
 // the DB so memberships survive restarts.
@@ -37,6 +38,29 @@ export async function initGuildRegistry(): Promise<void> {
 export function getGuildForMember(name: string): StoredGuild | undefined {
   const id = memberIndex.get(name);
   return id ? guilds.get(id) : undefined;
+}
+
+export function getGuildById(id: string): StoredGuild | undefined {
+  return guilds.get(id);
+}
+
+/** Display tag for a guild id, or "" if it no longer exists. */
+export function guildTagById(id: string | null): string {
+  return id ? (guilds.get(id)?.tag ?? "") : "";
+}
+
+/** Member names of a guild id (for state pushes / income notices). */
+export function guildMembersById(id: string): string[] {
+  return guilds.get(id)?.members ?? [];
+}
+
+/** Deposit gold into a guild's bank by id (e.g. territory income). */
+export function depositToBankById(id: string, amount: number): boolean {
+  const guild = guilds.get(id);
+  if (!guild || amount <= 0) return false;
+  guild.bank += Math.floor(amount);
+  void saveGuild(guild);
+  return true;
 }
 
 /** The tag a player wears on their nameplate, or "" if unguilded. */
@@ -103,6 +127,7 @@ export function leaveGuild(name: string): GuildActionResult {
   if (guild.members.length === 0) {
     guilds.delete(guild.id);
     removeGuildFromAllWars(guild.id);
+    releaseGuildTerritories(guild.id);
     void deleteGuild(guild.id);
     return { ok: true };
   }

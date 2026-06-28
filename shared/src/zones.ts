@@ -3,6 +3,7 @@ import type { FarmPlotNode } from "./farming.js";
 import type { LandPlotNode } from "./housing.js";
 import type { ZoneResourceNode } from "./resources.js";
 import type { BillboardNode } from "./stats.js";
+import type { CapturePoint } from "./territory.js";
 
 export const ZONE_HUB = "zone_hub";
 export const ZONE_WILDERNESS = "zone_wilderness";
@@ -81,6 +82,8 @@ export interface ZoneConfig {
   landPlots?: LandPlotNode[];
   billboards?: BillboardNode[];
   scenery?: SceneryNode[];
+  /** Guild-capturable control points (Territory Control). */
+  capturePoints?: CapturePoint[];
 }
 
 export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
@@ -611,6 +614,7 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
       { id: "wild_hedge_1", tileX: 10, tileY: 18, prop: "hedge" },
       { id: "wild_hedge_2", tileX: 10, tileY: 17, prop: "hedge" },
     ],
+    capturePoints: [{ id: "wild_point", name: "Frontier Outpost", tileX: 16, tileY: 8 }],
   },
   [ZONE_GROTTO]: {
     id: ZONE_GROTTO,
@@ -802,6 +806,7 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
       { id: "grotto_lamp_2", tileX: 14, tileY: 10, prop: "lamppost" },
       { id: "grotto_lamp_3", tileX: 17, tileY: 13, prop: "lamppost" },
     ],
+    capturePoints: [{ id: "grotto_point", name: "Grotto Heart", tileX: 12, tileY: 10 }],
   },
   [ZONE_BLACK]: {
     id: ZONE_BLACK,
@@ -967,6 +972,10 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
       { id: "black_lamp_1", tileX: 6, tileY: 6, prop: "lamppost" },
       { id: "black_lamp_2", tileX: 17, tileY: 17, prop: "lamppost" },
       { id: "black_sign", tileX: 3, tileY: 14, prop: "signpost" },
+    ],
+    capturePoints: [
+      { id: "black_point_n", name: "Obsidian Throne", tileX: 12, tileY: 8 },
+      { id: "black_point_s", name: "Ashen Altar", tileX: 12, tileY: 16 },
     ],
   },
   [ZONE_INTERIOR]: {

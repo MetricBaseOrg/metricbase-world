@@ -21,6 +21,7 @@ import { initSellPressure } from "./market/sellPressure.js";
 import { initLandRegistry } from "./housing/landRegistry.js";
 import { initFarmRegistry } from "./farming/farmRegistry.js";
 import { initGuildRegistry } from "./guild/guildRegistry.js";
+import { initTerritoryRegistry } from "./territory/territoryRegistry.js";
 import { getBaseHolderCount } from "./solana/holderCount.js";
 import { ZoneRoom } from "./rooms/ZoneRoom.js";
 
@@ -66,6 +67,7 @@ await initSellPressure();
 await initLandRegistry();
 await initFarmRegistry();
 await initGuildRegistry();
+await initTerritoryRegistry();
 
 // Warm + periodically refresh the live $BASE holder count for the billboard.
 void getBaseHolderCount();

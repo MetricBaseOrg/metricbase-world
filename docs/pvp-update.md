@@ -178,8 +178,12 @@ The combat *shell*. No new combat math yet.
 - Persisted via new `guilds` columns (officers, bank, tax_rate, wars); state pushed to all members via presence (`broadcastGuildState`).
 - *Verify (manual QA):* two guilds declare war and fight in a Yellow zone without flagging; tax skims to the bank on mob kills; officers withdraw.
 
-### Phase 4 — Territory Control · **→ 0.45.0**
-Capture points, resource ownership, territory income tied to zones.
+### Phase 4 — Territory Control · **→ 0.45.0 (shipped)**
+
+- **Capture points** in PvP zones (Wilderness/Grotto/Black) — claim by standing on a point uncontested for ~12s; a rival guild member nearby freezes/contests it.
+- **Persistent ownership** (`territories` table + registry); a flag renders the owning guild's tag + a capture-progress ring + contested state.
+- **Territory income**: each held point pays gold into the owning guild's bank every 5 min (`payTerritoryIncome` → `depositToBankById`); disbanding a guild releases its territories.
+- Also fixed: billboard "online" now counts **global** non-spectator players across all zones (was per-zone), rebroadcast to every zone on join/leave.
 
 ### Phase 5 — Castle Siege · **→ 0.46.0**
 Scheduled large-scale objective battles (gates, king crystal).
