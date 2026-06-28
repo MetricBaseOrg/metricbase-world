@@ -7,6 +7,7 @@ import {
   ZONE_GROTTO,
   ZONE_HUB,
   ZONE_INTERIOR,
+  ZONE_JAIL,
   ZONE_WILDERNESS,
 } from "@metricbase/shared";
 import cors from "cors";
@@ -62,6 +63,7 @@ gameServer.define(ZONE_WILDERNESS, ZoneRoom, { zoneId: ZONE_WILDERNESS });
 gameServer.define(ZONE_GROTTO, ZoneRoom, { zoneId: ZONE_GROTTO });
 gameServer.define(ZONE_INTERIOR, ZoneRoom, { zoneId: ZONE_INTERIOR });
 gameServer.define(ZONE_BLACK, ZoneRoom, { zoneId: ZONE_BLACK });
+gameServer.define(ZONE_JAIL, ZoneRoom, { zoneId: ZONE_JAIL });
 
 await initDatabase();
 await initSellPressure();

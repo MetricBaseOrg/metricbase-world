@@ -168,12 +168,23 @@ export function buildBlackMap(): GroundLayer {
   return layer;
 }
 
+export function buildJailMap(): GroundLayer {
+  // A small stone cell enclosed in wall; the exit portal only releases you once
+  // your sentence is served.
+  const layer = createEmptyLayer();
+  fillRect(layer, 0, 0, MAP_WIDTH - 1, MAP_HEIGHT - 1, TILE_WALL);
+  fillRect(layer, 9, 8, 14, 14, TILE_STONE);
+  stampPortal(layer, 11, 14);
+  return layer;
+}
+
 export const ZONE_MAP_BUILDERS: Record<string, () => GroundLayer> = {
   zone_hub: buildHubMap,
   zone_wilderness: buildWildernessMap,
   zone_grotto: buildGrottoMap,
   zone_interior: buildInteriorMap,
   zone_black: buildBlackMap,
+  zone_jail: buildJailMap,
 };
 
 export function buildZoneMap(zoneId: string): GroundLayer {

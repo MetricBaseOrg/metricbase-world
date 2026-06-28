@@ -24,10 +24,10 @@ export const PVP_DEATH_RATING = 15;
 export const PVP_SEASON_LENGTH_MS = 90 * 24 * 60 * 60 * 1000;
 
 /**
- * Anchor for season counting — Season 1 begins here. Without this, seasons were
- * measured from the Unix epoch (1970), so the count read ~228 instead of 1.
+ * Anchor for season counting — Season 1 begins at launch. Without this, seasons
+ * were measured from the Unix epoch (1970), so the count read ~228 instead of 1.
  */
-export const SEASON_EPOCH_MS = Date.UTC(2026, 5, 1); // 2026-06-01
+export const SEASON_EPOCH_MS = Date.UTC(2026, 5, 29); // launch: 2026-06-29 = Season 1
 
 /** Zero-based season index since the anchor (display as `season + 1`). */
 export function getPvpSeason(now: number): number {

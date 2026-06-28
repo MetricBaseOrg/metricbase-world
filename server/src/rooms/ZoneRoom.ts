@@ -102,6 +102,8 @@ import {
   getSiegeWindow,
   type SiegeStatePayload,
   ZONE_BLACK,
+  ZONE_JAIL,
+  JAIL_DURATION_MS,
   STARTING_PVP_RATING,
   PVP_KILL_RATING,
   PVP_DEATH_RATING,
@@ -320,6 +322,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   /** VIP Lodge passes (wallet -> expiry) bought with gold + a $BASE burn.
    *  NOTE: in-memory; resets on restart. Move to DB persistence for production. */
   private static vipPassUntil = new Map<string, number>();
+  /** Jail sentences (player name -> release time). In-memory; clears on restart. */
+  private static jailedUntil = new Map<string, number>();
   /** Tracks which session ID is "active" for each player name. Used to prevent
    *  a stale onLeave from wiping in-memory state belonging to a new session. */
   private activePlayerSession = new Map<string, string>();
@@ -1276,6 +1280,20 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     try {
       const targetConfig = getZoneConfig(portal.targetZone);
 
+      // Leaving jail: held until the sentence is served, then released + pardoned.
+      if (this.zoneConfig.id === ZONE_JAIL) {
+        const until = ZoneRoom.jailedUntil.get(player.name) ?? 0;
+        if (until > Date.now()) {
+          this.transferring.delete(client.sessionId);
+          const secs = Math.ceil((until - Date.now()) / 1000);
+          client.send("chat", this.systemChat("Warden", `Serve your time — ${secs}s left.`));
+          return;
+        }
+        ZoneRoom.jailedUntil.delete(player.name);
+        this.criminalUntil.delete(player.name);
+        player.criminal = false;
+      }
+
       // Criminals are barred from Safe zones (towns) until their flag expires.
       if (
         getZoneDangerTier(targetConfig.id) === "safe" &&
@@ -1767,6 +1785,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     this.playerLastCombatAt.set(victim.name, Date.now());
 
     const knockedOut = next === 0;
+    let arrested = false;
     if (knockedOut) {
       const victimWasCriminal = victim.criminal;
       // Drop loot per tier (red: resources; black: everything).
@@ -1787,12 +1806,29 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         this.markCriminal(attacker.name);
       }
 
-      const spawn = tileToWorld(this.zoneConfig.spawnTile.x, this.zoneConfig.spawnTile.y);
-      victim.x = spawn.x;
-      victim.y = spawn.y;
-      this.playerKnockedOutUntil.set(victim.name, Date.now() + RESPAWN_WAIT_MS);
       if (this.activePlayerSession.get(victim.name)) {
         this.inputs.set(this.activePlayerSession.get(victim.name)!, { dx: 0, dy: 0 });
+      }
+
+      if (victimWasCriminal) {
+        // Caught! A criminal who's defeated goes straight to jail (no pay-to-respawn).
+        arrested = true;
+        ZoneRoom.jailedUntil.set(victim.name, Date.now() + JAIL_DURATION_MS);
+        this.playerHp.set(victim.name, maxHp);
+        this.playerKnockedOutUntil.delete(victim.name);
+        victimClient.send("transfer", { targetZone: ZONE_JAIL, label: "Jail" });
+        victimClient.send(
+          "chat",
+          this.systemChat(
+            "Guards",
+            `You were caught and jailed for ${Math.round(JAIL_DURATION_MS / 1000)}s!`,
+          ),
+        );
+      } else {
+        const spawn = tileToWorld(this.zoneConfig.spawnTile.x, this.zoneConfig.spawnTile.y);
+        victim.x = spawn.x;
+        victim.y = spawn.y;
+        this.playerKnockedOutUntil.set(victim.name, Date.now() + RESPAWN_WAIT_MS);
       }
 
       // PvP season rating: reward the victor, dock the loser (floored at 0).
@@ -1817,8 +1853,16 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       void this.persistPlayer(victim);
     }
 
-    const freeRespawnAt = knockedOut ? (this.playerKnockedOutUntil.get(victim.name) ?? null) : null;
-    victimClient.send("playerDamage", { amount, currentHp: next, maxHp, knockedOut, freeRespawnAt });
+    // An arrested criminal is whisked to jail (healed), not left knocked out.
+    const reportKnockedOut = knockedOut && !arrested;
+    const freeRespawnAt = reportKnockedOut ? (this.playerKnockedOutUntil.get(victim.name) ?? null) : null;
+    victimClient.send("playerDamage", {
+      amount,
+      currentHp: arrested ? maxHp : next,
+      maxHp,
+      knockedOut: reportKnockedOut,
+      freeRespawnAt,
+    });
     this.sendProfile(victimClient, victim);
     return knockedOut;
   }

@@ -10,6 +10,10 @@ export const ZONE_WILDERNESS = "zone_wilderness";
 export const ZONE_GROTTO = "zone_grotto";
 export const ZONE_INTERIOR = "zone_interior";
 export const ZONE_BLACK = "zone_black";
+export const ZONE_JAIL = "zone_jail";
+
+/** How long an arrested criminal is held in jail. */
+export const JAIL_DURATION_MS = 2 * 60 * 1000;
 
 /** $BASE that must be burned on-chain to unlock Black-zone access. */
 export const BLACK_ZONE_BURN_AMOUNT = 1_000_000;
@@ -1040,6 +1044,33 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
       // Plants flanking the exit doormat.
       { id: "lodge_plant_door_l", tileX: 9, tileY: 15, prop: "plant" },
       { id: "lodge_plant_door_r", tileX: 13, tileY: 15, prop: "plant" },
+    ],
+  },
+  [ZONE_JAIL]: {
+    id: ZONE_JAIL,
+    roomName: ZONE_JAIL,
+    displayName: "Jail",
+    spawnTile: { x: 11, y: 10 },
+    portals: [
+      {
+        tileX: 11,
+        tileY: 14,
+        targetZone: ZONE_HUB,
+        label: "Released",
+      },
+    ],
+    npcs: [
+      {
+        id: "jail_guard",
+        name: "Warden",
+        tileX: 11,
+        tileY: 8,
+        dialogue: "Crime doesn't pay. Sit tight — you'll be released when your sentence is up.",
+      },
+    ],
+    scenery: [
+      { id: "jail_lamp", tileX: 9, tileY: 8, prop: "lamppost" },
+      { id: "jail_crate", tileX: 13, tileY: 12, prop: "crate" },
     ],
   },
 };
