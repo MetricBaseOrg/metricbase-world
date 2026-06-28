@@ -187,6 +187,25 @@ until the flag expires (~10 min). Anyone can place a **bounty** (gold) on a targ
 whoever knocks them out claims the pooled gold. Guild-war kills are sanctioned and
 don't make you a criminal.
 
+**Jail:** if a criminal is defeated in PvP, the guards **arrest** them — they're
+sent to the **Jail** zone and held for 2 minutes (no pay-to-respawn). The cell's
+exit stays locked until the sentence is served, after which they're released and
+pardoned (criminal flag cleared) so they can re-enter towns.
+
+### Duels (Arena)
+
+For a fair fight with no stakes, **left-click a player** and hit **⚔️ Duel** to
+challenge them. If they accept, you both heal to full and fight a **consensual
+1v1 anywhere — even in a safe town** — with **no loot, no crime, and no knockout
+penalty**. Drop your opponent to win; the loser is simply restored. Duels draw
+after 90s, and leaving forfeits.
+
+### Mounts
+
+Craft a **mount** — Sturdy Pony (+25%), Swift Steed (+45%), or Dire Wolf (+70%) —
+and equip it from the Inventory panel's Mount slot for a permanent
+**movement-speed** boost.
+
 ### Community Lodge (VIP) & Base Rush Arcade
 
 The **Community Lodge** is VIP-only. Enter by **holding ≥ 20,000,000 $BASE**, or buy
