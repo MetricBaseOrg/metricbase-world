@@ -44,8 +44,9 @@ function getHouseKeypair(): Keypair | null {
       bytes = bs58.decode(raw);
     }
     cachedKeypair = Keypair.fromSecretKey(bytes);
-  } catch (error) {
-    console.error("[casino] Failed to parse HOUSE_WALLET_SECRET:", error);
+  } catch {
+    // Don't log the error object — it can echo the raw (malformed) secret.
+    console.error("[casino] Failed to parse HOUSE_WALLET_SECRET (check the env value).");
     cachedKeypair = null;
   }
   return cachedKeypair;

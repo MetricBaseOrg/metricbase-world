@@ -8,7 +8,13 @@ interface AccessPayload {
 }
 
 function getSecret(): string {
-  return process.env.AUTH_SECRET ?? "metricbase-dev-secret-change-me";
+  const secret = process.env.AUTH_SECRET;
+  if (secret) return secret;
+  // Never sign with a known fallback in production — fail loud instead.
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("AUTH_SECRET must be set in production.");
+  }
+  return "metricbase-dev-secret-change-me";
 }
 
 export function createAccessToken(wallet: string): { token: string; expiresAt: number } {
