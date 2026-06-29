@@ -14,8 +14,8 @@ import { nudgeZoom } from "../game/inputControl";
 import { networkManager } from "../game/network";
 import { useGameStore } from "../store/gameStore";
 import { shortenWallet } from "../wallet/solanaProvider";
-import { CircleGauge } from "./CircleGauge";
 import { DayNightClock } from "./DayNightClock";
+import { PortraitCanvas } from "./PortraitCanvas";
 import { useMobileLayout } from "./useMobileLayout";
 import { WalletConnectBar } from "./WalletConnectBar";
 
@@ -69,8 +69,6 @@ export function TopBar({ onLeave }: TopBarProps) {
 
   if (mobileLayout) return null;
 
-  const ratio = (p: { current: number; required: number }) =>
-    p.required > 0 ? p.current / p.required : 0;
   const xp = xpProgress(playerXp, playerLevel);
   const wood = woodcuttingXpProgress(woodcuttingXp, woodcuttingLevel);
   const mine = miningXpProgress(miningXp, miningLevel);
@@ -79,42 +77,51 @@ export function TopBar({ onLeave }: TopBarProps) {
   const hpRatio = playerMaxHp > 0 ? playerHp / playerMaxHp : 0;
   const energyRatio = playerMaxStamina > 0 ? playerStamina / playerMaxStamina : 0;
 
+  const characterAppearance = useGameStore((s) => s.characterAppearance);
+
   return (
     <div className="chibi-topbar chibi-anchor chibi-anchor--top-left">
-      <div className="chibi-topbar__row">
-        <span className="chibi-topbar__brand">✦ {playerName}</span>
-        <span className="chibi-topbar__lvl">Lv {playerLevel}</span>
-        <div className="chibi-stat-pill">🗺️ {zoneName}</div>
-        <DayNightClock />
-      </div>
+      {spectator ? (
+        <span className="chibi-badge" style={{ fontSize: "0.82rem", padding: "6px 12px", background: "#3b82f6", color: "#fff", display: "inline-flex", alignItems: "center", gap: 6 }}>
+          👀 SPECTATOR MODE (FREE FLY)
+        </span>
+      ) : (
+        <div className="chibi-hudcard">
+          <div className="chibi-hudcard__portrait">
+            <PortraitCanvas appearance={characterAppearance} size={58} />
+            <span className="chibi-hudcard__lvl">Lv {playerLevel}</span>
+          </div>
+          <div className="chibi-hudcard__body">
+            <div className="chibi-hudcard__name">{playerName}</div>
+            <Bar color="#ff5a5a" track="#5a2230" value={hpRatio} text={`${playerHp} / ${playerMaxHp}`} />
+            <Bar color="#4f9bff" track="#1f3a5a" value={energyRatio} text={`${playerStamina} / ${playerMaxStamina}`} />
+            <div className="chibi-hudcard__chips">
+              <span className="chibi-mini-pip" title={`Combat XP ${xp.current}/${xp.required}`}>⚔️ {playerLevel}</span>
+              <span className="chibi-mini-pip" title={`Woodcutting ${wood.current}/${wood.required}`}>🪓 {woodcuttingLevel}</span>
+              <span className="chibi-mini-pip" title={`Mining ${mine.current}/${mine.required}`}>⛏️ {miningLevel}</span>
+              <span className="chibi-mini-pip" title={`Fishing ${fish.current}/${fish.required}`}>🎣 {fishingLevel}</span>
+              <span className="chibi-mini-pip" title={`Farming ${farm.current}/${farm.required}`}>🌾 {farmingLevel}</span>
+            </div>
+          </div>
+          <button
+            type="button"
+            className={`chibi-btn chibi-btn--ghost chibi-topbar__gear${menuOpen ? " active" : ""}`}
+            onClick={() => { playSfx(menuOpen ? "ui_close" : "ui_open"); setMenuOpen((v) => !v); }}
+            aria-label="Settings"
+            title="Settings"
+          >
+            ⚙️
+          </button>
+        </div>
+      )}
 
-      <div className="chibi-topbar__gauges">
-        {spectator ? (
-          <span className="chibi-badge" style={{ fontSize: "0.82rem", padding: "6px 12px", background: "#3b82f6", color: "#fff", display: "inline-flex", alignItems: "center", gap: 6 }}>
-            👀 SPECTATOR MODE (FREE FLY)
-          </span>
-        ) : (
-          <>
-            <Badge value={hpRatio} label={`${playerHp}`} caption="HP" color="#ff6b6b" title={`HP ${playerHp}/${playerMaxHp}`} />
-            <Badge value={energyRatio} label={`${playerStamina}`} caption="Energy" color="#f5a623" title={`Energy ${playerStamina}/${playerMaxStamina}`} />
-            <Badge value={ratio(xp)} label={`${playerLevel}`} caption="Level" color="var(--chibi-lavender)" title={`Combat XP ${xp.current}/${xp.required}`} />
-            <Badge value={ratio(wood)} label={`${woodcuttingLevel}`} caption="Wood" color="#43a047" title={`Woodcutting ${wood.current}/${wood.required}`} />
-            <Badge value={ratio(mine)} label={`${miningLevel}`} caption="Mining" color="#b0833a" title={`Mining ${mine.current}/${mine.required}`} />
-            <Badge value={ratio(fish)} label={`${fishingLevel}`} caption="Fishing" color="#3690cf" title={`Fishing ${fish.current}/${fish.required}`} />
-            <Badge value={ratio(farm)} label={`${farmingLevel}`} caption="Farming" color="#e0a82e" title={`Farming ${farm.current}/${farm.required}`} />
-            <div className="chibi-topbar__gold">🪙 {playerGold}</div>
-          </>
-        )}
-        <button
-          type="button"
-          className={`chibi-btn chibi-btn--ghost chibi-topbar__gear${menuOpen ? " active" : ""}`}
-          onClick={() => { playSfx(menuOpen ? "ui_close" : "ui_open"); setMenuOpen((v) => !v); }}
-          aria-label="Settings"
-          title="Settings"
-        >
-          ⚙️
-        </button>
-      </div>
+      {!spectator && (
+        <div className="chibi-currency-strip">
+          <span className="chibi-currency-chip" title="Gold">🪙 {playerGold.toLocaleString()}</span>
+          <span className="chibi-currency-chip" title="Zone">🗺️ {zoneName}</span>
+          <DayNightClock />
+        </div>
+      )}
 
       {menuOpen && (
         <div className="chibi-topbar__menu" ref={menuRef}>
@@ -174,11 +181,13 @@ export function TopBar({ onLeave }: TopBarProps) {
   );
 }
 
-function Badge({ value, label, caption, color, title }: { value: number; label: string; caption: string; color: string; title: string }) {
+/** A horizontal stat bar (HP / Energy) with an overlaid value label. */
+function Bar({ value, text, color, track }: { value: number; text: string; color: string; track: string }) {
+  const pct = Math.max(0, Math.min(1, value)) * 100;
   return (
-    <div className="chibi-topbar__badge">
-      <CircleGauge value={value} label={label} title={title} color={color} size={30} strokeWidth={3.5} />
-      <span className="chibi-topbar__badge-cap">{caption}</span>
+    <div className="chibi-hudbar" style={{ background: track }}>
+      <div className="chibi-hudbar__fill" style={{ width: `${pct}%`, background: color }} />
+      <span className="chibi-hudbar__text">{text}</span>
     </div>
   );
 }
