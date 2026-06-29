@@ -1,13 +1,22 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ATTACK_COOLDOWN_MS, getAbilitiesForWeapon } from "@metricbase/shared";
+import { ATTACK_COOLDOWN_MS, CONSUMABLE_HEAL, getAbilitiesForWeapon } from "@metricbase/shared";
 import { playSfx } from "../audio/soundEffects";
 import {
   isUiTypingActive,
   triggerAbility,
   triggerPrimaryAttack,
 } from "../game/inputControl";
+import { networkManager } from "../game/network";
 import { useGameStore } from "../store/gameStore";
 import { useMobileLayout } from "./useMobileLayout";
+
+/** Emoji per heal consumable for the quick-slot. */
+const CONSUMABLE_ICONS: Record<string, string> = {
+  item_health_potion: "🧪",
+  item_bread: "🍞",
+  item_cooked_fish: "🐟",
+  item_grilled_salmon: "🍣",
+};
 
 /**
  * Combat hotbar. The primary "Strike" slot fires the basic attack; the
@@ -35,6 +44,16 @@ export function SkillBar() {
   const housingOpen = useGameStore((state) => state.housingOpen);
   const playerShopOpen = useGameStore((state) => state.playerShopOpen);
   const equippedWeaponId = useGameStore((state) => state.equippedWeaponId);
+  const inventory = useGameStore((state) => state.inventory);
+
+  // Best heal consumable on hand (highest heal you actually carry) for the quick-slot.
+  let bestConsumable: { itemId: string; quantity: number; heal: number } | null = null;
+  for (const entry of inventory.items) {
+    const heal = CONSUMABLE_HEAL[entry.itemId];
+    if (heal && (!bestConsumable || heal > bestConsumable.heal)) {
+      bestConsumable = { itemId: entry.itemId, quantity: entry.quantity, heal };
+    }
+  }
 
   const cooldowns = useRef<Map<string, { endsAt: number; durationMs: number }>>(new Map());
   const [, forceTick] = useState(0);
@@ -96,17 +115,35 @@ export function SkillBar() {
     [startCooldown],
   );
 
+  const useConsumable = useCallback(() => {
+    if (cooldowns.current.has("consumable")) return;
+    const best = bestConsumable;
+    if (!best) {
+      playSfx("shop_fail");
+      setShake("consumable");
+      window.setTimeout(() => setShake((c) => (c === "consumable" ? null : c)), 260);
+      return;
+    }
+    networkManager.sendUseItem(best.itemId);
+    playSfx("item_use");
+    startCooldown("consumable", 1000);
+  }, [bestConsumable, startCooldown]);
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (isUiTypingActive() || event.repeat) return;
       const key = event.key.toLowerCase();
+      if (key === "t") {
+        useConsumable();
+        return;
+      }
       const slot = slots.find((entry) => entry.keyCode === key);
       if (slot) activate(slot);
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
     // slots are recomputed each render from equippedWeaponId; activate is stable.
-  }, [activate, equippedWeaponId]);
+  }, [activate, useConsumable, equippedWeaponId]);
 
   useEffect(() => {
     return () => {
@@ -152,6 +189,33 @@ export function SkillBar() {
           </button>
         );
       })}
+
+      {/* Consumable quick-slot — uses your best heal item on hand. */}
+      {(() => {
+        const cd = cooldowns.current.get("consumable");
+        const remaining = cd ? Math.max(0, cd.endsAt - now) : 0;
+        const icon = bestConsumable ? CONSUMABLE_ICONS[bestConsumable.itemId] ?? "🍖" : "🍖";
+        return (
+          <button
+            type="button"
+            className={`chibi-skill-slot consumable${bestConsumable ? "" : " locked"}${shake === "consumable" ? " shake" : ""}`}
+            title={bestConsumable ? `Use heal item (T)` : "No heal items"}
+            aria-label="Use consumable"
+            onPointerDown={(event) => event.preventDefault()}
+            onClick={() => useConsumable()}
+          >
+            <span className="chibi-skill-icon" aria-hidden="true">{icon}</span>
+            <span className="chibi-skill-key">T</span>
+            {bestConsumable && <span className="chibi-skill-count">{bestConsumable.quantity}</span>}
+            {remaining > 0 && (
+              <span
+                className="chibi-skill-cooldown"
+                style={{ background: `conic-gradient(rgba(20,12,8,0.62) ${(remaining / 1000) * 360}deg, transparent 0deg)` }}
+              />
+            )}
+          </button>
+        );
+      })()}
     </div>
   );
 }
