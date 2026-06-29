@@ -116,6 +116,11 @@ import {
   PVP_KILL_RATING,
   PVP_DEATH_RATING,
   getPvpSeason,
+  HONOR_PER_KILL,
+  GUILD_COIN_PER_KILL,
+  GEMS_PER_ELITE,
+  GEM_DROP_CHANCE,
+  GEM_ELITE_MIN_XP,
   BLACK_ZONE_BURN_AMOUNT,
   VIP_PASS_GOLD_COST,
   VIP_PASS_BURN_AMOUNT,
@@ -322,6 +327,10 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   private playerPvpRating = new Map<string, number>();
   private playerPvpKills = new Map<string, number>();
   private playerPvpSeason = new Map<string, number>();
+  /** Soft currency balances per player name (HUD-P4). */
+  private playerHonor = new Map<string, number>();
+  private playerGuildCoin = new Map<string, number>();
+  private playerGems = new Map<string, number>();
   /** Open bounties: target name -> pooled gold. */
   private bounties = new Map<string, number>();
   /** Active loot bags in this room, keyed by bag id. */
@@ -856,6 +865,11 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       this.playerPvpKills.set(player.name, kills);
       this.playerPvpSeason.set(player.name, season);
     }
+
+    // Soft currencies (HUD-P4).
+    this.playerHonor.set(player.name, saved?.honor ?? 0);
+    this.playerGuildCoin.set(player.name, saved?.guildCoin ?? 0);
+    this.playerGems.set(player.name, saved?.gems ?? 0);
 
     this.state.players.set(client.sessionId, player);
     this.activePlayerSession.set(player.name, client.sessionId);
@@ -1581,6 +1595,12 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         await this.grantLoot(client, player.name, rewards.lootItemId, rewards.lootQuantity);
       }
 
+      // Gems: a rare premium drop from powerful foes (HUD-P4).
+      if (npc.combat.rewardXp >= GEM_ELITE_MIN_XP && Math.random() < GEM_DROP_CHANCE) {
+        this.playerGems.set(player.name, (this.playerGems.get(player.name) ?? 0) + GEMS_PER_ELITE);
+        client.send("chat", this.systemChat("Loot", `💎 You found ${GEMS_PER_ELITE} Gem!`));
+      }
+
       await this.checkDefeatObjectives(client, player.name, npcId);
       await this.persistPlayer(player);
     }
@@ -2111,6 +2131,15 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         victim.name,
         Math.max(0, (this.playerPvpRating.get(victim.name) ?? STARTING_PVP_RATING) - PVP_DEATH_RATING),
       );
+
+      // Soft currencies: honor for the victor, plus guild coin if they're in a guild.
+      this.playerHonor.set(attacker.name, (this.playerHonor.get(attacker.name) ?? 0) + HONOR_PER_KILL);
+      if (getGuildForMember(attacker.name)) {
+        this.playerGuildCoin.set(
+          attacker.name,
+          (this.playerGuildCoin.get(attacker.name) ?? 0) + GUILD_COIN_PER_KILL,
+        );
+      }
       const attackerClient = this.clientForName(attacker.name);
       if (attackerClient) {
         this.sendProfile(attackerClient, attacker);
@@ -2825,6 +2854,9 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       maxStamina: MAX_STAMINA,
       knockedOut,
       freeRespawnAt: knockedOut ? (this.playerKnockedOutUntil.get(player.name) ?? null) : null,
+      honor: this.playerHonor.get(player.name) ?? 0,
+      guildCoin: this.playerGuildCoin.get(player.name) ?? 0,
+      gems: this.playerGems.get(player.name) ?? 0,
     });
     // Keep the client's equipment + combat-stat panel in sync with every profile push.
     client.send("equipmentState", buildEquipmentState(this.playerEquipment.get(player.name)));
@@ -5055,6 +5087,9 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       pvpRating: this.playerPvpRating.get(player.name) ?? STARTING_PVP_RATING,
       pvpKills: this.playerPvpKills.get(player.name) ?? 0,
       pvpSeason: this.playerPvpSeason.get(player.name) ?? getPvpSeason(Date.now()),
+      honor: this.playerHonor.get(player.name) ?? 0,
+      guildCoin: this.playerGuildCoin.get(player.name) ?? 0,
+      gems: this.playerGems.get(player.name) ?? 0,
     });
   }
 

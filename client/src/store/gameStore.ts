@@ -24,6 +24,9 @@ interface GameStore {
   farmingLevel: number;
   farmingXp: number;
   playerGold: number;
+  honor: number;
+  guildCoin: number;
+  gems: number;
   playerHp: number;
   playerMaxHp: number;
   playerStamina: number;
@@ -125,6 +128,9 @@ export const useGameStore = create<GameStore>((set) => ({
   farmingLevel: 1,
   farmingXp: 0,
   playerGold: 0,
+  honor: 0,
+  guildCoin: 0,
+  gems: 0,
   playerHp: 40,
   playerMaxHp: 40,
   playerStamina: 100,
@@ -208,6 +214,9 @@ export const useGameStore = create<GameStore>((set) => ({
         profile.equippedWeaponId !== undefined ? profile.equippedWeaponId : state.equippedWeaponId,
       equippedToolId:
         profile.equippedToolId !== undefined ? profile.equippedToolId : state.equippedToolId,
+      honor: profile.honor ?? state.honor,
+      guildCoin: profile.guildCoin ?? state.guildCoin,
+      gems: profile.gems ?? state.gems,
     })),
   setPlayerGold: (playerGold) => set({ playerGold }),
   setPlayerVitals: (playerHp, playerMaxHp) => set({ playerHp, playerMaxHp }),

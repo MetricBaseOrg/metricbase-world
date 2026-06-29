@@ -36,6 +36,8 @@ export function TopBar({ onLeave }: TopBarProps) {
     playerLevel,
     playerXp,
     playerGold,
+    honor,
+    gems,
     playerHp,
     playerMaxHp,
     playerStamina,
@@ -118,6 +120,12 @@ export function TopBar({ onLeave }: TopBarProps) {
       {!spectator && (
         <div className="chibi-currency-strip">
           <span className="chibi-currency-chip" title="Gold">🪙 {playerGold.toLocaleString()}</span>
+          {honor > 0 && (
+            <span className="chibi-currency-chip" title="Honor — earned from PvP wins">🎖️ {honor.toLocaleString()}</span>
+          )}
+          {gems > 0 && (
+            <span className="chibi-currency-chip" title="Gems — rare drops from strong foes">💎 {gems.toLocaleString()}</span>
+          )}
           <span className="chibi-currency-chip" title="Zone">🗺️ {zoneName}</span>
           <DayNightClock />
         </div>

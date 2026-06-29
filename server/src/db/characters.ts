@@ -47,6 +47,12 @@ export interface CharacterRecord {
   pvpKills: number;
   /** Season the rating/kills belong to (for lazy reset). */
   pvpSeason: number;
+  /** Soft currency: PvP honor. */
+  honor: number;
+  /** Soft currency: guild coin. */
+  guildCoin: number;
+  /** Soft currency: premium gems. */
+  gems: number;
 }
 
 type CharacterRow = {
@@ -73,6 +79,9 @@ type CharacterRow = {
   pvp_rating: number | null;
   pvp_kills: number | null;
   pvp_season: number | null;
+  honor: number | null;
+  guild_coin: number | null;
+  gems: number | null;
 };
 
 export async function loadCharacterByName(name: string): Promise<CharacterRecord | null> {
@@ -81,6 +90,7 @@ export async function loadCharacterByName(name: string): Promise<CharacterRecord
 
   const result = await db.query<CharacterRow>(
     `SELECT name, wallet_address, zone_id, x, y, level, xp, gold, quest_progress, appearance, inventory, hp, equipment, npc_interact_at, mob_gold_claimed, knocked_out_until, skills, stamina, vip_pass_until, black_pass, pvp_rating, pvp_kills, pvp_season
+     , honor, guild_coin, gems
      FROM characters
      WHERE name = $1`,
     [name],
@@ -96,6 +106,7 @@ export async function loadCharacterByWallet(wallet: string): Promise<CharacterRe
 
   const result = await db.query<CharacterRow>(
     `SELECT name, wallet_address, zone_id, x, y, level, xp, gold, quest_progress, appearance, inventory, hp, equipment, npc_interact_at, mob_gold_claimed, knocked_out_until, skills, stamina, vip_pass_until, black_pass, pvp_rating, pvp_kills, pvp_season
+     , honor, guild_coin, gems
      FROM characters
      WHERE wallet_address = $1`,
     [wallet],
@@ -115,8 +126,8 @@ export async function saveCharacter(record: CharacterRecord): Promise<void> {
   if (!db) return;
 
   await db.query(
-    `INSERT INTO characters (name, wallet_address, zone_id, x, y, level, xp, gold, quest_progress, appearance, inventory, hp, equipment, npc_interact_at, mob_gold_claimed, knocked_out_until, skills, stamina, vip_pass_until, black_pass, pvp_rating, pvp_kills, pvp_season, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10::jsonb, $11::jsonb, $12, $13::jsonb, $14::jsonb, $15::jsonb, $16, $17::jsonb, $18, $19, $20, $21, $22, $23, NOW())
+    `INSERT INTO characters (name, wallet_address, zone_id, x, y, level, xp, gold, quest_progress, appearance, inventory, hp, equipment, npc_interact_at, mob_gold_claimed, knocked_out_until, skills, stamina, vip_pass_until, black_pass, pvp_rating, pvp_kills, pvp_season, honor, guild_coin, gems, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10::jsonb, $11::jsonb, $12, $13::jsonb, $14::jsonb, $15::jsonb, $16, $17::jsonb, $18, $19, $20, $21, $22, $23, $24, $25, $26, NOW())
      ON CONFLICT (name)
      DO UPDATE SET
        wallet_address = COALESCE(EXCLUDED.wallet_address, characters.wallet_address),
@@ -141,6 +152,9 @@ export async function saveCharacter(record: CharacterRecord): Promise<void> {
        pvp_rating = EXCLUDED.pvp_rating,
        pvp_kills = EXCLUDED.pvp_kills,
        pvp_season = EXCLUDED.pvp_season,
+       honor = EXCLUDED.honor,
+       guild_coin = EXCLUDED.guild_coin,
+       gems = EXCLUDED.gems,
        updated_at = NOW()`,
     [
       record.name,
@@ -166,6 +180,9 @@ export async function saveCharacter(record: CharacterRecord): Promise<void> {
       record.pvpRating,
       record.pvpKills,
       record.pvpSeason,
+      record.honor,
+      record.guildCoin,
+      record.gems,
     ],
   );
 }
@@ -244,6 +261,9 @@ export async function bindCharacterToWallet(
     pvpRating: existingByWallet?.pvpRating ?? existingByName?.pvpRating ?? 1000,
     pvpKills: existingByWallet?.pvpKills ?? existingByName?.pvpKills ?? 0,
     pvpSeason: existingByWallet?.pvpSeason ?? existingByName?.pvpSeason ?? 0,
+    honor: existingByWallet?.honor ?? existingByName?.honor ?? 0,
+    guildCoin: existingByWallet?.guildCoin ?? existingByName?.guildCoin ?? 0,
+    gems: existingByWallet?.gems ?? existingByName?.gems ?? 0,
   };
 
   await saveCharacter(record);
@@ -311,6 +331,9 @@ function mapRow(row: CharacterRow): CharacterRecord {
     pvpRating: row.pvp_rating ?? 1000,
     pvpKills: row.pvp_kills ?? 0,
     pvpSeason: row.pvp_season ?? 0,
+    honor: row.honor ?? 0,
+    guildCoin: row.guild_coin ?? 0,
+    gems: row.gems ?? 0,
   };
 }
 

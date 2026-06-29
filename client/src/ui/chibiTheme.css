@@ -1681,6 +1681,24 @@ body {
   font-weight: 800;
 }
 
+.chibi-inv__currency {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  padding: 8px 10px;
+  background: var(--chibi-cream-deep);
+  border: 2px solid var(--chibi-outline-light);
+  border-radius: 12px;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.chibi-inv__cur {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .chibi-inv__bag {
   flex: 1 1 300px;
   min-width: 280px;

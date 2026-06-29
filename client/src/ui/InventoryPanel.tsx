@@ -165,6 +165,9 @@ export function InventoryPanel() {
   const setInventory = useGameStore((state) => state.setInventory);
   const setPlayerVitals = useGameStore((state) => state.setPlayerVitals);
   const playerGold = useGameStore((state) => state.playerGold);
+  const honor = useGameStore((state) => state.honor);
+  const guildCoin = useGameStore((state) => state.guildCoin);
+  const gems = useGameStore((state) => state.gems);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [filter, setFilter] = useState<Filter>("all");
@@ -443,6 +446,13 @@ export function InventoryPanel() {
                 <Stat label="Energy" value={playerMaxStamina} icon="🍗" />
               </div>
             )}
+
+            <div className="chibi-inv__currency">
+              <span className="chibi-inv__cur" title="Gold">🪙 {playerGold.toLocaleString()}</span>
+              <span className="chibi-inv__cur" title="Honor — from PvP wins" style={{ color: "#e0567a" }}>🎖️ {honor.toLocaleString()}</span>
+              <span className="chibi-inv__cur" title="Guild Coin — PvP wins while in a guild" style={{ color: "#5aa7e0" }}>🔰 {guildCoin.toLocaleString()}</span>
+              <span className="chibi-inv__cur" title="Gems — rare drops from strong foes" style={{ color: "#1f9d8a" }}>💎 {gems.toLocaleString()}</span>
+            </div>
 
             {needsRepair && (
               <button

@@ -78,6 +78,10 @@ export interface ProfilePayload {
   equippedToolId?: string | null;
   knockedOut?: boolean;
   freeRespawnAt?: number | null;
+  /** Soft currency balances (HUD-P4). */
+  honor?: number;
+  guildCoin?: number;
+  gems?: number;
 }
 
 export interface RespawnResultPayload {

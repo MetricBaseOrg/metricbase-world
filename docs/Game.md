@@ -163,6 +163,9 @@ your equipped weapon**.
 - **Crafting panel tabs:** the forge has **Craft** (gear/tools/food), **Refine**
   (smelt ore→bars, mill logs→planks), **Enhance** (the same +N upgrade), and
   **Dismantle** (salvage an unwanted item back into ~half its materials).
+- **Currencies:** alongside **🪙 Gold** you earn **🎖️ Honor** (PvP victories),
+  **🔰 Guild Coin** (PvP wins while in a guild), and **💎 Gems** (a rare drop
+  from powerful foes). Balances show in the top bar and the Character panel.
 - **Weapon abilities:** each weapon type (sword, dagger, …) grants a 5-slot kit with
   per-ability cooldown, stamina cost, and damage multiplier. Swap weapons to swap
   your hotbar.
