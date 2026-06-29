@@ -149,7 +149,7 @@ export function TopBar({ onLeave }: TopBarProps) {
           >
             📬{mailUnread > 0 && <span className="chibi-mail-badge">{mailUnread}</span>}
           </button>
-          <DayNightClock />
+          <DayNightClock className="chibi-currency-chip" />
         </div>
       )}
 

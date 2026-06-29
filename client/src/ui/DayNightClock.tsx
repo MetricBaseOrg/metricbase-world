@@ -2,7 +2,7 @@ import { getWeather, getWorldTime, type WeatherState, type WorldTime } from "@me
 import { useEffect, useState } from "react";
 
 /** Small HUD pill showing the live in-world time of day and current weather. */
-export function DayNightClock() {
+export function DayNightClock({ className = "chibi-stat-pill" }: { className?: string } = {}) {
   const [time, setTime] = useState<WorldTime>(() => getWorldTime());
   const [weather, setWeather] = useState<WeatherState>(() => getWeather());
 
@@ -18,7 +18,7 @@ export function DayNightClock() {
 
   return (
     <div
-      className="chibi-stat-pill"
+      className={className}
       title={`In-world time — ${time.label} · Weather — ${weather.label}`}
     >
       <span>{time.icon}</span> {time.clock} · <span>{weather.icon}</span> {weather.label}

@@ -1520,7 +1520,7 @@ body {
 
 .chibi-currency-strip {
   display: flex;
-  align-items: center;
+  align-items: stretch;
   gap: 6px;
   margin-top: 8px;
 }
@@ -1528,8 +1528,11 @@ body {
 .chibi-currency-chip {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 4px;
+  min-height: 30px;
   padding: 4px 10px;
+  white-space: nowrap;
   background: var(--chibi-panel);
   border: 2px solid var(--chibi-outline);
   border-radius: var(--chibi-radius-pill, 999px);
@@ -2112,8 +2115,7 @@ body {
 
 .chibi-currency-chip--btn {
   cursor: pointer;
-  border: none;
-  font: inherit;
+  font-family: var(--chibi-font-display);
 }
 
 .chibi-map__canvas {
