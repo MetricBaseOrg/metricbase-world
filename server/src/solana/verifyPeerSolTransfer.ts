@@ -62,6 +62,10 @@ export async function verifyPeerSolTransfer(
   const receivedSol = receivedLamports / LAMPORTS_PER_SOL;
 
   if (receivedSol + 1e-9 < expected.minUiAmount) {
+    console.warn(
+      "[casino] SOL deposit verify: received too little.",
+      JSON.stringify({ signature, expected, receivedSol, recipientIndex }),
+    );
     return {
       ok: false,
       error: `Seller received too little SOL. Expected ${expected.minUiAmount}, got ${receivedSol}.`,

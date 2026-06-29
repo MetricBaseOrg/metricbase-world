@@ -3750,6 +3750,10 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     if (!house) return void client.send("casinoResult", { ok: false, error: "Deposits are disabled right now." });
 
     const currency = getCasinoCurrency(currencyId);
+    console.warn(
+      "[casino] deposit attempt",
+      JSON.stringify({ player: player.name, wallet, currencyId, house, mint: this.resolveCasinoMint(currencyId), signature }),
+    );
     let uiAmount: number | undefined;
     if (currency.native) {
       const v = await verifyPeerSolTransfer(signature, { fromWallet: wallet, toWallet: house, minUiAmount: table.minDeposit });
@@ -3772,6 +3776,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     }
 
     const units = toBaseUnits(uiAmount, currencyId);
+    console.warn("[casino] deposit verified", JSON.stringify({ wallet, currencyId, uiAmount, units }));
     const credit = await creditDepositOnce(wallet, currencyId, units, signature);
     if (!credit.credited) {
       return void client.send("casinoResult", { ok: false, error: "That deposit was already credited." });

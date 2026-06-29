@@ -61,6 +61,16 @@ export async function verifyPeerTokenTransfer(
   }
 
   if (received + 1e-9 < expected.minUiAmount) {
+    // Dump what the transaction actually moved so deposit failures are debuggable.
+    console.warn(
+      "[casino] token deposit verify: received too few.",
+      JSON.stringify({
+        signature,
+        expected: { mint: expected.mint, toWallet: expected.toWallet, fromWallet: expected.fromWallet, min: expected.minUiAmount },
+        received,
+        postBalances: postBalances.map((p) => ({ mint: p.mint, owner: p.owner, ui: p.uiTokenAmount.uiAmount, raw: p.uiTokenAmount.amount })),
+      }),
+    );
     return {
       ok: false,
       error: `Seller received too few tokens. Expected ${expected.minUiAmount}, got ${received}.`,
