@@ -40,6 +40,24 @@ ALTER TABLE characters ADD COLUMN IF NOT EXISTS honor INTEGER NOT NULL DEFAULT 0
 ALTER TABLE characters ADD COLUMN IF NOT EXISTS guild_coin INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE characters ADD COLUMN IF NOT EXISTS gems INTEGER NOT NULL DEFAULT 0;
 
+-- Casino: custodial per-currency balances (smallest units) + idempotent ledger.
+CREATE TABLE IF NOT EXISTS casino_balances (
+  wallet_address VARCHAR(44) NOT NULL,
+  currency_id VARCHAR(8) NOT NULL,
+  amount BIGINT NOT NULL DEFAULT 0,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (wallet_address, currency_id)
+);
+CREATE TABLE IF NOT EXISTS casino_ledger (
+  signature VARCHAR(128) PRIMARY KEY,
+  wallet_address VARCHAR(44) NOT NULL,
+  currency_id VARCHAR(8) NOT NULL,
+  kind VARCHAR(8) NOT NULL,
+  amount BIGINT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS casino_ledger_wallet_idx ON casino_ledger (wallet_address);
+
 CREATE TABLE IF NOT EXISTS token_purchases (
   signature VARCHAR(88) PRIMARY KEY,
   wallet VARCHAR(44) NOT NULL,

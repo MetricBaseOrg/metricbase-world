@@ -230,6 +230,15 @@ saved to your character):
 Inside, talk to the arcade host to open the **Base Rush** game
 (`apps.metricbase.org/base-rush`) in a full-screen cabinet.
 
+**Lodge Blackjack.** Talk to **Ace, the Blackjack Dealer** to open the table.
+Pick a currency table — **SOL, USDC, IDRX, or $BASE** — then **deposit** from
+your wallet to build a balance at that table. Bet from your balance and play
+**Classic Blackjack**: the dealer stands on 17, blackjack pays **3:2**, and you
+can **Hit / Stand / Double**. Cards are dealt by the server (provably the same
+RNG for everyone). **Withdraw** any time to cash your balance back out to your
+wallet on-chain. Each table is denominated in its own currency, with its own
+min deposit and bet limits.
+
 ### The Black Zone (Obsidian Reach)
 
 Reached through the **Black Gate** in the Slime Grotto. Entry requires **burning

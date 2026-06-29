@@ -18,6 +18,8 @@ import {
   type DuelInvitePayload,
   type DuelStartPayload,
   type DuelEndPayload,
+  type CasinoStatePayload,
+  type CasinoActionResult,
   CraftResultPayload,
   FarmStatePayload,
   FarmResultPayload,
@@ -171,6 +173,9 @@ export class NetworkManager {
     (payload: { ok: boolean; success?: boolean; slot?: string; level?: number; error?: string }) => void
   >();
   private softShopResultListeners = new Set<(payload: { ok: boolean; error?: string }) => void>();
+  private casinoStateListeners = new Set<(payload: CasinoStatePayload) => void>();
+  private casinoResultListeners = new Set<(payload: CasinoActionResult) => void>();
+  private openBlackjackListeners = new Set<(payload: { name: string }) => void>();
   private inventoryResultListeners = new Set<InventoryResultListener>();
   private craftResultListeners = new Set<CraftResultListener>();
   private farmStateListeners = new Set<FarmStateListener>();
@@ -461,6 +466,41 @@ export class NetworkManager {
 
   sendBuySoftItem(offerId: string) {
     this.room?.send("buySoftItem", { offerId });
+  }
+
+  requestCasinoState() {
+    this.room?.send("casinoState", {});
+  }
+
+  sendCasinoDeposit(currencyId: string, signature: string) {
+    this.room?.send("casinoDeposit", { currencyId, signature });
+  }
+
+  sendCasinoWithdraw(currencyId: string, amount: number) {
+    this.room?.send("casinoWithdraw", { currencyId, amount });
+  }
+
+  sendBlackjackDeal(currencyId: string, bet: number) {
+    this.room?.send("blackjackDeal", { currencyId, bet });
+  }
+
+  sendBlackjackAction(action: "hit" | "stand" | "double") {
+    this.room?.send("blackjackAction", { action });
+  }
+
+  onCasinoState(listener: (payload: CasinoStatePayload) => void) {
+    this.casinoStateListeners.add(listener);
+    return () => this.casinoStateListeners.delete(listener);
+  }
+
+  onCasinoResult(listener: (payload: CasinoActionResult) => void) {
+    this.casinoResultListeners.add(listener);
+    return () => this.casinoResultListeners.delete(listener);
+  }
+
+  onOpenBlackjack(listener: (payload: { name: string }) => void) {
+    this.openBlackjackListeners.add(listener);
+    return () => this.openBlackjackListeners.delete(listener);
   }
 
   onSoftShopResult(listener: (payload: { ok: boolean; error?: string }) => void) {
@@ -1173,6 +1213,15 @@ export class NetworkManager {
     );
     this.room.onMessage("softShopResult", (payload: { ok: boolean; error?: string }) => {
       for (const listener of this.softShopResultListeners) listener(payload);
+    });
+    this.room.onMessage("casinoState", (payload: CasinoStatePayload) => {
+      for (const listener of this.casinoStateListeners) listener(payload);
+    });
+    this.room.onMessage("casinoResult", (payload: CasinoActionResult) => {
+      for (const listener of this.casinoResultListeners) listener(payload);
+    });
+    this.room.onMessage("openBlackjack", (payload: { name: string }) => {
+      for (const listener of this.openBlackjackListeners) listener(payload);
     });
     this.room.onMessage("inventoryResult", (payload: InventoryResultPayload) => {
       if (payload.inventory) {

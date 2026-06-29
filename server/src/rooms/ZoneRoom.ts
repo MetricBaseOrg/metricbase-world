@@ -123,6 +123,13 @@ import {
   GEM_ELITE_MIN_XP,
   getSoftOffer,
   type SoftCurrencyId,
+  getCasinoTable,
+  getCasinoCurrency,
+  toBaseUnits,
+  toUiAmount,
+  type CasinoCurrencyId,
+  type CasinoStatePayload,
+  type BlackjackState,
   BLACK_ZONE_BURN_AMOUNT,
   VIP_PASS_GOLD_COST,
   VIP_PASS_BURN_AMOUNT,
@@ -191,6 +198,24 @@ import { checkWalletTokenGate, getWalletTokenBalance } from "../solana/tokenBala
 import { verifyTokenBurn } from "../solana/verifyTokenBurn.js";
 import { getCachedHolderCount } from "../solana/holderCount.js";
 import { getLeaderboard } from "../db/leaderboard.js";
+import { verifyPeerSolTransfer } from "../solana/verifyPeerSolTransfer.js";
+import { verifyPeerTokenTransfer } from "../solana/verifyPeerTokenTransfer.js";
+import { getTreasuryWallet } from "../solana/verifyTokenTransfer.js";
+import { getHouseWalletAddress, isWithdrawEnabled, sendPayout } from "../solana/housePayout.js";
+import {
+  getCasinoBalances,
+  adjustCasinoBalance,
+  creditDepositOnce,
+  recordWithdrawal,
+} from "../db/casino.js";
+import {
+  startHand,
+  playerHit,
+  playerDouble,
+  resolveHand,
+  type ActiveHand,
+  type Settlement,
+} from "../casino/blackjack.js";
 import {
   acceptBidOrder,
   buildMarketState,
@@ -333,6 +358,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   private playerHonor = new Map<string, number>();
   private playerGuildCoin = new Map<string, number>();
   private playerGems = new Map<string, number>();
+  /** Active blackjack hands per player name (with the last settlement, if done). */
+  private blackjackHands = new Map<string, { hand: ActiveHand; settlement?: Settlement }>();
   /** Open bounties: target name -> pooled gold. */
   private bounties = new Map<string, number>();
   /** Active loot bags in this room, keyed by bag id. */
@@ -555,6 +582,22 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
     this.onProtectedMessage("buySoftItem", (client, message: { offerId?: string }) => {
       void this.handleBuySoftItem(client, message.offerId ?? "");
+    });
+
+    this.onProtectedMessage("casinoState", (client) => {
+      void this.sendCasinoState(client);
+    });
+    this.onProtectedMessage("casinoDeposit", (client, message: { currencyId?: string; signature?: string }) => {
+      void this.handleCasinoDeposit(client, message.currencyId ?? "", message.signature ?? "");
+    });
+    this.onProtectedMessage("casinoWithdraw", (client, message: { currencyId?: string; amount?: number }) => {
+      void this.handleCasinoWithdraw(client, message.currencyId ?? "", Number(message.amount) || 0);
+    });
+    this.onProtectedMessage("blackjackDeal", (client, message: { currencyId?: string; bet?: number }) => {
+      void this.handleBlackjackDeal(client, message.currencyId ?? "", Number(message.bet) || 0);
+    });
+    this.onProtectedMessage("blackjackAction", (client, message: { action?: string }) => {
+      void this.handleBlackjackAction(client, message.action ?? "");
     });
 
     this.onProtectedMessage("farmInteract", (client, message: { plotId?: string }) => {
@@ -1475,6 +1518,10 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     client.send("npcDialogue", { npcName: npc.name, dialogue: npc.dialogue });
     if (npc.arcadeUrl) {
       client.send("openArcade", { name: npc.name, url: npc.arcadeUrl });
+    }
+    if (npc.blackjack) {
+      client.send("openBlackjack", { name: npc.name });
+      void this.sendCasinoState(client);
     }
     void this.openShopForNpc(client, player, npc);
 
@@ -3633,6 +3680,198 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     this.sendProfile(client, player);
     client.send("softShopResult", { ok: true });
     await this.persistPlayer(player);
+  }
+
+  // ---- Casino: Community Lodge Blackjack (custodial on-chain balances) ----
+
+  private casinoHouseAddress(): string | null {
+    return getHouseWalletAddress() ?? getTreasuryWallet();
+  }
+
+  private handToState(entry: { hand: ActiveHand; settlement?: Settlement }): BlackjackState {
+    const { hand, settlement } = entry;
+    const done = hand.phase === "done";
+    return {
+      currencyId: hand.currencyId,
+      bet: toUiAmount(hand.escrowUnits, hand.currencyId),
+      playerCards: hand.player,
+      dealerCards: done ? hand.dealer : [hand.dealer[0]],
+      dealerHidden: !done,
+      phase: done ? "done" : "player",
+      canDouble: hand.phase === "player" && hand.player.length === 2,
+      outcome: settlement?.outcome,
+      net: settlement ? toUiAmount(settlement.netUnits, hand.currencyId) : undefined,
+    };
+  }
+
+  private async buildCasinoState(wallet: string | null, playerName: string): Promise<CasinoStatePayload> {
+    const balancesBase = wallet ? await getCasinoBalances(wallet) : {};
+    const balances: Record<string, number> = {};
+    for (const [cur, units] of Object.entries(balancesBase)) balances[cur] = toUiAmount(units, cur);
+    const entry = this.blackjackHands.get(playerName);
+    return {
+      balances,
+      houseWallet: this.casinoHouseAddress(),
+      rpcUrl: process.env.SOLANA_RPC_URL ?? null,
+      withdrawEnabled: isWithdrawEnabled(),
+      hand: entry ? this.handToState(entry) : null,
+    };
+  }
+
+  private async sendCasinoState(client: Client) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    client.send("casinoState", await this.buildCasinoState(this.playerWallets.get(client.sessionId) ?? null, player.name));
+  }
+
+  private async handleCasinoDeposit(client: Client, currencyId: string, signature: string) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const wallet = this.playerWallets.get(client.sessionId) ?? null;
+    if (!wallet) return void client.send("casinoResult", { ok: false, error: "Connect your wallet first." });
+    const table = getCasinoTable(currencyId);
+    if (!table) return void client.send("casinoResult", { ok: false, error: "Unknown table." });
+    if (!signature || signature.length < 32) {
+      return void client.send("casinoResult", { ok: false, error: "Missing deposit transaction." });
+    }
+    const house = this.casinoHouseAddress();
+    if (!house) return void client.send("casinoResult", { ok: false, error: "Deposits are disabled right now." });
+
+    const currency = getCasinoCurrency(currencyId);
+    let uiAmount: number | undefined;
+    if (currency.native) {
+      const v = await verifyPeerSolTransfer(signature, { fromWallet: wallet, toWallet: house, minUiAmount: table.minDeposit });
+      if (!v.ok) return void client.send("casinoResult", { ok: false, error: v.error ?? "Deposit not found." });
+      uiAmount = v.uiAmount;
+    } else {
+      if (!currency.mint) return void client.send("casinoResult", { ok: false, error: "Currency is misconfigured." });
+      const v = await verifyPeerTokenTransfer(signature, {
+        fromWallet: wallet,
+        toWallet: house,
+        mint: currency.mint,
+        minUiAmount: table.minDeposit,
+      });
+      if (!v.ok) return void client.send("casinoResult", { ok: false, error: v.error ?? "Deposit not found." });
+      uiAmount = v.uiAmount;
+    }
+    if (uiAmount === undefined || uiAmount <= 0) {
+      return void client.send("casinoResult", { ok: false, error: "Could not read the deposit amount." });
+    }
+
+    const units = toBaseUnits(uiAmount, currencyId);
+    const credit = await creditDepositOnce(wallet, currencyId, units, signature);
+    if (!credit.credited) {
+      return void client.send("casinoResult", { ok: false, error: "That deposit was already credited." });
+    }
+    client.send("casinoResult", { ok: true, state: await this.buildCasinoState(wallet, player.name) });
+  }
+
+  private async handleCasinoWithdraw(client: Client, currencyId: string, amountUi: number) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const wallet = this.playerWallets.get(client.sessionId) ?? null;
+    if (!wallet) return void client.send("casinoResult", { ok: false, error: "Connect your wallet first." });
+    const table = getCasinoTable(currencyId);
+    if (!table) return void client.send("casinoResult", { ok: false, error: "Unknown table." });
+    if (!isWithdrawEnabled()) {
+      return void client.send("casinoResult", { ok: false, error: "Withdrawals aren't available yet." });
+    }
+    if (amountUi <= 0) return void client.send("casinoResult", { ok: false, error: "Enter an amount to withdraw." });
+    const units = toBaseUnits(amountUi, currencyId);
+    if (units <= 0) return void client.send("casinoResult", { ok: false, error: "Amount is too small." });
+
+    // Debit first so a balance can't be withdrawn twice; refund if the payout fails.
+    const debit = await adjustCasinoBalance(wallet, currencyId, -units);
+    if (!debit.ok) return void client.send("casinoResult", { ok: false, error: "Insufficient balance." });
+
+    const payout = await sendPayout(wallet, currencyId, units);
+    if (!payout.ok) {
+      await adjustCasinoBalance(wallet, currencyId, units);
+      return void client.send("casinoResult", {
+        ok: false,
+        error: payout.error ?? "Payout failed.",
+        state: await this.buildCasinoState(wallet, player.name),
+      });
+    }
+    await recordWithdrawal(wallet, currencyId, units, payout.signature ?? `payout-${Date.now()}`);
+    client.send("casinoResult", {
+      ok: true,
+      signature: payout.signature,
+      state: await this.buildCasinoState(wallet, player.name),
+    });
+  }
+
+  private async finishBlackjack(wallet: string, entry: { hand: ActiveHand; settlement?: Settlement }) {
+    const settlement = resolveHand(entry.hand);
+    if (settlement.returnUnits > 0) {
+      await adjustCasinoBalance(wallet, entry.hand.currencyId, settlement.returnUnits);
+    }
+    entry.settlement = settlement;
+  }
+
+  private async handleBlackjackDeal(client: Client, currencyId: string, betUi: number) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const wallet = this.playerWallets.get(client.sessionId) ?? null;
+    if (!wallet) return void client.send("casinoResult", { ok: false, error: "Connect your wallet first." });
+    const table = getCasinoTable(currencyId);
+    if (!table) return void client.send("casinoResult", { ok: false, error: "Unknown table." });
+
+    const existing = this.blackjackHands.get(player.name);
+    if (existing && existing.hand.phase === "player") {
+      return void client.send("casinoResult", { ok: false, error: "Finish your current hand first." });
+    }
+    if (betUi < table.minBet || betUi > table.maxBet) {
+      return void client.send("casinoResult", {
+        ok: false,
+        error: `Bet must be between ${table.minBet} and ${table.maxBet}.`,
+      });
+    }
+    const betUnits = toBaseUnits(betUi, currencyId);
+    if (betUnits <= 0) return void client.send("casinoResult", { ok: false, error: "Bet is too small." });
+
+    const debit = await adjustCasinoBalance(wallet, currencyId, -betUnits);
+    if (!debit.ok) {
+      return void client.send("casinoResult", { ok: false, error: "Not enough balance — deposit to play." });
+    }
+
+    const hand = startHand(currencyId as CasinoCurrencyId, betUnits);
+    const entry: { hand: ActiveHand; settlement?: Settlement } = { hand };
+    this.blackjackHands.set(player.name, entry);
+    if (hand.phase === "done") await this.finishBlackjack(wallet, entry); // a natural ends instantly
+    client.send("casinoResult", { ok: true, state: await this.buildCasinoState(wallet, player.name) });
+  }
+
+  private async handleBlackjackAction(client: Client, action: string) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const wallet = this.playerWallets.get(client.sessionId) ?? null;
+    if (!wallet) return void client.send("casinoResult", { ok: false, error: "Connect your wallet first." });
+    const entry = this.blackjackHands.get(player.name);
+    if (!entry || entry.hand.phase !== "player") {
+      return void client.send("casinoResult", { ok: false, error: "No hand in play — deal first." });
+    }
+    const hand = entry.hand;
+
+    if (action === "hit") {
+      playerHit(hand);
+      if (hand.phase === "done") await this.finishBlackjack(wallet, entry);
+    } else if (action === "stand") {
+      await this.finishBlackjack(wallet, entry);
+    } else if (action === "double") {
+      if (hand.player.length !== 2) {
+        return void client.send("casinoResult", { ok: false, error: "You can only double on your first two cards." });
+      }
+      const debit = await adjustCasinoBalance(wallet, hand.currencyId, -hand.betUnits);
+      if (!debit.ok) {
+        return void client.send("casinoResult", { ok: false, error: "Not enough balance to double down." });
+      }
+      playerDouble(hand);
+      await this.finishBlackjack(wallet, entry);
+    } else {
+      return void client.send("casinoResult", { ok: false, error: "Unknown action." });
+    }
+    client.send("casinoResult", { ok: true, state: await this.buildCasinoState(wallet, player.name) });
   }
 
   private async completeCraft(client: Client, playerName: string, recipeId: string) {

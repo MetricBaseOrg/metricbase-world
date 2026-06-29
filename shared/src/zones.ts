@@ -54,6 +54,8 @@ export interface ZoneNpc {
   combat?: NpcCombatConfig;
   /** If set, interacting opens this external arcade game URL (e.g. Base Rush). */
   arcadeUrl?: string;
+  /** If true, interacting opens the in-lodge Blackjack table. */
+  blackjack?: boolean;
 }
 
 /** External arcade game reachable from the Community Lodge arcade machine. */
@@ -1015,6 +1017,15 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
         tileY: 9,
         dialogue: "Step right up to the BASE RUSH cabinet — insert coin and play!",
         arcadeUrl: BASE_RUSH_URL,
+      },
+      {
+        id: "lodge_blackjack",
+        name: "Ace · Blackjack Dealer",
+        tileX: 8,
+        tileY: 9,
+        dialogue:
+          "Care for a hand of Blackjack? Deposit SOL, USDC, IDRX, or $BASE at the cashier, then take a seat. Dealer stands on 17, blackjack pays 3 to 2.",
+        blackjack: true,
       },
     ],
     scenery: [

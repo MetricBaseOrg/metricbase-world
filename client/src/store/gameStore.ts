@@ -50,6 +50,7 @@ interface GameStore {
   inventoryOpen: boolean;
   craftOpen: boolean;
   honorShopOpen: boolean;
+  blackjackOpen: boolean;
   housingOpen: boolean;
   housingPlotId: string | null;
   housingPlots: LandPlotState[];
@@ -105,6 +106,7 @@ interface GameStore {
   setCraftOpen: (open: boolean) => void;
   toggleCraftOpen: () => void;
   setHonorShopOpen: (open: boolean) => void;
+  setBlackjackOpen: (open: boolean) => void;
   openHousing: (plotId: string) => void;
   setHousingOpen: (open: boolean) => void;
   setHousingPlots: (plots: LandPlotState[]) => void;
@@ -155,6 +157,7 @@ export const useGameStore = create<GameStore>((set) => ({
   inventoryOpen: false,
   craftOpen: false,
   honorShopOpen: false,
+  blackjackOpen: false,
   housingOpen: false,
   housingPlotId: null,
   housingPlots: [],
@@ -244,6 +247,7 @@ export const useGameStore = create<GameStore>((set) => ({
   setCraftOpen: (craftOpen) => set({ craftOpen, inventoryOpen: false }),
   toggleCraftOpen: () => set((state) => ({ craftOpen: !state.craftOpen, inventoryOpen: false })),
   setHonorShopOpen: (honorShopOpen) => set({ honorShopOpen }),
+  setBlackjackOpen: (blackjackOpen) => set({ blackjackOpen }),
   openHousing: (housingPlotId) =>
     set({ housingPlotId, housingOpen: true, inventoryOpen: false, craftOpen: false }),
   setHousingOpen: (housingOpen) => set({ housingOpen }),

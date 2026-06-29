@@ -1988,6 +1988,156 @@ body {
   color: var(--chibi-ink-soft);
 }
 
+/* ---- Lodge Blackjack ---- */
+.chibi-bj {
+  width: min(480px, 96vw);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.chibi-bj-tabs {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin: 4px 0 8px;
+}
+
+.chibi-bj-cashier {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  margin-bottom: 10px;
+  background: var(--chibi-cream-deep);
+  border: 2px solid var(--chibi-outline-light);
+  border-radius: 12px;
+}
+
+.chibi-bj-balance {
+  font-size: 0.82rem;
+}
+
+.chibi-bj-cashier__row {
+  display: flex;
+  gap: 6px;
+}
+
+.chibi-bj-cashier__row .chibi-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.chibi-bj-table {
+  border: 2px solid var(--chibi-outline);
+  border-radius: 14px;
+  background: linear-gradient(180deg, #1f6b4a, #134a33);
+  padding: 12px;
+  min-height: 150px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  color: #f3fff8;
+}
+
+.chibi-bj-seat__label {
+  font-size: 0.74rem;
+  font-weight: 700;
+  opacity: 0.92;
+  margin-bottom: 4px;
+}
+
+.chibi-bj-cards {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.chibi-bj-card {
+  width: 40px;
+  height: 56px;
+  border-radius: 7px;
+  background: #fffdf7;
+  border: 2px solid #2c1f14;
+  color: #1a1a1a;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--chibi-font-display);
+  font-weight: 700;
+  line-height: 1;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.25);
+}
+
+.chibi-bj-card--red {
+  color: #d6453b;
+}
+
+.chibi-bj-card--back {
+  background: repeating-linear-gradient(45deg, #b0466a, #b0466a 5px, #8d3556 5px, #8d3556 10px);
+  border-color: #2c1f14;
+}
+
+.chibi-bj-card__rank {
+  font-size: 0.92rem;
+}
+
+.chibi-bj-card__suit {
+  font-size: 1rem;
+}
+
+.chibi-bj-outcome {
+  text-align: center;
+  font-family: var(--chibi-font-display);
+  font-weight: 700;
+  font-size: 0.95rem;
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.28);
+}
+
+.chibi-bj-outcome--win,
+.chibi-bj-outcome--blackjack {
+  color: #ffe49a;
+}
+
+.chibi-bj-outcome--lose {
+  color: #ffb4ad;
+}
+
+.chibi-bj-controls {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.chibi-bj-controls .chibi-btn {
+  flex: 1;
+  min-width: 70px;
+}
+
+.chibi-bj-bet {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+}
+
+.chibi-bj-bet .chibi-btn {
+  flex: 0 0 auto;
+  min-width: 36px;
+}
+
+.chibi-bj-bet__val {
+  flex: 1;
+  text-align: center;
+  font-family: var(--chibi-font-display);
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
 /* ---- Combat hotbar (SkillBar) ---- */
 .chibi-skillbar {
   position: fixed;

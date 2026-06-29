@@ -21,6 +21,7 @@ import { LoginOverlay } from "./ui/LoginOverlay";
 import { InventoryHotkey } from "./ui/InventoryHotkey";
 import { InventoryPanel } from "./ui/InventoryPanel";
 import { SoftShopPanel } from "./ui/SoftShopPanel";
+import { BlackjackPanel } from "./ui/BlackjackPanel";
 import { QuestPanel } from "./ui/QuestPanel";
 import { ErrorBoundary } from "./ui/ErrorBoundary";
 import { ArcadeModal } from "./ui/ArcadeModal";
@@ -151,6 +152,11 @@ export function App() {
       setShopOpen(true);
     });
 
+    const unsubscribeBlackjack = networkManager.onOpenBlackjack(() => {
+      playSfx("ui_open");
+      useGameStore.getState().setBlackjackOpen(true);
+    });
+
     const unsubscribeSkillState = networkManager.onSkillState((state) => {
       const mining = state.mining ?? { level: 1, xp: 0 };
       const fishing = state.fishing ?? { level: 1, xp: 0 };
@@ -207,6 +213,7 @@ export function App() {
       unsubscribeInventory();
       unsubscribeEquipment();
       unsubscribeShopOpen();
+      unsubscribeBlackjack();
       unsubscribeNpcDialogue();
       unsubscribeSkillState();
       void networkManager.disconnect();
@@ -311,6 +318,7 @@ export function App() {
       {joined && <InventoryPanel />}
       {joined && <CraftPanel />}
       {joined && <SoftShopPanel />}
+      {joined && <BlackjackPanel />}
       {joined && <HousingPanel />}
       {joined && <PlayerShopPanel />}
       {joined && <InventoryHotkey />}
