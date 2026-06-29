@@ -63,7 +63,7 @@ Rush arcade.
 | `zone_wilderness` | Wilderness | 🟡 Yellow (opt-in PvP). Rook, Training Dummy, Wild Slimes; extra trees/rocks/fish; a capture point; portals to Hub and Slime Grotto |
 | `zone_grotto` | Slime Grotto | 🔴 Red (open PvP). Moss, Slime Brute; iron/gemstone/hardwood/fish nodes; a capture point; **Black Gate** to the Obsidian Reach |
 | `zone_black` | Obsidian Reach | ⚫ Black (full loot). Burn-gated lifetime entry; richest resources; two capture points; the **King Crystal** siege objective |
-| `zone_interior` | Community Lodge | 🟢 Safe, **VIP-only** (hold 20M $BASE or a 14-day pass). Base Rush arcade |
+| `zone_interior` | Community Lodge | 🟢 Safe, **VIP-only** (hold 10M $BASE or a pass). Base Rush arcade cabinet + Blackjack table |
 
 ### Combat targets
 
@@ -233,10 +233,10 @@ saved to your character):
 - **Burn pass** — **100 gold + burn 10,000 $BASE** for a **14-day** pass.
 - **Gold pass** — **1,000 gold** (no burn) for a **14-day** pass.
 
-Inside, talk to the arcade host to open the **Base Rush** game
-(`apps.metricbase.org/base-rush`) in a full-screen cabinet.
+Inside the (now roomier) lodge, walk up to the **arcade cabinet** and interact
+to open the **Base Rush** game (`apps.metricbase.org/base-rush`) full-screen.
 
-**Lodge Blackjack.** Talk to **Ace, the Blackjack Dealer** to open the table.
+**Lodge Blackjack.** Walk up to the **Blackjack table** and interact to open it.
 Pick a currency table — **SOL, USDC, IDRX, or $BASE** — then **deposit** from
 your wallet to build a balance at that table. Bet from your balance and play
 **Classic Blackjack**: the dealer stands on 17, blackjack pays **3:2**, and you

@@ -86,11 +86,11 @@ export function buildInteriorMap(): GroundLayer {
   // player is enclosed indoors.
   const layer = createEmptyLayer();
   fillRect(layer, 0, 0, MAP_WIDTH - 1, MAP_HEIGHT - 1, TILE_WALL);
-  // Cosy room floor.
-  fillRect(layer, 7, 6, 16, 15, TILE_STONE);
+  // Spacious lodge floor — roomier as the player base grows.
+  fillRect(layer, 4, 4, 19, 19, TILE_STONE);
   // Exit doormat near the south wall (well clear of the spawn so you don't
   // immediately bounce back out).
-  stampPortal(layer, 11, 15);
+  stampPortal(layer, 11, 19);
 
   return layer;
 }

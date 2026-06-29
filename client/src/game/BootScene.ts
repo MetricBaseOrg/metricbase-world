@@ -1451,6 +1451,76 @@ export class BootScene extends Phaser.Scene {
       g.generateTexture("scenery_lantern", W, H);
       g.destroy();
     }
+
+    // Arcade cabinet — a neon-trimmed upright machine with a glowing screen.
+    g = this.make.graphics({ x: 0, y: 0 });
+    {
+      const W = 46;
+      const H = 66;
+      const cx = W / 2;
+      const baseY = H - 6;
+      g.fillStyle(0x2a1d12, 0.25).fillEllipse(cx, baseY + 2, 30, 8);
+      // Cabinet body.
+      g.fillStyle(0x2b2d57, 1).fillRoundedRect(cx - 15, 10, 30, baseY - 10, 6);
+      g.lineStyle(2, OUTLINE, 1).strokeRoundedRect(cx - 15, 10, 30, baseY - 10, 6);
+      // Marquee header.
+      g.fillStyle(0xe255a1, 1).fillRoundedRect(cx - 15, 10, 30, 9, 4);
+      g.lineStyle(2, OUTLINE, 1).strokeRoundedRect(cx - 15, 10, 30, 9, 4);
+      // Screen.
+      g.fillStyle(0x12203a, 1).fillRoundedRect(cx - 11, 22, 22, 16, 3);
+      g.fillStyle(0x4fd6ff, 0.92).fillRoundedRect(cx - 9, 24, 18, 12, 2);
+      g.fillStyle(0x9af0ff, 0.7).fillRect(cx - 9, 27, 18, 1.4);
+      g.fillStyle(0xffffff, 0.5).fillRect(cx - 9, 31, 18, 1);
+      // Control deck + buttons.
+      g.fillStyle(0x3a3d6e, 1).fillRoundedRect(cx - 13, 40, 26, 8, 3);
+      g.lineStyle(2, OUTLINE, 1).strokeRoundedRect(cx - 13, 40, 26, 8, 3);
+      g.fillStyle(0xff5a5a, 1).fillCircle(cx - 6, 44, 2);
+      g.fillStyle(0x5ad6ff, 1).fillCircle(cx + 1, 44, 2);
+      g.fillStyle(0xffd24a, 1).fillCircle(cx + 7, 44, 2);
+      // Neon side stripes.
+      g.fillStyle(0x4fd6ff, 0.85).fillRect(cx - 15, 19, 2, baseY - 22);
+      g.fillStyle(0xe255a1, 0.85).fillRect(cx + 13, 19, 2, baseY - 22);
+      g.generateTexture("scenery_arcade", W, H);
+      g.destroy();
+    }
+
+    // Blackjack table — a green-felt half-round table with cards + chips.
+    g = this.make.graphics({ x: 0, y: 0 });
+    {
+      const W = 60;
+      const H = 42;
+      const cx = W / 2;
+      const baseY = H - 6;
+      g.fillStyle(0x2a1d12, 0.25).fillEllipse(cx, baseY + 2, 44, 9);
+      // Legs.
+      g.fillStyle(0x5a3a22, 1).fillRect(cx - 16, baseY - 10, 3, 10);
+      g.fillStyle(0x5a3a22, 1).fillRect(cx + 13, baseY - 10, 3, 10);
+      g.lineStyle(1.5, OUTLINE, 1).strokeRect(cx - 16, baseY - 10, 3, 10);
+      g.strokeRect(cx + 13, baseY - 10, 3, 10);
+      // Felt top.
+      g.fillStyle(0x1f7a4d, 1).fillEllipse(cx, baseY - 14, 48, 17);
+      g.lineStyle(3, 0x0f4d30, 1).strokeEllipse(cx, baseY - 14, 48, 17);
+      g.lineStyle(2, OUTLINE, 1).strokeEllipse(cx, baseY - 14, 48, 17);
+      // Gold betting arc.
+      g.lineStyle(1.5, 0xffd24a, 0.9);
+      g.beginPath();
+      g.arc(cx, baseY - 12, 16, Math.PI * 0.15, Math.PI * 0.85, false);
+      g.strokePath();
+      // Two dealt cards.
+      g.fillStyle(0xfffdf7, 1).fillRoundedRect(cx - 12, baseY - 18, 7, 9, 1.5);
+      g.fillStyle(0xfffdf7, 1).fillRoundedRect(cx - 7, baseY - 17, 7, 9, 1.5);
+      g.lineStyle(1, OUTLINE, 1).strokeRoundedRect(cx - 12, baseY - 18, 7, 9, 1.5);
+      g.strokeRoundedRect(cx - 7, baseY - 17, 7, 9, 1.5);
+      // Chip stack.
+      g.fillStyle(0xd6453b, 1).fillCircle(cx + 8, baseY - 12, 3);
+      g.fillStyle(0x4f9bff, 1).fillCircle(cx + 12, baseY - 14, 3);
+      g.fillStyle(0xfff7ea, 1).fillCircle(cx + 10, baseY - 16, 3);
+      g.lineStyle(1, OUTLINE, 1).strokeCircle(cx + 8, baseY - 12, 3);
+      g.strokeCircle(cx + 12, baseY - 14, 3);
+      g.strokeCircle(cx + 10, baseY - 16, 3);
+      g.generateTexture("scenery_blackjack", W, H);
+      g.destroy();
+    }
   }
 
   private createBillboardTexture() {

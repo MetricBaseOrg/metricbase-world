@@ -217,6 +217,8 @@ export class GameScene extends Phaser.Scene {
   private renderedFarmPlots = new Map<string, RenderedFarmPlot>();
   private renderedLandPlots = new Map<string, RenderedLandPlot>();
   private renderedScenery: Phaser.GameObjects.Sprite[] = [];
+  /** Walk-up-and-interact scenery props (arcade cabinet, blackjack table). */
+  private interactableScenery: { id: string; worldX: number; worldY: number; label: string }[] = [];
   /** Warm light pools cast by lamp/lantern/fire scenery; brighten + flicker at night. */
   private sceneryLights: {
     glow: Phaser.GameObjects.Image;
@@ -854,6 +856,20 @@ export class GameScene extends Phaser.Scene {
         else if (state && state.structure === "house") label = mine ? "Manage your house" : `${state.ownerName}'s house`;
         target = { x: bestLand.worldX, y: bestLand.worldY - 52, label };
       }
+    }
+
+    // Interactable scenery (arcade / blackjack).
+    if (!target) {
+      let bestProp: { worldX: number; worldY: number; label: string } | null = null;
+      let bestPropD = NPC_INTERACT_RANGE;
+      for (const prop of this.interactableScenery) {
+        const d = Math.hypot(px - prop.worldX, py - prop.worldY);
+        if (d <= bestPropD) {
+          bestProp = prop;
+          bestPropD = d;
+        }
+      }
+      if (bestProp) target = { x: bestProp.worldX, y: bestProp.worldY - 44, label: bestProp.label };
     }
 
     // Finally talkable NPCs (skip mobs — those are attacked, not interacted).
@@ -1535,6 +1551,15 @@ export class GameScene extends Phaser.Scene {
       sprite.setDepth(flat ? node.tileX + node.tileY + 0.5 : y);
       this.renderedScenery.push(sprite);
 
+      if (node.interact) {
+        this.interactableScenery.push({
+          id: node.id,
+          worldX: x,
+          worldY: y,
+          label: node.interact === "blackjack" ? "Play Blackjack" : "Play Base Rush",
+        });
+      }
+
       // Light-emitting props cast a warm pool that brightens + flickers at night.
       const lightSpec: Record<string, { dy: number; size: number; type: "lamp" | "fire"; tint?: number }> = {
         lamppost: { dy: -56, size: LAMP_GLOW_DIAMETER * 0.95, type: "lamp" },
@@ -1556,6 +1581,7 @@ export class GameScene extends Phaser.Scene {
   private clearScenery() {
     this.renderedScenery.forEach((sprite) => sprite.destroy());
     this.renderedScenery = [];
+    this.interactableScenery = [];
     this.sceneryLights.forEach((l) => l.glow.destroy());
     this.sceneryLights = [];
   }
@@ -2382,6 +2408,22 @@ export class GameScene extends Phaser.Scene {
       } else {
         useGameStore.getState().openHousing(nearestLand.id);
       }
+      return;
+    }
+
+    // Interactable scenery (arcade cabinet / blackjack table).
+    let nearestProp: { id: string; worldX: number; worldY: number } | null = null;
+    let nearestPropD = NPC_INTERACT_RANGE;
+    for (const prop of this.interactableScenery) {
+      const d = Math.hypot(local.predicted.x - prop.worldX, local.predicted.y - prop.worldY);
+      if (d <= nearestPropD) {
+        nearestProp = prop;
+        nearestPropD = d;
+      }
+    }
+    if (nearestProp) {
+      playSfx("interact");
+      networkManager.sendInteract(nearestProp.id);
       return;
     }
 

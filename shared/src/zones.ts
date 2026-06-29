@@ -70,6 +70,10 @@ export interface SceneryNode {
   prop: string;
   /** Flat props (rugs) render beneath players; others depth-sort by position. */
   flat?: boolean;
+  /** If set, walking up + interacting opens this activity (no NPC needed). */
+  interact?: "arcade" | "blackjack";
+  /** Arcade URL for interact === "arcade". */
+  arcadeUrl?: string;
 }
 
 /** PvP danger tier of a zone. Drives PvP rules, death penalties, and UI tint. */
@@ -992,11 +996,11 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
     roomName: ZONE_INTERIOR,
     displayName: "Community Lodge",
     vipMinHold: VIP_LODGE_MIN_HOLD,
-    spawnTile: { x: 11, y: 9 },
+    spawnTile: { x: 11, y: 11 },
     portals: [
       {
         tileX: 11,
-        tileY: 15,
+        tileY: 19,
         targetZone: ZONE_HUB,
         label: "Lodge Exit",
       },
@@ -1006,58 +1010,44 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
         id: "lodge_keeper",
         name: "Hearth",
         tileX: 11,
-        tileY: 7,
+        tileY: 6,
         dialogue:
-          "Welcome to the Community Lodge — a warm indoor place to gather with other adventurers. Step on the south doormat to head back out.",
-      },
-      {
-        id: "lodge_arcade",
-        name: "Bit · Arcade Host",
-        tileX: 15,
-        tileY: 9,
-        dialogue: "Step right up to the BASE RUSH cabinet — insert coin and play!",
-        arcadeUrl: BASE_RUSH_URL,
-      },
-      {
-        id: "lodge_blackjack",
-        name: "Ace · Blackjack Dealer",
-        tileX: 8,
-        tileY: 9,
-        dialogue:
-          "Care for a hand of Blackjack? Deposit SOL, USDC, IDRX, or $BASE at the cashier, then take a seat. Dealer stands on 17, blackjack pays 3 to 2.",
-        blackjack: true,
+          "Welcome to the Community Lodge — a warm place to gather, play the arcade, and try the Blackjack table. Step on the south doormat to head back out.",
       },
     ],
     scenery: [
       // North wall: a fireplace flanked by warm lanterns, bookshelves, plants.
-      { id: "lodge_fire", tileX: 11, tileY: 6, prop: "fireplace" },
-      { id: "lodge_lantern_l", tileX: 9, tileY: 6, prop: "lantern" },
-      { id: "lodge_lantern_r", tileX: 13, tileY: 6, prop: "lantern" },
-      { id: "lodge_shelf_l", tileX: 8, tileY: 6, prop: "bookshelf" },
-      { id: "lodge_shelf_r", tileX: 14, tileY: 6, prop: "bookshelf" },
-      { id: "lodge_plant_l", tileX: 7, tileY: 6, prop: "plant" },
-      { id: "lodge_plant_r", tileX: 15, tileY: 6, prop: "plant" },
-      // West wall: a reading shelf, a storage crate, and a plant.
-      { id: "lodge_shelf_w", tileX: 7, tileY: 8, prop: "bookshelf" },
-      { id: "lodge_crate_w", tileX: 7, tileY: 11, prop: "crate" },
-      { id: "lodge_plant_w", tileX: 7, tileY: 14, prop: "plant" },
-      // East wall: mirror it.
-      { id: "lodge_shelf_e", tileX: 16, tileY: 8, prop: "bookshelf" },
-      { id: "lodge_crate_e", tileX: 16, tileY: 11, prop: "crate" },
-      { id: "lodge_plant_e", tileX: 16, tileY: 14, prop: "plant" },
+      { id: "lodge_fire", tileX: 11, tileY: 5, prop: "fireplace" },
+      { id: "lodge_lantern_l", tileX: 8, tileY: 5, prop: "lantern" },
+      { id: "lodge_lantern_r", tileX: 14, tileY: 5, prop: "lantern" },
+      { id: "lodge_shelf_l", tileX: 6, tileY: 5, prop: "bookshelf" },
+      { id: "lodge_shelf_r", tileX: 16, tileY: 5, prop: "bookshelf" },
+      // Corner plants.
+      { id: "lodge_plant_nw", tileX: 4, tileY: 4, prop: "plant" },
+      { id: "lodge_plant_ne", tileX: 19, tileY: 4, prop: "plant" },
+      { id: "lodge_plant_sw", tileX: 4, tileY: 18, prop: "plant" },
+      { id: "lodge_plant_se", tileX: 19, tileY: 18, prop: "plant" },
+      // The Blackjack table (NW) with two chairs — walk up + interact to play.
+      { id: "lodge_blackjack", tileX: 7, tileY: 9, prop: "blackjack", interact: "blackjack" },
+      { id: "lodge_bj_chair_l", tileX: 6, tileY: 10, prop: "chair" },
+      { id: "lodge_bj_chair_r", tileX: 8, tileY: 10, prop: "chair" },
+      // The Arcade cabinet (NE) — walk up + interact to play Base Rush.
+      { id: "lodge_arcade", tileX: 16, tileY: 9, prop: "arcade", interact: "arcade", arcadeUrl: BASE_RUSH_URL },
+      { id: "lodge_arcade_plant", tileX: 17, tileY: 10, prop: "plant" },
+      // West + east storage crates.
+      { id: "lodge_crate_w", tileX: 5, tileY: 14, prop: "crate" },
+      { id: "lodge_crate_e", tileX: 18, tileY: 14, prop: "crate" },
       // A central rug + an entrance runner leading to the south door.
       { id: "lodge_rug", tileX: 11, tileY: 11, prop: "rug", flat: true },
-      { id: "lodge_rug_door", tileX: 11, tileY: 13, prop: "rug", flat: true },
-      // Two seating nooks, each with a pair of chairs round the table.
-      { id: "lodge_table_l", tileX: 8, tileY: 12, prop: "table" },
-      { id: "lodge_chair_l", tileX: 8, tileY: 13, prop: "chair" },
-      { id: "lodge_chair_l2", tileX: 8, tileY: 11, prop: "chair" },
-      { id: "lodge_table_r", tileX: 14, tileY: 12, prop: "table" },
-      { id: "lodge_chair_r", tileX: 14, tileY: 11, prop: "chair" },
-      { id: "lodge_chair_r2", tileX: 14, tileY: 13, prop: "chair" },
+      { id: "lodge_rug_mid", tileX: 11, tileY: 15, prop: "rug", flat: true },
+      { id: "lodge_rug_door", tileX: 11, tileY: 17, prop: "rug", flat: true },
+      // A seating nook (SE) round a table.
+      { id: "lodge_table_r", tileX: 15, tileY: 14, prop: "table" },
+      { id: "lodge_chair_r", tileX: 14, tileY: 14, prop: "chair" },
+      { id: "lodge_chair_r2", tileX: 16, tileY: 14, prop: "chair" },
       // Plants flanking the exit doormat.
-      { id: "lodge_plant_door_l", tileX: 9, tileY: 15, prop: "plant" },
-      { id: "lodge_plant_door_r", tileX: 13, tileY: 15, prop: "plant" },
+      { id: "lodge_plant_door_l", tileX: 9, tileY: 18, prop: "plant" },
+      { id: "lodge_plant_door_r", tileX: 13, tileY: 18, prop: "plant" },
     ],
   },
   [ZONE_JAIL]: {

@@ -1523,7 +1523,21 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     if (this.isKnockedOut(player.name)) return;
 
     const npc = this.zoneConfig.npcs.find((entry) => entry.id === npcId);
-    if (!npc) return;
+    if (!npc) {
+      // Interactable scenery (arcade cabinet / blackjack table) — no NPC needed.
+      const prop = this.zoneConfig.scenery?.find((s) => s.id === npcId && s.interact);
+      if (prop) {
+        const propPos = tileToWorld(prop.tileX, prop.tileY);
+        if (Math.hypot(player.x - propPos.x, player.y - propPos.y) > NPC_INTERACT_RANGE) return;
+        if (prop.interact === "arcade" && prop.arcadeUrl) {
+          client.send("openArcade", { name: "Base Rush", url: prop.arcadeUrl });
+        } else if (prop.interact === "blackjack") {
+          client.send("openBlackjack", { name: "Blackjack" });
+          void this.sendCasinoState(client);
+        }
+      }
+      return;
+    }
 
     const npcPosition = tileToWorld(npc.tileX, npc.tileY);
     const distance = Math.hypot(player.x - npcPosition.x, player.y - npcPosition.y);
