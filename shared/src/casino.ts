@@ -146,6 +146,8 @@ export interface CasinoStatePayload {
   houseWallet: string | null;
   /** Reliable RPC endpoint for the client to send the deposit through. */
   rpcUrl: string | null;
+  /** Server-resolved deposit mint per non-native currency (BASE comes from env). */
+  mints: Record<string, string | null>;
   /** Whether real withdrawals are currently possible (house signer configured). */
   withdrawEnabled: boolean;
   hand: BlackjackState | null;

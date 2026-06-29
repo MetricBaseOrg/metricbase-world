@@ -57,9 +57,7 @@ export async function verifyPeerTokenTransfer(
     if (post.owner !== expected.toWallet) continue;
 
     const pre = preBalances.find((entry) => entry.accountIndex === post.accountIndex);
-    const preAmount = pre?.uiTokenAmount.uiAmount ?? 0;
-    const postAmount = post.uiTokenAmount.uiAmount ?? 0;
-    received += postAmount - preAmount;
+    received += uiAmountOf(post) - (pre ? uiAmountOf(pre) : 0);
   }
 
   if (received + 1e-9 < expected.minUiAmount) {
@@ -75,9 +73,7 @@ export async function verifyPeerTokenTransfer(
     if (pre.owner !== expected.fromWallet) continue;
 
     const post = postBalances.find((entry) => entry.accountIndex === pre.accountIndex);
-    const preAmount = pre.uiTokenAmount.uiAmount ?? 0;
-    const postAmount = post?.uiTokenAmount.uiAmount ?? 0;
-    sent += preAmount - postAmount;
+    sent += uiAmountOf(pre) - (post ? uiAmountOf(post) : 0);
   }
 
   if (sent + 1e-9 < expected.minUiAmount) {
@@ -90,6 +86,14 @@ export async function verifyPeerTokenTransfer(
     toWallet: expected.toWallet,
     uiAmount: received,
   };
+}
+
+/** UI amount of a token balance, falling back to raw amount when uiAmount is null. */
+function uiAmountOf(b: { uiTokenAmount: { uiAmount: number | null; amount: string; decimals: number } }): number {
+  const t = b.uiTokenAmount;
+  if (t.uiAmount != null) return t.uiAmount;
+  const raw = Number(t.amount);
+  return Number.isFinite(raw) && t.decimals >= 0 ? raw / 10 ** t.decimals : 0;
 }
 
 function sleep(ms: number): Promise<void> {

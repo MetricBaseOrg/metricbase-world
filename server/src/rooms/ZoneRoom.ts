@@ -125,6 +125,7 @@ import {
   type SoftCurrencyId,
   getCasinoTable,
   getCasinoCurrency,
+  CASINO_CURRENCIES,
   toBaseUnits,
   toUiAmount,
   type CasinoCurrencyId,
@@ -3688,6 +3689,14 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     return getHouseWalletAddress() ?? getTreasuryWallet();
   }
 
+  /** Resolve the deposit mint for a currency — BASE follows TOKEN_MINT (env). */
+  private resolveCasinoMint(currencyId: string): string | null {
+    const currency = getCasinoCurrency(currencyId);
+    if (currency.native) return null;
+    if (currencyId === "base") return process.env.TOKEN_MINT?.trim() || currency.mint;
+    return currency.mint;
+  }
+
   private handToState(entry: { hand: ActiveHand; settlement?: Settlement }): BlackjackState {
     const { hand, settlement } = entry;
     const done = hand.phase === "done";
@@ -3709,10 +3718,13 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     const balances: Record<string, number> = {};
     for (const [cur, units] of Object.entries(balancesBase)) balances[cur] = toUiAmount(units, cur);
     const entry = this.blackjackHands.get(playerName);
+    const mints: Record<string, string | null> = {};
+    for (const currency of CASINO_CURRENCIES) mints[currency.id] = this.resolveCasinoMint(currency.id);
     return {
       balances,
       houseWallet: this.casinoHouseAddress(),
       rpcUrl: process.env.SOLANA_RPC_URL ?? null,
+      mints,
       withdrawEnabled: isWithdrawEnabled(),
       hand: entry ? this.handToState(entry) : null,
     };
@@ -3744,11 +3756,12 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       if (!v.ok) return void client.send("casinoResult", { ok: false, error: v.error ?? "Deposit not found." });
       uiAmount = v.uiAmount;
     } else {
-      if (!currency.mint) return void client.send("casinoResult", { ok: false, error: "Currency is misconfigured." });
+      const mint = this.resolveCasinoMint(currencyId);
+      if (!mint) return void client.send("casinoResult", { ok: false, error: "Currency is misconfigured." });
       const v = await verifyPeerTokenTransfer(signature, {
         fromWallet: wallet,
         toWallet: house,
-        mint: currency.mint,
+        mint,
         minUiAmount: table.minDeposit,
       });
       if (!v.ok) return void client.send("casinoResult", { ok: false, error: v.error ?? "Deposit not found." });

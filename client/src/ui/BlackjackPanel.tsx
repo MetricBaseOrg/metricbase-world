@@ -97,6 +97,7 @@ export function BlackjackPanel() {
         payerWallet: walletAddress,
         houseWallet,
         rpcUrl: state?.rpcUrl ?? null,
+        mint: state?.mints?.[currencyId] ?? null,
       });
       setNotice("Verifying deposit on-chain…");
       networkManager.sendCasinoDeposit(currencyId, signature);
@@ -247,8 +248,8 @@ export function BlackjackPanel() {
               )}
             </>
           ) : (
-            <div className="chibi-text-muted" style={{ textAlign: "center", padding: "10px 0" }}>
-              Place your bet and deal a hand. Dealer stands on 17 · Blackjack pays 3:2.
+            <div style={{ textAlign: "center", padding: "10px 4px", color: "rgba(255,255,255,0.9)", fontSize: "0.82rem", fontWeight: 600 }}>
+              Place your bet and deal a hand.<br />Dealer stands on 17 · Blackjack pays 3:2.
             </div>
           )}
         </div>

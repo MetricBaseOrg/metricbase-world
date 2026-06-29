@@ -14,6 +14,8 @@ export async function depositToCasino(options: {
   payerWallet: string;
   houseWallet: string;
   rpcUrl: string | null;
+  /** Server-resolved mint (BASE follows the deployed TOKEN_MINT). */
+  mint?: string | null;
 }): Promise<string> {
   const currency = getCurrency(options.currencyId);
   const rpcUrl = options.rpcUrl ?? FALLBACK_RPC;
@@ -26,11 +28,12 @@ export async function depositToCasino(options: {
       rpcUrl,
     });
   }
-  if (!currency.mint) throw new Error("This currency can't be deposited.");
+  const mint = options.mint ?? currency.mint;
+  if (!mint) throw new Error("This currency can't be deposited.");
   return sendMetricbaseTokenPayment({
     payerWallet: options.payerWallet,
     recipientWallet: options.houseWallet,
-    mint: currency.mint,
+    mint,
     uiAmount: options.uiAmount,
     decimals: currency.decimals,
     rpcUrl,
