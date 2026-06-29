@@ -1772,6 +1772,101 @@ body {
   color: var(--chibi-mint-deep);
 }
 
+/* ---- Crafting panel (tabbed) ---- */
+.chibi-craft {
+  width: min(720px, 96vw);
+  max-height: 88vh;
+  overflow-y: auto;
+}
+
+.chibi-craft__tabs {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.chibi-craft__body {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 6px;
+}
+
+.chibi-craft__list {
+  flex: 1 1 240px;
+  min-width: 220px;
+  max-height: 56vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.chibi-craft__cats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin-bottom: 4px;
+  position: sticky;
+  top: 0;
+  background: var(--chibi-cream);
+  padding-bottom: 4px;
+  z-index: 1;
+}
+
+.chibi-craft__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 10px;
+  border: 2px solid var(--chibi-outline-light);
+  border-radius: 9px;
+  background: var(--chibi-cream-deep);
+  cursor: pointer;
+  font-size: 0.8rem;
+  text-align: left;
+}
+
+.chibi-craft__row.selected {
+  border-color: var(--chibi-gold);
+  box-shadow: 0 0 0 1px var(--chibi-gold) inset;
+}
+
+.chibi-craft__ok {
+  color: var(--chibi-mint-deep);
+}
+
+.chibi-craft__no {
+  color: #d6453b;
+  opacity: 0.7;
+}
+
+.chibi-craft__detail {
+  flex: 1 1 260px;
+  min-width: 240px;
+  border: 2px solid var(--chibi-outline-light);
+  border-radius: 12px;
+  background: var(--chibi-cream-deep);
+  padding: 12px 14px;
+  align-self: flex-start;
+}
+
+.chibi-craft__dtitle {
+  font-family: var(--chibi-font-display);
+  font-weight: 700;
+  font-size: 1rem;
+  margin-bottom: 4px;
+}
+
+.chibi-craft__sub {
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--chibi-ink-soft);
+  margin-bottom: 4px;
+}
+
 /* ---- Combat hotbar (SkillBar) ---- */
 .chibi-skillbar {
   position: fixed;

@@ -399,6 +399,31 @@ export function getRecipe(recipeId: string): CraftRecipe | undefined {
   return CRAFT_RECIPES.find((recipe) => recipe.id === recipeId);
 }
 
+/** The recipe that produces `itemId`, if any (first match). */
+export function getRecipeForOutput(itemId: string): CraftRecipe | undefined {
+  return CRAFT_RECIPES.find((recipe) => recipe.output.itemId === itemId);
+}
+
+/** Fraction of crafting materials recovered when dismantling an item. */
+export const DISMANTLE_REFUND_RATIO = 0.5;
+
+/**
+ * Materials returned for dismantling ONE unit of `itemId`, or null if the item
+ * has no recipe (and therefore can't be salvaged).
+ */
+export function getDismantleRefund(itemId: string): RecipeIngredient[] | null {
+  const recipe = getRecipeForOutput(itemId);
+  if (!recipe) return null;
+  const perUnit = Math.max(1, recipe.output.quantity);
+  const refund = recipe.inputs
+    .map((input) => ({
+      itemId: input.itemId,
+      quantity: Math.max(1, Math.floor((input.quantity / perUnit) * DISMANTLE_REFUND_RATIO)),
+    }))
+    .filter((input) => input.quantity > 0);
+  return refund.length > 0 ? refund : null;
+}
+
 // Crafting takes real time at the workbench — a base spell plus a bit per unit
 // of material, so heavier gear takes longer to forge. Capped so it never
 // outlasts the client's wait.

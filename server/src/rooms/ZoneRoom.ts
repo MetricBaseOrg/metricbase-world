@@ -21,6 +21,7 @@ import {
   getConsumableHeal,
   getRecipe,
   getCraftDurationMs,
+  getDismantleRefund,
   ITEMS,
   getShopByNpcId,
   getShopDefinition,
@@ -535,6 +536,10 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
     this.onProtectedMessage("craft", (client, message: { recipeId?: string }) => {
       void this.handleCraft(client, message.recipeId ?? "");
+    });
+
+    this.onProtectedMessage("dismantle", (client, message: { itemId?: string }) => {
+      void this.handleDismantle(client, message.itemId ?? "");
     });
 
     this.onProtectedMessage("farmInteract", (client, message: { plotId?: string }) => {
@@ -3504,6 +3509,52 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     this.clock.setTimeout(() => {
       void this.completeCraft(client, player.name, recipeId);
     }, duration);
+  }
+
+  /** Salvage one unit of a bag item back into a fraction of its craft materials. */
+  private async handleDismantle(client: Client, itemId: string) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+
+    const refund = getDismantleRefund(itemId);
+    if (!refund) {
+      client.send("craftResult", { ok: false, error: "That item can't be dismantled." });
+      return;
+    }
+
+    let inventory = this.inventories.get(player.name) ?? [];
+    const weaponId = this.playerEquipment.get(player.name)?.weaponId ?? null;
+    if (getItemQuantity(inventory, itemId) < 1) {
+      client.send("craftResult", {
+        ok: false,
+        error: "You don't have that item.",
+        inventory: buildInventoryPayload(inventory, weaponId),
+      });
+      return;
+    }
+
+    inventory = removeItemFromInventory(inventory, itemId, 1).inventory;
+    const gained: string[] = [];
+    for (const part of refund) {
+      const result = addItemToInventory(inventory, part.itemId, part.quantity);
+      inventory = result.inventory;
+      if (result.added > 0) gained.push(`${result.added}x ${ITEMS[part.itemId]?.name ?? part.itemId}`);
+    }
+    this.inventories.set(player.name, inventory);
+    this.sendInventory(client, player.name);
+
+    const itemName = ITEMS[itemId]?.name ?? itemId;
+    this.broadcastChat({
+      id: crypto.randomUUID(),
+      channel: "system",
+      senderId: "system",
+      senderName: "Crafting",
+      body: `${player.name} dismantled ${itemName}${gained.length ? ` into ${gained.join(", ")}` : ""}.`,
+      sentAt: Date.now(),
+    });
+
+    client.send("craftResult", { ok: true, inventory: buildInventoryPayload(inventory, weaponId) });
+    await this.persistPlayer(player);
   }
 
   private async completeCraft(client: Client, playerName: string, recipeId: string) {

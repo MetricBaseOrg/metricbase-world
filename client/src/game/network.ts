@@ -454,6 +454,10 @@ export class NetworkManager {
     this.room?.send("craft", { recipeId });
   }
 
+  sendDismantle(itemId: string) {
+    this.room?.send("dismantle", { itemId });
+  }
+
   sendFarmInteract(plotId: string) {
     this.room?.send("farmInteract", { plotId });
   }
