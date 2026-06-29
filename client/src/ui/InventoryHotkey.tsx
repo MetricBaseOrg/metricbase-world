@@ -9,7 +9,7 @@ export function InventoryHotkey() {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       const key = event.key.toLowerCase();
-      if (key !== "i" && key !== "c") return;
+      if (key !== "i" && key !== "c" && key !== "m") return;
       if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) {
         return;
       }
@@ -18,10 +18,14 @@ export function InventoryHotkey() {
         const opening = !useGameStore.getState().inventoryOpen;
         playSfx(opening ? "ui_open" : "ui_close");
         toggleInventoryOpen();
-      } else {
+      } else if (key === "c") {
         const opening = !useGameStore.getState().craftOpen;
         playSfx(opening ? "ui_open" : "ui_close");
         toggleCraftOpen();
+      } else {
+        const opening = !useGameStore.getState().mapOpen;
+        playSfx(opening ? "ui_open" : "ui_close");
+        useGameStore.getState().setMapOpen(opening);
       }
     };
 

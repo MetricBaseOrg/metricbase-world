@@ -1988,6 +1988,79 @@ body {
   color: var(--chibi-ink-soft);
 }
 
+/* ---- World map ---- */
+.chibi-map {
+  width: min(560px, 96vw);
+}
+
+.chibi-currency-chip--btn {
+  cursor: pointer;
+  border: none;
+  font: inherit;
+}
+
+.chibi-map__canvas {
+  border: 2px solid var(--chibi-outline);
+  border-radius: 14px;
+  background: radial-gradient(circle at 35% 40%, #fbf3e2, #efe2c8);
+  padding: 8px;
+  margin: 6px 0 10px;
+}
+
+.chibi-map__svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.chibi-map__label {
+  font-family: var(--chibi-font-display);
+  font-size: 4px;
+  font-weight: 700;
+  fill: var(--chibi-ink);
+  paint-order: stroke;
+  stroke: #fff7ea;
+  stroke-width: 1.2px;
+}
+
+.chibi-map__here {
+  font-size: 3.2px;
+  font-weight: 700;
+  fill: var(--chibi-gold-deep);
+}
+
+.chibi-map__ring {
+  animation: chibi-map-pulse 1.4s ease-in-out infinite;
+  transform-origin: center;
+}
+
+@keyframes chibi-map-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+.chibi-map__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  justify-content: center;
+}
+
+.chibi-map__legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.74rem;
+  font-weight: 600;
+}
+
+.chibi-map__swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 4px;
+  border: 1.5px solid var(--chibi-outline);
+}
+
 /* ---- Lodge Blackjack ---- */
 .chibi-bj {
   width: min(480px, 96vw);

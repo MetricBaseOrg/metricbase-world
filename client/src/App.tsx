@@ -22,6 +22,7 @@ import { InventoryHotkey } from "./ui/InventoryHotkey";
 import { InventoryPanel } from "./ui/InventoryPanel";
 import { SoftShopPanel } from "./ui/SoftShopPanel";
 import { BlackjackPanel } from "./ui/BlackjackPanel";
+import { WorldMapPanel } from "./ui/WorldMapPanel";
 import { QuestPanel } from "./ui/QuestPanel";
 import { ErrorBoundary } from "./ui/ErrorBoundary";
 import { ArcadeModal } from "./ui/ArcadeModal";
@@ -319,6 +320,7 @@ export function App() {
       {joined && <CraftPanel />}
       {joined && <SoftShopPanel />}
       {joined && <BlackjackPanel />}
+      {joined && <WorldMapPanel />}
       {joined && <HousingPanel />}
       {joined && <PlayerShopPanel />}
       {joined && <InventoryHotkey />}

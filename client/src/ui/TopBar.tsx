@@ -126,7 +126,17 @@ export function TopBar({ onLeave }: TopBarProps) {
           {gems > 0 && (
             <span className="chibi-currency-chip" title="Gems — rare drops from strong foes">💎 {gems.toLocaleString()}</span>
           )}
-          <span className="chibi-currency-chip" title="Zone">🗺️ {zoneName}</span>
+          <button
+            type="button"
+            className="chibi-currency-chip chibi-currency-chip--btn"
+            title="Open world map (M)"
+            onClick={() => {
+              playSfx("ui_open");
+              useGameStore.getState().setMapOpen(true);
+            }}
+          >
+            🗺️ {zoneName}
+          </button>
           <DayNightClock />
         </div>
       )}
