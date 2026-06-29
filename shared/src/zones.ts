@@ -18,15 +18,18 @@ export const JAIL_DURATION_MS = 2 * 60 * 1000;
 /** $BASE that must be burned on-chain to unlock Black-zone access. */
 export const BLACK_ZONE_BURN_AMOUNT = 1_000_000;
 
-/** Alternative VIP Lodge access: a timed pass bought with gold + a $BASE burn. */
+/** Alternative VIP Lodge access: a timed pass. Two tiers, both last VIP_PASS_DAYS. */
 export const VIP_PASS_DAYS = 14;
-export const VIP_PASS_GOLD_COST = 10_000;
+/** Cheap pass: a small gold fee PLUS a $BASE burn. */
+export const VIP_PASS_GOLD_COST = 100;
 export const VIP_PASS_BURN_AMOUNT = 10_000;
+/** Gold-only pass: no burn, just a larger gold fee. */
+export const VIP_PASS_GOLD_ONLY_COST = 1_000;
 
 export const MAX_PLAYERS_PER_ZONE = 20;
 
 /** $BASE a wallet must hold to enter the VIP Community Lodge. */
-export const VIP_LODGE_MIN_HOLD = 20_000_000;
+export const VIP_LODGE_MIN_HOLD = 10_000_000;
 
 /** How close (world pixels) a player must be to trigger a portal tile. */
 export const PORTAL_TRIGGER_RANGE = 48;

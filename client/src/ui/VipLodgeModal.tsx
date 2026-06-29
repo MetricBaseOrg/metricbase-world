@@ -75,6 +75,17 @@ export function VipLodgeModal() {
     }
   };
 
+  const handleBuyGold = () => {
+    if (!gate) return;
+    if (playerGold < gate.passGoldOnly) {
+      setError(`You need ${gate.passGoldOnly.toLocaleString()} gold for the gold pass.`);
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    networkManager.sendBuyVipPassGold();
+  };
+
   return (
     <div className="chibi-overlay-scrim" role="dialog" aria-label="VIP Lodge">
       <div className="chibi-panel chibi-panel--floating" style={{ maxWidth: 380, textAlign: "center" }}>
@@ -96,37 +107,57 @@ export function VipLodgeModal() {
               Enter by holding <strong>{gate.minHold.toLocaleString()} $BASE</strong>, or buy a{" "}
               <strong>{gate.passDays}-day VIP pass</strong>:
             </p>
-            <div className="chibi-card" style={{ fontSize: "0.84rem", marginBottom: 10 }}>
-              💰 {gate.passGold.toLocaleString()} gold &nbsp;+&nbsp; 🔥 burn {gate.passBurn.toLocaleString()} $BASE
-              <div style={{ marginTop: 4, opacity: 0.8 }}>
-                You have {playerGold.toLocaleString()} gold.
-              </div>
-            </div>
             {error && (
               <div className="chibi-card chibi-card--danger" style={{ fontSize: "0.78rem", marginBottom: 10 }}>
                 {error}
               </div>
             )}
-            <div style={{ display: "flex", gap: 8 }}>
-              <button
-                type="button"
-                className="chibi-btn chibi-btn--secondary"
-                onClick={close}
-                disabled={busy}
-                style={{ flex: 1 }}
-              >
-                Maybe later
-              </button>
+
+            {/* Tier 1: cheap gold + a $BASE burn */}
+            <div className="chibi-card" style={{ fontSize: "0.82rem", marginBottom: 8 }}>
+              <div style={{ marginBottom: 6 }}>
+                🔥 <strong>Burn pass</strong> — {gate.passGold.toLocaleString()} gold + burn{" "}
+                {gate.passBurn.toLocaleString()} $BASE
+              </div>
               <button
                 type="button"
                 className="chibi-btn chibi-btn--gold"
                 onClick={() => void handleBuy()}
                 disabled={busy || !enoughGold}
-                style={{ flex: 1 }}
+                style={{ width: "100%" }}
               >
-                {busy ? "Processing…" : "Buy VIP pass"}
+                {busy ? "Processing…" : `Burn pass (${gate.passGold.toLocaleString()}g + burn)`}
               </button>
             </div>
+
+            {/* Tier 2: gold only, no burn */}
+            <div className="chibi-card" style={{ fontSize: "0.82rem", marginBottom: 8 }}>
+              <div style={{ marginBottom: 6 }}>
+                💰 <strong>Gold pass</strong> — {gate.passGoldOnly.toLocaleString()} gold, no burn
+              </div>
+              <button
+                type="button"
+                className="chibi-btn chibi-btn--mint"
+                onClick={() => void handleBuyGold()}
+                disabled={busy || playerGold < gate.passGoldOnly}
+                style={{ width: "100%" }}
+              >
+                {busy ? "Processing…" : `Gold pass (${gate.passGoldOnly.toLocaleString()}g)`}
+              </button>
+            </div>
+
+            <div style={{ fontSize: "0.74rem", opacity: 0.8, marginBottom: 8, textAlign: "center" }}>
+              You have {playerGold.toLocaleString()} gold.
+            </div>
+            <button
+              type="button"
+              className="chibi-btn chibi-btn--secondary"
+              onClick={close}
+              disabled={busy}
+              style={{ width: "100%" }}
+            >
+              Maybe later
+            </button>
           </>
         )}
       </div>

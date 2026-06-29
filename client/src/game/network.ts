@@ -91,6 +91,7 @@ export interface VipLodgeLockedPayload {
   passDays: number;
   passGold: number;
   passBurn: number;
+  passGoldOnly: number;
   mint: string;
   rpcUrl: string;
 }
@@ -379,6 +380,10 @@ export class NetworkManager {
 
   sendBuyVipPass(signature: string) {
     this.room?.send("buyVipPass", { signature });
+  }
+
+  sendBuyVipPassGold() {
+    this.room?.send("buyVipPassGold", {});
   }
 
   sendToggleLamp(on: boolean) {

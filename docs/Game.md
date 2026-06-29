@@ -208,10 +208,15 @@ and equip it from the Inventory panel's Mount slot for a permanent
 
 ### Community Lodge (VIP) & Base Rush Arcade
 
-The **Community Lodge** is VIP-only. Enter by **holding ≥ 20,000,000 $BASE**, or buy
-a **14-day VIP pass** for **10,000 gold + burning 10,000 $BASE** (prompted at the
-door; the pass is saved to your character). Inside, talk to the arcade host to open
-the **Base Rush** game (`apps.metricbase.org/base-rush`) in a full-screen cabinet.
+The **Community Lodge** is VIP-only, with three ways in (all prompted at the door,
+saved to your character):
+
+- **Hold ≥ 10,000,000 $BASE** — free, permanent access while you hold.
+- **Burn pass** — **100 gold + burn 10,000 $BASE** for a **14-day** pass.
+- **Gold pass** — **1,000 gold** (no burn) for a **14-day** pass.
+
+Inside, talk to the arcade host to open the **Base Rush** game
+(`apps.metricbase.org/base-rush`) in a full-screen cabinet.
 
 ### The Black Zone (Obsidian Reach)
 

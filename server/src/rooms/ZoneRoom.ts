@@ -114,6 +114,7 @@ import {
   BLACK_ZONE_BURN_AMOUNT,
   VIP_PASS_GOLD_COST,
   VIP_PASS_BURN_AMOUNT,
+  VIP_PASS_GOLD_ONLY_COST,
   VIP_PASS_DAYS,
   METRICBASE_TOKEN_MINT,
   type EquipmentSlot,
@@ -449,6 +450,10 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
     this.onProtectedMessage("buyVipPass", (client, message: { signature?: string }) => {
       void this.handleBuyVipPass(client, message.signature ?? "");
+    });
+
+    this.onProtectedMessage("buyVipPassGold", (client) => {
+      void this.handleBuyVipPassGold(client);
     });
 
     this.onProtectedMessage("chop", (client, message: { resourceId?: string }) => {
@@ -1378,6 +1383,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
             passDays: VIP_PASS_DAYS,
             passGold: VIP_PASS_GOLD_COST,
             passBurn: VIP_PASS_BURN_AMOUNT,
+            passGoldOnly: VIP_PASS_GOLD_ONLY_COST,
             mint: getBlackZoneBurnMint(),
             rpcUrl: getClientRpcUrl(),
           });
@@ -1481,7 +1487,9 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     const lastAttack = this.attackCooldowns.get(cooldownKey) ?? 0;
     if (now - lastAttack < cooldownMs) return;
 
-    const npcPosition = tileToWorld(npc.tileX, npc.tileY);
+    // Use the mob's LIVE position (it wanders via AI), not its spawn tile —
+    // otherwise you can't hit a slime you're chasing once it leaves its origin.
+    const npcPosition = this.npcPositions.get(npcId) ?? tileToWorld(npc.tileX, npc.tileY);
     const distance = Math.hypot(player.x - npcPosition.x, player.y - npcPosition.y);
     if (distance > ATTACK_RANGE) return;
 
@@ -2446,6 +2454,37 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     client.send("vipPassResult", { ok: true, days: VIP_PASS_DAYS });
     this.broadcastChat(
       this.systemChat("VIP Lodge", `${player.name} bought a ${VIP_PASS_DAYS}-day VIP pass (${VIP_PASS_GOLD_COST.toLocaleString()}g + ${VIP_PASS_BURN_AMOUNT.toLocaleString()} $BASE burned)!`),
+    );
+  }
+
+  /** Buy a gold-only VIP Lodge pass — no burn, just a larger gold fee. */
+  private async handleBuyVipPassGold(client: Client) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const wallet = this.playerWallets.get(client.sessionId);
+    if (!wallet) {
+      client.send("vipPassResult", { ok: false, error: "Link a wallet first to buy a VIP pass." });
+      return;
+    }
+    const gold = this.playerGold.get(player.name) ?? STARTING_GOLD;
+    if (gold < VIP_PASS_GOLD_ONLY_COST) {
+      client.send("vipPassResult", {
+        ok: false,
+        error: `A gold pass costs ${VIP_PASS_GOLD_ONLY_COST.toLocaleString()} gold.`,
+      });
+      return;
+    }
+
+    this.playerGold.set(player.name, gold - VIP_PASS_GOLD_ONLY_COST);
+    ZoneRoom.vipPassUntil.set(wallet, Date.now() + VIP_PASS_DAYS * 24 * 60 * 60 * 1000);
+    this.sendProfile(client, player);
+    await this.persistPlayer(player);
+    client.send("vipPassResult", { ok: true, days: VIP_PASS_DAYS });
+    this.broadcastChat(
+      this.systemChat(
+        "VIP Lodge",
+        `${player.name} bought a ${VIP_PASS_DAYS}-day VIP pass for ${VIP_PASS_GOLD_ONLY_COST.toLocaleString()}g!`,
+      ),
     );
   }
 

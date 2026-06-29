@@ -1,0 +1,37 @@
+name: CI
+
+# Build + typecheck every package on pushes and PRs to main so a broken bundle
+# can't reach production. (A clean Vercel/Railway deploy depends on this passing.)
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # shared is consumed by both server and client, so build it first.
+      - name: Build shared
+        run: pnpm --filter @metricbase/shared build
+
+      - name: Typecheck server
+        run: pnpm --filter @metricbase/server typecheck
+
+      - name: Typecheck + build client
+        run: pnpm --filter @metricbase/client build
