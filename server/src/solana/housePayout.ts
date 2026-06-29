@@ -13,8 +13,11 @@ import {
 } from "@solana/web3.js";
 import {
   createAssociatedTokenAccountInstruction,
-  createTransferInstruction,
+  createTransferCheckedInstruction,
   getAssociatedTokenAddress,
+  getMint,
+  TOKEN_2022_PROGRAM_ID,
+  TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
 import bs58 from "bs58";
 import { getCurrency } from "@metricbase/shared";
@@ -65,12 +68,14 @@ export interface PayoutResult {
 
 /**
  * Send `baseUnits` of `currencyId` from the house wallet to `toWallet`.
- * Confirms the transaction before returning success.
+ * Confirms the transaction before returning success. `mintOverride` lets the
+ * caller pass the env-resolved mint (BASE follows TOKEN_MINT).
  */
 export async function sendPayout(
   toWallet: string,
   currencyId: string,
   baseUnits: number,
+  mintOverride?: string | null,
 ): Promise<PayoutResult> {
   const house = getHouseKeypair();
   if (!house) return { ok: false, error: "Withdrawals are not available right now." };
@@ -98,19 +103,53 @@ export async function sendPayout(
         }),
       );
     } else {
-      if (!currency.mint) return { ok: false, error: "Currency is misconfigured." };
-      const mint = new PublicKey(currency.mint);
-      const fromAta = await getAssociatedTokenAddress(mint, house.publicKey);
-      const toAta = await getAssociatedTokenAddress(mint, recipient);
+      const mintStr = mintOverride ?? currency.mint;
+      if (!mintStr) return { ok: false, error: "Currency is misconfigured." };
+      const mint = new PublicKey(mintStr);
 
-      // Create the recipient's token account if they don't have one yet (house pays rent).
-      const toAccount = await connection.getAccountInfo(toAta);
-      if (!toAccount) {
-        tx.add(
-          createAssociatedTokenAccountInstruction(house.publicKey, toAta, recipient, mint),
-        );
+      // Detect the owning token program (BASE/pump tokens may be Token-2022);
+      // every instruction + ATA derivation must use the right program id.
+      let programId = TOKEN_PROGRAM_ID;
+      try {
+        const mintAccount = await connection.getAccountInfo(mint);
+        if (mintAccount?.owner.equals(TOKEN_2022_PROGRAM_ID)) programId = TOKEN_2022_PROGRAM_ID;
+      } catch {
+        // Fall back to the standard token program.
       }
-      tx.add(createTransferInstruction(fromAta, toAta, house.publicKey, baseUnits));
+
+      const fromAta = await getAssociatedTokenAddress(mint, house.publicKey, false, programId);
+      const toAta = await getAssociatedTokenAddress(mint, recipient, false, programId);
+
+      let toAccount = null;
+      try {
+        toAccount = await connection.getAccountInfo(toAta);
+      } catch {
+        toAccount = null;
+      }
+      if (!toAccount) {
+        tx.add(createAssociatedTokenAccountInstruction(house.publicKey, toAta, recipient, mint, programId));
+      }
+
+      // Use the mint's real on-chain decimals so the checked transfer matches.
+      let decimals = currency.decimals;
+      try {
+        decimals = (await getMint(connection, mint, undefined, programId)).decimals;
+      } catch {
+        // Fall back to the configured decimals.
+      }
+
+      tx.add(
+        createTransferCheckedInstruction(
+          fromAta,
+          mint,
+          toAta,
+          house.publicKey,
+          BigInt(baseUnits),
+          decimals,
+          [],
+          programId,
+        ),
+      );
     }
 
     const signature = await sendAndConfirmTransaction(connection, tx, [house], {
@@ -118,7 +157,11 @@ export async function sendPayout(
     });
     return { ok: true, signature };
   } catch (error) {
-    console.error("[casino] Payout failed:", error);
+    console.error(
+      "[casino] Payout failed:",
+      JSON.stringify({ toWallet, currencyId, baseUnits, mint: mintOverride ?? currency.mint }),
+      error,
+    );
     return { ok: false, error: "The payout transaction failed. Your balance was not changed." };
   }
 }

@@ -3836,7 +3836,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     const debit = await adjustCasinoBalance(wallet, currencyId, -units);
     if (!debit.ok) return void client.send("casinoResult", { ok: false, error: "Insufficient balance." });
 
-    const payout = await sendPayout(wallet, currencyId, units);
+    const payout = await sendPayout(wallet, currencyId, units, this.resolveCasinoMint(currencyId));
     if (!payout.ok) {
       await adjustCasinoBalance(wallet, currencyId, units);
       return void client.send("casinoResult", {
