@@ -24,9 +24,17 @@ export function TouchControls() {
   const mobileLayout = useMobileLayout();
   const shopOpen = useGameStore((state) => state.shopOpen);
   const inventoryOpen = useGameStore((state) => state.inventoryOpen);
+  const craftOpen = useGameStore((state) => state.craftOpen);
+  const blackjackOpen = useGameStore((state) => state.blackjackOpen);
+  const honorShopOpen = useGameStore((state) => state.honorShopOpen);
+  const mapOpen = useGameStore((state) => state.mapOpen);
+  const mailOpen = useGameStore((state) => state.mailOpen);
   const knockedOut = useGameStore((state) => state.knockedOut);
   const toggleInventoryOpen = useGameStore((state) => state.toggleInventoryOpen);
   const toggleCraftOpen = useGameStore((state) => state.toggleCraftOpen);
+  const setMapOpen = useGameStore((state) => state.setMapOpen);
+  const setMailOpen = useGameStore((state) => state.setMailOpen);
+  const mailUnread = useGameStore((state) => state.mailUnread);
   const activeDirections = useRef(new Set<Direction>());
 
   const syncAxis = useCallback(() => {
@@ -70,7 +78,18 @@ export function TouchControls() {
     };
   }, [releaseAll]);
 
-  if (!mobileLayout || shopOpen || inventoryOpen || knockedOut) return null;
+  if (
+    !mobileLayout ||
+    shopOpen ||
+    inventoryOpen ||
+    craftOpen ||
+    blackjackOpen ||
+    honorShopOpen ||
+    mapOpen ||
+    mailOpen ||
+    knockedOut
+  )
+    return null;
 
   const bindDirection = (direction: Direction) => ({
     onPointerDown: (event: React.PointerEvent<HTMLButtonElement>) => {
@@ -144,6 +163,25 @@ export function TouchControls() {
           aria-label="Crafting"
         >
           🔨
+        </button>
+        <button
+          type="button"
+          className="chibi-btn chibi-btn--ghost chibi-action-btn chibi-action-btn--icon"
+          onPointerDown={(event) => event.preventDefault()}
+          onClick={() => setMapOpen(true)}
+          aria-label="World map"
+        >
+          🗺️
+        </button>
+        <button
+          type="button"
+          className="chibi-btn chibi-btn--ghost chibi-action-btn chibi-action-btn--icon"
+          style={{ position: "relative" }}
+          onPointerDown={(event) => event.preventDefault()}
+          onClick={() => setMailOpen(true)}
+          aria-label="Mailbox"
+        >
+          📬{mailUnread > 0 && <span className="chibi-mail-badge">{mailUnread}</span>}
         </button>
       </div>
     </div>
