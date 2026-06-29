@@ -18,7 +18,7 @@ import { useMobileLayout } from "./useMobileLayout";
 export function GuildPanel() {
   const mobileLayout = useMobileLayout();
   const [open, setOpen] = useState(false);
-  const [state, setState] = useState<GuildStatePayload>({ myGuild: null, guilds: [] });
+  const [state, setState] = useState<GuildStatePayload>({ myGuild: null, guilds: [], myRequestGuildId: null });
   const [name, setName] = useState("");
   const [tag, setTag] = useState("");
   const [amount, setAmount] = useState("");
@@ -201,6 +201,40 @@ export function GuildPanel() {
                 );
               })}
 
+              {/* Join requests (officers + leader approve) */}
+              {isOfficerPlus && myGuild.joinRequests.length > 0 && (
+                <>
+                  <div className="chibi-who-title" style={{ marginTop: 10 }}>
+                    📨 Join requests
+                  </div>
+                  {myGuild.joinRequests.map((applicant) => (
+                    <div key={applicant} className="chibi-who-row" style={{ alignItems: "center" }}>
+                      <span className="chibi-who-name">{applicant}</span>
+                      <span style={{ display: "flex", gap: 4 }}>
+                        <button
+                          type="button"
+                          className="chibi-btn chibi-btn--mint"
+                          title="Approve"
+                          onClick={() => networkManager.sendGuildApprove(applicant)}
+                          style={{ padding: "2px 8px", fontSize: "0.66rem" }}
+                        >
+                          ✓
+                        </button>
+                        <button
+                          type="button"
+                          className="chibi-btn chibi-btn--danger"
+                          title="Deny"
+                          onClick={() => networkManager.sendGuildDeny(applicant)}
+                          style={{ padding: "2px 8px", fontSize: "0.66rem" }}
+                        >
+                          ✕
+                        </button>
+                      </span>
+                    </div>
+                  ))}
+                </>
+              )}
+
               {/* Wars */}
               <div className="chibi-who-title" style={{ marginTop: 10 }}>
                 ⚔️ Wars
@@ -313,21 +347,40 @@ export function GuildPanel() {
                   <div className="chibi-who-title" style={{ marginTop: 10 }}>
                     Join a Guild
                   </div>
-                  {state.guilds.map((guild) => (
-                    <div key={guild.id} className="chibi-who-row">
-                      <span className="chibi-who-name">
-                        [{guild.tag}] {guild.name}
-                      </span>
-                      <button
-                        type="button"
-                        className="chibi-btn chibi-btn--primary"
-                        style={{ padding: "3px 8px", fontSize: "0.7rem" }}
-                        onClick={() => networkManager.sendGuildJoin(guild.id)}
-                      >
-                        Join
-                      </button>
-                    </div>
-                  ))}
+                  <div className="chibi-text-muted" style={{ fontSize: "0.7rem", marginBottom: 4 }}>
+                    Requests need the guild leader's approval.
+                  </div>
+                  {state.guilds.map((guild) => {
+                    const requested = state.myRequestGuildId === guild.id;
+                    const hasOtherRequest = state.myRequestGuildId !== null && !requested;
+                    return (
+                      <div key={guild.id} className="chibi-who-row">
+                        <span className="chibi-who-name">
+                          [{guild.tag}] {guild.name}
+                        </span>
+                        {requested ? (
+                          <button
+                            type="button"
+                            className="chibi-btn chibi-btn--secondary"
+                            style={{ padding: "3px 8px", fontSize: "0.7rem" }}
+                            onClick={() => networkManager.sendGuildCancelRequest()}
+                          >
+                            Pending · Cancel
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            className="chibi-btn chibi-btn--primary"
+                            disabled={hasOtherRequest}
+                            style={{ padding: "3px 8px", fontSize: "0.7rem" }}
+                            onClick={() => networkManager.sendGuildJoin(guild.id)}
+                          >
+                            Request
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
                 </>
               )}
             </>

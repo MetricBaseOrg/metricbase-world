@@ -45,6 +45,8 @@ export interface GuildDetail extends GuildSummary {
   wars: GuildWarInfo[];
   /** The requesting player's rank in this guild. */
   myRank: GuildRank;
+  /** Pending join requests (applicant names) — leaders/officers approve these. */
+  joinRequests: string[];
 }
 
 /** Resolve a member's rank from the guild's leader + officer lists. */
@@ -62,6 +64,8 @@ export interface GuildStatePayload {
   myGuild: GuildDetail | null;
   /** All guilds, for the browse/join list. */
   guilds: GuildSummary[];
+  /** Guild id the player has a pending join request with, or null. */
+  myRequestGuildId: string | null;
 }
 
 export interface GuildResultPayload {

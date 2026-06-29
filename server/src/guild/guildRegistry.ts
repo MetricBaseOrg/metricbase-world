@@ -97,6 +97,7 @@ export function createGuild(name: string, tag: string, leaderName: string): Guil
     bank: 0,
     taxRate: 0,
     wars: [],
+    joinRequests: [],
   };
   guilds.set(record.id, record);
   memberIndex.set(leaderName, record.id);
@@ -104,16 +105,74 @@ export function createGuild(name: string, tag: string, leaderName: string): Guil
   return { ok: true };
 }
 
-export function joinGuild(name: string, guildId: string): GuildActionResult {
+/** Which guild (id) a player has an outstanding join request with, if any. */
+export function pendingRequestGuildId(name: string): string | null {
+  for (const guild of guilds.values()) {
+    if (guild.joinRequests.includes(name)) return guild.id;
+  }
+  return null;
+}
+
+/** Submit a join request — the guild's leader/officers must approve it. */
+export function requestJoinGuild(name: string, guildId: string): GuildActionResult & { guild?: StoredGuild } {
   if (memberIndex.has(name)) return { ok: false, error: "You're already in a guild." };
   const guild = guilds.get(guildId);
   if (!guild) return { ok: false, error: "That guild no longer exists." };
   if (guild.members.length >= MAX_GUILD_MEMBERS) return { ok: false, error: "That guild is full." };
+  if (pendingRequestGuildId(name)) return { ok: false, error: "You already have a pending request." };
 
-  guild.members.push(name);
-  memberIndex.set(name, guild.id);
+  guild.joinRequests.push(name);
   void saveGuild(guild);
-  return { ok: true };
+  return { ok: true, guild };
+}
+
+/** Cancel the player's own pending request (if any). */
+export function cancelJoinRequest(name: string): StoredGuild | null {
+  const id = pendingRequestGuildId(name);
+  if (!id) return null;
+  const guild = guilds.get(id);
+  if (!guild) return null;
+  guild.joinRequests = guild.joinRequests.filter((n) => n !== name);
+  void saveGuild(guild);
+  return guild;
+}
+
+/** Approve a pending applicant (leader/officer only). Returns the guild on success. */
+export function approveJoinRequest(
+  actor: string,
+  applicant: string,
+): GuildActionResult & { guild?: StoredGuild } {
+  const guild = getGuildForMember(actor);
+  if (!guild) return { ok: false, error: "You're not in a guild." };
+  const rank = guildRankOf(actor, guild.leaderName, guild.officers);
+  if (rank === "member") return { ok: false, error: "Only officers and the leader can approve." };
+  if (!guild.joinRequests.includes(applicant)) return { ok: false, error: "No such request." };
+  if (memberIndex.has(applicant)) {
+    guild.joinRequests = guild.joinRequests.filter((n) => n !== applicant);
+    void saveGuild(guild);
+    return { ok: false, error: "They already joined a guild." };
+  }
+  if (guild.members.length >= MAX_GUILD_MEMBERS) return { ok: false, error: "Your guild is full." };
+
+  guild.joinRequests = guild.joinRequests.filter((n) => n !== applicant);
+  guild.members.push(applicant);
+  memberIndex.set(applicant, guild.id);
+  void saveGuild(guild);
+  return { ok: true, guild };
+}
+
+/** Deny a pending applicant (leader/officer only). */
+export function denyJoinRequest(
+  actor: string,
+  applicant: string,
+): GuildActionResult & { guild?: StoredGuild } {
+  const guild = getGuildForMember(actor);
+  if (!guild) return { ok: false, error: "You're not in a guild." };
+  const rank = guildRankOf(actor, guild.leaderName, guild.officers);
+  if (rank === "member") return { ok: false, error: "Only officers and the leader can deny." };
+  guild.joinRequests = guild.joinRequests.filter((n) => n !== applicant);
+  void saveGuild(guild);
+  return { ok: true, guild };
 }
 
 export function leaveGuild(name: string): GuildActionResult {
@@ -317,10 +376,11 @@ export function buildGuildStatePayload(playerName: string): GuildStatePayload {
       taxRate: mine.taxRate,
       wars,
       myRank: guildRankOf(playerName, mine.leaderName, mine.officers),
+      joinRequests: [...mine.joinRequests],
     };
   }
   const list = [...guilds.values()]
     .map(toSummary)
     .sort((a, b) => b.memberCount - a.memberCount || a.name.localeCompare(b.name));
-  return { myGuild, guilds: list };
+  return { myGuild, guilds: list, myRequestGuildId: pendingRequestGuildId(playerName) };
 }

@@ -222,9 +222,13 @@ gemstone veins, ancient hardwood, dense iron) and the King Crystal.
 
 ### Guild Warfare
 
-- **Found / join** a guild as before (1,000g to found). Members carry the tag.
+- **Found a guild** (1,000g) or **request to join** one — joins are
+  **approval-gated**: a leader or officer must accept your request before you're a
+  member. Your pending request shows as "Pending" (cancel any time), and
+  leaders/officers see incoming requests in the guild panel.
 - **Ranks:** Leader 👑 / Officer ⭐ / Member. The leader promotes, demotes, and
-  kicks; officers can kick members and manage the bank + wars.
+  kicks; officers can approve/deny join requests, kick members, and manage the
+  bank + wars.
 - **Guild bank:** any member deposits gold; officers and the leader withdraw.
 - **Income tax:** the leader sets 0–10%; a slice of every member's gold earnings is
   auto-skimmed into the bank.

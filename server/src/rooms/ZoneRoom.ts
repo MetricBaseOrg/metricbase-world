@@ -211,7 +211,10 @@ import {
   buildGuildStatePayload,
   createGuild,
   getGuildForMember,
-  joinGuild,
+  requestJoinGuild,
+  approveJoinRequest,
+  denyJoinRequest,
+  cancelJoinRequest,
   leaveGuild,
   tagForMember,
   promoteMember,
@@ -570,6 +573,18 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
     this.onProtectedMessage("guildJoin", (client, message: { guildId?: string }) => {
       this.handleGuildJoin(client, message.guildId ?? "");
+    });
+
+    this.onProtectedMessage("guildCancelRequest", (client) => {
+      this.handleGuildCancelRequest(client);
+    });
+
+    this.onProtectedMessage("guildApprove", (client, message: { applicant?: string }) => {
+      this.handleGuildJoinDecision(client, message.applicant ?? "", true);
+    });
+
+    this.onProtectedMessage("guildDeny", (client, message: { applicant?: string }) => {
+      this.handleGuildJoinDecision(client, message.applicant ?? "", false);
     });
 
     this.onProtectedMessage("guildLeave", (client) => {
@@ -4597,20 +4612,79 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     await this.persistPlayer(player);
   }
 
+  /** Submit a join request; the guild's leader/officers must approve it. */
   private handleGuildJoin(client: Client, guildId: string) {
     const player = this.state.players.get(client.sessionId);
     if (!player) return;
 
-    const result = joinGuild(player.name, guildId);
+    const result = requestJoinGuild(player.name, guildId);
     if (!result.ok) {
       client.send("guildResult", { ok: false, error: result.error });
       return;
     }
 
-    player.guildTag = tagForMember(player.name);
-    this.sendProfile(client, player);
     client.send("guildResult", { ok: true });
     client.send("guildState", buildGuildStatePayload(player.name));
+    // Notify the guild's online members so leaders/officers see the request.
+    if (result.guild) {
+      this.broadcastGuildState(result.guild.members);
+      sendToPlayers(result.guild.members, "chat", {
+        id: crypto.randomUUID(),
+        channel: "guild",
+        senderId: "system",
+        senderName: "Guild",
+        body: `${player.name} requested to join — a leader or officer can approve it.`,
+        sentAt: Date.now(),
+      } satisfies ChatMessagePayload);
+    }
+  }
+
+  private handleGuildCancelRequest(client: Client) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const guild = cancelJoinRequest(player.name);
+    client.send("guildResult", { ok: true });
+    client.send("guildState", buildGuildStatePayload(player.name));
+    if (guild) this.broadcastGuildState(guild.members);
+  }
+
+  private handleGuildJoinDecision(
+    client: Client,
+    applicant: string,
+    approve: boolean,
+  ) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !applicant) return;
+    const result = approve
+      ? approveJoinRequest(player.name, applicant)
+      : denyJoinRequest(player.name, applicant);
+    if (!result.ok) {
+      client.send("guildResult", { ok: false, error: result.error });
+      return;
+    }
+    client.send("guildResult", { ok: true });
+
+    const guild = result.guild;
+    if (!guild) return;
+    // Refresh everyone in the guild, plus the applicant (now a member or rejected).
+    this.broadcastGuildState(guild.members);
+    const applicantSession = this.activePlayerSession.get(applicant);
+    const applicantPlayer = applicantSession ? this.state.players.get(applicantSession) : undefined;
+    if (approve && applicantPlayer) {
+      applicantPlayer.guildTag = tagForMember(applicant);
+      this.sendProfile(this.clientForName(applicant) ?? client, applicantPlayer);
+    }
+    sendToPlayer(applicant, "guildState", buildGuildStatePayload(applicant));
+    sendToPlayer(applicant, "chat", {
+      id: crypto.randomUUID(),
+      channel: "system",
+      senderId: "system",
+      senderName: "Guild",
+      body: approve
+        ? `You were accepted into [${guild.tag}] ${guild.name}!`
+        : `Your request to join [${guild.tag}] ${guild.name} was declined.`,
+      sentAt: Date.now(),
+    } satisfies ChatMessagePayload);
   }
 
   private handleGuildLeave(client: Client) {

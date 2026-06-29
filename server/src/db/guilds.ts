@@ -14,6 +14,8 @@ export interface StoredGuild {
   taxRate: number;
   /** Guild ids this guild is at war with. */
   wars: string[];
+  /** Pending join-request applicant names. */
+  joinRequests: string[];
 }
 
 function normalizeNameList(value: unknown): string[] {
@@ -39,7 +41,10 @@ export async function loadGuilds(): Promise<StoredGuild[]> {
       bank: number | null;
       tax_rate: number | null;
       wars: unknown;
-    }>("SELECT id, name, tag, leader_name, members, officers, bank, tax_rate, wars FROM guilds");
+      join_requests: unknown;
+    }>(
+      "SELECT id, name, tag, leader_name, members, officers, bank, tax_rate, wars, join_requests FROM guilds",
+    );
     return res.rows.map((row) => ({
       id: row.id,
       name: row.name,
@@ -50,6 +55,7 @@ export async function loadGuilds(): Promise<StoredGuild[]> {
       bank: Math.max(0, Math.floor(row.bank ?? 0)),
       taxRate: typeof row.tax_rate === "number" && row.tax_rate >= 0 ? row.tax_rate : 0,
       wars: normalizeNameList(row.wars),
+      joinRequests: normalizeNameList(row.join_requests),
     }));
   } catch (error) {
     console.warn("[guilds] load failed:", error);
@@ -62,13 +68,14 @@ export async function saveGuild(guild: StoredGuild): Promise<void> {
   if (!pool) return;
   try {
     await pool.query(
-      `INSERT INTO guilds (id, name, tag, leader_name, members, officers, bank, tax_rate, wars)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      `INSERT INTO guilds (id, name, tag, leader_name, members, officers, bank, tax_rate, wars, join_requests)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
        ON CONFLICT (id)
        DO UPDATE SET name = EXCLUDED.name, tag = EXCLUDED.tag,
                      leader_name = EXCLUDED.leader_name, members = EXCLUDED.members,
                      officers = EXCLUDED.officers, bank = EXCLUDED.bank,
-                     tax_rate = EXCLUDED.tax_rate, wars = EXCLUDED.wars`,
+                     tax_rate = EXCLUDED.tax_rate, wars = EXCLUDED.wars,
+                     join_requests = EXCLUDED.join_requests`,
       [
         guild.id,
         guild.name,
@@ -79,6 +86,7 @@ export async function saveGuild(guild: StoredGuild): Promise<void> {
         guild.bank,
         guild.taxRate,
         JSON.stringify(guild.wars),
+        JSON.stringify(guild.joinRequests),
       ],
     );
   } catch (error) {

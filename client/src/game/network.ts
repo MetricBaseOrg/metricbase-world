@@ -193,7 +193,7 @@ export class NetworkManager {
   private skillStateListeners = new Set<SkillStateListener>();
   private guildStateListeners = new Set<GuildStateListener>();
   private guildResultListeners = new Set<GuildResultListener>();
-  private latestGuildState: GuildStatePayload = { myGuild: null, guilds: [] };
+  private latestGuildState: GuildStatePayload = { myGuild: null, guilds: [], myRequestGuildId: null };
   private partyStateListeners = new Set<PartyStateListener>();
   private partyResultListeners = new Set<PartyResultListener>();
   private partyInviteListeners = new Set<PartyInviteListener>();
@@ -483,6 +483,18 @@ export class NetworkManager {
 
   sendGuildLeave() {
     this.room?.send("guildLeave", {});
+  }
+
+  sendGuildCancelRequest() {
+    this.room?.send("guildCancelRequest", {});
+  }
+
+  sendGuildApprove(applicant: string) {
+    this.room?.send("guildApprove", { applicant });
+  }
+
+  sendGuildDeny(applicant: string) {
+    this.room?.send("guildDeny", { applicant });
   }
 
   sendGuildPromote(target: string) {
