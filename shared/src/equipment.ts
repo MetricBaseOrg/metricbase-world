@@ -247,6 +247,37 @@ export interface PlayerEquipment {
   mountId: string | null;
   /** Per-slot remaining durability for gear that wears (weapon + armor). */
   durability?: Partial<Record<EquipmentSlot, number>>;
+  /** Per-slot enhancement level (+N) for combat gear. */
+  enhance?: Partial<Record<EquipmentSlot, number>>;
+}
+
+/** Slots that can be enhanced with +N (combat gear; not tool/mount). */
+export const ENHANCEABLE_SLOTS: EquipmentSlot[] = [
+  "weapon",
+  "helmet",
+  "chest",
+  "gloves",
+  "boots",
+  "ring1",
+  "ring2",
+  "necklace",
+  "cape",
+  "offhand",
+];
+
+/** Highest enhancement level. */
+export const MAX_ENHANCE_LEVEL = 9;
+/** Stat bonus per +1 (a +5 piece gives +40% of its stats). */
+export const ENHANCE_BONUS_PER_LEVEL = 0.08;
+
+/** Gold cost to attempt the next enhancement from `level`. */
+export function enhanceCost(level: number): number {
+  return 100 * (level + 1);
+}
+
+/** Success chance (0–1) of the attempt from `level` (high levels are riskier). */
+export function enhanceSuccessRate(level: number): number {
+  return Math.max(0.25, 1 - level * 0.08);
 }
 
 export const EMPTY_EQUIPMENT: PlayerEquipment = {
@@ -263,6 +294,7 @@ export const EMPTY_EQUIPMENT: PlayerEquipment = {
   offhandId: null,
   mountId: null,
   durability: {},
+  enhance: {},
 };
 
 /** Map of equipment field -> the itemId currently in it. */
@@ -280,6 +312,7 @@ const GEAR_FIELD_TO_SLOT: Record<keyof PlayerEquipment & string, GearKindSlot | 
   offhandId: "offhand",
   mountId: null,
   durability: null,
+  enhance: null,
 };
 
 /** Equipment fields that hold armor/accessory items, in display order. */
@@ -371,6 +404,21 @@ export function normalizeEquipment(raw: Partial<PlayerEquipment> | null | undefi
     next.durability = dur;
   }
 
+  // Preserve enhancement levels for slots that still hold an item.
+  const rawEnh = raw.enhance;
+  if (rawEnh && typeof rawEnh === "object") {
+    const enh: Partial<Record<EquipmentSlot, number>> = {};
+    for (const [field, slot] of ALL_EQUIP_FIELDS) {
+      if (!ENHANCEABLE_SLOTS.includes(slot)) continue;
+      if (!(next as unknown as Record<string, unknown>)[field]) continue;
+      const value = (rawEnh as Record<string, unknown>)[slot];
+      if (typeof value === "number" && Number.isFinite(value)) {
+        enh[slot] = Math.max(0, Math.min(MAX_ENHANCE_LEVEL, Math.floor(value)));
+      }
+    }
+    next.enhance = enh;
+  }
+
   return next;
 }
 
@@ -388,7 +436,9 @@ export interface CombatStats {
 /** Aggregate combat stats from base values + all equipped gear. */
 export function getEquipmentStats(eq: PlayerEquipment | null | undefined): CombatStats {
   const equipment = normalizeEquipment(eq);
-  let attack = PLAYER_ATTACK_DAMAGE + getWeaponBonusDamage(equipment.weaponId);
+  const enh = equipment.enhance ?? {};
+  const weaponMul = 1 + (enh.weapon ?? 0) * ENHANCE_BONUS_PER_LEVEL;
+  let attack = PLAYER_ATTACK_DAMAGE + getWeaponBonusDamage(equipment.weaponId) * weaponMul;
   let armor = 0;
   let critChance = BASE_CRIT_CHANCE;
   let critMult = BASE_CRIT_MULT;
@@ -397,13 +447,25 @@ export function getEquipmentStats(eq: PlayerEquipment | null | undefined): Comba
     const itemId = equipment[field] as string | null;
     const stat = getGearStat(itemId);
     if (!stat) continue;
-    armor += stat.armor ?? 0;
-    critChance += stat.critChance ?? 0;
-    critMult += stat.critMult ?? 0;
-    attack += stat.attack ?? 0;
+    // ARMOR_FIELDS are like "ring1Id" → enhance key "ring1".
+    const enhKey = field.replace(/Id$/, "") as EquipmentSlot;
+    const mul = 1 + (enh[enhKey] ?? 0) * ENHANCE_BONUS_PER_LEVEL;
+    armor += (stat.armor ?? 0) * mul;
+    critChance += (stat.critChance ?? 0) * mul;
+    critMult += (stat.critMult ?? 0) * mul;
+    attack += (stat.attack ?? 0) * mul;
   }
 
   return { attack, armor, critChance, critMult };
+}
+
+/** A single rolled-up "power" number from equipped gear + enhancements. */
+export function computeGearScore(eq: PlayerEquipment | null | undefined): number {
+  const equipment = normalizeEquipment(eq);
+  const s = getEquipmentStats(equipment);
+  let enhTotal = 0;
+  for (const slot of ENHANCEABLE_SLOTS) enhTotal += equipment.enhance?.[slot] ?? 0;
+  return Math.round(s.attack * 2 + s.armor * 2 + s.critChance * 300 + (s.critMult - 1) * 100 + enhTotal * 25);
 }
 
 export interface EquipmentSlotState {
@@ -412,6 +474,8 @@ export interface EquipmentSlotState {
   /** Present for wearable gear (weapon + armor); omitted for jewelry/tool. */
   durability?: number;
   maxDurability?: number;
+  /** Enhancement level (+N), 0 when unenhanced. */
+  enhance?: number;
 }
 
 export interface EquipmentStatePayload {
@@ -444,6 +508,7 @@ export function buildEquipmentState(raw: PlayerEquipment | null | undefined): Eq
   for (const [field, slot] of ALL_EQUIP_FIELDS) {
     const itemId = eq[field] as string | null;
     if (!itemId) continue;
+    const enhance = eq.enhance?.[slot] ?? 0;
     const max = maxDurabilityForSlot(slot, itemId);
     if (Number.isFinite(max) && max > 0) {
       slots.push({
@@ -451,9 +516,10 @@ export function buildEquipmentState(raw: PlayerEquipment | null | undefined): Eq
         itemId,
         durability: eq.durability?.[slot] ?? max,
         maxDurability: max,
+        enhance,
       });
     } else {
-      slots.push({ slot, itemId });
+      slots.push({ slot, itemId, enhance });
     }
   }
   const stats = getEquipmentStats(eq);

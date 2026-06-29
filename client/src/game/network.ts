@@ -167,6 +167,9 @@ export class NetworkManager {
   private inventoryListeners = new Set<InventoryListener>();
   private equipmentStateListeners = new Set<EquipmentStateListener>();
   private latestEquipmentState: EquipmentStatePayload | null = null;
+  private enhanceResultListeners = new Set<
+    (payload: { ok: boolean; success?: boolean; slot?: string; level?: number; error?: string }) => void
+  >();
   private inventoryResultListeners = new Set<InventoryResultListener>();
   private craftResultListeners = new Set<CraftResultListener>();
   private farmStateListeners = new Set<FarmStateListener>();
@@ -436,6 +439,15 @@ export class NetworkManager {
 
   sendRepairGear() {
     this.room?.send("repairGear", {});
+  }
+
+  sendEnhanceGear(slot: string) {
+    this.room?.send("enhanceGear", { slot });
+  }
+
+  onEnhanceResult(listener: (payload: { ok: boolean; success?: boolean; slot?: string; level?: number; error?: string }) => void) {
+    this.enhanceResultListeners.add(listener);
+    return () => this.enhanceResultListeners.delete(listener);
   }
 
   sendCraft(recipeId: string) {
@@ -1139,6 +1151,12 @@ export class NetworkManager {
         listener(payload);
       }
     });
+    this.room.onMessage(
+      "enhanceResult",
+      (payload: { ok: boolean; success?: boolean; slot?: string; level?: number; error?: string }) => {
+        for (const listener of this.enhanceResultListeners) listener(payload);
+      },
+    );
     this.room.onMessage("inventoryResult", (payload: InventoryResultPayload) => {
       if (payload.inventory) {
         this.latestInventory = payload.inventory;

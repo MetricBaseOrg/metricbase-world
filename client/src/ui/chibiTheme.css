@@ -1633,6 +1633,20 @@ body {
   text-transform: uppercase;
 }
 
+.chibi-slot.selected {
+  box-shadow: 0 0 0 2px var(--chibi-gold) inset;
+}
+
+.chibi-slot__enh {
+  position: absolute;
+  top: 1px;
+  right: 3px;
+  font-family: var(--chibi-font-display);
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: var(--chibi-gold-deep);
+}
+
 .chibi-slot__dur {
   position: absolute;
   left: 0;

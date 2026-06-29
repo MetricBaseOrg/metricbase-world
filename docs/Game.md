@@ -157,6 +157,9 @@ your equipped weapon**.
 - **Durability & repair:** your weapon and armour wear down as you fight; gear that
   hits 0 **breaks** and unequips. Use **🔧 Repair all gear** in the Inventory panel
   to restore everything for a gold fee (2g per point) — a steady gold sink.
+- **Enhancement (+N):** in the Character panel, select an equipped piece and
+  **Enhance** it (gold, with a success rate that drops at higher levels, up to +9)
+  to boost its stats. Your **Gear Score** climbs with better, more-enhanced gear.
 - **Weapon abilities:** each weapon type (sword, dagger, …) grants a 5-slot kit with
   per-ability cooldown, stamina cost, and damage multiplier. Swap weapons to swap
   your hotbar.

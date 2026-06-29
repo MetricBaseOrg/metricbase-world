@@ -2,10 +2,14 @@ import {
   getItemDefinition,
   getGearStat,
   RARITY_COLORS,
+  ENHANCEABLE_SLOTS,
+  MAX_ENHANCE_LEVEL,
+  enhanceCost,
+  enhanceSuccessRate,
   type EquipmentSlot,
   type ItemKind,
 } from "@metricbase/shared";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { playSfx } from "../audio/soundEffects";
 import { networkManager } from "../game/network";
 import { useGameStore } from "../store/gameStore";
@@ -105,16 +109,44 @@ export function InventoryPanel() {
   const setInventoryOpen = useGameStore((state) => state.setInventoryOpen);
   const setInventory = useGameStore((state) => state.setInventory);
   const setPlayerVitals = useGameStore((state) => state.setPlayerVitals);
+  const playerGold = useGameStore((state) => state.playerGold);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [filter, setFilter] = useState<Filter>("all");
   const [sorted, setSorted] = useState(false);
+  const [selectedSlot, setSelectedSlot] = useState<EquipmentSlot | null>(null);
+  const [enhanceMsg, setEnhanceMsg] = useState<string | null>(null);
 
   const slotMap = useMemo(() => {
-    const map = new Map<EquipmentSlot, { itemId: string; durability?: number; maxDurability?: number }>();
+    const map = new Map<
+      EquipmentSlot,
+      { itemId: string; durability?: number; maxDurability?: number; enhance?: number }
+    >();
     for (const s of equipment?.slots ?? []) map.set(s.slot, s);
     return map;
   }, [equipment]);
+
+  useEffect(() => {
+    const off = networkManager.onEnhanceResult((p) => {
+      setPending(false);
+      if (!p.ok) {
+        playSfx("shop_fail");
+        setError(p.error ?? "Enhance failed.");
+        return;
+      }
+      if (p.success) {
+        playSfx("level_up");
+        setEnhanceMsg(`✨ Enhanced to +${p.level}!`);
+      } else {
+        playSfx("shop_fail");
+        setEnhanceMsg(`💥 Enhancement failed (still +${p.level}).`);
+      }
+      window.setTimeout(() => setEnhanceMsg(null), 3000);
+    });
+    return () => {
+      off();
+    };
+  }, []);
 
   if (!open) return null;
 
@@ -122,8 +154,15 @@ export function InventoryPanel() {
   const needsRepair = (equipment?.slots ?? []).some(
     (slot) => slot.maxDurability !== undefined && (slot.durability ?? 0) < slot.maxDurability,
   );
+  const totalEnhance = (equipment?.slots ?? []).reduce((sum, s) => sum + (s.enhance ?? 0), 0);
   const gearScore = equipment
-    ? Math.round(equipment.attack + equipment.armor + equipment.critChance * 100 + equipment.critMult * 10)
+    ? Math.round(
+        equipment.attack * 2 +
+          equipment.armor * 2 +
+          equipment.critChance * 300 +
+          (equipment.critMult - 1) * 100 +
+          totalEnhance * 25,
+      )
     : 0;
 
   const awaitInventoryResult = () =>
@@ -254,18 +293,20 @@ export function InventoryPanel() {
                   eq && eq.maxDurability && eq.maxDurability > 0
                     ? Math.max(0, Math.min(1, (eq.durability ?? 0) / eq.maxDurability))
                     : null;
+                const enh = eq?.enhance ?? 0;
                 return (
                   <button
                     key={slot}
                     type="button"
-                    className={`chibi-slot${eq ? " filled" : ""}`}
+                    className={`chibi-slot${eq ? " filled" : ""}${selectedSlot === slot ? " selected" : ""}`}
                     style={color ? { borderColor: color } : undefined}
-                    title={eq ? `${getItemDefinition(eq.itemId).name} — click to unequip` : SLOT_LABELS[slot]}
+                    title={eq ? getItemDefinition(eq.itemId).name : SLOT_LABELS[slot]}
                     disabled={pending || !eq}
-                    onClick={() => eq && void handleEquip(null, slot)}
+                    onClick={() => setSelectedSlot((cur) => (cur === slot ? null : slot))}
                   >
                     <span className="chibi-slot__icon">{SLOT_ICONS[slot]}</span>
                     <span className="chibi-slot__label">{SLOT_LABELS[slot]}</span>
+                    {enh > 0 && <span className="chibi-slot__enh">+{enh}</span>}
                     {durPct !== null && (
                       <span className="chibi-slot__dur" style={{ width: `${durPct * 100}%`, background: durPct <= 0.25 ? "var(--chibi-danger)" : "var(--chibi-mint)" }} />
                     )}
@@ -273,6 +314,63 @@ export function InventoryPanel() {
                 );
               })}
             </div>
+
+            {/* Selected-slot actions: enhance + unequip */}
+            {selectedSlot && slotMap.get(selectedSlot) && (() => {
+              const eq = slotMap.get(selectedSlot)!;
+              const level = eq.enhance ?? 0;
+              const atMax = level >= MAX_ENHANCE_LEVEL || !ENHANCEABLE_SLOTS.includes(selectedSlot);
+              const cost = enhanceCost(level);
+              const rate = Math.round(enhanceSuccessRate(level) * 100);
+              const name = getItemDefinition(eq.itemId).name;
+              return (
+                <div className="chibi-card" style={{ padding: "8px 10px", fontSize: "0.78rem" }}>
+                  <div style={{ fontWeight: 800 }}>
+                    {name} {level > 0 && <span style={{ color: "var(--chibi-gold-deep)" }}>+{level}</span>}
+                  </div>
+                  {!atMax && (
+                    <div className="chibi-text-muted" style={{ fontSize: "0.72rem", margin: "2px 0 6px" }}>
+                      → +{level + 1} · 🪙 {cost.toLocaleString()} · {rate}% success
+                    </div>
+                  )}
+                  <div style={{ display: "flex", gap: 6 }}>
+                    {!atMax && (
+                      <button
+                        type="button"
+                        className="chibi-btn chibi-btn--gold"
+                        disabled={pending || playerGold < cost}
+                        onClick={() => {
+                          setPending(true);
+                          setError(null);
+                          networkManager.sendEnhanceGear(selectedSlot);
+                        }}
+                        style={{ flex: 1, padding: "5px 8px", fontSize: "0.74rem" }}
+                      >
+                        ⚒️ Enhance
+                      </button>
+                    )}
+                    {atMax && (
+                      <span className="chibi-stat-pill" style={{ flex: 1, textAlign: "center" }}>Max +{MAX_ENHANCE_LEVEL}</span>
+                    )}
+                    <button
+                      type="button"
+                      className="chibi-btn chibi-btn--secondary"
+                      disabled={pending}
+                      onClick={() => {
+                        void handleEquip(null, selectedSlot);
+                        setSelectedSlot(null);
+                      }}
+                      style={{ flex: 1, padding: "5px 8px", fontSize: "0.74rem" }}
+                    >
+                      Unequip
+                    </button>
+                  </div>
+                  {enhanceMsg && (
+                    <div style={{ marginTop: 6, fontSize: "0.72rem", fontWeight: 700 }}>{enhanceMsg}</div>
+                  )}
+                </div>
+              );
+            })()}
 
             {equipment && (
               <div className="chibi-inv__stats">

@@ -74,6 +74,10 @@ import {
   getMountSpeed,
   buildEquipmentState,
   getGearStat,
+  ENHANCEABLE_SLOTS,
+  MAX_ENHANCE_LEVEL,
+  enhanceCost,
+  enhanceSuccessRate,
   fieldForGearSlot,
   maxDurabilityForSlot,
   armorReduction,
@@ -523,6 +527,10 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
     this.onProtectedMessage("repairGear", (client) => {
       void this.handleRepairGear(client);
+    });
+
+    this.onProtectedMessage("enhanceGear", (client, message: { slot?: string }) => {
+      void this.handleEnhanceGear(client, message.slot ?? "");
     });
 
     this.onProtectedMessage("craft", (client, message: { recipeId?: string }) => {
@@ -1723,6 +1731,61 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       ok: true,
       inventory: buildInventoryPayload(this.inventories.get(player.name) ?? [], equipment.weaponId ?? null),
     });
+    await this.persistPlayer(player);
+  }
+
+  /** Attempt to enhance an equipped gear slot (+N) for a gold fee at a success rate. */
+  private async handleEnhanceGear(client: Client, slot: string) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || this.isKnockedOut(player.name)) return;
+    if (!ENHANCEABLE_SLOTS.includes(slot as EquipmentSlot)) {
+      client.send("enhanceResult", { ok: false, error: "That can't be enhanced." });
+      return;
+    }
+    const equipment = normalizeEquipment(this.playerEquipment.get(player.name));
+    const field = this.equipFieldForSlot(slot);
+    const itemId = field ? ((equipment as unknown as Record<string, unknown>)[field] as string | null) : null;
+    if (!itemId) {
+      client.send("enhanceResult", { ok: false, error: "Nothing equipped in that slot." });
+      return;
+    }
+    const level = equipment.enhance?.[slot as EquipmentSlot] ?? 0;
+    if (level >= MAX_ENHANCE_LEVEL) {
+      client.send("enhanceResult", { ok: false, error: `Already at max +${MAX_ENHANCE_LEVEL}.` });
+      return;
+    }
+    const cost = enhanceCost(level);
+    const gold = this.playerGold.get(player.name) ?? STARTING_GOLD;
+    if (gold < cost) {
+      client.send("enhanceResult", { ok: false, error: `Enhancing costs ${cost}g.` });
+      return;
+    }
+
+    // Gold is consumed on the attempt whether it succeeds or fails.
+    this.playerGold.set(player.name, gold - cost);
+    const success = Math.random() < enhanceSuccessRate(level);
+    if (success) {
+      equipment.enhance = { ...(equipment.enhance ?? {}), [slot]: level + 1 };
+      this.playerEquipment.set(player.name, equipment);
+    }
+
+    this.sendProfile(client, player);
+    client.send("equipmentState", buildEquipmentState(this.playerEquipment.get(player.name)));
+    client.send("enhanceResult", {
+      ok: true,
+      success,
+      slot,
+      level: success ? level + 1 : level,
+    });
+    const itemName = getItemDefinition(itemId).name;
+    this.broadcastChat(
+      this.systemChat(
+        "Smith",
+        success
+          ? `${player.name} enhanced ${itemName} to +${level + 1}!`
+          : `${player.name}'s enhancement of ${itemName} to +${level + 1} failed.`,
+      ),
+    );
     await this.persistPlayer(player);
   }
 
