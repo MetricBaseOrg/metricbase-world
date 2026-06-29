@@ -28,6 +28,11 @@ export const SOFT_SHOP_OFFERS: SoftShopOffer[] = [
   { id: "gem_blade", currency: "gems", cost: 20, itemId: "item_gem_blade", quantity: 1, blurb: "Gemforged steel blade." },
   { id: "gem_steed", currency: "gems", cost: 15, itemId: "item_steed", quantity: 1, blurb: "A swift warhorse." },
   { id: "gem_wolf", currency: "gems", cost: 35, itemId: "item_dire_wolf", quantity: 1, blurb: "The fastest mount alive." },
+
+  // Pets — cosmetic companions.
+  { id: "gem_pet_slime", currency: "gems", cost: 8, itemId: "item_pet_slime", quantity: 1, blurb: "A bouncy companion." },
+  { id: "gem_pet_cat", currency: "gems", cost: 12, itemId: "item_pet_cat", quantity: 1, blurb: "A cosy lodge kitten." },
+  { id: "gem_pet_owl", currency: "gems", cost: 18, itemId: "item_pet_owl", quantity: 1, blurb: "A wise spirit owl." },
 ];
 
 export function getSoftOffer(id: string): SoftShopOffer | undefined {

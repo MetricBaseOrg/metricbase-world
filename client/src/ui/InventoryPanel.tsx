@@ -30,6 +30,7 @@ const SLOT_LABELS: Record<EquipmentSlot, string> = {
   cape: "Cape",
   offhand: "Offhand",
   mount: "Mount",
+  pet: "Pet",
 };
 
 const SLOT_ICONS: Record<EquipmentSlot, string> = {
@@ -45,6 +46,7 @@ const SLOT_ICONS: Record<EquipmentSlot, string> = {
   cape: "🧣",
   offhand: "🛡️",
   mount: "🐎",
+  pet: "🐾",
 };
 
 /** Paper-doll slot order shown around the character. */
@@ -60,6 +62,7 @@ const DOLL_SLOTS: EquipmentSlot[] = [
   "ring2",
   "cape",
   "mount",
+  "pet",
 ];
 
 const ITEM_ICONS: Record<string, string> = {
@@ -287,6 +290,7 @@ export function InventoryPanel() {
     if (item.kind === "tool") return "tool";
     if (item.kind === "weapon") return "weapon";
     if (item.kind === "mount") return "mount";
+    if (item.kind === "pet") return "pet";
     return undefined; // armor — server resolves the slot
   };
 
@@ -295,7 +299,13 @@ export function InventoryPanel() {
     if (pending) return;
     const item = getItemDefinition(itemId);
     if (item.kind === "consumable") void handleUse(itemId);
-    else if (item.kind === "weapon" || item.kind === "tool" || item.kind === "armor" || item.kind === "mount") {
+    else if (
+      item.kind === "weapon" ||
+      item.kind === "tool" ||
+      item.kind === "armor" ||
+      item.kind === "mount" ||
+      item.kind === "pet"
+    ) {
       if (!equippedItemIds.has(itemId)) void handleEquip(itemId, equipSlotFor(itemId));
     }
   };
@@ -303,7 +313,8 @@ export function InventoryPanel() {
   const items = inventory.items.filter((entry) => {
     const kind = getItemDefinition(entry.itemId).kind;
     if (filter === "all") return true;
-    if (filter === "equip") return kind === "weapon" || kind === "armor" || kind === "tool" || kind === "mount";
+    if (filter === "equip")
+      return kind === "weapon" || kind === "armor" || kind === "tool" || kind === "mount" || kind === "pet";
     if (filter === "consumable") return kind === "consumable";
     return kind === "material";
   });

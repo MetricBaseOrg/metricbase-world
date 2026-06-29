@@ -86,7 +86,19 @@ interface RenderedPlayer {
   baseY: number;
   /** Per-avatar phase so idle bobbing isn't synchronised across players. */
   bobPhase: number;
+  /** Cosmetic companion that trails the player (null when no pet equipped). */
+  pet: Phaser.GameObjects.Text | null;
+  petId: string;
+  petX: number;
+  petY: number;
 }
+
+/** Emoji companion per pet item. */
+const PET_EMOJI: Record<string, string> = {
+  item_pet_cat: "🐱",
+  item_pet_slime: "🫧",
+  item_pet_owl: "🦉",
+};
 
 interface RenderedFarmPlot {
   id: string;
@@ -1081,6 +1093,7 @@ export class GameScene extends Phaser.Scene {
     this.localAvatar.label.destroy();
     this.localAvatar.glow?.destroy();
     this.localAvatar.shadow.destroy();
+    this.localAvatar.pet?.destroy();
     this.localAvatar = null;
   }
 
@@ -1183,6 +1196,7 @@ export class GameScene extends Phaser.Scene {
       pvpFlagged: false,
       criminal: false,
       speedMult: 1,
+      petId: useGameStore.getState().equipment?.slots.find((s) => s.slot === "pet")?.itemId ?? "",
     });
   }
 
@@ -1205,11 +1219,13 @@ export class GameScene extends Phaser.Scene {
       existing.predicted = moving
         ? reconcilePrediction(existing.predicted, { x: player.x, y: player.y })
         : { x: player.x, y: player.y };
+      this.applyPet(existing, player.petId);
       return;
     }
 
     this.destroyAllLocalPlayerEntries();
     this.localAvatar = this.createRenderedPlayerEntry(player, true);
+    this.applyPet(this.localAvatar, player.petId);
   }
 
   private destroyRenderedPlayer(sessionId: string, rendered: RenderedPlayer) {
@@ -1217,6 +1233,7 @@ export class GameScene extends Phaser.Scene {
     rendered.label.destroy();
     rendered.glow?.destroy();
     rendered.shadow.destroy();
+    rendered.pet?.destroy();
     this.renderedPlayers.delete(sessionId);
   }
 
@@ -1330,7 +1347,36 @@ export class GameScene extends Phaser.Scene {
       shadow,
       baseY: player.y,
       bobPhase: Math.random() * Math.PI * 2,
+      pet: null,
+      petId: "",
+      petX: player.x,
+      petY: player.y,
     };
+  }
+
+  /** Create/replace/remove a player's companion sprite to match their petId. */
+  private applyPet(entry: RenderedPlayer, petId: string) {
+    if (entry.petId === petId) return;
+    entry.petId = petId;
+    entry.pet?.destroy();
+    entry.pet = null;
+    const emoji = PET_EMOJI[petId];
+    if (!emoji) return;
+    entry.pet = this.add
+      .text(entry.petX, entry.petY, emoji, { fontSize: "18px" })
+      .setOrigin(0.5, 0.9)
+      .setDepth(entry.sprite.depth - 1);
+  }
+
+  /** Trail the companion a little behind/beside its owner each frame. */
+  private positionPet(entry: RenderedPlayer) {
+    if (!entry.pet) return;
+    const targetX = entry.sprite.x - 16;
+    const targetY = entry.sprite.y - 6;
+    entry.petX = Phaser.Math.Linear(entry.petX, targetX, 0.18);
+    entry.petY = Phaser.Math.Linear(entry.petY, targetY, 0.18);
+    entry.pet.setPosition(Math.round(entry.petX), Math.round(entry.petY));
+    entry.pet.setDepth(entry.sprite.depth - 1);
   }
 
   private renderZone(zoneId: string) {
@@ -3151,6 +3197,7 @@ export class GameScene extends Phaser.Scene {
       if (!existing) {
         const entry = this.createRenderedPlayerEntry(player, false);
         this.applyNameplateStatus(entry, player);
+        this.applyPet(entry, player.petId);
         this.renderedPlayers.set(player.sessionId, entry);
       } else {
         existing.sprite.setDisplaySize(AVATAR_LOGICAL_WIDTH, AVATAR_LOGICAL_HEIGHT);
@@ -3162,6 +3209,7 @@ export class GameScene extends Phaser.Scene {
         existing.name = player.name;
         existing.label.setText(nameplateText(player));
         this.applyNameplateStatus(existing, player);
+        this.applyPet(existing, player.petId);
       }
     }
 
@@ -3192,6 +3240,7 @@ export class GameScene extends Phaser.Scene {
     local.label.setDepth(y + 1);
     local.shadow.setPosition(x, y + 4);
     local.shadow.setDepth(y - 0.5);
+    this.positionPet(local);
   }
 
   private interpolateRemotePlayers() {
@@ -3207,6 +3256,7 @@ export class GameScene extends Phaser.Scene {
       rendered.label.setDepth(y + 1);
       rendered.shadow.setPosition(x, y + 4);
       rendered.shadow.setDepth(y - 0.5);
+      this.positionPet(rendered);
     }
   }
 

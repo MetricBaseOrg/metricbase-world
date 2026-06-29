@@ -565,6 +565,39 @@ const mount: Shape = (c, p) => {
   c.fill();
 };
 
+const critter: Shape = (c, p) => {
+  // rounded body
+  c.beginPath();
+  c.ellipse(50, 60, 24, 22, 0, 0, Math.PI * 2);
+  fs(c, p.base);
+  // ears
+  c.beginPath();
+  c.moveTo(34, 42);
+  c.lineTo(28, 24);
+  c.lineTo(46, 36);
+  c.closePath();
+  fs(c, p.base);
+  c.beginPath();
+  c.moveTo(66, 42);
+  c.lineTo(72, 24);
+  c.lineTo(54, 36);
+  c.closePath();
+  fs(c, p.base);
+  // eyes
+  c.beginPath();
+  c.arc(42, 56, 3.4, 0, Math.PI * 2);
+  c.fillStyle = OUTLINE;
+  c.fill();
+  c.beginPath();
+  c.arc(58, 56, 3.4, 0, Math.PI * 2);
+  c.fill();
+  // muzzle
+  c.beginPath();
+  c.arc(50, 66, 3, 0, Math.PI * 2);
+  c.fillStyle = p.dark;
+  c.fill();
+};
+
 // ---- shared helpers ----
 function rr(c: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
   c.moveTo(x + r, y);
@@ -662,6 +695,10 @@ const ITEM_ART: Record<string, [Shape, keyof typeof MATS | "auto"]> = {
   item_pony: [mount, "wood"],
   item_steed: [mount, "amber"],
   item_dire_wolf: [mount, "gray"],
+  // pets
+  item_pet_cat: [critter, "amber"],
+  item_pet_owl: [critter, "hardwood"],
+  item_pet_slime: [gel, "green"],
 };
 
 /** True when we have a drawn icon for this item (otherwise callers fall back). */

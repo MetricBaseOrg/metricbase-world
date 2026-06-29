@@ -218,6 +218,12 @@ Craft a **mount** — Sturdy Pony (+25%), Swift Steed (+45%), or Dire Wolf (+70%
 and equip it from the Inventory panel's Mount slot for a permanent
 **movement-speed** boost.
 
+### Pets
+
+Collect cosmetic **companion pets** — Hearth Kitten, Pet Slime, or Spirit Owl —
+from the Quartermaster (spend 💎 Gems). Equip one in the Character panel's **Pet**
+slot and it trails along beside you in the world for everyone to see.
+
 ### Community Lodge (VIP) & Base Rush Arcade
 
 The **Community Lodge** is VIP-only, with three ways in (all prompted at the door,

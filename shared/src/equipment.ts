@@ -139,7 +139,11 @@ export type EquipmentSlot =
   | "necklace"
   | "cape"
   | "offhand"
-  | "mount";
+  | "mount"
+  | "pet";
+
+/** Cosmetic companion pets that can be equipped in the pet slot. */
+export const PET_IDS = new Set<string>(["item_pet_cat", "item_pet_slime", "item_pet_owl"]);
 
 /** Movement-speed multiplier granted by each equippable mount (1 = base speed). */
 export const MOUNT_SPEED: Record<string, number> = {
@@ -245,6 +249,7 @@ export interface PlayerEquipment {
   capeId: string | null;
   offhandId: string | null;
   mountId: string | null;
+  petId: string | null;
   /** Per-slot remaining durability for gear that wears (weapon + armor). */
   durability?: Partial<Record<EquipmentSlot, number>>;
   /** Per-slot enhancement level (+N) for combat gear. */
@@ -293,6 +298,7 @@ export const EMPTY_EQUIPMENT: PlayerEquipment = {
   capeId: null,
   offhandId: null,
   mountId: null,
+  petId: null,
   durability: {},
   enhance: {},
 };
@@ -311,6 +317,7 @@ const GEAR_FIELD_TO_SLOT: Record<keyof PlayerEquipment & string, GearKindSlot | 
   capeId: "cape",
   offhandId: "offhand",
   mountId: null,
+  petId: null,
   durability: null,
   enhance: null,
 };
@@ -370,6 +377,7 @@ export function normalizeEquipment(raw: Partial<PlayerEquipment> | null | undefi
     capeId: null,
     offhandId: null,
     mountId: typeof raw.mountId === "string" && MOUNT_SPEED[raw.mountId] !== undefined ? raw.mountId : null,
+    petId: typeof raw.petId === "string" && PET_IDS.has(raw.petId) ? raw.petId : null,
     durability: {},
   };
 
@@ -499,6 +507,7 @@ const ALL_EQUIP_FIELDS: [keyof PlayerEquipment & string, EquipmentSlot][] = [
   ["capeId", "cape"],
   ["offhandId", "offhand"],
   ["mountId", "mount"],
+  ["petId", "pet"],
 ];
 
 /** Build the client-facing equipment snapshot (slots + durability + aggregate stats). */

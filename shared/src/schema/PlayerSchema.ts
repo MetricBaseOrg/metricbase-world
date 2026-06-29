@@ -23,6 +23,8 @@ export const PlayerSchema = schema({
   criminal: "boolean",
   /** Movement-speed multiplier from the equipped mount (1 = base). */
   speedMult: "number",
+  /** Equipped cosmetic pet item id ("" when none) — shown as a companion. */
+  petId: "string",
 });
 
 export type Player = InstanceType<typeof PlayerSchema>;

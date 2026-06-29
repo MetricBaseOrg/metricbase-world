@@ -69,6 +69,7 @@ export interface RemotePlayer {
   pvpFlagged: boolean;
   criminal: boolean;
   speedMult: number;
+  petId: string;
 }
 
 type ConnectionListener = (connected: boolean, playerCount: number) => void;
@@ -1588,6 +1589,7 @@ export class NetworkManager {
       pvpFlagged: Boolean((player as any).pvpFlagged),
       criminal: Boolean((player as any).criminal),
       speedMult: Number((player as any).speedMult) || 1,
+      petId: String((player as any).petId ?? ""),
       appearance: normalizeCharacterAppearance({
         bodyColor: player.bodyColor,
         hairColor: player.hairColor,

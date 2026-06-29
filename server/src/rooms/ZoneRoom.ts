@@ -964,6 +964,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     player.weaponId = eq.weaponId ?? "";
     player.toolId = eq.toolId ?? "";
     player.speedMult = getMountSpeed(eq.mountId);
+    player.petId = eq.petId ?? "";
     this.npcInteractAt.set(player.name, saved?.npcInteractAt ?? {});
     this.mobGoldClaimed.set(player.name, saved?.mobGoldClaimed ?? {});
     this.playerSkills.set(player.name, normalizeSkills(saved?.skills));
@@ -4104,6 +4105,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         return "offhandId";
       case "mount":
         return "mountId";
+      case "pet":
+        return "petId";
       default:
         return null;
     }
@@ -4131,6 +4134,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       player.weaponId = normalized.weaponId ?? "";
       player.toolId = normalized.toolId ?? "";
       player.speedMult = getMountSpeed(normalized.mountId);
+      player.petId = normalized.petId ?? "";
       this.sendProfile(client, player);
       this.sendInventory(client, player.name);
       client.send("inventoryResult", {
@@ -4155,7 +4159,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       item.kind !== "weapon" &&
       item.kind !== "tool" &&
       item.kind !== "armor" &&
-      item.kind !== "mount"
+      item.kind !== "mount" &&
+      item.kind !== "pet"
     ) {
       client.send("inventoryResult", { ok: false, error: "That item cannot be equipped." });
       return;
@@ -4176,6 +4181,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       field = "toolId";
     } else if (item.kind === "mount") {
       field = "mountId";
+    } else if (item.kind === "pet") {
+      field = "petId";
     } else {
       const gear = getGearStat(itemId);
       if (!gear) {
@@ -4210,6 +4217,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     player.weaponId = normalized.weaponId ?? "";
     player.toolId = normalized.toolId ?? "";
     player.speedMult = getMountSpeed(normalized.mountId);
+    player.petId = normalized.petId ?? "";
     this.sendProfile(client, player);
     this.sendInventory(client, player.name);
 

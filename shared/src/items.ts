@@ -1,4 +1,4 @@
-export type ItemKind = "material" | "consumable" | "weapon" | "tool" | "armor" | "mount";
+export type ItemKind = "material" | "consumable" | "weapon" | "tool" | "armor" | "mount" | "pet";
 
 export interface ItemDefinition {
   id: string;
@@ -476,6 +476,32 @@ export const ITEMS: Record<string, ItemDefinition> = {
     stackable: false,
     maxStack: 1,
     kind: "mount",
+  },
+
+  // ---- Pets (cosmetic companions) ----
+  item_pet_cat: {
+    id: "item_pet_cat",
+    name: "Hearth Kitten",
+    description: "A cosy lodge kitten that pads along beside you.",
+    stackable: false,
+    maxStack: 1,
+    kind: "pet",
+  },
+  item_pet_slime: {
+    id: "item_pet_slime",
+    name: "Pet Slime",
+    description: "A friendly slimelet that bounces at your heel.",
+    stackable: false,
+    maxStack: 1,
+    kind: "pet",
+  },
+  item_pet_owl: {
+    id: "item_pet_owl",
+    name: "Spirit Owl",
+    description: "A wise owl companion that drifts above your shoulder.",
+    stackable: false,
+    maxStack: 1,
+    kind: "pet",
   },
 };
 
