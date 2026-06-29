@@ -162,6 +162,7 @@ export function InventoryPanel() {
   const playerMaxStamina = useGameStore((state) => state.playerMaxStamina);
   const open = useGameStore((state) => state.inventoryOpen);
   const setInventoryOpen = useGameStore((state) => state.setInventoryOpen);
+  const setHonorShopOpen = useGameStore((state) => state.setHonorShopOpen);
   const setInventory = useGameStore((state) => state.setInventory);
   const setPlayerVitals = useGameStore((state) => state.setPlayerVitals);
   const playerGold = useGameStore((state) => state.playerGold);
@@ -452,6 +453,19 @@ export function InventoryPanel() {
               <span className="chibi-inv__cur" title="Honor — from PvP wins" style={{ color: "#e0567a" }}>🎖️ {honor.toLocaleString()}</span>
               <span className="chibi-inv__cur" title="Guild Coin — PvP wins while in a guild" style={{ color: "#5aa7e0" }}>🔰 {guildCoin.toLocaleString()}</span>
               <span className="chibi-inv__cur" title="Gems — rare drops from strong foes" style={{ color: "#1f9d8a" }}>💎 {gems.toLocaleString()}</span>
+              <button
+                type="button"
+                className="chibi-btn chibi-btn--gold"
+                style={{ marginLeft: "auto", padding: "3px 9px", fontSize: "0.7rem" }}
+                onClick={() => {
+                  playSfx("ui_open");
+                  setInventoryOpen(false);
+                  setHonorShopOpen(true);
+                }}
+                title="Spend Honor / Guild Coin / Gems at the Quartermaster"
+              >
+                Spend ▸
+              </button>
             </div>
 
             {needsRepair && (

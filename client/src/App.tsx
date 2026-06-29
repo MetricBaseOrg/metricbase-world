@@ -20,6 +20,7 @@ import { TopBar } from "./ui/TopBar";
 import { LoginOverlay } from "./ui/LoginOverlay";
 import { InventoryHotkey } from "./ui/InventoryHotkey";
 import { InventoryPanel } from "./ui/InventoryPanel";
+import { SoftShopPanel } from "./ui/SoftShopPanel";
 import { QuestPanel } from "./ui/QuestPanel";
 import { ErrorBoundary } from "./ui/ErrorBoundary";
 import { ArcadeModal } from "./ui/ArcadeModal";
@@ -309,6 +310,7 @@ export function App() {
       {joined && <QuestPanel />}
       {joined && <InventoryPanel />}
       {joined && <CraftPanel />}
+      {joined && <SoftShopPanel />}
       {joined && <HousingPanel />}
       {joined && <PlayerShopPanel />}
       {joined && <InventoryHotkey />}

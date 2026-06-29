@@ -121,6 +121,8 @@ import {
   GEMS_PER_ELITE,
   GEM_DROP_CHANCE,
   GEM_ELITE_MIN_XP,
+  getSoftOffer,
+  type SoftCurrencyId,
   BLACK_ZONE_BURN_AMOUNT,
   VIP_PASS_GOLD_COST,
   VIP_PASS_BURN_AMOUNT,
@@ -549,6 +551,10 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
     this.onProtectedMessage("dismantle", (client, message: { itemId?: string }) => {
       void this.handleDismantle(client, message.itemId ?? "");
+    });
+
+    this.onProtectedMessage("buySoftItem", (client, message: { offerId?: string }) => {
+      void this.handleBuySoftItem(client, message.offerId ?? "");
     });
 
     this.onProtectedMessage("farmInteract", (client, message: { plotId?: string }) => {
@@ -3586,6 +3592,46 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     });
 
     client.send("craftResult", { ok: true, inventory: buildInventoryPayload(inventory, weaponId) });
+    await this.persistPlayer(player);
+  }
+
+  /** Soft-currency balance map for a currency id. */
+  private softMap(currency: SoftCurrencyId): Map<string, number> {
+    if (currency === "honor") return this.playerHonor;
+    if (currency === "guildCoin") return this.playerGuildCoin;
+    return this.playerGems;
+  }
+
+  /** Spend a soft currency (Honor/Guild Coin/Gems) on a Quartermaster offer. */
+  private async handleBuySoftItem(client: Client, offerId: string) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+
+    const offer = getSoftOffer(offerId);
+    if (!offer) {
+      client.send("softShopResult", { ok: false, error: "That offer is no longer available." });
+      return;
+    }
+
+    const balances = this.softMap(offer.currency);
+    const have = balances.get(player.name) ?? 0;
+    if (have < offer.cost) {
+      client.send("softShopResult", { ok: false, error: "You can't afford that yet." });
+      return;
+    }
+
+    const inventory = this.inventories.get(player.name) ?? [];
+    const projected = addItemToInventory(inventory, offer.itemId, offer.quantity);
+    if (projected.added <= 0) {
+      client.send("softShopResult", { ok: false, error: "Your bag is full." });
+      return;
+    }
+
+    balances.set(player.name, have - offer.cost);
+    this.inventories.set(player.name, projected.inventory);
+    this.sendInventory(client, player.name);
+    this.sendProfile(client, player);
+    client.send("softShopResult", { ok: true });
     await this.persistPlayer(player);
   }
 

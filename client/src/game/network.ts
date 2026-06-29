@@ -170,6 +170,7 @@ export class NetworkManager {
   private enhanceResultListeners = new Set<
     (payload: { ok: boolean; success?: boolean; slot?: string; level?: number; error?: string }) => void
   >();
+  private softShopResultListeners = new Set<(payload: { ok: boolean; error?: string }) => void>();
   private inventoryResultListeners = new Set<InventoryResultListener>();
   private craftResultListeners = new Set<CraftResultListener>();
   private farmStateListeners = new Set<FarmStateListener>();
@@ -456,6 +457,15 @@ export class NetworkManager {
 
   sendDismantle(itemId: string) {
     this.room?.send("dismantle", { itemId });
+  }
+
+  sendBuySoftItem(offerId: string) {
+    this.room?.send("buySoftItem", { offerId });
+  }
+
+  onSoftShopResult(listener: (payload: { ok: boolean; error?: string }) => void) {
+    this.softShopResultListeners.add(listener);
+    return () => this.softShopResultListeners.delete(listener);
   }
 
   sendFarmInteract(plotId: string) {
@@ -1161,6 +1171,9 @@ export class NetworkManager {
         for (const listener of this.enhanceResultListeners) listener(payload);
       },
     );
+    this.room.onMessage("softShopResult", (payload: { ok: boolean; error?: string }) => {
+      for (const listener of this.softShopResultListeners) listener(payload);
+    });
     this.room.onMessage("inventoryResult", (payload: InventoryResultPayload) => {
       if (payload.inventory) {
         this.latestInventory = payload.inventory;

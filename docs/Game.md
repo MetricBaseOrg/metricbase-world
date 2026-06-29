@@ -166,6 +166,9 @@ your equipped weapon**.
 - **Currencies:** alongside **🪙 Gold** you earn **🎖️ Honor** (PvP victories),
   **🔰 Guild Coin** (PvP wins while in a guild), and **💎 Gems** (a rare drop
   from powerful foes). Balances show in the top bar and the Character panel.
+- **Quartermaster:** hit **Spend ▸** in the Character panel to trade those
+  currencies for supplies — Honor buys potions/rations/gemstones, Guild Coin
+  buys bulk crafting stock, and Gems buy premium gear and fast mounts.
 - **Weapon abilities:** each weapon type (sword, dagger, …) grants a 5-slot kit with
   per-ability cooldown, stamina cost, and damage multiplier. Swap weapons to swap
   your hotbar.

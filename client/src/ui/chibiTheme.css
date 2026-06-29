@@ -1918,6 +1918,76 @@ body {
   margin-bottom: 4px;
 }
 
+/* ---- Quartermaster (soft-currency shop) ---- */
+.chibi-softshop {
+  width: min(560px, 96vw);
+  max-height: 88vh;
+  overflow-y: auto;
+}
+
+.chibi-softshop__bal {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  padding: 8px 10px;
+  margin: 4px 0 10px;
+  background: var(--chibi-cream-deep);
+  border: 2px solid var(--chibi-outline-light);
+  border-radius: 12px;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.chibi-softshop__group {
+  margin-bottom: 12px;
+}
+
+.chibi-softshop__grouphead {
+  font-family: var(--chibi-font-display);
+  font-weight: 700;
+  font-size: 0.86rem;
+  margin-bottom: 6px;
+}
+
+.chibi-softshop__grid {
+  display: grid;
+  gap: 6px;
+}
+
+.chibi-softshop__card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border: 2px solid var(--chibi-outline-light);
+  border-radius: 10px;
+  background: var(--chibi-cream-deep);
+}
+
+.chibi-softshop__icon {
+  display: flex;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+}
+
+.chibi-softshop__info {
+  flex: 1;
+  min-width: 0;
+}
+
+.chibi-softshop__name {
+  font-weight: 800;
+  font-size: 0.82rem;
+}
+
+.chibi-softshop__blurb {
+  font-size: 0.7rem;
+  color: var(--chibi-ink-soft);
+}
+
 /* ---- Combat hotbar (SkillBar) ---- */
 .chibi-skillbar {
   position: fixed;
