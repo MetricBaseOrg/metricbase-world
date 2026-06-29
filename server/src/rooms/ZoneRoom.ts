@@ -125,6 +125,7 @@ import {
   type SoftCurrencyId,
   getCasinoTable,
   getCasinoCurrency,
+  isCasinoCurrencyActive,
   CASINO_CURRENCIES,
   toBaseUnits,
   toUiAmount,
@@ -3742,7 +3743,9 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     const wallet = this.playerWallets.get(client.sessionId) ?? null;
     if (!wallet) return void client.send("casinoResult", { ok: false, error: "Connect your wallet first." });
     const table = getCasinoTable(currencyId);
-    if (!table) return void client.send("casinoResult", { ok: false, error: "Unknown table." });
+    if (!table || !isCasinoCurrencyActive(currencyId)) {
+      return void client.send("casinoResult", { ok: false, error: "That table is currently closed." });
+    }
     if (!signature || signature.length < 32) {
       return void client.send("casinoResult", { ok: false, error: "Missing deposit transaction." });
     }
@@ -3833,7 +3836,9 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     const wallet = this.playerWallets.get(client.sessionId) ?? null;
     if (!wallet) return void client.send("casinoResult", { ok: false, error: "Connect your wallet first." });
     const table = getCasinoTable(currencyId);
-    if (!table) return void client.send("casinoResult", { ok: false, error: "Unknown table." });
+    if (!table || !isCasinoCurrencyActive(currencyId)) {
+      return void client.send("casinoResult", { ok: false, error: "That table is currently closed." });
+    }
 
     const existing = this.blackjackHands.get(player.name);
     if (existing && existing.hand.phase === "player") {

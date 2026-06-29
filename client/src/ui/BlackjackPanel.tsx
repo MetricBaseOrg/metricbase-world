@@ -1,5 +1,6 @@
 import {
   CASINO_CURRENCIES,
+  CASINO_ACTIVE_CURRENCY_IDS,
   getCasinoTable,
   formatCasinoAmount,
   handValue,
@@ -30,8 +31,9 @@ export function BlackjackPanel() {
   const setOpen = useGameStore((s) => s.setBlackjackOpen);
   const walletAddress = useGameStore((s) => s.walletAddress);
 
+  const activeCurrencies = CASINO_CURRENCIES.filter((c) => CASINO_ACTIVE_CURRENCY_IDS.includes(c.id as never));
   const [state, setState] = useState<CasinoStatePayload | null>(null);
-  const [currencyId, setCurrencyId] = useState("sol");
+  const [currencyId, setCurrencyId] = useState(activeCurrencies[0]?.id ?? "base");
   const [bet, setBet] = useState(0);
   const [depositAmt, setDepositAmt] = useState("");
   const [withdrawAmt, setWithdrawAmt] = useState("");
@@ -155,7 +157,7 @@ export function BlackjackPanel() {
 
         {/* Currency tabs */}
         <div className="chibi-bj-tabs">
-          {CASINO_CURRENCIES.map((c) => (
+          {activeCurrencies.map((c) => (
             <button
               key={c.id}
               type="button"

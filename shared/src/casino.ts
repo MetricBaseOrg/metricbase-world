@@ -40,6 +40,16 @@ export function getCasinoTable(id: string): CasinoTableConfig | null {
   return CASINO_TABLES[id as CasinoCurrencyId] ?? null;
 }
 
+/**
+ * Currency tables currently open for play. Temporarily BASE-only; add ids back
+ * here (e.g. "sol", "usdc", "idrx") to reopen those tables.
+ */
+export const CASINO_ACTIVE_CURRENCY_IDS: CasinoCurrencyId[] = ["base"];
+
+export function isCasinoCurrencyActive(id: string): boolean {
+  return CASINO_ACTIVE_CURRENCY_IDS.includes(id as CasinoCurrencyId);
+}
+
 // ---- units <-> base-units conversion (no floats in money math) ----
 
 /** Convert a UI amount to the currency's smallest integer units. */
