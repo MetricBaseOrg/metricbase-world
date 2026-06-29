@@ -1988,6 +1988,123 @@ body {
   color: var(--chibi-ink-soft);
 }
 
+/* ---- Mail ---- */
+.chibi-mail {
+  width: min(460px, 96vw);
+  max-height: 88vh;
+  overflow-y: auto;
+}
+
+.chibi-mail__tabs {
+  display: flex;
+  gap: 4px;
+}
+
+.chibi-mail-chip {
+  position: relative;
+}
+
+.chibi-mail-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 9px;
+  background: var(--chibi-danger);
+  color: #fff;
+  font-size: 0.62rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.chibi-mail__list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.chibi-mail__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 2px solid var(--chibi-outline-light);
+  border-radius: 10px;
+  background: var(--chibi-cream-deep);
+  cursor: pointer;
+  text-align: left;
+}
+
+.chibi-mail__row.unread {
+  border-color: var(--chibi-gold);
+  background: var(--chibi-cream);
+}
+
+.chibi-mail__dot {
+  color: var(--chibi-gold-deep);
+  font-size: 0.7rem;
+  width: 10px;
+}
+
+.chibi-mail__rowmain {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.chibi-mail__rowsubject {
+  font-weight: 700;
+  font-size: 0.82rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chibi-mail__rowfrom {
+  font-size: 0.68rem;
+  color: var(--chibi-ink-soft);
+}
+
+.chibi-mail__rowgold {
+  font-size: 0.9rem;
+}
+
+.chibi-mail__read,
+.chibi-mail__compose {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.chibi-mail__subject {
+  font-family: var(--chibi-font-display);
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.chibi-mail__text {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 0.84rem;
+  line-height: 1.4;
+  padding: 8px 10px;
+  background: var(--chibi-cream-deep);
+  border-radius: 10px;
+  border: 2px solid var(--chibi-outline-light);
+  min-height: 60px;
+}
+
+.chibi-mail__compose textarea.chibi-input {
+  resize: vertical;
+  font-family: inherit;
+}
+
 /* ---- World map ---- */
 .chibi-map {
   width: min(560px, 96vw);

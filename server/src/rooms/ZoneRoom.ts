@@ -132,6 +132,8 @@ import {
   type CasinoCurrencyId,
   type CasinoStatePayload,
   type BlackjackState,
+  MAIL_SEND_COST,
+  validateMail,
   BLACK_ZONE_BURN_AMOUNT,
   VIP_PASS_GOLD_COST,
   VIP_PASS_BURN_AMOUNT,
@@ -210,6 +212,15 @@ import {
   creditDepositOnce,
   recordWithdrawal,
 } from "../db/casino.js";
+import {
+  characterExists,
+  insertMail,
+  getInbox,
+  countUnread,
+  markMailRead,
+  claimMailGold,
+  deleteMail,
+} from "../db/mail.js";
 import {
   startHand,
   playerHit,
@@ -600,6 +611,25 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     });
     this.onProtectedMessage("blackjackAction", (client, message: { action?: string }) => {
       void this.handleBlackjackAction(client, message.action ?? "");
+    });
+
+    this.onProtectedMessage("mailFetch", (client) => {
+      void this.sendMailState(client);
+    });
+    this.onProtectedMessage(
+      "mailSend",
+      (client, message: { to?: string; subject?: string; body?: string; gold?: number }) => {
+        void this.handleMailSend(client, message.to ?? "", message.subject ?? "", message.body ?? "", Number(message.gold) || 0);
+      },
+    );
+    this.onProtectedMessage("mailRead", (client, message: { id?: number }) => {
+      void this.handleMailRead(client, Number(message.id) || 0);
+    });
+    this.onProtectedMessage("mailClaim", (client, message: { id?: number }) => {
+      void this.handleMailClaim(client, Number(message.id) || 0);
+    });
+    this.onProtectedMessage("mailDelete", (client, message: { id?: number }) => {
+      void this.handleMailDelete(client, Number(message.id) || 0);
     });
 
     this.onProtectedMessage("farmInteract", (client, message: { plotId?: string }) => {
@@ -3895,6 +3925,81 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       return void client.send("casinoResult", { ok: false, error: "Unknown action." });
     }
     client.send("casinoResult", { ok: true, state: await this.buildCasinoState(wallet, player.name) });
+  }
+
+  // ---- Mail ----
+
+  private async sendMailState(client: Client, playerName?: string) {
+    const name = playerName ?? this.state.players.get(client.sessionId)?.name;
+    if (!name) return;
+    const [messages, unread] = await Promise.all([getInbox(name), countUnread(name)]);
+    client.send("mailState", { messages, unread });
+  }
+
+  private async handleMailSend(client: Client, to: string, subject: string, body: string, gold: number) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const recipient = to.trim();
+    const cleanSubject = subject.trim().slice(0, 120);
+    const cleanBody = body.slice(0, 500);
+
+    const invalid = validateMail(recipient, cleanSubject, cleanBody, gold);
+    if (invalid) return void client.send("mailResult", { ok: false, error: invalid });
+    if (recipient.toLowerCase() === player.name.toLowerCase()) {
+      return void client.send("mailResult", { ok: false, error: "You can't mail yourself." });
+    }
+    if (!(await characterExists(recipient))) {
+      return void client.send("mailResult", { ok: false, error: "No adventurer by that name." });
+    }
+
+    const cost = MAIL_SEND_COST + gold;
+    const balance = this.playerGold.get(player.name) ?? STARTING_GOLD;
+    if (balance < cost) {
+      return void client.send("mailResult", {
+        ok: false,
+        error: `You need ${cost} gold (${MAIL_SEND_COST} postage + ${gold} attached).`,
+      });
+    }
+
+    this.playerGold.set(player.name, balance - cost);
+    await insertMail(player.name, recipient, cleanSubject, cleanBody, gold);
+    this.sendProfile(client, player);
+    client.send("mailResult", { ok: true });
+    await this.persistPlayer(player);
+
+    // Nudge the recipient if they're online so their inbox badge updates.
+    const recipientClient = this.clientForName(recipient);
+    if (recipientClient) {
+      void this.sendMailState(recipientClient, recipient);
+      recipientClient.send("chat", this.systemChat("Mail", `📬 New mail from ${player.name}.`));
+    }
+  }
+
+  private async handleMailRead(client: Client, id: number) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !id) return;
+    await markMailRead(id, player.name);
+    await this.sendMailState(client, player.name);
+  }
+
+  private async handleMailClaim(client: Client, id: number) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !id) return;
+    const gold = await claimMailGold(id, player.name);
+    if (gold > 0) {
+      this.playerGold.set(player.name, (this.playerGold.get(player.name) ?? STARTING_GOLD) + gold);
+      this.sendProfile(client, player);
+      client.send("chat", this.systemChat("Mail", `You claimed ${gold} gold.`));
+      await this.persistPlayer(player);
+    }
+    await this.sendMailState(client, player.name);
+  }
+
+  private async handleMailDelete(client: Client, id: number) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !id) return;
+    await deleteMail(id, player.name);
+    await this.sendMailState(client, player.name);
   }
 
   private async completeCraft(client: Client, playerName: string, recipeId: string) {

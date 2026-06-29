@@ -58,6 +58,20 @@ CREATE TABLE IF NOT EXISTS casino_ledger (
 );
 CREATE INDEX IF NOT EXISTS casino_ledger_wallet_idx ON casino_ledger (wallet_address);
 
+-- Player-to-player mail with optional gold attachment.
+CREATE TABLE IF NOT EXISTS mail (
+  id BIGSERIAL PRIMARY KEY,
+  recipient VARCHAR(64) NOT NULL,
+  sender VARCHAR(64) NOT NULL,
+  subject VARCHAR(120) NOT NULL,
+  body TEXT NOT NULL DEFAULT '',
+  gold INTEGER NOT NULL DEFAULT 0,
+  claimed BOOLEAN NOT NULL DEFAULT false,
+  read BOOLEAN NOT NULL DEFAULT false,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS mail_recipient_idx ON mail (recipient, created_at DESC);
+
 CREATE TABLE IF NOT EXISTS token_purchases (
   signature VARCHAR(88) PRIMARY KEY,
   wallet VARCHAR(44) NOT NULL,

@@ -20,6 +20,7 @@ import {
   type DuelEndPayload,
   type CasinoStatePayload,
   type CasinoActionResult,
+  type MailStatePayload,
   CraftResultPayload,
   FarmStatePayload,
   FarmResultPayload,
@@ -176,6 +177,8 @@ export class NetworkManager {
   private casinoStateListeners = new Set<(payload: CasinoStatePayload) => void>();
   private casinoResultListeners = new Set<(payload: CasinoActionResult) => void>();
   private openBlackjackListeners = new Set<(payload: { name: string }) => void>();
+  private mailStateListeners = new Set<(payload: MailStatePayload) => void>();
+  private mailResultListeners = new Set<(payload: { ok: boolean; error?: string }) => void>();
   private inventoryResultListeners = new Set<InventoryResultListener>();
   private craftResultListeners = new Set<CraftResultListener>();
   private farmStateListeners = new Set<FarmStateListener>();
@@ -501,6 +504,36 @@ export class NetworkManager {
   onOpenBlackjack(listener: (payload: { name: string }) => void) {
     this.openBlackjackListeners.add(listener);
     return () => this.openBlackjackListeners.delete(listener);
+  }
+
+  requestMailState() {
+    this.room?.send("mailFetch", {});
+  }
+
+  sendMail(to: string, subject: string, body: string, gold: number) {
+    this.room?.send("mailSend", { to, subject, body, gold });
+  }
+
+  mailRead(id: number) {
+    this.room?.send("mailRead", { id });
+  }
+
+  mailClaim(id: number) {
+    this.room?.send("mailClaim", { id });
+  }
+
+  mailDelete(id: number) {
+    this.room?.send("mailDelete", { id });
+  }
+
+  onMailState(listener: (payload: MailStatePayload) => void) {
+    this.mailStateListeners.add(listener);
+    return () => this.mailStateListeners.delete(listener);
+  }
+
+  onMailResult(listener: (payload: { ok: boolean; error?: string }) => void) {
+    this.mailResultListeners.add(listener);
+    return () => this.mailResultListeners.delete(listener);
   }
 
   onSoftShopResult(listener: (payload: { ok: boolean; error?: string }) => void) {
@@ -1222,6 +1255,12 @@ export class NetworkManager {
     });
     this.room.onMessage("openBlackjack", (payload: { name: string }) => {
       for (const listener of this.openBlackjackListeners) listener(payload);
+    });
+    this.room.onMessage("mailState", (payload: MailStatePayload) => {
+      for (const listener of this.mailStateListeners) listener(payload);
+    });
+    this.room.onMessage("mailResult", (payload: { ok: boolean; error?: string }) => {
+      for (const listener of this.mailResultListeners) listener(payload);
     });
     this.room.onMessage("inventoryResult", (payload: InventoryResultPayload) => {
       if (payload.inventory) {

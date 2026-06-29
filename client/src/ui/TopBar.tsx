@@ -38,6 +38,7 @@ export function TopBar({ onLeave }: TopBarProps) {
     playerGold,
     honor,
     gems,
+    mailUnread,
     playerHp,
     playerMaxHp,
     playerStamina,
@@ -136,6 +137,17 @@ export function TopBar({ onLeave }: TopBarProps) {
             }}
           >
             🗺️ {zoneName}
+          </button>
+          <button
+            type="button"
+            className="chibi-currency-chip chibi-currency-chip--btn chibi-mail-chip"
+            title="Open mailbox"
+            onClick={() => {
+              playSfx("ui_open");
+              useGameStore.getState().setMailOpen(true);
+            }}
+          >
+            📬{mailUnread > 0 && <span className="chibi-mail-badge">{mailUnread}</span>}
           </button>
           <DayNightClock />
         </div>
