@@ -173,5 +173,10 @@ export interface CasinoActionResult {
 
 /** Blackjack pays 3:2. */
 export const BLACKJACK_PAYOUT = 1.5;
+/**
+ * Most a single hand can return to the player (a doubled-down win returns 4×
+ * the base bet). Used to guard that the house can always cover a hand.
+ */
+export const MAX_HAND_RETURN_MULT = 4;
 /** Dealer stands on all 17s (including soft 17). */
 export const DEALER_STANDS_ON = 17;

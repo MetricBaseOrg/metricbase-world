@@ -6,6 +6,7 @@
 import {
   Connection,
   Keypair,
+  LAMPORTS_PER_SOL,
   PublicKey,
   SystemProgram,
   Transaction,
@@ -65,6 +66,50 @@ export interface PayoutResult {
   ok: boolean;
   signature?: string;
   error?: string;
+}
+
+const balanceCache = new Map<string, { ui: number; at: number }>();
+const BALANCE_TTL_MS = 20_000;
+
+/**
+ * The house wallet's current on-chain balance of a currency (UI units), cached
+ * briefly. Returns null on RPC failure so callers can fail-open. Used to make
+ * sure the house can always cover a hand before accepting a bet.
+ */
+export async function getHouseBalanceUi(
+  houseWallet: string,
+  currencyId: string,
+  mintOverride?: string | null,
+): Promise<number | null> {
+  const key = `${houseWallet}:${currencyId}`;
+  const cached = balanceCache.get(key);
+  if (cached && Date.now() - cached.at < BALANCE_TTL_MS) return cached.ui;
+
+  try {
+    const connection = new Connection(getRpcUrl(), "confirmed");
+    const owner = new PublicKey(houseWallet);
+    const currency = getCurrency(currencyId);
+    let ui: number;
+
+    if (currency.native) {
+      ui = (await connection.getBalance(owner)) / LAMPORTS_PER_SOL;
+    } else {
+      const mintStr = mintOverride ?? currency.mint;
+      if (!mintStr) return null;
+      const mint = new PublicKey(mintStr);
+      let programId = TOKEN_PROGRAM_ID;
+      const mintAccount = await connection.getAccountInfo(mint);
+      if (mintAccount?.owner.equals(TOKEN_2022_PROGRAM_ID)) programId = TOKEN_2022_PROGRAM_ID;
+      const ata = await getAssociatedTokenAddress(mint, owner, false, programId);
+      const bal = await connection.getTokenAccountBalance(ata);
+      ui = bal.value.uiAmount ?? 0;
+    }
+    balanceCache.set(key, { ui, at: Date.now() });
+    return ui;
+  } catch (error) {
+    console.error("[casino] house balance read failed:", error);
+    return null;
+  }
 }
 
 /**

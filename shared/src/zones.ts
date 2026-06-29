@@ -74,6 +74,8 @@ export interface SceneryNode {
   interact?: "arcade" | "blackjack";
   /** Arcade URL for interact === "arcade". */
   arcadeUrl?: string;
+  /** Blocks movement on its tile (big furniture); decorative props don't. */
+  solid?: boolean;
 }
 
 /** PvP danger tier of a zone. Drives PvP rules, death penalties, and UI tint. */
@@ -626,6 +628,16 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
       { id: "wild_bench", tileX: 7, tileY: 5, prop: "bench" },
       { id: "wild_hedge_1", tileX: 10, tileY: 18, prop: "hedge" },
       { id: "wild_hedge_2", tileX: 10, tileY: 17, prop: "hedge" },
+      // Corner greenery + a few camp touches to fill the frontier out.
+      { id: "wild_plant_nw", tileX: 3, tileY: 3, prop: "plant" },
+      { id: "wild_plant_ne", tileX: 20, tileY: 3, prop: "plant" },
+      { id: "wild_plant_sw", tileX: 3, tileY: 20, prop: "plant" },
+      { id: "wild_plant_se", tileX: 20, tileY: 20, prop: "plant" },
+      { id: "wild_crate_1", tileX: 6, tileY: 18, prop: "crate" },
+      { id: "wild_crate_2", tileX: 18, tileY: 5, prop: "crate" },
+      { id: "wild_hedge_3", tileX: 14, tileY: 17, prop: "hedge" },
+      { id: "wild_hedge_4", tileX: 15, tileY: 17, prop: "hedge" },
+      { id: "wild_bench_2", tileX: 18, tileY: 18, prop: "bench" },
     ],
     capturePoints: [{ id: "wild_point", name: "Frontier Outpost", tileX: 16, tileY: 8 }],
   },
@@ -818,6 +830,14 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
       { id: "grotto_lamp_1", tileX: 6, tileY: 8, prop: "lamppost" },
       { id: "grotto_lamp_2", tileX: 14, tileY: 10, prop: "lamppost" },
       { id: "grotto_lamp_3", tileX: 17, tileY: 13, prop: "lamppost" },
+      // Cavern dressing: crates of ore, mossy plants, and a few lanterns.
+      { id: "grotto_crate_1", tileX: 9, tileY: 4, prop: "crate" },
+      { id: "grotto_crate_2", tileX: 18, tileY: 5, prop: "crate" },
+      { id: "grotto_plant_1", tileX: 3, tileY: 18, prop: "plant" },
+      { id: "grotto_plant_2", tileX: 10, tileY: 17, prop: "plant" },
+      { id: "grotto_plant_3", tileX: 20, tileY: 7, prop: "plant" },
+      { id: "grotto_lantern_1", tileX: 10, tileY: 5, prop: "lantern" },
+      { id: "grotto_lantern_2", tileX: 13, tileY: 15, prop: "lantern" },
     ],
     capturePoints: [{ id: "grotto_point", name: "Grotto Heart", tileX: 12, tileY: 10 }],
   },
@@ -985,6 +1005,13 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
       { id: "black_lamp_1", tileX: 6, tileY: 6, prop: "lamppost" },
       { id: "black_lamp_2", tileX: 17, tileY: 17, prop: "lamppost" },
       { id: "black_sign", tileX: 3, tileY: 14, prop: "signpost" },
+      // Eerie braziers + scorched debris around the obsidian arena.
+      { id: "black_lantern_1", tileX: 9, tileY: 5, prop: "lantern" },
+      { id: "black_lantern_2", tileX: 15, tileY: 5, prop: "lantern" },
+      { id: "black_lantern_3", tileX: 9, tileY: 18, prop: "lantern" },
+      { id: "black_lantern_4", tileX: 15, tileY: 18, prop: "lantern" },
+      { id: "black_crate_1", tileX: 5, tileY: 18, prop: "crate" },
+      { id: "black_crate_2", tileX: 18, tileY: 6, prop: "crate" },
     ],
     capturePoints: [
       { id: "black_point_n", name: "Obsidian Throne", tileX: 12, tileY: 8 },
@@ -1028,11 +1055,11 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
       { id: "lodge_plant_sw", tileX: 4, tileY: 18, prop: "plant" },
       { id: "lodge_plant_se", tileX: 19, tileY: 18, prop: "plant" },
       // The Blackjack table (NW) with two chairs — walk up + interact to play.
-      { id: "lodge_blackjack", tileX: 7, tileY: 9, prop: "blackjack", interact: "blackjack" },
+      { id: "lodge_blackjack", tileX: 7, tileY: 9, prop: "blackjack", interact: "blackjack", solid: true },
       { id: "lodge_bj_chair_l", tileX: 6, tileY: 10, prop: "chair" },
       { id: "lodge_bj_chair_r", tileX: 8, tileY: 10, prop: "chair" },
       // The Arcade cabinet (NE) — walk up + interact to play Base Rush.
-      { id: "lodge_arcade", tileX: 16, tileY: 9, prop: "arcade", interact: "arcade", arcadeUrl: BASE_RUSH_URL },
+      { id: "lodge_arcade", tileX: 16, tileY: 9, prop: "arcade", interact: "arcade", arcadeUrl: BASE_RUSH_URL, solid: true },
       { id: "lodge_arcade_plant", tileX: 17, tileY: 10, prop: "plant" },
       // West + east storage crates.
       { id: "lodge_crate_w", tileX: 5, tileY: 14, prop: "crate" },

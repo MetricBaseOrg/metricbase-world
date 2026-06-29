@@ -36,6 +36,15 @@ function getCollisionGrid(zoneId: string): number[][] {
     if (getPlotOwner(plot.id)) stampPlot(map, plot);
   }
 
+  // Solid scenery (big furniture like the arcade cabinet / blackjack table)
+  // blocks its own tile. Only the collision grid is stamped — the client builds
+  // its own ground map for rendering, so the floor still shows beneath the prop.
+  for (const node of getZoneConfig(zoneId).scenery ?? []) {
+    if (node.solid && node.tileY >= 0 && node.tileY < MAP_HEIGHT && node.tileX >= 0 && node.tileX < MAP_WIDTH) {
+      map[node.tileY][node.tileX] = TILE_WALL;
+    }
+  }
+
   collisionCache.set(zoneId, map);
   return map;
 }

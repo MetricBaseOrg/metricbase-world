@@ -127,6 +127,7 @@ import {
   getCasinoCurrency,
   isCasinoCurrencyActive,
   CASINO_CURRENCIES,
+  MAX_HAND_RETURN_MULT,
   toBaseUnits,
   toUiAmount,
   type CasinoCurrencyId,
@@ -205,7 +206,7 @@ import { getLeaderboard } from "../db/leaderboard.js";
 import { verifyPeerSolTransfer } from "../solana/verifyPeerSolTransfer.js";
 import { verifyPeerTokenTransfer } from "../solana/verifyPeerTokenTransfer.js";
 import { getTreasuryWallet } from "../solana/verifyTokenTransfer.js";
-import { getHouseWalletAddress, isWithdrawEnabled, sendPayout } from "../solana/housePayout.js";
+import { getHouseWalletAddress, getHouseBalanceUi, isWithdrawEnabled, sendPayout } from "../solana/housePayout.js";
 import {
   getCasinoBalances,
   adjustCasinoBalance,
@@ -3897,6 +3898,18 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     }
     const betUnits = toBaseUnits(betUi, currencyId);
     if (betUnits <= 0) return void client.send("casinoResult", { ok: false, error: "Bet is too small." });
+
+    // House-risk guard: never accept a bet the house couldn't pay out in full.
+    const houseAddr = this.casinoHouseAddress();
+    if (houseAddr) {
+      const houseBal = await getHouseBalanceUi(houseAddr, currencyId, this.resolveCasinoMint(currencyId));
+      if (houseBal !== null && betUi * MAX_HAND_RETURN_MULT > houseBal) {
+        return void client.send("casinoResult", {
+          ok: false,
+          error: "Table limit reached — the house can't cover that bet right now. Try a smaller bet.",
+        });
+      }
+    }
 
     const debit = await adjustCasinoBalance(wallet, currencyId, -betUnits);
     if (!debit.ok) {
