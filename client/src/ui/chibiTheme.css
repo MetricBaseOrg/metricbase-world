@@ -2219,6 +2219,13 @@ body {
   min-width: 0;
 }
 
+.chibi-bj-cashier__row .chibi-btn {
+  flex: 0 0 96px;
+  width: 96px;
+  text-align: center;
+  justify-content: center;
+}
+
 .chibi-bj-table {
   border: 2px solid var(--chibi-outline);
   border-radius: 14px;
