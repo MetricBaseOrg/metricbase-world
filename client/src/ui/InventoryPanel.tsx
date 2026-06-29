@@ -61,17 +61,70 @@ const DOLL_SLOTS: EquipmentSlot[] = [
 ];
 
 const ITEM_ICONS: Record<string, string> = {
+  // Consumables / food
   item_health_potion: "🧪",
   item_bread: "🍞",
-  item_cooked_fish: "🐟",
+  item_cooked_fish: "🍤",
   item_grilled_salmon: "🍣",
+  item_lamp_oil: "🛢️",
+  // Raw resources
+  item_wood: "🪵",
+  item_hardwood: "🌳",
+  item_ore: "🪨",
+  item_iron_ore: "⛰️",
+  item_fish: "🐟",
+  item_salmon: "🐠",
+  item_wheat: "🌾",
+  item_wheat_seed: "🌱",
+  item_slime_gel: "🫧",
+  item_slime_core: "💠",
+  item_training_scrap: "🔩",
+  // Refined materials
+  item_plank: "🟫",
+  item_hardwood_plank: "🟤",
+  item_copper_bar: "🟧",
+  item_iron_bar: "⬜",
+  item_steel_bar: "⚙️",
+  item_amber: "🟠",
+  item_gemstone: "💎",
+  item_pearl: "⚪",
+  item_harvest_net: "🕸️",
+  // Weapons
+  item_rusty_blade: "⚔️",
+  item_gel_knife: "🔪",
+  item_copper_dagger: "🗡️",
+  item_gem_blade: "🔱",
+  // Tools
+  item_copper_axe: "🪓",
+  item_iron_axe: "🪓",
+  item_steel_axe: "🪓",
+  item_copper_pickaxe: "⛏️",
+  item_iron_pickaxe: "⛏️",
+  item_steel_pickaxe: "⛏️",
+  item_fishing_rod: "🎣",
+  item_pro_rod: "🎣",
+  // Mounts
   item_pony: "🐴",
   item_steed: "🐎",
   item_dire_wolf: "🐺",
 };
 
+/** Icon per gear slot kind (covers all armour + accessories). */
+const GEAR_KIND_ICONS: Record<string, string> = {
+  helmet: "⛑️",
+  chest: "🦺",
+  gloves: "🧤",
+  boots: "🥾",
+  ring: "💍",
+  necklace: "📿",
+  cape: "🧣",
+  offhand: "🛡️",
+};
+
 function itemIcon(itemId: string, kind: ItemKind): string {
   if (ITEM_ICONS[itemId]) return ITEM_ICONS[itemId];
+  const gear = getGearStat(itemId);
+  if (gear && GEAR_KIND_ICONS[gear.slot]) return GEAR_KIND_ICONS[gear.slot];
   switch (kind) {
     case "weapon":
       return "⚔️";
@@ -450,6 +503,7 @@ export function InventoryPanel() {
                       onClick={() => onTileClick(entry.itemId)}
                     >
                       <span className="chibi-itile__icon">{itemIcon(entry.itemId, item.kind)}</span>
+                      <span className="chibi-itile__name">{item.name}</span>
                       {entry.quantity > 1 && <span className="chibi-itile__qty">{entry.quantity}</span>}
                       {isEquipped && <span className="chibi-itile__eq">✓</span>}
                     </button>
