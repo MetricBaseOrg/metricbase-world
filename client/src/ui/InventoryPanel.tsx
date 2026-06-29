@@ -14,6 +14,8 @@ import { playSfx } from "../audio/soundEffects";
 import { networkManager } from "../game/network";
 import { useGameStore } from "../store/gameStore";
 import { PortraitCanvas } from "./PortraitCanvas";
+import { ItemIcon } from "./ItemIcon";
+import { hasItemIcon } from "./itemIcons";
 
 const SLOT_LABELS: Record<EquipmentSlot, string> = {
   weapon: "Weapon",
@@ -357,7 +359,13 @@ export function InventoryPanel() {
                     disabled={pending || !eq}
                     onClick={() => setSelectedSlot((cur) => (cur === slot ? null : slot))}
                   >
-                    <span className="chibi-slot__icon">{SLOT_ICONS[slot]}</span>
+                    <span className="chibi-slot__icon">
+                      {eq && hasItemIcon(eq.itemId) ? (
+                        <ItemIcon itemId={eq.itemId} size={30} />
+                      ) : (
+                        SLOT_ICONS[slot]
+                      )}
+                    </span>
                     <span className="chibi-slot__label">{SLOT_LABELS[slot]}</span>
                     {enh > 0 && <span className="chibi-slot__enh">+{enh}</span>}
                     {durPct !== null && (
@@ -502,7 +510,13 @@ export function InventoryPanel() {
                       disabled={pending}
                       onClick={() => onTileClick(entry.itemId)}
                     >
-                      <span className="chibi-itile__icon">{itemIcon(entry.itemId, item.kind)}</span>
+                      <span className="chibi-itile__icon">
+                        {hasItemIcon(entry.itemId) ? (
+                          <ItemIcon itemId={entry.itemId} size={34} />
+                        ) : (
+                          itemIcon(entry.itemId, item.kind)
+                        )}
+                      </span>
                       <span className="chibi-itile__name">{item.name}</span>
                       {entry.quantity > 1 && <span className="chibi-itile__qty">{entry.quantity}</span>}
                       {isEquipped && <span className="chibi-itile__eq">✓</span>}

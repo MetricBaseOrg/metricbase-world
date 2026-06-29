@@ -17,6 +17,7 @@ import { useEffect, useMemo, useState } from "react";
 import { playSfx } from "../audio/soundEffects";
 import { networkManager } from "../game/network";
 import { useGameStore } from "../store/gameStore";
+import { ItemIcon } from "./ItemIcon";
 
 type Tab = "craft" | "refine" | "enhance" | "dismantle";
 
@@ -190,7 +191,12 @@ export function CraftPanel() {
           className={`chibi-craft__row${selected === recipe.id ? " selected" : ""}`}
           onClick={() => setSelected(recipe.id)}
         >
-          <span style={{ color: gear ? RARITY_COLORS[gear.rarity] : undefined, fontWeight: 700 }}>{out.name}</span>
+          <span className="chibi-craft__rowmain">
+            <span className="chibi-craft__rowicon">
+              <ItemIcon itemId={recipe.output.itemId} size={26} />
+            </span>
+            <span style={{ color: gear ? RARITY_COLORS[gear.rarity] : undefined, fontWeight: 700 }}>{out.name}</span>
+          </span>
           <span className={canCraft ? "chibi-craft__ok" : "chibi-craft__no"}>{canCraft ? "●" : "○"}</span>
         </button>
       );
@@ -206,9 +212,14 @@ export function CraftPanel() {
       const hasMats = recipe.inputs.every((i) => getItemQuantity(inventory.items, i.itemId) >= i.quantity);
       return (
         <>
-          <div className="chibi-craft__dtitle">
-            {out.name}
-            {recipe.output.quantity > 1 ? ` ×${recipe.output.quantity}` : ""}
+          <div className="chibi-craft__dhead">
+            <span className="chibi-craft__dicon">
+              <ItemIcon itemId={recipe.output.itemId} size={48} />
+            </span>
+            <div className="chibi-craft__dtitle">
+              {out.name}
+              {recipe.output.quantity > 1 ? ` ×${recipe.output.quantity}` : ""}
+            </div>
           </div>
           <div className="chibi-text-muted" style={{ fontSize: "0.76rem", marginBottom: 8 }}>{out.description}</div>
           <div className="chibi-craft__sub">Materials</div>
@@ -251,8 +262,13 @@ export function CraftPanel() {
       const name = getItemDefinition(eq.itemId).name;
       return (
         <>
-          <div className="chibi-craft__dtitle">
-            {name} {level > 0 && <span style={{ color: "var(--chibi-gold-deep)" }}>+{level}</span>}
+          <div className="chibi-craft__dhead">
+            <span className="chibi-craft__dicon">
+              <ItemIcon itemId={eq.itemId} size={48} />
+            </span>
+            <div className="chibi-craft__dtitle">
+              {name} {level > 0 && <span style={{ color: "var(--chibi-gold-deep)" }}>+{level}</span>}
+            </div>
           </div>
           {atMax ? (
             <div className="chibi-stat-pill" style={{ marginBottom: 10 }}>Already at max +{MAX_ENHANCE_LEVEL}</div>
@@ -286,7 +302,12 @@ export function CraftPanel() {
     const name = getItemDefinition(itemId).name;
     return (
       <>
-        <div className="chibi-craft__dtitle">{name}</div>
+        <div className="chibi-craft__dhead">
+          <span className="chibi-craft__dicon">
+            <ItemIcon itemId={itemId} size={48} />
+          </span>
+          <div className="chibi-craft__dtitle">{name}</div>
+        </div>
         <div className="chibi-text-muted" style={{ fontSize: "0.76rem", marginBottom: 8 }}>
           Breaks down 1× {name} and returns roughly half its materials.
         </div>
@@ -373,9 +394,14 @@ export function CraftPanel() {
                     className={`chibi-craft__row${selected === s.slot ? " selected" : ""}`}
                     onClick={() => setSelected(s.slot)}
                   >
-                    <span style={{ fontWeight: 700 }}>
-                      {getItemDefinition(s.itemId).name}
-                      {(s.enhance ?? 0) > 0 && <span style={{ color: "var(--chibi-gold-deep)" }}> +{s.enhance}</span>}
+                    <span className="chibi-craft__rowmain">
+                      <span className="chibi-craft__rowicon">
+                        <ItemIcon itemId={s.itemId} size={26} />
+                      </span>
+                      <span style={{ fontWeight: 700 }}>
+                        {getItemDefinition(s.itemId).name}
+                        {(s.enhance ?? 0) > 0 && <span style={{ color: "var(--chibi-gold-deep)" }}> +{s.enhance}</span>}
+                      </span>
                     </span>
                     <span className="chibi-text-muted" style={{ fontSize: "0.64rem" }}>{SLOT_LABELS[s.slot]}</span>
                   </button>
@@ -396,8 +422,13 @@ export function CraftPanel() {
                       className={`chibi-craft__row${selected === entry.itemId ? " selected" : ""}`}
                       onClick={() => setSelected(entry.itemId)}
                     >
-                      <span style={{ color: gear ? RARITY_COLORS[gear.rarity] : undefined, fontWeight: 700 }}>
-                        {getItemDefinition(entry.itemId).name}
+                      <span className="chibi-craft__rowmain">
+                        <span className="chibi-craft__rowicon">
+                          <ItemIcon itemId={entry.itemId} size={26} />
+                        </span>
+                        <span style={{ color: gear ? RARITY_COLORS[gear.rarity] : undefined, fontWeight: 700 }}>
+                          {getItemDefinition(entry.itemId).name}
+                        </span>
                       </span>
                       <span className="chibi-text-muted" style={{ fontSize: "0.64rem" }}>×{entry.quantity}</span>
                     </button>
