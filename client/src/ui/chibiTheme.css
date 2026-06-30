@@ -2744,8 +2744,13 @@ a.chibi-btn {
   .chibi-zone-chip {
     top: calc(var(--chibi-rail-top) + 170px);
   }
+  /* Left-anchored under the card so it's always visible in PvP zones, clear of
+     the centered zone chip, the top-right rail, and the entry banner. */
   .chibi-pvp-flag {
-    top: calc(var(--chibi-rail-top) + 208px);
+    left: max(12px, var(--chibi-safe-left));
+    transform: none;
+    top: calc(var(--chibi-rail-top) + 168px);
+    z-index: 41;
   }
 }
 
