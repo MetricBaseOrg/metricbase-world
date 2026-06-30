@@ -3,6 +3,7 @@ import {
   AD_MIN_CPM,
   AD_MIN_DEPOSIT,
   AD_PLAYER_SHARE,
+  AD_REQUIRED_INVITES,
   type AdCampaign,
   type AdProgramPayload,
   type BrandDashboardPayload,
@@ -152,13 +153,27 @@ export function AdsPanel() {
         {tab === "earn" && (
           <div className="chibi-ads__body">
             <p className="chibi-text-muted" style={{ fontSize: "0.82rem" }}>
-              Join the Ad Program and earn <strong>{Math.round(AD_PLAYER_SHARE * 100)}%</strong> of the ad revenue from
-              impressions you generate just by playing. Earnings pay out in $BASE.
+              Earn <strong>{Math.round(AD_PLAYER_SHARE * 100)}%</strong> of the ad revenue from impressions you generate
+              just by playing. Earnings pay out in $BASE. To qualify you must invite <strong>{AD_REQUIRED_INVITES} friends</strong>, then apply.
             </p>
             {!program?.member ? (
-              <button type="button" className="chibi-btn chibi-btn--primary" disabled={busy || !walletAddress} onClick={() => { setBusy(true); networkManager.sendAdJoin(); }}>
-                {walletAddress ? "Join the Ad Program" : "Connect a wallet to join"}
-              </button>
+              <>
+                <div className="chibi-ads__balance">
+                  Invited friends: <strong>{program?.invitedCount ?? 0} / {AD_REQUIRED_INVITES}</strong>
+                </div>
+                <button
+                  type="button"
+                  className="chibi-btn chibi-btn--primary"
+                  disabled={busy || !walletAddress || (program?.invitedCount ?? 0) < AD_REQUIRED_INVITES}
+                  onClick={() => { setBusy(true); networkManager.sendAdJoin(); }}
+                >
+                  {!walletAddress
+                    ? "Connect a wallet to apply"
+                    : (program?.invitedCount ?? 0) < AD_REQUIRED_INVITES
+                      ? `Invite ${AD_REQUIRED_INVITES - (program?.invitedCount ?? 0)} more friend(s) to apply`
+                      : "Apply to the Ad Program"}
+                </button>
+              </>
             ) : (
               <>
                 <div className="chibi-ads__stats">

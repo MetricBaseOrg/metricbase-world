@@ -139,6 +139,7 @@ import {
   AD_SLOTS,
   AD_MIN_DEPOSIT,
   AD_IMPRESSION_INTERVAL_MS,
+  AD_REQUIRED_INVITES,
   validateCampaign,
   BLACK_ZONE_BURN_AMOUNT,
   VIP_PASS_GOLD_COST,
@@ -202,7 +203,7 @@ import {
   resolveCharacterForJoin,
   saveCharacter,
 } from "../db/characters.js";
-import { isInvitationSystemActive, validateAndUseInviteCode } from "../db/invitations.js";
+import { isInvitationSystemActive, validateAndUseInviteCode, getInvitedCount } from "../db/invitations.js";
 import { isWalkable, blockPlotFootprint } from "../map/collision.js";
 import { checkWalletTokenGate, getWalletTokenBalance } from "../solana/tokenBalance.js";
 import { verifyTokenBurn } from "../solana/verifyTokenBurn.js";
@@ -4076,16 +4077,32 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   private async handleAdJoin(client: Client) {
     const wallet = this.playerWallets.get(client.sessionId);
     if (!wallet) return void client.send("adActionResult", { ok: false, error: "Connect your wallet to join." });
+    const invited = await getInvitedCount(wallet);
+    if (invited < AD_REQUIRED_INVITES) {
+      return void client.send("adActionResult", {
+        ok: false,
+        error: `Invite ${AD_REQUIRED_INVITES} friends to qualify — you've invited ${invited}.`,
+      });
+    }
     await adService.join(wallet);
     client.send("adActionResult", { ok: true });
-    client.send("adProgram", adService.getProgram(wallet));
+    client.send("adProgram", adService.getProgram(wallet, invited));
   }
 
   private async handleAdProgram(client: Client) {
     const wallet = this.playerWallets.get(client.sessionId);
-    if (!wallet) return void client.send("adProgram", { member: false, earnings: 0, lifetime: 0, impressions: 0, withdrawEnabled: false });
+    if (!wallet) {
+      return void client.send("adProgram", {
+        member: false,
+        earnings: 0,
+        lifetime: 0,
+        impressions: 0,
+        withdrawEnabled: false,
+        invitedCount: 0,
+      });
+    }
     await adService.ensureMemberLoaded(wallet);
-    client.send("adProgram", adService.getProgram(wallet));
+    client.send("adProgram", adService.getProgram(wallet, await getInvitedCount(wallet)));
   }
 
   private async handleAdClaim(client: Client) {
@@ -4093,7 +4110,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     if (!wallet) return void client.send("adActionResult", { ok: false, error: "Connect your wallet first." });
     const res = await adService.claim(wallet);
     client.send("adActionResult", res);
-    client.send("adProgram", adService.getProgram(wallet));
+    client.send("adProgram", adService.getProgram(wallet, await getInvitedCount(wallet)));
   }
 
   private async handleBlackjackAction(client: Client, action: string) {

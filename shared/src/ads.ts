@@ -24,9 +24,16 @@ export interface AdSlot {
  */
 export const AD_SLOTS: AdSlot[] = [
   { id: "hub_billboard", label: "Hub Billboard", surface: "billboard", zoneId: "zone_hub", weight: 100 },
-  { id: "global_banner", label: "Global Banner", surface: "banner", weight: 80 },
-  { id: "wilderness_billboard", label: "Wilderness Billboard", surface: "billboard", zoneId: "zone_wilderness", weight: 40 },
+  { id: "global_banner", label: "Global Banner", surface: "banner", weight: 90 },
+  { id: "wilderness_billboard", label: "Wilderness Billboard", surface: "billboard", zoneId: "zone_wilderness", weight: 60 },
+  { id: "grotto_billboard", label: "Slime Grotto Billboard", surface: "billboard", zoneId: "zone_grotto", weight: 40 },
+  { id: "black_billboard", label: "Obsidian Reach Billboard", surface: "billboard", zoneId: "zone_black", weight: 25 },
 ];
+
+/** The billboard slot id for a zone (null if that zone has no billboard). */
+export function billboardSlotForZone(zoneId: string): string | null {
+  return AD_SLOTS.find((s) => s.surface === "billboard" && s.zoneId === zoneId)?.id ?? null;
+}
 
 export function getAdSlot(id: string): AdSlot | undefined {
   return AD_SLOTS.find((s) => s.id === id);
@@ -86,6 +93,8 @@ export interface AdProgramPayload {
   /** Impressions this player has generated. */
   impressions: number;
   withdrawEnabled: boolean;
+  /** Friends this player has successfully invited (gates joining). */
+  invitedCount: number;
 }
 
 export interface AdActionResult {
@@ -105,7 +114,9 @@ export const AD_MIN_CPM = 1;
 /** Minimum brand deposit ($BASE). */
 export const AD_MIN_DEPOSIT = 100;
 /** Minimum earnings before a player can claim ($BASE). */
-export const AD_MIN_CLAIM = 10;
+export const AD_MIN_CLAIM = 10_000;
+/** Friends a player must have invited before they can apply to the program. */
+export const AD_REQUIRED_INVITES = 5;
 /** Ads are priced + paid in $BASE. */
 export const AD_CURRENCY_ID = "base";
 

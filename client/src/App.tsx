@@ -25,6 +25,7 @@ import { WorldMapPanel } from "./ui/WorldMapPanel";
 import { MailPanel } from "./ui/MailPanel";
 import { AdsPanel } from "./ui/AdsPanel";
 import { AdBanner } from "./ui/AdBanner";
+import { AdBillboards } from "./ui/AdBillboards";
 import { QuestPanel } from "./ui/QuestPanel";
 import { ErrorBoundary } from "./ui/ErrorBoundary";
 import { ArcadeModal } from "./ui/ArcadeModal";
@@ -331,6 +332,7 @@ export function App() {
       {joined && <MailPanel />}
       {joined && <AdsPanel />}
       {joined && <AdBanner />}
+      {joined && <AdBillboards />}
       {joined && <HousingPanel />}
       {joined && <PlayerShopPanel />}
       {joined && <InventoryHotkey />}

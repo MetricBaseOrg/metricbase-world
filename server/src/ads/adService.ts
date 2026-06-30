@@ -286,7 +286,7 @@ class AdService {
     }
   }
 
-  getProgram(wallet: string): AdProgramPayload {
+  getProgram(wallet: string, invitedCount = 0): AdProgramPayload {
     const m = this.members.get(wallet);
     return {
       member: !!m,
@@ -294,6 +294,7 @@ class AdService {
       lifetime: toUiAmount(m?.lifetime ?? 0, "base"),
       impressions: m?.impressions ?? 0,
       withdrawEnabled: isWithdrawEnabled(),
+      invitedCount,
     };
   }
 
