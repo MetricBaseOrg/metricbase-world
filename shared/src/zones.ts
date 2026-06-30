@@ -152,7 +152,7 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
         id: "wild_slime_1",
         name: "Wild Slime",
         tileX: 2,
-        tileY: 5,
+        tileY: 10,
         dialogue: "Gloop! A squishy slime. Easier than the dummy, but still fights back.",
         combat: { maxHp: 45, rewardXp: 20, respawnMs: 8_000 },
       },
@@ -178,8 +178,8 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
       {
         id: "hub_tree_north",
         name: "Young Oak",
-        tileX: 4,
-        tileY: 4,
+        tileX: 2,
+        tileY: 3,
         kind: "tree",
         woodcutting: {
           treeLevel: 1,
@@ -633,7 +633,7 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
       { id: "wild_plant_ne", tileX: 20, tileY: 3, prop: "plant" },
       { id: "wild_plant_sw", tileX: 3, tileY: 20, prop: "plant" },
       { id: "wild_plant_se", tileX: 20, tileY: 20, prop: "plant" },
-      { id: "wild_crate_1", tileX: 6, tileY: 18, prop: "crate" },
+      { id: "wild_crate_1", tileX: 4, tileY: 18, prop: "crate" },
       { id: "wild_crate_2", tileX: 18, tileY: 5, prop: "crate" },
       { id: "wild_hedge_3", tileX: 14, tileY: 17, prop: "hedge" },
       { id: "wild_hedge_4", tileX: 15, tileY: 17, prop: "hedge" },
