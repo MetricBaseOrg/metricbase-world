@@ -110,16 +110,28 @@ class AdService {
     return b;
   }
 
-  /** Rank approved, funded campaigns by CPM into the slots (highest weight first). */
+  private costPerImpression(c: AdCampaignRow): number {
+    return Math.floor(c.cpm / 1000);
+  }
+
+  private isFunded(c: AdCampaignRow): boolean {
+    return (this.brands.get(c.brandWallet)?.balance ?? 0) >= this.costPerImpression(c);
+  }
+
+  /**
+   * Rank approved campaigns into slots by CPM. Funded bids win slots first;
+   * any leftover slots are filled by approved-but-unfunded campaigns (they show
+   * for free — no charge, no player payout — so an approved ad always appears).
+   */
   recompute(): void {
     const slots = [...AD_SLOTS].sort((a, b) => b.weight - a.weight);
-    const eligible = [...this.campaigns.values()]
-      .filter((c) => c.status === "approved" && (this.brands.get(c.brandWallet)?.balance ?? 0) >= c.cpm / 1000)
-      .sort((a, b) => b.cpm - a.cpm);
+    const approved = [...this.campaigns.values()].filter((c) => c.status === "approved");
+    const funded = approved.filter((c) => this.isFunded(c)).sort((a, b) => b.cpm - a.cpm);
+    const unfunded = approved.filter((c) => !this.isFunded(c)).sort((a, b) => b.cpm - a.cpm);
+    const ordered = [...funded, ...unfunded];
     this.assignment.clear();
     slots.forEach((slot, i) => {
-      const campaign = eligible[i];
-      if (campaign) this.assignment.set(slot.id, campaign.id);
+      if (ordered[i]) this.assignment.set(slot.id, ordered[i].id);
     });
   }
 
@@ -133,25 +145,25 @@ class AdService {
     return { creatives };
   }
 
-  /** A viewing member generated one impression on a slot — charge brand, credit member. */
+  /** A viewing player generated one impression on a slot — charge brand, credit member. */
   recordImpression(slotId: string, viewerWallet: string | null): void {
     const campaignId = this.assignment.get(slotId);
     if (!campaignId) return;
     const c = this.campaigns.get(campaignId);
     if (!c) return;
+    // The ad was shown, so the impression counts either way.
+    c.impressions += 1;
+    this.dirtyCampaigns.add(c.id);
+
     const brand = this.brand(c.brandWallet);
     const cost = Math.floor(c.cpm / 1000);
-    if (cost <= 0 || brand.balance < cost) {
-      // Brand ran dry — drop it from rotation until topped up.
-      this.recompute();
-      return;
-    }
+    // Unfunded (free) fill — no charge and no player payout.
+    if (cost <= 0 || brand.balance < cost) return;
+
     brand.balance -= cost;
     brand.lifetimeSpent += cost;
     brand.dirty = true;
-    c.impressions += 1;
     c.spent += cost;
-    this.dirtyCampaigns.add(c.id);
 
     if (viewerWallet && this.members.has(viewerWallet)) {
       const m = this.members.get(viewerWallet)!;
@@ -161,6 +173,7 @@ class AdService {
       m.impressions += 1;
       m.dirty = true;
     }
+    // If this drained the brand, re-rank so a funded bid can take the slot.
     if (brand.balance < cost) this.recompute();
   }
 
@@ -219,7 +232,10 @@ class AdService {
   async creditDeposit(wallet: string, uiAmount: number, signature: string): Promise<boolean> {
     const amount = toBaseUnits(uiAmount, "base");
     const res = await creditAdDepositOnce(wallet, amount, signature);
-    if (res.credited) this.brand(wallet).balance = res.balance;
+    if (res.credited) {
+      this.brand(wallet).balance = res.balance;
+      this.recompute(); // a now-funded campaign may move up the ranking
+    }
     return res.credited;
   }
 

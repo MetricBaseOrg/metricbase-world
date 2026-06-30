@@ -4083,7 +4083,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     const wallet = this.playerWallets.get(client.sessionId);
     if (!wallet) return void client.send("adActionResult", { ok: false, error: "Connect your wallet to join." });
     const invited = await getInvitedCount(wallet);
-    if (invited < AD_REQUIRED_INVITES) {
+    // Admins (treasury wallet) bypass the invite requirement.
+    if (!adService.isAdmin(wallet) && invited < AD_REQUIRED_INVITES) {
       return void client.send("adActionResult", {
         ok: false,
         error: `Invite ${AD_REQUIRED_INVITES} friends to qualify — you've invited ${invited}.`,
@@ -4106,7 +4107,9 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         invitedCount: 0,
       });
     }
-    await adService.ensureMemberLoaded(wallet);
+    // Admins are auto-enrolled in the program.
+    if (adService.isAdmin(wallet)) await adService.join(wallet);
+    else await adService.ensureMemberLoaded(wallet);
     client.send("adProgram", adService.getProgram(wallet, await getInvitedCount(wallet)));
   }
 
