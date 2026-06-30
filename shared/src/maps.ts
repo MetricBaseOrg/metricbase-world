@@ -75,8 +75,9 @@ export function buildHubMap(): GroundLayer {
 
   // Gate to the Wilderness — east edge so nobody triggers it by accident.
   stampPortal(layer, 22, 12);
+
   // Doorway into the Community Lodge interior — west edge.
-  stampPortal(layer, 1, 8);
+  stampPortal(layer, 1, 12);
 
   return layer;
 }

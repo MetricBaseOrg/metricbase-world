@@ -117,7 +117,7 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
       },
       {
         tileX: 1,
-        tileY: 8,
+        tileY: 12,
         targetZone: ZONE_INTERIOR,
         label: "Community Lodge",
       },
