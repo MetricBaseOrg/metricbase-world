@@ -161,6 +161,18 @@ export interface CasinoStatePayload {
   /** Whether real withdrawals are currently possible (house signer configured). */
   withdrawEnabled: boolean;
   hand: BlackjackState | null;
+  /** Daily bonus: claimable today? + the player's current consecutive-day streak. */
+  dailyAvailable: boolean;
+  dailyStreak: number;
+}
+
+/** Daily-bonus gold = base × min(streak, max days). */
+export const DAILY_BONUS_BASE = 100;
+export const DAILY_BONUS_MAX_DAYS = 7;
+
+/** Gold granted for a daily claim at the given consecutive-day streak. */
+export function dailyBonusGold(streak: number): number {
+  return DAILY_BONUS_BASE * Math.max(1, Math.min(streak, DAILY_BONUS_MAX_DAYS));
 }
 
 export interface CasinoActionResult {

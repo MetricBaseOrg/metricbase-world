@@ -181,6 +181,7 @@ body {
 
 .chibi-topbar__gear {
   align-self: center;
+  margin-left: auto;
   padding: 4px 8px;
   font-size: 0.9rem;
 }
@@ -2298,10 +2299,55 @@ body {
 .chibi-bj-outcome--win,
 .chibi-bj-outcome--blackjack {
   color: #ffe49a;
+  animation: chibi-bj-pop 0.45s ease-out;
+}
+
+.chibi-bj-outcome--blackjack {
+  background: linear-gradient(90deg, rgba(255, 212, 74, 0.3), rgba(226, 85, 161, 0.3));
 }
 
 .chibi-bj-outcome--lose {
   color: #ffb4ad;
+}
+
+@keyframes chibi-bj-pop {
+  0% { transform: scale(0.8); opacity: 0; }
+  60% { transform: scale(1.08); opacity: 1; }
+  100% { transform: scale(1); }
+}
+
+.chibi-bj-daily {
+  width: 100%;
+  margin: 2px 0 8px;
+  padding: 8px 10px;
+  border: 2px solid var(--chibi-gold-deep);
+  border-radius: 12px;
+  background: linear-gradient(90deg, var(--chibi-gold), var(--chibi-cream));
+  color: var(--chibi-ink);
+  font-family: var(--chibi-font-display);
+  font-weight: 700;
+  font-size: 0.84rem;
+  cursor: pointer;
+  box-shadow: 0 3px 0 var(--chibi-shadow);
+  animation: chibi-bj-pop 0.4s ease-out;
+}
+
+.chibi-bj-daily:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.chibi-bj-stats {
+  display: flex;
+  justify-content: space-around;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 5px 8px;
+  background: var(--chibi-cream-deep);
+  border: 2px solid var(--chibi-outline-light);
+  border-radius: 10px;
+  font-size: 0.74rem;
+  font-weight: 700;
 }
 
 .chibi-bj-controls {

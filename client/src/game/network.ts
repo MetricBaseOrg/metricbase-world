@@ -492,6 +492,10 @@ export class NetworkManager {
     this.room?.send("blackjackAction", { action });
   }
 
+  sendCasinoDailyClaim() {
+    this.room?.send("casinoDailyClaim", {});
+  }
+
   onCasinoState(listener: (payload: CasinoStatePayload) => void) {
     this.casinoStateListeners.add(listener);
     return () => this.casinoStateListeners.delete(listener);

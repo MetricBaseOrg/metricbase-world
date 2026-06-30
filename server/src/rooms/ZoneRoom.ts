@@ -128,6 +128,7 @@ import {
   isCasinoCurrencyActive,
   CASINO_CURRENCIES,
   MAX_HAND_RETURN_MULT,
+  dailyBonusGold,
   toBaseUnits,
   toUiAmount,
   type CasinoCurrencyId,
@@ -212,6 +213,8 @@ import {
   adjustCasinoBalance,
   creditDepositOnce,
   recordWithdrawal,
+  getDailyStatus,
+  claimDaily,
 } from "../db/casino.js";
 import {
   characterExists,
@@ -612,6 +615,9 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     });
     this.onProtectedMessage("blackjackAction", (client, message: { action?: string }) => {
       void this.handleBlackjackAction(client, message.action ?? "");
+    });
+    this.onProtectedMessage("casinoDailyClaim", (client) => {
+      void this.handleCasinoDailyClaim(client);
     });
 
     this.onProtectedMessage("mailFetch", (client) => {
@@ -3767,6 +3773,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     const entry = this.blackjackHands.get(playerName);
     const mints: Record<string, string | null> = {};
     for (const currency of CASINO_CURRENCIES) mints[currency.id] = this.resolveCasinoMint(currency.id);
+    const daily = wallet ? await getDailyStatus(wallet) : { available: false, streak: 0 };
     return {
       balances,
       houseWallet: this.casinoHouseAddress(),
@@ -3774,6 +3781,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       mints,
       withdrawEnabled: isWithdrawEnabled(),
       hand: entry ? this.handToState(entry) : null,
+      dailyAvailable: daily.available,
+      dailyStreak: daily.streak,
     };
   }
 
@@ -3921,6 +3930,28 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     this.blackjackHands.set(player.name, entry);
     if (hand.phase === "done") await this.finishBlackjack(wallet, entry); // a natural ends instantly
     client.send("casinoResult", { ok: true, state: await this.buildCasinoState(wallet, player.name) });
+  }
+
+  private async handleCasinoDailyClaim(client: Client) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const wallet = this.playerWallets.get(client.sessionId) ?? null;
+    if (!wallet) return void client.send("casinoResult", { ok: false, error: "Connect your wallet first." });
+
+    const claim = await claimDaily(wallet);
+    if (!claim) {
+      return void client.send("casinoResult", {
+        ok: false,
+        error: "Daily bonus already claimed — come back tomorrow!",
+        state: await this.buildCasinoState(wallet, player.name),
+      });
+    }
+    const gold = dailyBonusGold(claim.streak);
+    this.playerGold.set(player.name, (this.playerGold.get(player.name) ?? STARTING_GOLD) + gold);
+    this.sendProfile(client, player);
+    client.send("chat", this.systemChat("Lodge", `🎁 Daily bonus: +${gold} gold (day ${claim.streak} streak)!`));
+    client.send("casinoResult", { ok: true, state: await this.buildCasinoState(wallet, player.name) });
+    await this.persistPlayer(player);
   }
 
   private async handleBlackjackAction(client: Client, action: string) {

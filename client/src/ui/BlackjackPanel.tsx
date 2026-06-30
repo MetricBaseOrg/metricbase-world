@@ -7,7 +7,7 @@ import {
   type Card,
   type CasinoStatePayload,
 } from "@metricbase/shared";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { playSfx } from "../audio/soundEffects";
 import { networkManager } from "../game/network";
 import { useGameStore } from "../store/gameStore";
@@ -40,6 +40,8 @@ export function BlackjackPanel() {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [stats, setStats] = useState({ hands: 0, wins: 0, streak: 0, best: 0, net: 0 });
+  const pendingHand = useRef(false);
 
   const table = getCasinoTable(currencyId);
 
@@ -54,7 +56,24 @@ export function BlackjackPanel() {
         return;
       }
       setError(null);
-      const outcome = r.state?.hand?.outcome;
+      const hand = r.state?.hand;
+      const outcome = hand?.outcome;
+      // Count a finished hand once, only when it followed a deal/action we sent
+      // (not a passive state refresh).
+      if (pendingHand.current && hand?.phase === "done" && outcome) {
+        pendingHand.current = false;
+        setStats((s) => {
+          const won = outcome === "win" || outcome === "blackjack";
+          const streak = won ? s.streak + 1 : outcome === "lose" ? 0 : s.streak;
+          return {
+            hands: s.hands + 1,
+            wins: s.wins + (won ? 1 : 0),
+            streak,
+            best: Math.max(s.best, streak),
+            net: s.net + (hand.net ?? 0),
+          };
+        });
+      }
       if (outcome === "win" || outcome === "blackjack") playSfx("level_up");
       else if (outcome === "lose") playSfx("shop_fail");
       else playSfx("ui_click");
@@ -128,13 +147,22 @@ export function BlackjackPanel() {
     setBusy("deal");
     setError(null);
     setNotice(null);
+    pendingHand.current = true;
     networkManager.sendBlackjackDeal(currencyId, bet);
   };
 
   const act = (action: "hit" | "stand" | "double") => {
     setBusy(action);
     setError(null);
+    pendingHand.current = true;
     networkManager.sendBlackjackAction(action);
+  };
+
+  const claimDaily = () => {
+    setBusy("daily");
+    setError(null);
+    networkManager.sendCasinoDailyClaim();
+    playSfx("item_use");
   };
 
   return (
@@ -170,6 +198,18 @@ export function BlackjackPanel() {
             </button>
           ))}
         </div>
+
+        {/* Daily login bonus — the come-back-every-day hook. */}
+        {state?.dailyAvailable && (
+          <button
+            type="button"
+            className="chibi-bj-daily"
+            disabled={busy !== null}
+            onClick={() => claimDaily()}
+          >
+            🎁 Claim daily bonus{state.dailyStreak > 0 ? ` · day ${state.dailyStreak + 1} streak!` : ""}
+          </button>
+        )}
 
         {/* Cashier */}
         <div className="chibi-bj-cashier">
@@ -256,6 +296,18 @@ export function BlackjackPanel() {
           )}
         </div>
 
+        {/* Session stats — keeps a run going. */}
+        {stats.hands > 0 && (
+          <div className="chibi-bj-stats">
+            <span>🃏 {stats.hands}</span>
+            <span>✅ {stats.wins}</span>
+            <span>🔥 {stats.streak}{stats.best > 1 ? ` (best ${stats.best})` : ""}</span>
+            <span style={{ color: stats.net >= 0 ? "var(--chibi-mint-deep)" : "#d6453b" }}>
+              {stats.net >= 0 ? "+" : ""}{formatCasinoAmount(stats.net, currencyId)}
+            </span>
+          </div>
+        )}
+
         {/* Controls */}
         <div className="chibi-bj-controls">
           {handActive ? (
@@ -272,7 +324,7 @@ export function BlackjackPanel() {
                 <button type="button" className="chibi-btn chibi-btn--ghost" onClick={() => setBet((b) => Math.min(cfg.maxBet, Number((b + cfg.betStep).toFixed(8))))}>+</button>
               </div>
               <button type="button" className="chibi-btn chibi-btn--primary" disabled={busy !== null} onClick={() => deal()}>
-                {busy === "deal" ? "Dealing…" : "Deal"}
+                {busy === "deal" ? "Dealing…" : hand?.phase === "done" ? "Deal Again" : "Deal"}
               </button>
             </>
           )}

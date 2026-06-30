@@ -72,6 +72,13 @@ CREATE TABLE IF NOT EXISTS mail (
 );
 CREATE INDEX IF NOT EXISTS mail_recipient_idx ON mail (recipient, created_at DESC);
 
+-- Casino daily login bonus: one claim per UTC day, with a consecutive-day streak.
+CREATE TABLE IF NOT EXISTS casino_daily (
+  wallet_address VARCHAR(44) PRIMARY KEY,
+  day BIGINT NOT NULL,
+  streak INTEGER NOT NULL DEFAULT 1
+);
+
 CREATE TABLE IF NOT EXISTS token_purchases (
   signature VARCHAR(88) PRIMARY KEY,
   wallet VARCHAR(44) NOT NULL,

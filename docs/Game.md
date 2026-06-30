@@ -236,7 +236,8 @@ saved to your character):
 Inside the (now roomier) lodge, walk up to the **arcade cabinet** and interact
 to open the **Base Rush** game (`apps.metricbase.org/base-rush`) full-screen.
 
-**Lodge Blackjack.** Walk up to the **Blackjack table** and interact to open it.
+**Lodge Blackjack.** Claim your **🎁 daily bonus** (escalating gold for each
+consecutive day you visit) and walk up to the **Blackjack table** to play.
 Pick a currency table — **SOL, USDC, IDRX, or $BASE** — then **deposit** from
 your wallet to build a balance at that table. Bet from your balance and play
 **Classic Blackjack**: the dealer stands on 17, blackjack pays **3:2**, and you
