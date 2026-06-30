@@ -34,13 +34,14 @@ import {
   saveCampaignStats,
   saveMember,
   setCampaignStatus,
+  sumMemberEarnings,
   sumMemberLifetime,
   takeMemberEarnings,
   type AdCampaignRow,
 } from "../db/ads.js";
 import { getMember as dbGetMember } from "../db/ads.js";
 import { getTreasuryWallet } from "../solana/verifyTokenTransfer.js";
-import { getHouseWalletAddress, isWithdrawEnabled, sendPayout } from "../solana/housePayout.js";
+import { getHouseBalanceUi, getHouseWalletAddress, isWithdrawEnabled, sendPayout } from "../solana/housePayout.js";
 
 interface BrandState {
   balance: number; // base units
@@ -61,6 +62,9 @@ class AdService {
   private dirtyCampaigns = new Set<string>();
   private assignment = new Map<string, string>(); // slotId -> campaignId
   private loaded = false;
+  // Treasury solvency: never accrue more player earnings than the house can pay.
+  private liabilities = 0; // base units of unclaimed member earnings
+  private houseBalanceUnits = 0; // cached house wallet balance (base units)
 
   /** $BASE mint used for ad deposits/payouts (env-resolved, like the casino). */
   private mint(): string {
@@ -96,12 +100,30 @@ class AdService {
           });
         }
       }
+      this.liabilities = await sumMemberEarnings();
+      await this.refreshHouseBalance();
       this.recompute();
     } catch (error) {
       console.error("[ads] init failed:", error);
     }
-    // Periodic flush of in-memory counters to the DB.
+    // Periodic flush of in-memory counters to the DB + house-balance refresh.
     setInterval(() => void this.flush(), 30_000);
+    setInterval(() => void this.refreshHouseBalance(), 60_000);
+  }
+
+  /** Refresh the cached house balance (base units) used by the solvency guard. */
+  private async refreshHouseBalance(): Promise<void> {
+    const house = this.houseWallet();
+    if (!house) {
+      this.houseBalanceUnits = 0;
+      return;
+    }
+    try {
+      const ui = await getHouseBalanceUi(house, "base", this.mint());
+      if (ui != null) this.houseBalanceUnits = toBaseUnits(ui, "base");
+    } catch (error) {
+      console.error("[ads] house balance refresh failed:", error);
+    }
   }
 
   private brand(wallet: string): BrandState {
@@ -122,16 +144,19 @@ class AdService {
   }
 
   /**
-   * Rank approved campaigns into slots by CPM. Funded bids win slots first;
-   * any leftover slots are filled by approved-but-unfunded campaigns (they show
-   * for free — no charge, no player payout — so an approved ad always appears).
+   * Rank approved campaigns into slots by CPM. Funded bids win slots first; any
+   * leftover slots are filled by **admin (house) campaigns that are unfunded** —
+   * these serve free as house promos. Non-admin campaigns must be funded to
+   * appear, so brands can't advertise for free.
    */
   recompute(): void {
     const slots = [...AD_SLOTS].sort((a, b) => b.weight - a.weight);
     const approved = [...this.campaigns.values()].filter((c) => c.status === "approved");
     const funded = approved.filter((c) => this.isFunded(c)).sort((a, b) => b.cpm - a.cpm);
-    const unfunded = approved.filter((c) => !this.isFunded(c)).sort((a, b) => b.cpm - a.cpm);
-    const ordered = [...funded, ...unfunded];
+    const housePromos = approved
+      .filter((c) => !this.isFunded(c) && this.isAdmin(c.brandWallet))
+      .sort((a, b) => b.cpm - a.cpm);
+    const ordered = [...funded, ...housePromos];
     this.assignment.clear();
     slots.forEach((slot, i) => {
       if (ordered[i]) this.assignment.set(slot.id, ordered[i].id);
@@ -157,18 +182,19 @@ class AdService {
     return null;
   }
 
-  /**
-   * A viewing player generated one impression on a slot. If the slot has no ad
-   * of its own it shows the top-ranked ad as a fallback, so that campaign is
-   * charged for the fallback view too.
-   */
-  recordImpression(slotId: string, viewerWallet: string | null): void {
-    const campaignId = this.assignment.get(slotId) ?? this.topCampaignId();
-    if (campaignId) this.chargeImpression(campaignId, viewerWallet);
+  /** Which campaign a slot shows: its own assignment, or the top-ranked ad as fallback. */
+  slotCampaign(slotId: string): string | null {
+    return this.assignment.get(slotId) ?? this.topCampaignId();
   }
 
-  /** Count + bill one impression for a campaign, crediting the viewing member's share. */
-  private chargeImpression(campaignId: string, viewerWallet: string | null): void {
+  /**
+   * Count + bill one impression for a campaign, crediting the viewing member's
+   * share. Callers dedupe per viewer per tick so a campaign is billed at most
+   * once per player per minute regardless of how many surfaces show it
+   * (frequency cap). The player's share is only accrued while the house wallet
+   * can cover total liabilities (solvency guard).
+   */
+  recordCampaignImpression(campaignId: string, viewerWallet: string | null): void {
     const c = this.campaigns.get(campaignId);
     if (!c) return;
     // The ad was shown, so the impression counts either way.
@@ -177,7 +203,7 @@ class AdService {
 
     const brand = this.brand(c.brandWallet);
     const cost = Math.floor(c.cpm / 1000);
-    // Unfunded (free) fill — no charge and no player payout.
+    // Unfunded (free) house promo — no charge and no player payout.
     if (cost <= 0 || brand.balance < cost) return;
 
     brand.balance -= cost;
@@ -186,12 +212,16 @@ class AdService {
     c.spent += cost;
 
     if (viewerWallet && this.members.has(viewerWallet)) {
-      const m = this.members.get(viewerWallet)!;
       const share = Math.floor(cost * AD_PLAYER_SHARE);
-      m.earnings += share;
-      m.lifetime += share;
-      m.impressions += 1;
-      m.dirty = true;
+      // Solvency guard: only accrue what the house wallet can actually pay out.
+      if (share > 0 && this.liabilities + share <= this.houseBalanceUnits) {
+        const m = this.members.get(viewerWallet)!;
+        m.earnings += share;
+        m.lifetime += share;
+        m.impressions += 1;
+        m.dirty = true;
+        this.liabilities += share;
+      }
     }
     // If this drained the brand, re-rank so a funded bid can take the slot.
     if (brand.balance < cost) this.recompute();
@@ -303,6 +333,7 @@ class AdService {
     }
     // Flush so in-memory accruals are reflected, then read the true player total.
     await this.flush();
+    await this.refreshHouseBalance();
     const playerPaidUnits = await sumMemberLifetime();
 
     const slotLabelFor = (campaignId: string): string | null => {
@@ -351,6 +382,9 @@ class AdService {
       totalImpressions,
       activeCampaigns,
       pendingCount,
+      houseBalance: toUiAmount(this.houseBalanceUnits, "base"),
+      liabilities: toUiAmount(this.liabilities, "base"),
+      solvent: this.liabilities <= this.houseBalanceUnits,
       slots,
       rank,
     };
@@ -433,6 +467,7 @@ class AdService {
     const amount = await takeMemberEarnings(wallet); // atomic zero-and-return
     if (amount <= 0) return { ok: false, error: "Nothing to claim yet." };
     if (m) m.earnings = 0;
+    this.liabilities = Math.max(0, this.liabilities - amount);
 
     const payout = await sendPayout(wallet, "base", amount, this.mint());
     if (!payout.ok) {
@@ -440,6 +475,7 @@ class AdService {
       const cur = await dbGetMember(wallet);
       await saveMember(wallet, (cur?.earnings ?? 0) + amount, cur?.lifetime ?? 0, cur?.impressions ?? 0);
       if (m) m.earnings = (cur?.earnings ?? 0) + amount;
+      this.liabilities += amount;
       return { ok: false, error: payout.error ?? "Payout failed." };
     }
     await recordAdClaim(wallet, amount, payout.signature ?? `adclaim-${Date.now()}`);

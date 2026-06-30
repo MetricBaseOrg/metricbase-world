@@ -139,11 +139,19 @@ on-chain to the treasury wallet; claims signed by the house wallet).
   → **Wilderness** → **Grotto** → **Black** billboards.
 - Each impression charges the brand `CPM ÷ 1000`; if the viewer is a registered
   program member, they earn **50%** of that charge (the platform keeps the rest).
+- **Frequency cap:** a campaign is billed **at most once per player per minute**,
+  even if it shows on several surfaces at once (e.g. its own billboard + the
+  banner fallback) — so brands pay for unique reach, not duplicate views.
 - Every zone's billboard and the banner always show an ad: a slot with no ad of
   its own **falls back to the top-ranked ad**, so a single advertiser appears
-  worldwide. **Fallback views are billed too** — the top-ranked campaign is
-  charged (and the viewer earns their share) for fallback impressions just like
-  real slot assignments. An empty marketplace shows an "Ads here" house promo.
+  worldwide (fallback views are billed under the same frequency cap).
+- **House promos:** an **unfunded campaign created by the admin (house) wallet**
+  serves **free** as the "advertise here" house promo. Regular brands must keep a
+  funded balance to appear — they can't advertise for free.
+- **Solvency guard:** players only accrue earnings while the house wallet can
+  cover the total owed; if liabilities would exceed the house balance, new
+  earnings pause (the admin Dashboard shows a solvency warning) until it's topped
+  up. This guarantees every claim is payable.
 
 ### For players (Earn tab)
 

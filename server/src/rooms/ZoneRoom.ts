@@ -4019,10 +4019,16 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     for (const [sessionId, player] of this.state.players) {
       if (player.spectator) continue;
       const wallet = this.playerWallets.get(sessionId) ?? null;
+      // Frequency cap: bill a campaign at most once per player per tick, even if
+      // it shows on several surfaces (e.g. its own billboard + banner fallback).
+      const charged = new Set<string>();
       for (const slot of AD_SLOTS) {
         // Banner = everyone; billboard = players in that billboard's zone.
         if (slot.surface === "billboard" && slot.zoneId !== zoneId) continue;
-        adService.recordImpression(slot.id, wallet);
+        const campaignId = adService.slotCampaign(slot.id);
+        if (!campaignId || charged.has(campaignId)) continue;
+        charged.add(campaignId);
+        adService.recordCampaignImpression(campaignId, wallet);
       }
     }
     const serving = adService.getServing();

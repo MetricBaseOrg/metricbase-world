@@ -141,6 +141,12 @@ export interface AdAdminDashboardPayload {
   totalImpressions: number;
   activeCampaigns: number;
   pendingCount: number;
+  /** House wallet balance available to pay player claims ($BASE). */
+  houseBalance: number;
+  /** Total unclaimed earnings owed to players ($BASE). */
+  liabilities: number;
+  /** False when liabilities exceed the house balance — claims at risk. */
+  solvent: boolean;
   slots: AdSlotStat[];
   rank: AdRankEntry[];
 }

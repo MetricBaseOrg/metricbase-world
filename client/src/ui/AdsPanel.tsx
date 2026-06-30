@@ -308,6 +308,16 @@ export function AdsPanel() {
                   <Stat label="Active" value={admin.activeCampaigns} />
                   <Stat label="Pending" value={admin.pendingCount} />
                 </div>
+                <div className="chibi-ads__stats">
+                  <Stat label="House balance" value={`${admin.houseBalance.toLocaleString()} $BASE`} />
+                  <Stat label="Owed to players" value={`${admin.liabilities.toLocaleString()} $BASE`} />
+                  <Stat label="Solvency" value={admin.solvent ? "✅ OK" : "⚠️ Risk"} />
+                </div>
+                {!admin.solvent && (
+                  <div className="chibi-text-muted" style={{ fontSize: "0.72rem", color: "#d6453b" }}>
+                    ⚠️ Player earnings owed exceed the house balance — top up the house wallet. New earnings are paused until it's covered.
+                  </div>
+                )}
 
                 <div className="chibi-ads__sub">Slots (by impression volume)</div>
                 <div className="chibi-ads__table">

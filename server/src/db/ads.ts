@@ -234,6 +234,14 @@ export async function sumMemberLifetime(): Promise<number> {
   return Number(r.rows[0]?.total ?? 0);
 }
 
+/** Total unclaimed $BASE (base units) owed to all program members (payout liability). */
+export async function sumMemberEarnings(): Promise<number> {
+  const db = getPool();
+  if (!db) return 0;
+  const r = await db.query<{ total: string }>(`SELECT COALESCE(SUM(earnings), 0) AS total FROM ad_members`);
+  return Number(r.rows[0]?.total ?? 0);
+}
+
 export async function recordAdClaim(wallet: string, amount: number, signature: string): Promise<void> {
   const db = getPool();
   if (!db) return;
