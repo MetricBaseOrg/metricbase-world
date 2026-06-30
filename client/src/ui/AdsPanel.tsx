@@ -7,6 +7,7 @@ import {
   type AdCampaign,
   type AdProgramPayload,
   type BrandDashboardPayload,
+  type AdAdminDashboardPayload,
 } from "@metricbase/shared";
 import { useEffect, useState } from "react";
 import { playSfx } from "../audio/soundEffects";
@@ -14,7 +15,7 @@ import { networkManager } from "../game/network";
 import { useGameStore } from "../store/gameStore";
 import { depositToCasino } from "../wallet/casinoDeposit";
 
-type Tab = "earn" | "advertise" | "review";
+type Tab = "earn" | "advertise" | "review" | "dashboard";
 
 export function AdsPanel() {
   const open = useGameStore((s) => s.adsOpen);
@@ -25,6 +26,7 @@ export function AdsPanel() {
   const [program, setProgram] = useState<AdProgramPayload | null>(null);
   const [dash, setDash] = useState<BrandDashboardPayload | null>(null);
   const [pending, setPending] = useState<AdCampaign[]>([]);
+  const [admin, setAdmin] = useState<AdAdminDashboardPayload | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -43,6 +45,7 @@ export function AdsPanel() {
     const offProgram = networkManager.onAdProgram(setProgram);
     const offDash = networkManager.onAdBrandDashboard(setDash);
     const offAdmin = networkManager.onAdAdminList((p) => setPending(p.campaigns));
+    const offDashboard = networkManager.onAdAdminDashboard(setAdmin);
     const offResult = networkManager.onAdActionResult((r) => {
       setBusy(false);
       if (!r.ok) {
@@ -59,6 +62,7 @@ export function AdsPanel() {
       offProgram();
       offDash();
       offAdmin();
+      offDashboard();
       offResult();
     };
   }, []);
@@ -68,6 +72,7 @@ export function AdsPanel() {
     networkManager.requestAdProgram();
     networkManager.requestAdBrandDashboard();
     networkManager.requestAdAdminList();
+    networkManager.requestAdAdminDashboard();
   }, [open]);
 
   if (!open) return null;
@@ -119,7 +124,12 @@ export function AdsPanel() {
   const tabs: { id: Tab; label: string }[] = [
     { id: "earn", label: "💸 Earn" },
     { id: "advertise", label: "📣 Advertise" },
-    ...(isAdmin ? ([{ id: "review", label: "🛡️ Review" }] as { id: Tab; label: string }[]) : []),
+    ...(isAdmin
+      ? ([
+          { id: "review", label: "🛡️ Review" },
+          { id: "dashboard", label: "📊 Dashboard" },
+        ] as { id: Tab; label: string }[])
+      : []),
   ];
 
   const statusColor = (s: string) =>
@@ -254,6 +264,76 @@ export function AdsPanel() {
                   </div>
                 </div>
               ))
+            )}
+          </div>
+        )}
+
+        {tab === "dashboard" && isAdmin && (
+          <div className="chibi-ads__body">
+            {!admin ? (
+              <div className="chibi-text-muted" style={{ textAlign: "center", padding: 12 }}>Loading…</div>
+            ) : (
+              <>
+                <div className="chibi-ads__stats">
+                  <Stat label="Revenue" value={`${admin.totalRevenue.toLocaleString()} $BASE`} />
+                  <Stat label="Players paid" value={`${admin.playerPaid.toLocaleString()} $BASE`} />
+                  <Stat label="Platform" value={`${admin.platformCut.toLocaleString()} $BASE`} />
+                </div>
+                <div className="chibi-ads__stats">
+                  <Stat label="Impressions" value={admin.totalImpressions.toLocaleString()} />
+                  <Stat label="Active" value={admin.activeCampaigns} />
+                  <Stat label="Pending" value={admin.pendingCount} />
+                </div>
+
+                <div className="chibi-ads__sub">Slots (by impression volume)</div>
+                <div className="chibi-ads__table">
+                  {admin.slots.map((s) => (
+                    <div key={s.slotId} className="chibi-ads__trow">
+                      <span style={{ flex: 1, fontWeight: 700 }}>{s.label}</span>
+                      <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: s.campaignId ? "var(--chibi-ink)" : "var(--chibi-ink-soft)" }}>
+                        {s.campaignName}
+                      </span>
+                      <span style={{ width: 64, textAlign: "right" }}>{s.cpm ? `${s.cpm} cpm` : "—"}</span>
+                      <span style={{ width: 56, textAlign: "right" }}>{s.impressions.toLocaleString()}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="chibi-ads__sub">Bid rank</div>
+                <div className="chibi-ads__table">
+                  <div className="chibi-ads__trow chibi-ads__trow--head">
+                    <span style={{ width: 22 }}>#</span>
+                    <span style={{ flex: 1 }}>Campaign</span>
+                    <span style={{ width: 56, textAlign: "right" }}>CPM</span>
+                    <span style={{ width: 52, textAlign: "right" }}>Views</span>
+                    <span style={{ width: 70, textAlign: "right" }}>Slot</span>
+                  </div>
+                  {admin.rank.length === 0 ? (
+                    <div className="chibi-text-muted" style={{ padding: 8 }}>No approved campaigns yet.</div>
+                  ) : (
+                    admin.rank.map((r) => (
+                      <div key={r.campaignId} className="chibi-ads__trow">
+                        <span style={{ width: 22, fontWeight: 800 }}>{r.rank}</span>
+                        <span style={{ flex: 1, minWidth: 0 }}>
+                          <span style={{ display: "block", fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.name}</span>
+                          <span className="chibi-text-muted" style={{ fontSize: "0.66rem" }}>
+                            {r.brandWallet.slice(0, 6)}… · bal {r.balance.toLocaleString()}
+                          </span>
+                        </span>
+                        <span style={{ width: 56, textAlign: "right" }}>{r.cpm}</span>
+                        <span style={{ width: 52, textAlign: "right" }}>{r.impressions.toLocaleString()}</span>
+                        <span style={{ width: 70, textAlign: "right", color: r.slotLabel ? "var(--chibi-mint-deep)" : "var(--chibi-ink-soft)", fontSize: "0.66rem" }}>
+                          {r.slotLabel ?? "—"}
+                        </span>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                <button type="button" className="chibi-btn chibi-btn--ghost" style={{ alignSelf: "center", padding: "4px 12px", fontSize: "0.72rem" }} onClick={() => networkManager.requestAdAdminDashboard()}>
+                  ↻ Refresh
+                </button>
+              </>
             )}
           </div>
         )}

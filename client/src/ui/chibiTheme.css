@@ -2220,6 +2220,35 @@ body {
   background: var(--chibi-cream-deep);
 }
 
+.chibi-ads__table {
+  display: flex;
+  flex-direction: column;
+  border: 2px solid var(--chibi-outline-light);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.chibi-ads__trow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  font-size: 0.74rem;
+  border-bottom: 1px solid var(--chibi-outline-light);
+}
+
+.chibi-ads__trow:last-child {
+  border-bottom: none;
+}
+
+.chibi-ads__trow--head {
+  background: var(--chibi-cream-deep);
+  font-weight: 800;
+  font-size: 0.64rem;
+  text-transform: uppercase;
+  color: var(--chibi-ink-soft);
+}
+
 .chibi-ads__review {
   display: flex;
   flex-direction: column;

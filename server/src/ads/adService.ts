@@ -16,6 +16,9 @@ import {
   type AdServingPayload,
   type BrandDashboardPayload,
   type AdProgramPayload,
+  type AdAdminDashboardPayload,
+  type AdSlotStat,
+  type AdRankEntry,
 } from "@metricbase/shared";
 import { randomUUID } from "node:crypto";
 import {
@@ -29,6 +32,7 @@ import {
   saveCampaignStats,
   saveMember,
   setCampaignStatus,
+  sumMemberLifetime,
   takeMemberEarnings,
   type AdCampaignRow,
 } from "../db/ads.js";
@@ -242,6 +246,73 @@ class AdService {
   }
 
   // ---- Admin ops ----
+
+  /** Platform-wide ad monitoring snapshot: totals, slot occupancy, bid ranks. */
+  async getAdminDashboard(): Promise<AdAdminDashboardPayload> {
+    let totalRevenue = 0;
+    let totalImpressions = 0;
+    let activeCampaigns = 0;
+    let pendingCount = 0;
+    for (const c of this.campaigns.values()) {
+      totalRevenue += c.spent;
+      totalImpressions += c.impressions;
+      if (c.status === "approved") activeCampaigns += 1;
+      if (c.status === "pending") pendingCount += 1;
+    }
+    // Flush so in-memory accruals are reflected, then read the true player total.
+    await this.flush();
+    const playerPaidUnits = await sumMemberLifetime();
+
+    const slotLabelFor = (campaignId: string): string | null => {
+      for (const [slotId, cid] of this.assignment) {
+        if (cid === campaignId) return AD_SLOTS.find((s) => s.id === slotId)?.label ?? slotId;
+      }
+      return null;
+    };
+
+    const slots: AdSlotStat[] = [...AD_SLOTS]
+      .sort((a, b) => b.weight - a.weight)
+      .map((slot) => {
+        const cid = this.assignment.get(slot.id);
+        const c = cid ? this.campaigns.get(cid) : undefined;
+        return {
+          slotId: slot.id,
+          label: slot.label,
+          weight: slot.weight,
+          campaignId: c?.id ?? null,
+          campaignName: c?.name ?? "—",
+          cpm: c ? toUiAmount(c.cpm, "base") : 0,
+          impressions: c?.impressions ?? 0,
+        };
+      });
+
+    const rank: AdRankEntry[] = [...this.campaigns.values()]
+      .filter((c) => c.status === "approved")
+      .sort((a, b) => b.cpm - a.cpm)
+      .map((c, i) => ({
+        rank: i + 1,
+        campaignId: c.id,
+        name: c.name,
+        brandWallet: c.brandWallet,
+        cpm: toUiAmount(c.cpm, "base"),
+        balance: toUiAmount(this.brands.get(c.brandWallet)?.balance ?? 0, "base"),
+        impressions: c.impressions,
+        spent: toUiAmount(c.spent, "base"),
+        status: c.status,
+        slotLabel: slotLabelFor(c.id),
+      }));
+
+    return {
+      totalRevenue: toUiAmount(totalRevenue, "base"),
+      playerPaid: toUiAmount(playerPaidUnits, "base"),
+      platformCut: toUiAmount(Math.max(0, totalRevenue - playerPaidUnits), "base"),
+      totalImpressions,
+      activeCampaigns,
+      pendingCount,
+      slots,
+      rank,
+    };
+  }
 
   listPending(): AdCampaign[] {
     return [...this.campaigns.values()]

@@ -209,6 +209,14 @@ export async function takeMemberEarnings(wallet: string): Promise<number> {
   return r.rowCount ? Number(r.rows[0].earnings) : 0;
 }
 
+/** Total $BASE (base units) ever earned by all program members. */
+export async function sumMemberLifetime(): Promise<number> {
+  const db = getPool();
+  if (!db) return 0;
+  const r = await db.query<{ total: string }>(`SELECT COALESCE(SUM(lifetime), 0) AS total FROM ad_members`);
+  return Number(r.rows[0]?.total ?? 0);
+}
+
 export async function recordAdClaim(wallet: string, amount: number, signature: string): Promise<void> {
   const db = getPool();
   if (!db) return;

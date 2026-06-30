@@ -105,6 +105,46 @@ export interface AdActionResult {
   signature?: string;
 }
 
+/** One slot's current occupant for the admin dashboard. */
+export interface AdSlotStat {
+  slotId: string;
+  label: string;
+  weight: number;
+  campaignId: string | null;
+  campaignName: string;
+  /** Serving campaign's CPM ($BASE), 0 if empty. */
+  cpm: number;
+  impressions: number;
+}
+
+/** A campaign's position in the live bid-rank leaderboard. */
+export interface AdRankEntry {
+  rank: number;
+  campaignId: string;
+  name: string;
+  brandWallet: string;
+  cpm: number;
+  /** Brand's remaining ad balance ($BASE). */
+  balance: number;
+  impressions: number;
+  spent: number;
+  status: AdCampaignStatus;
+  /** The slot this campaign currently occupies, or null. */
+  slotLabel: string | null;
+}
+
+export interface AdAdminDashboardPayload {
+  /** Totals in $BASE (UI units). */
+  totalRevenue: number;
+  playerPaid: number;
+  platformCut: number;
+  totalImpressions: number;
+  activeCampaigns: number;
+  pendingCount: number;
+  slots: AdSlotStat[];
+  rank: AdRankEntry[];
+}
+
 // ---- Tuning ----
 
 /** Players earn this share of each impression they generate. */

@@ -653,6 +653,11 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       if (adService.isAdmin(wallet ?? null)) client.send("adAdminList", { campaigns: adService.listPending() });
       else client.send("adActionResult", { ok: false, error: "Not authorized." });
     });
+    this.onProtectedMessage("adAdminDashboard", (client) => {
+      const wallet = this.playerWallets.get(client.sessionId);
+      if (!adService.isAdmin(wallet ?? null)) return void client.send("adActionResult", { ok: false, error: "Not authorized." });
+      void adService.getAdminDashboard().then((d) => client.send("adAdminDashboard", d));
+    });
     this.onProtectedMessage("adReview", (client, m: { id?: string; status?: string; note?: string }) => {
       void this.handleAdReview(client, m.id ?? "", m.status ?? "", m.note);
     });
