@@ -820,7 +820,7 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
       { id: "grotto_plot_3", tileX: 11, tileY: 20 },
     ],
     landPlots: [
-      { id: "grotto_land_1", tileX: 11, tileY: 3 },
+      { id: "grotto_land_1", tileX: 16, tileY: 4 },
       { id: "grotto_land_2", tileX: 20, tileY: 5 },
     ],
     // Cavern dressing — a signpost by the exit and lamp posts lighting the dark

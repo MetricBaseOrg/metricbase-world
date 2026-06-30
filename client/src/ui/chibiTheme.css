@@ -2182,12 +2182,20 @@ body {
 
 .chibi-ads__row {
   display: flex;
+  align-items: stretch;
   gap: 6px;
 }
 
 .chibi-ads__row .chibi-input {
   flex: 1;
   min-width: 0;
+}
+
+.chibi-ads__row .chibi-btn {
+  flex: 0 0 104px;
+  width: 104px;
+  justify-content: center;
+  text-align: center;
 }
 
 .chibi-ads__balance {

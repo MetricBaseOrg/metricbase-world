@@ -636,8 +636,10 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       client.send("adServing", adService.getServing());
     });
     this.onProtectedMessage("adBrandDashboard", (client) => {
-      const wallet = this.playerWallets.get(client.sessionId);
-      if (wallet) client.send("adBrandDashboard", adService.getBrandDashboard(wallet));
+      // Always send so houseWallet/mint reach the client even before the wallet
+      // link resolves; balance/campaigns fill in once the wallet is known.
+      const wallet = this.playerWallets.get(client.sessionId) ?? "";
+      client.send("adBrandDashboard", adService.getBrandDashboard(wallet));
     });
     this.onProtectedMessage("adDeposit", (client, m: { signature?: string }) => {
       void this.handleAdDeposit(client, m.signature ?? "");

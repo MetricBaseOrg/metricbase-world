@@ -80,7 +80,10 @@ export function AdsPanel() {
   const deposit = async () => {
     const amount = Number(depositAmt);
     if (!walletAddress) return setError("Connect your wallet first.");
-    if (!dash?.houseWallet) return setError("Ad deposits are disabled right now.");
+    if (!dash?.houseWallet) {
+      networkManager.requestAdBrandDashboard();
+      return setError("Loading the ad treasury — tap Deposit again in a moment.");
+    }
     if (!Number.isFinite(amount) || amount < AD_MIN_DEPOSIT) return setError(`Minimum deposit is ${AD_MIN_DEPOSIT} $BASE.`);
     setBusy(true);
     setError(null);
