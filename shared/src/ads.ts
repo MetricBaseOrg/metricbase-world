@@ -16,6 +16,8 @@ export interface AdSlot {
   zoneId?: string;
   /** Relative impression volume — drives auction ranking (higher = premium). */
   weight: number;
+  /** Billboard slots: in-world tile positions where the sign stands (2 per zone). */
+  tiles?: { x: number; y: number }[];
 }
 
 /**
@@ -23,11 +25,11 @@ export interface AdSlot {
  * bid the second, etc. Add zone billboards here to grow inventory.
  */
 export const AD_SLOTS: AdSlot[] = [
-  { id: "hub_billboard", label: "Hub Billboard", surface: "billboard", zoneId: "zone_hub", weight: 100 },
+  { id: "hub_billboard", label: "Hub Billboard", surface: "billboard", zoneId: "zone_hub", weight: 100, tiles: [{ x: 2, y: 8 }, { x: 18, y: 2 }] },
   { id: "global_banner", label: "Global Banner", surface: "banner", weight: 90 },
-  { id: "wilderness_billboard", label: "Wilderness Billboard", surface: "billboard", zoneId: "zone_wilderness", weight: 60 },
-  { id: "grotto_billboard", label: "Slime Grotto Billboard", surface: "billboard", zoneId: "zone_grotto", weight: 40 },
-  { id: "black_billboard", label: "Obsidian Reach Billboard", surface: "billboard", zoneId: "zone_black", weight: 25 },
+  { id: "wilderness_billboard", label: "Wilderness Billboard", surface: "billboard", zoneId: "zone_wilderness", weight: 60, tiles: [{ x: 2, y: 6 }, { x: 8, y: 2 }] },
+  { id: "grotto_billboard", label: "Slime Grotto Billboard", surface: "billboard", zoneId: "zone_grotto", weight: 40, tiles: [{ x: 2, y: 9 }, { x: 10, y: 2 }] },
+  { id: "black_billboard", label: "Obsidian Reach Billboard", surface: "billboard", zoneId: "zone_black", weight: 25, tiles: [{ x: 2, y: 4 }, { x: 9, y: 2 }] },
 ];
 
 /** The billboard slot id for a zone (null if that zone has no billboard). */

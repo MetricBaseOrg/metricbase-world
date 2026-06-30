@@ -37,6 +37,9 @@ import {
   ZONE_BLACK,
   KING_CRYSTAL_TILE,
   SIEGE_ATTACK_RANGE,
+  AD_SLOTS,
+  billboardSlotForZone,
+  type AdServedCreative,
 } from "@metricbase/shared";
 import {
   getAnimFrame,
@@ -226,6 +229,8 @@ export class GameScene extends Phaser.Scene {
     phase: number;
   }[] = [];
   private billboardTexts: Phaser.GameObjects.GameObject[] = [];
+  private adBillboards: Phaser.GameObjects.GameObject[] = [];
+  private latestAdServing: AdServedCreative[] = [];
   private billboardHoldersText: Phaser.GameObjects.Text | null = null;
   private billboardOnlineText: Phaser.GameObjects.Text | null = null;
   private interactKey: Phaser.Input.Keyboard.Key | null = null;
@@ -514,6 +519,12 @@ export class GameScene extends Phaser.Scene {
       this.syncLootBags(payload.bags);
     });
 
+    const unsubscribeAdServing = networkManager.onAdServing((payload) => {
+      this.latestAdServing = payload.creatives;
+      if (this.currentZoneId) this.renderAdBillboards(this.currentZoneId);
+    });
+    networkManager.requestAdServing();
+
     const unsubscribeTerritory = networkManager.onTerritoryState((payload) => {
       this.syncTerritory(payload.points);
     });
@@ -665,6 +676,7 @@ export class GameScene extends Phaser.Scene {
       unsubscribeEmote();
       unsubscribeWorldStats();
       unsubscribeLootBags();
+      unsubscribeAdServing();
       unsubscribePvpHit();
       unsubscribeTerritory();
       unsubscribeSiege();
@@ -678,6 +690,7 @@ export class GameScene extends Phaser.Scene {
       this.clearFarmPlots();
       this.clearLandPlots();
       this.clearBillboards();
+      this.clearAdBillboards();
       this.clearScenery();
       this.destroyLocalAvatar();
       this.renderedPlayers.forEach((entry) => {
@@ -1404,6 +1417,7 @@ export class GameScene extends Phaser.Scene {
     this.clearFarmPlots();
     this.clearLandPlots();
     this.clearBillboards();
+    this.clearAdBillboards();
     this.clearScenery();
     this.clearPortals();
     this.clearGroundDetails();
@@ -1453,6 +1467,7 @@ export class GameScene extends Phaser.Scene {
     this.renderFarmPlots(zoneId);
     this.renderLandPlots(zoneId);
     this.renderBillboards(zoneId);
+    this.renderAdBillboards(zoneId);
     this.renderScenery(zoneId);
     this.renderPortals(zoneId);
   }
@@ -1672,6 +1687,113 @@ export class GameScene extends Phaser.Scene {
     this.billboardTexts = [];
     this.billboardHoldersText = null;
     this.billboardOnlineText = null;
+  }
+
+  private clearAdBillboards() {
+    for (const obj of this.adBillboards) obj.destroy();
+    this.adBillboards = [];
+  }
+
+  /** In-world ad billboards: two signs per zone showing the current served ad. */
+  private renderAdBillboards(zoneId: string) {
+    this.clearAdBillboards();
+    const slotId = billboardSlotForZone(zoneId);
+    if (!slotId) return;
+    const slot = AD_SLOTS.find((s) => s.id === slotId);
+    if (!slot?.tiles) return;
+    const creative = this.latestAdServing.find((c) => c.slotId === slotId) ?? null;
+
+    for (const t of slot.tiles) {
+      const { x, y } = tileToWorld(t.x, t.y);
+      const sprite = this.add.sprite(x, y, "billboard").setOrigin(0.5, 0.92).setDepth(y);
+      this.adBillboards.push(sprite);
+      const faceY = y - 124 * 0.92 + 50; // centre of the sign board
+
+      // "AD" tag in the corner of the frame.
+      const tag = this.add
+        .text(x - 52, y - 124 * 0.92 + 8, "AD", {
+          fontFamily: '"Fredoka", "Nunito", sans-serif',
+          fontSize: "9px",
+          fontStyle: "bold",
+          color: "#ffffff",
+          backgroundColor: "#3a2a1e",
+        })
+        .setPadding(3, 1, 3, 1)
+        .setDepth(y + 2);
+      this.adBillboards.push(tag);
+
+      if (creative?.imageUrl) {
+        this.loadAdImage(
+          creative.imageUrl,
+          (key) => {
+            if (!sprite.active) return;
+            const img = this.add.image(x, faceY, key).setDepth(y + 1);
+            const scale = Math.min(118 / img.width, 64 / img.height);
+            img.setScale(scale > 0 ? scale : 1);
+            this.adBillboards.push(img);
+          },
+          () => this.addAdHeadline(x, faceY, creative.headline || "Sponsored", y),
+        );
+        this.makeAdClickable(sprite, creative.clickUrl);
+      } else if (creative) {
+        this.addAdHeadline(x, faceY, creative.headline || "Sponsored", y);
+        this.makeAdClickable(sprite, creative.clickUrl);
+      } else {
+        this.addAdHeadline(x, faceY, "Ads here", y);
+      }
+    }
+  }
+
+  private addAdHeadline(x: number, y: number, text: string, depth: number) {
+    const label = this.add
+      .text(x, y, text, {
+        fontFamily: '"Fredoka", "Nunito", sans-serif',
+        fontSize: "12px",
+        fontStyle: "bold",
+        color: "#2a1d12",
+        align: "center",
+        wordWrap: { width: 120 },
+      })
+      .setOrigin(0.5)
+      .setDepth(depth + 1);
+    this.adBillboards.push(label);
+  }
+
+  /** Load a brand image as a Phaser texture (cached), with an error fallback. */
+  private loadAdImage(url: string, onLoad: (key: string) => void, onError: () => void) {
+    const key = `ad_${this.hashUrl(url)}`;
+    if (this.textures.exists(key)) {
+      onLoad(key);
+      return;
+    }
+    const completeEvent = `filecomplete-image-${key}`;
+    const onFail = (file: Phaser.Loader.File) => {
+      if (file.key !== key) return;
+      this.load.off(completeEvent, onComplete);
+      this.load.off(Phaser.Loader.Events.FILE_LOAD_ERROR, onFail);
+      onError();
+    };
+    const onComplete = () => {
+      this.load.off(Phaser.Loader.Events.FILE_LOAD_ERROR, onFail);
+      onLoad(key);
+    };
+    this.load.once(completeEvent, onComplete);
+    this.load.on(Phaser.Loader.Events.FILE_LOAD_ERROR, onFail);
+    this.load.image(key, url);
+    this.load.start();
+  }
+
+  private hashUrl(url: string): string {
+    let h = 0;
+    for (let i = 0; i < url.length; i++) h = (h * 31 + url.charCodeAt(i)) | 0;
+    return Math.abs(h).toString(36);
+  }
+
+  private makeAdClickable(obj: Phaser.GameObjects.Sprite, clickUrl: string) {
+    obj.setInteractive({ useHandCursor: true });
+    obj.on("pointerup", () => {
+      if (/^https?:\/\//i.test(clickUrl)) window.open(clickUrl, "_blank", "noopener,noreferrer");
+    });
   }
 
   private applyWorldStats(payload: { baseHolders: number | null; online: number }) {
