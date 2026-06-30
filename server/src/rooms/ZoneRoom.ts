@@ -136,6 +136,10 @@ import {
   type BlackjackState,
   MAIL_SEND_COST,
   validateMail,
+  AD_SLOTS,
+  AD_MIN_DEPOSIT,
+  AD_IMPRESSION_INTERVAL_MS,
+  validateCampaign,
   BLACK_ZONE_BURN_AMOUNT,
   VIP_PASS_GOLD_COST,
   VIP_PASS_BURN_AMOUNT,
@@ -208,6 +212,7 @@ import { verifyPeerSolTransfer } from "../solana/verifyPeerSolTransfer.js";
 import { verifyPeerTokenTransfer } from "../solana/verifyPeerTokenTransfer.js";
 import { getTreasuryWallet } from "../solana/verifyTokenTransfer.js";
 import { getHouseWalletAddress, getHouseBalanceUi, isWithdrawEnabled, sendPayout } from "../solana/housePayout.js";
+import { adService } from "../ads/adService.js";
 import {
   getCasinoBalances,
   adjustCasinoBalance,
@@ -425,6 +430,11 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       if (this.state.players.size > 0) this.broadcast("worldStats", this.buildWorldStats());
     }, 60_000);
 
+    // Ad impressions: each viewing player generates one per minute per slot.
+    this.clock.setInterval(() => {
+      if (this.state.players.size > 0) this.tickAdImpressions();
+    }, AD_IMPRESSION_INTERVAL_MS);
+
     this.onMessage("input", (client, message: PendingInput) => {
       this.inputs.set(client.sessionId, {
         dx: clamp(message.dx, -1, 1),
@@ -618,6 +628,41 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     });
     this.onProtectedMessage("casinoDailyClaim", (client) => {
       void this.handleCasinoDailyClaim(client);
+    });
+
+    // ---- Ad marketplace ----
+    this.onProtectedMessage("adServing", (client) => {
+      client.send("adServing", adService.getServing());
+    });
+    this.onProtectedMessage("adBrandDashboard", (client) => {
+      const wallet = this.playerWallets.get(client.sessionId);
+      if (wallet) client.send("adBrandDashboard", adService.getBrandDashboard(wallet));
+    });
+    this.onProtectedMessage("adDeposit", (client, m: { signature?: string }) => {
+      void this.handleAdDeposit(client, m.signature ?? "");
+    });
+    this.onProtectedMessage(
+      "adCreateCampaign",
+      (client, m: { name?: string; imageUrl?: string; headline?: string; clickUrl?: string; cpm?: number }) => {
+        void this.handleAdCreateCampaign(client, m);
+      },
+    );
+    this.onProtectedMessage("adAdminList", (client) => {
+      const wallet = this.playerWallets.get(client.sessionId);
+      if (adService.isAdmin(wallet ?? null)) client.send("adAdminList", { campaigns: adService.listPending() });
+      else client.send("adActionResult", { ok: false, error: "Not authorized." });
+    });
+    this.onProtectedMessage("adReview", (client, m: { id?: string; status?: string; note?: string }) => {
+      void this.handleAdReview(client, m.id ?? "", m.status ?? "", m.note);
+    });
+    this.onProtectedMessage("adJoin", (client) => {
+      void this.handleAdJoin(client);
+    });
+    this.onProtectedMessage("adProgram", (client) => {
+      void this.handleAdProgram(client);
+    });
+    this.onProtectedMessage("adClaim", (client) => {
+      void this.handleAdClaim(client);
     });
 
     this.onProtectedMessage("mailFetch", (client) => {
@@ -3952,6 +3997,103 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     client.send("chat", this.systemChat("Lodge", `🎁 Daily bonus: +${gold} gold (day ${claim.streak} streak)!`));
     client.send("casinoResult", { ok: true, state: await this.buildCasinoState(wallet, player.name) });
     await this.persistPlayer(player);
+  }
+
+  // ---- Ad marketplace handlers ----
+
+  /** Every minute, each viewing player generates one impression per visible slot. */
+  private tickAdImpressions() {
+    const zoneId = this.zoneConfig.id;
+    for (const [sessionId, player] of this.state.players) {
+      if (player.spectator) continue;
+      const wallet = this.playerWallets.get(sessionId) ?? null;
+      for (const slot of AD_SLOTS) {
+        // Banner = everyone; billboard = players in that billboard's zone.
+        if (slot.surface === "billboard" && slot.zoneId !== zoneId) continue;
+        adService.recordImpression(slot.id, wallet);
+      }
+    }
+    const serving = adService.getServing();
+    if (serving.creatives.length > 0) this.broadcast("adServing", serving);
+  }
+
+  private async handleAdDeposit(client: Client, signature: string) {
+    const wallet = this.playerWallets.get(client.sessionId);
+    if (!wallet) return void client.send("adActionResult", { ok: false, error: "Connect your wallet first." });
+    if (!signature || signature.length < 32) {
+      return void client.send("adActionResult", { ok: false, error: "Missing deposit transaction." });
+    }
+    const house = adService.houseWallet();
+    if (!house) return void client.send("adActionResult", { ok: false, error: "Ad deposits are disabled." });
+    const mint = this.resolveCasinoMint("base");
+    if (!mint) return void client.send("adActionResult", { ok: false, error: "Currency misconfigured." });
+
+    const v = await verifyPeerTokenTransfer(signature, {
+      fromWallet: wallet,
+      toWallet: house,
+      mint,
+      minUiAmount: AD_MIN_DEPOSIT,
+    });
+    if (!v.ok || v.uiAmount === undefined) {
+      return void client.send("adActionResult", { ok: false, error: v.error ?? "Deposit not found." });
+    }
+    const credited = await adService.creditDeposit(wallet, v.uiAmount, signature);
+    if (!credited) return void client.send("adActionResult", { ok: false, error: "That deposit was already credited." });
+    client.send("adActionResult", { ok: true });
+    client.send("adBrandDashboard", adService.getBrandDashboard(wallet));
+  }
+
+  private async handleAdCreateCampaign(
+    client: Client,
+    m: { name?: string; imageUrl?: string; headline?: string; clickUrl?: string; cpm?: number },
+  ) {
+    const wallet = this.playerWallets.get(client.sessionId);
+    if (!wallet) return void client.send("adActionResult", { ok: false, error: "Connect your wallet first." });
+    const name = m.name ?? "";
+    const imageUrl = m.imageUrl ?? "";
+    const headline = m.headline ?? "";
+    const clickUrl = m.clickUrl ?? "";
+    const cpm = Number(m.cpm) || 0;
+    const invalid = validateCampaign(name, imageUrl, headline, clickUrl, cpm);
+    if (invalid) return void client.send("adActionResult", { ok: false, error: invalid });
+    await adService.createCampaign(wallet, { name, imageUrl, headline, clickUrl, cpm });
+    client.send("adActionResult", { ok: true });
+    client.send("adBrandDashboard", adService.getBrandDashboard(wallet));
+  }
+
+  private async handleAdReview(client: Client, id: string, status: string, note?: string) {
+    const wallet = this.playerWallets.get(client.sessionId) ?? null;
+    if (!adService.isAdmin(wallet)) return void client.send("adActionResult", { ok: false, error: "Not authorized." });
+    if (status !== "approved" && status !== "rejected") {
+      return void client.send("adActionResult", { ok: false, error: "Invalid status." });
+    }
+    await adService.review(id, status, note);
+    client.send("adActionResult", { ok: true });
+    client.send("adAdminList", { campaigns: adService.listPending() });
+    this.broadcast("adServing", adService.getServing());
+  }
+
+  private async handleAdJoin(client: Client) {
+    const wallet = this.playerWallets.get(client.sessionId);
+    if (!wallet) return void client.send("adActionResult", { ok: false, error: "Connect your wallet to join." });
+    await adService.join(wallet);
+    client.send("adActionResult", { ok: true });
+    client.send("adProgram", adService.getProgram(wallet));
+  }
+
+  private async handleAdProgram(client: Client) {
+    const wallet = this.playerWallets.get(client.sessionId);
+    if (!wallet) return void client.send("adProgram", { member: false, earnings: 0, lifetime: 0, impressions: 0, withdrawEnabled: false });
+    await adService.ensureMemberLoaded(wallet);
+    client.send("adProgram", adService.getProgram(wallet));
+  }
+
+  private async handleAdClaim(client: Client) {
+    const wallet = this.playerWallets.get(client.sessionId);
+    if (!wallet) return void client.send("adActionResult", { ok: false, error: "Connect your wallet first." });
+    const res = await adService.claim(wallet);
+    client.send("adActionResult", res);
+    client.send("adProgram", adService.getProgram(wallet));
   }
 
   private async handleBlackjackAction(client: Client, action: string) {

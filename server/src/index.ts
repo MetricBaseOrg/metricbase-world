@@ -24,6 +24,7 @@ import { initFarmRegistry } from "./farming/farmRegistry.js";
 import { initGuildRegistry } from "./guild/guildRegistry.js";
 import { initTerritoryRegistry } from "./territory/territoryRegistry.js";
 import { initSiegeRegistry } from "./siege/siegeRegistry.js";
+import { adService } from "./ads/adService.js";
 import { getBaseHolderCount } from "./solana/holderCount.js";
 import { ZoneRoom } from "./rooms/ZoneRoom.js";
 
@@ -72,6 +73,7 @@ await initFarmRegistry();
 await initGuildRegistry();
 await initTerritoryRegistry();
 await initSiegeRegistry();
+await adService.init();
 
 // Warm + periodically refresh the live $BASE holder count for the billboard.
 void getBaseHolderCount();
