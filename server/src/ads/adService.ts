@@ -148,10 +148,27 @@ class AdService {
     return { creatives };
   }
 
-  /** A viewing player generated one impression on a slot — charge brand, credit member. */
+  /** The campaign in the highest-weight occupied slot — the fallback ad shown on empty slots/banner. */
+  private topCampaignId(): string | null {
+    for (const slot of [...AD_SLOTS].sort((a, b) => b.weight - a.weight)) {
+      const cid = this.assignment.get(slot.id);
+      if (cid) return cid;
+    }
+    return null;
+  }
+
+  /**
+   * A viewing player generated one impression on a slot. If the slot has no ad
+   * of its own it shows the top-ranked ad as a fallback, so that campaign is
+   * charged for the fallback view too.
+   */
   recordImpression(slotId: string, viewerWallet: string | null): void {
-    const campaignId = this.assignment.get(slotId);
-    if (!campaignId) return;
+    const campaignId = this.assignment.get(slotId) ?? this.topCampaignId();
+    if (campaignId) this.chargeImpression(campaignId, viewerWallet);
+  }
+
+  /** Count + bill one impression for a campaign, crediting the viewing member's share. */
+  private chargeImpression(campaignId: string, viewerWallet: string | null): void {
     const c = this.campaigns.get(campaignId);
     if (!c) return;
     // The ad was shown, so the impression counts either way.

@@ -141,8 +141,9 @@ on-chain to the treasury wallet; claims signed by the house wallet).
   program member, they earn **50%** of that charge (the platform keeps the rest).
 - Every zone's billboard and the banner always show an ad: a slot with no ad of
   its own **falls back to the top-ranked ad**, so a single advertiser appears
-  worldwide (those fallback views are free bonus reach — only the real slot
-  assignment is billed). An empty marketplace shows an "Ads here" house promo.
+  worldwide. **Fallback views are billed too** — the top-ranked campaign is
+  charged (and the viewer earns their share) for fallback impressions just like
+  real slot assignments. An empty marketplace shows an "Ads here" house promo.
 
 ### For players (Earn tab)
 

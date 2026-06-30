@@ -32,9 +32,6 @@ export function TouchControls() {
   const knockedOut = useGameStore((state) => state.knockedOut);
   const toggleInventoryOpen = useGameStore((state) => state.toggleInventoryOpen);
   const toggleCraftOpen = useGameStore((state) => state.toggleCraftOpen);
-  const setMapOpen = useGameStore((state) => state.setMapOpen);
-  const setMailOpen = useGameStore((state) => state.setMailOpen);
-  const mailUnread = useGameStore((state) => state.mailUnread);
   const activeDirections = useRef(new Set<Direction>());
 
   const syncAxis = useCallback(() => {
@@ -163,25 +160,6 @@ export function TouchControls() {
           aria-label="Crafting"
         >
           🔨
-        </button>
-        <button
-          type="button"
-          className="chibi-btn chibi-btn--ghost chibi-action-btn chibi-action-btn--icon"
-          onPointerDown={(event) => event.preventDefault()}
-          onClick={() => setMapOpen(true)}
-          aria-label="World map"
-        >
-          🗺️
-        </button>
-        <button
-          type="button"
-          className="chibi-btn chibi-btn--ghost chibi-action-btn chibi-action-btn--icon"
-          style={{ position: "relative" }}
-          onPointerDown={(event) => event.preventDefault()}
-          onClick={() => setMailOpen(true)}
-          aria-label="Mailbox"
-        >
-          📬{mailUnread > 0 && <span className="chibi-mail-badge">{mailUnread}</span>}
         </button>
       </div>
     </div>
