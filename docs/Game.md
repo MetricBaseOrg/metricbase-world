@@ -170,6 +170,14 @@ on-chain to the treasury wallet; claims signed by the house wallet).
 - An approved ad serves even at a 0 balance (as free fallback fill); a **funded**
   bid always wins its slot ahead of unfunded ones.
 
+### For everyone (Transparency tab)
+
+A **📊 Transparency** tab (open to all players) shows the full picture: your own
+earnings with daily charts and claim history (on-chain Solscan links), the
+platform-wide totals (revenue, paid to players, platform cut, members,
+impressions) with daily charts, and a **payout-pool health** badge so you can
+see the pool always covers what's owed.
+
 ### For admins (Review + Dashboard tabs, treasury wallet only)
 
 - **Review**: approve / reject pending campaigns.

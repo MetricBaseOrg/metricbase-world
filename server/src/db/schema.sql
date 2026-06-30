@@ -121,6 +121,24 @@ CREATE TABLE IF NOT EXISTS ad_ledger (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Daily snapshots for ad transparency charts (cumulative values at capture time;
+-- charts are rendered as day-over-day deltas).
+CREATE TABLE IF NOT EXISTS ad_daily (
+  day DATE PRIMARY KEY,
+  revenue BIGINT NOT NULL DEFAULT 0,
+  player_paid BIGINT NOT NULL DEFAULT 0,
+  impressions BIGINT NOT NULL DEFAULT 0,
+  members INTEGER NOT NULL DEFAULT 0,
+  captured_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE TABLE IF NOT EXISTS ad_member_daily (
+  wallet_address VARCHAR(44) NOT NULL,
+  day DATE NOT NULL,
+  lifetime BIGINT NOT NULL DEFAULT 0,
+  impressions BIGINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (wallet_address, day)
+);
+
 CREATE TABLE IF NOT EXISTS token_purchases (
   signature VARCHAR(88) PRIMARY KEY,
   wallet VARCHAR(44) NOT NULL,

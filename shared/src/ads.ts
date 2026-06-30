@@ -151,6 +151,48 @@ export interface AdAdminDashboardPayload {
   rank: AdRankEntry[];
 }
 
+/** One point on a transparency chart (a single day's delta). */
+export interface AdSeriesPoint {
+  day: string; // YYYY-MM-DD
+  value: number;
+}
+
+/** A player's past payout. */
+export interface AdClaimRecord {
+  amount: number;
+  signature: string;
+  at: number;
+}
+
+/** Player-facing transparency view: personal earnings + full platform disclosure. */
+export interface AdTransparencyPayload {
+  // Personal
+  member: boolean;
+  sharePct: number; // player revenue share, e.g. 50
+  withdrawEnabled: boolean;
+  invitedCount: number;
+  requiredInvites: number;
+  minClaim: number;
+  earnings: number;
+  lifetime: number;
+  impressions: number;
+  personalEarned: AdSeriesPoint[];
+  personalImpressions: AdSeriesPoint[];
+  claims: AdClaimRecord[];
+  // Platform (full transparency)
+  totalRevenue: number;
+  playerPaid: number;
+  platformCut: number;
+  totalImpressions: number;
+  memberCount: number;
+  activeCampaigns: number;
+  houseBalance: number;
+  liabilities: number;
+  solvent: boolean;
+  platformRevenue: AdSeriesPoint[];
+  platformPaid: AdSeriesPoint[];
+}
+
 // ---- Tuning ----
 
 /** Players earn this share of each impression they generate. */

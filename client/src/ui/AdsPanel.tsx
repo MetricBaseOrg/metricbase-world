@@ -8,6 +8,8 @@ import {
   type AdProgramPayload,
   type BrandDashboardPayload,
   type AdAdminDashboardPayload,
+  type AdTransparencyPayload,
+  type AdSeriesPoint,
 } from "@metricbase/shared";
 import { useEffect, useState } from "react";
 import { playSfx } from "../audio/soundEffects";
@@ -15,7 +17,7 @@ import { networkManager } from "../game/network";
 import { useGameStore } from "../store/gameStore";
 import { depositToCasino } from "../wallet/casinoDeposit";
 
-type Tab = "earn" | "advertise" | "review" | "dashboard";
+type Tab = "earn" | "advertise" | "transparency" | "review" | "dashboard";
 
 export function AdsPanel() {
   const open = useGameStore((s) => s.adsOpen);
@@ -27,6 +29,7 @@ export function AdsPanel() {
   const [dash, setDash] = useState<BrandDashboardPayload | null>(null);
   const [pending, setPending] = useState<AdCampaign[]>([]);
   const [admin, setAdmin] = useState<AdAdminDashboardPayload | null>(null);
+  const [transparency, setTransparency] = useState<AdTransparencyPayload | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -47,6 +50,7 @@ export function AdsPanel() {
     const offDash = networkManager.onAdBrandDashboard(setDash);
     const offAdmin = networkManager.onAdAdminList((p) => setPending(p.campaigns));
     const offDashboard = networkManager.onAdAdminDashboard(setAdmin);
+    const offTransparency = networkManager.onAdTransparency(setTransparency);
     const offResult = networkManager.onAdActionResult((r) => {
       setBusy(false);
       if (!r.ok) {
@@ -64,6 +68,7 @@ export function AdsPanel() {
       offDash();
       offAdmin();
       offDashboard();
+      offTransparency();
       offResult();
     };
   }, []);
@@ -74,6 +79,7 @@ export function AdsPanel() {
     networkManager.requestAdBrandDashboard(walletAddress);
     networkManager.requestAdAdminList();
     networkManager.requestAdAdminDashboard();
+    networkManager.requestAdTransparency();
   }, [open, walletAddress]);
 
   if (!open) return null;
@@ -128,6 +134,7 @@ export function AdsPanel() {
   const tabs: { id: Tab; label: string }[] = [
     { id: "earn", label: "💸 Earn" },
     { id: "advertise", label: "📣 Advertise" },
+    { id: "transparency", label: "📊 Transparency" },
     ...(isAdmin
       ? ([
           { id: "review", label: "🛡️ Review" },
@@ -270,6 +277,82 @@ export function AdsPanel() {
           </div>
         )}
 
+        {tab === "transparency" && (
+          <div className="chibi-ads__body">
+            {!transparency ? (
+              <div className="chibi-text-muted" style={{ textAlign: "center", padding: 12 }}>Loading…</div>
+            ) : (
+              <>
+                <div className="chibi-ads__sub">Your earnings</div>
+                <div className="chibi-ads__stats">
+                  <Stat label="Claimable" value={`${transparency.earnings.toLocaleString()} $BASE`} />
+                  <Stat label="Lifetime" value={`${transparency.lifetime.toLocaleString()} $BASE`} />
+                  <Stat label="Impressions" value={transparency.impressions.toLocaleString()} />
+                </div>
+                {!transparency.member && (
+                  <div className="chibi-text-muted" style={{ fontSize: "0.72rem" }}>
+                    Join the program (Earn tab) to start earning your {transparency.sharePct}% share.
+                  </div>
+                )}
+                <MiniBars title="Your daily earnings ($BASE)" data={transparency.personalEarned} />
+                <MiniBars title="Your daily impressions" data={transparency.personalImpressions} />
+
+                <div className="chibi-ads__sub">Platform (everyone)</div>
+                <div className="chibi-ads__stats">
+                  <Stat label="Total revenue" value={`${transparency.totalRevenue.toLocaleString()} $BASE`} />
+                  <Stat label={`Paid to players (${transparency.sharePct}%)`} value={`${transparency.playerPaid.toLocaleString()} $BASE`} />
+                  <Stat label="Platform cut" value={`${transparency.platformCut.toLocaleString()} $BASE`} />
+                </div>
+                <div className="chibi-ads__stats">
+                  <Stat label="Members" value={transparency.memberCount.toLocaleString()} />
+                  <Stat label="Impressions" value={transparency.totalImpressions.toLocaleString()} />
+                  <Stat label="Active ads" value={transparency.activeCampaigns} />
+                </div>
+                <MiniBars title="Platform daily revenue ($BASE)" data={transparency.platformRevenue} />
+                <MiniBars title="Daily paid to players ($BASE)" data={transparency.platformPaid} />
+
+                <div className="chibi-ads__sub">Payout pool health</div>
+                <div className="chibi-ads__stats">
+                  <Stat label="Pool balance" value={`${transparency.houseBalance.toLocaleString()} $BASE`} />
+                  <Stat label="Owed to players" value={`${transparency.liabilities.toLocaleString()} $BASE`} />
+                  <Stat label="Status" value={transparency.solvent ? "✅ Healthy" : "⚠️ Low"} />
+                </div>
+                <div className="chibi-text-muted" style={{ fontSize: "0.68rem" }}>
+                  {transparency.solvent
+                    ? "The payout pool fully covers everything owed to players — claims are safe."
+                    : "Payouts owed currently exceed the pool. New earnings pause until it's topped up."}
+                </div>
+
+                <div className="chibi-ads__sub">Your claim history</div>
+                {transparency.claims.length === 0 ? (
+                  <div className="chibi-text-muted" style={{ fontSize: "0.72rem" }}>No payouts yet.</div>
+                ) : (
+                  <div className="chibi-ads__table">
+                    {transparency.claims.map((c) => (
+                      <div key={c.signature} className="chibi-ads__trow">
+                        <span style={{ flex: 1, fontWeight: 700 }}>{c.amount.toLocaleString()} $BASE</span>
+                        <span className="chibi-text-muted" style={{ fontSize: "0.66rem" }}>{new Date(c.at).toLocaleDateString()}</span>
+                        <a
+                          href={`https://solscan.io/tx/${c.signature}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{ fontSize: "0.66rem", color: "var(--chibi-mint-deep)" }}
+                        >
+                          tx ↗
+                        </a>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <button type="button" className="chibi-btn chibi-btn--ghost" style={{ alignSelf: "center", padding: "4px 12px", fontSize: "0.72rem" }} onClick={() => networkManager.requestAdTransparency()}>
+                  ↻ Refresh
+                </button>
+              </>
+            )}
+          </div>
+        )}
+
         {tab === "review" && isAdmin && (
           <div className="chibi-ads__body">
             {pending.length === 0 ? (
@@ -384,6 +467,32 @@ function Stat({ label, value }: { label: string; value: string | number }) {
     <div className="chibi-ads__stat">
       <span className="chibi-text-muted" style={{ fontSize: "0.7rem" }}>{label}</span>
       <span style={{ fontWeight: 800 }}>{value}</span>
+    </div>
+  );
+}
+
+/** A tiny inline SVG bar chart of recent daily values. */
+function MiniBars({ title, data }: { title: string; data: AdSeriesPoint[] }) {
+  const max = data.reduce((m, p) => Math.max(m, p.value), 0);
+  return (
+    <div className="chibi-ads__chart">
+      <div className="chibi-text-muted" style={{ fontSize: "0.68rem", marginBottom: 3 }}>{title}</div>
+      {data.length === 0 || max <= 0 ? (
+        <div className="chibi-text-muted" style={{ fontSize: "0.64rem", opacity: 0.7 }}>
+          Chart builds over the next few days.
+        </div>
+      ) : (
+        <div className="chibi-ads__bars">
+          {data.map((p) => (
+            <div
+              key={p.day}
+              className="chibi-ads__bar"
+              style={{ height: `${Math.max(4, (p.value / max) * 100)}%` }}
+              title={`${p.day}: ${p.value.toLocaleString()}`}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

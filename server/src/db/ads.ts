@@ -242,6 +242,94 @@ export async function sumMemberEarnings(): Promise<number> {
   return Number(r.rows[0]?.total ?? 0);
 }
 
+/** Number of registered program members. */
+export async function countMembers(): Promise<number> {
+  const db = getPool();
+  if (!db) return 0;
+  const r = await db.query<{ n: string }>(`SELECT COUNT(*) AS n FROM ad_members`);
+  return Number(r.rows[0]?.n ?? 0);
+}
+
+// ---- Transparency snapshots (for charts) ----
+
+export interface AdDailyRow {
+  day: string;
+  revenue: number;
+  playerPaid: number;
+  impressions: number;
+  members: number;
+}
+
+/** Upsert today's platform snapshot (cumulative values). */
+export async function snapshotDaily(revenue: number, playerPaid: number, impressions: number, members: number): Promise<void> {
+  const db = getPool();
+  if (!db) return;
+  await db.query(
+    `INSERT INTO ad_daily (day, revenue, player_paid, impressions, members)
+     VALUES (CURRENT_DATE, $1, $2, $3, $4)
+     ON CONFLICT (day) DO UPDATE SET revenue = EXCLUDED.revenue, player_paid = EXCLUDED.player_paid,
+       impressions = EXCLUDED.impressions, members = EXCLUDED.members, captured_at = NOW()`,
+    [Math.floor(revenue), Math.floor(playerPaid), Math.floor(impressions), Math.floor(members)],
+  );
+}
+
+/** Upsert today's per-member snapshot (cumulative lifetime + impressions). */
+export async function snapshotMemberDaily(wallet: string, lifetime: number, impressions: number): Promise<void> {
+  const db = getPool();
+  if (!db) return;
+  await db.query(
+    `INSERT INTO ad_member_daily (wallet_address, day, lifetime, impressions)
+     VALUES ($1, CURRENT_DATE, $2, $3)
+     ON CONFLICT (wallet_address, day) DO UPDATE SET lifetime = EXCLUDED.lifetime, impressions = EXCLUDED.impressions`,
+    [wallet, Math.floor(lifetime), Math.floor(impressions)],
+  );
+}
+
+/** Last N+1 platform snapshots (ascending) for delta charts. */
+export async function getDailySeries(days: number): Promise<AdDailyRow[]> {
+  const db = getPool();
+  if (!db) return [];
+  const r = await db.query<{ day: string; revenue: string; player_paid: string; impressions: string; members: string }>(
+    `SELECT to_char(day, 'YYYY-MM-DD') AS day, revenue, player_paid, impressions, members
+     FROM (SELECT * FROM ad_daily ORDER BY day DESC LIMIT $1) t ORDER BY day ASC`,
+    [days + 1],
+  );
+  return r.rows.map((row) => ({
+    day: row.day,
+    revenue: Number(row.revenue),
+    playerPaid: Number(row.player_paid),
+    impressions: Number(row.impressions),
+    members: Number(row.members),
+  }));
+}
+
+/** Last N+1 per-member snapshots (ascending) for delta charts. */
+export async function getMemberDailySeries(wallet: string, days: number): Promise<{ day: string; lifetime: number; impressions: number }[]> {
+  const db = getPool();
+  if (!db) return [];
+  const r = await db.query<{ day: string; lifetime: string; impressions: string }>(
+    `SELECT to_char(day, 'YYYY-MM-DD') AS day, lifetime, impressions
+     FROM (SELECT * FROM ad_member_daily WHERE wallet_address = $1 ORDER BY day DESC LIMIT $2) t ORDER BY day ASC`,
+    [wallet, days + 1],
+  );
+  return r.rows.map((row) => ({ day: row.day, lifetime: Number(row.lifetime), impressions: Number(row.impressions) }));
+}
+
+/** A player's recent payout history from the ledger. */
+export async function getMemberClaims(wallet: string, limit: number): Promise<{ amount: number; signature: string; at: number }[]> {
+  const db = getPool();
+  if (!db) return [];
+  const r = await db.query<{ amount: string; signature: string; created_at: Date }>(
+    `SELECT amount, signature, created_at FROM ad_ledger WHERE wallet_address = $1 AND kind = 'claim' ORDER BY created_at DESC LIMIT $2`,
+    [wallet, limit],
+  );
+  return r.rows.map((row) => ({
+    amount: Number(row.amount),
+    signature: row.signature,
+    at: row.created_at instanceof Date ? row.created_at.getTime() : new Date(row.created_at).getTime(),
+  }));
+}
+
 export async function recordAdClaim(wallet: string, amount: number, signature: string): Promise<void> {
   const db = getPool();
   if (!db) return;

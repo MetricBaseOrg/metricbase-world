@@ -27,6 +27,7 @@ import {
   type AdActionResult,
   type AdCampaign,
   type AdAdminDashboardPayload,
+  type AdTransparencyPayload,
   CraftResultPayload,
   FarmStatePayload,
   FarmResultPayload,
@@ -190,6 +191,7 @@ export class NetworkManager {
   private adBrandListeners = new Set<(payload: BrandDashboardPayload) => void>();
   private adAdminListeners = new Set<(payload: { campaigns: AdCampaign[] }) => void>();
   private adAdminDashboardListeners = new Set<(payload: AdAdminDashboardPayload) => void>();
+  private adTransparencyListeners = new Set<(payload: AdTransparencyPayload) => void>();
   private adProgramListeners = new Set<(payload: AdProgramPayload) => void>();
   private adActionListeners = new Set<(payload: AdActionResult) => void>();
   private inventoryResultListeners = new Set<InventoryResultListener>();
@@ -520,6 +522,13 @@ export class NetworkManager {
   }
   requestAdAdminDashboard() {
     this.room?.send("adAdminDashboard", {});
+  }
+  requestAdTransparency() {
+    this.room?.send("adTransparency", {});
+  }
+  onAdTransparency(listener: (p: AdTransparencyPayload) => void) {
+    this.adTransparencyListeners.add(listener);
+    return () => this.adTransparencyListeners.delete(listener);
   }
   onAdAdminDashboard(listener: (p: AdAdminDashboardPayload) => void) {
     this.adAdminDashboardListeners.add(listener);
@@ -1346,6 +1355,9 @@ export class NetworkManager {
     });
     this.room.onMessage("adAdminDashboard", (payload: AdAdminDashboardPayload) => {
       for (const listener of this.adAdminDashboardListeners) listener(payload);
+    });
+    this.room.onMessage("adTransparency", (payload: AdTransparencyPayload) => {
+      for (const listener of this.adTransparencyListeners) listener(payload);
     });
     this.room.onMessage("adProgram", (payload: AdProgramPayload) => {
       for (const listener of this.adProgramListeners) listener(payload);

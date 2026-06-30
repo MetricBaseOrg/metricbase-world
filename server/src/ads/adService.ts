@@ -6,6 +6,7 @@
 import {
   AD_MIN_CLAIM,
   AD_PLAYER_SHARE,
+  AD_REQUIRED_INVITES,
   AD_SLOTS,
   METRICBASE_TOKEN_MINT,
   getCurrency,
@@ -20,6 +21,8 @@ import {
   type AdAdminDashboardPayload,
   type AdSlotStat,
   type AdRankEntry,
+  type AdTransparencyPayload,
+  type AdSeriesPoint,
 } from "@metricbase/shared";
 import { randomUUID } from "node:crypto";
 import {
@@ -37,6 +40,12 @@ import {
   sumMemberEarnings,
   sumMemberLifetime,
   takeMemberEarnings,
+  countMembers,
+  snapshotDaily,
+  snapshotMemberDaily,
+  getDailySeries,
+  getMemberDailySeries,
+  getMemberClaims,
   type AdCampaignRow,
 } from "../db/ads.js";
 import { getMember as dbGetMember } from "../db/ads.js";
@@ -109,6 +118,33 @@ class AdService {
     // Periodic flush of in-memory counters to the DB + house-balance refresh.
     setInterval(() => void this.flush(), 30_000);
     setInterval(() => void this.refreshHouseBalance(), 60_000);
+    // Daily transparency snapshot (platform totals) every 6h.
+    setInterval(() => void this.snapshotPlatform(), 6 * 60 * 60_000);
+    void this.snapshotPlatform();
+  }
+
+  /** Cumulative platform totals (base units / counts). */
+  private platformTotals(): { revenue: number; impressions: number; active: number; pending: number } {
+    let revenue = 0;
+    let impressions = 0;
+    let active = 0;
+    let pending = 0;
+    for (const c of this.campaigns.values()) {
+      revenue += c.spent;
+      impressions += c.impressions;
+      if (c.status === "approved") active += 1;
+      if (c.status === "pending") pending += 1;
+    }
+    return { revenue, impressions, active, pending };
+  }
+
+  /** Upsert today's platform snapshot for the transparency charts. */
+  private async snapshotPlatform(): Promise<void> {
+    if (!this.loaded) return;
+    const t = this.platformTotals();
+    const paid = await sumMemberLifetime();
+    const members = await countMembers();
+    await snapshotDaily(t.revenue, paid, t.impressions, members);
   }
 
   /** Refresh the cached house balance (base units) used by the solvency guard. */
@@ -387,6 +423,66 @@ class AdService {
       solvent: this.liabilities <= this.houseBalanceUnits,
       slots,
       rank,
+    };
+  }
+
+  /** Player-facing transparency snapshot: personal earnings + full platform disclosure + charts. */
+  async getTransparency(wallet: string, invitedCount: number): Promise<AdTransparencyPayload> {
+    await this.flush();
+    await this.refreshHouseBalance();
+    const t = this.platformTotals();
+    const playerPaidUnits = await sumMemberLifetime();
+    const memberCount = await countMembers();
+
+    // Capture today's cumulative values so the charts progress day over day.
+    await this.snapshotPlatform();
+    const m = wallet ? this.members.get(wallet) : undefined;
+    if (wallet && m) await snapshotMemberDaily(wallet, m.lifetime, m.impressions);
+
+    const DAYS = 14;
+    const platDaily = await getDailySeries(DAYS);
+    const memberDaily = wallet ? await getMemberDailySeries(wallet, DAYS) : [];
+    const claimsRaw = wallet ? await getMemberClaims(wallet, 20) : [];
+
+    const moneyDeltas = <T>(rows: T[], pick: (r: T) => number, dayOf: (r: T) => string): AdSeriesPoint[] => {
+      const out: AdSeriesPoint[] = [];
+      for (let i = 1; i < rows.length; i++) {
+        out.push({ day: dayOf(rows[i]), value: toUiAmount(Math.max(0, pick(rows[i]) - pick(rows[i - 1])), "base") });
+      }
+      return out;
+    };
+    const countDeltas = <T>(rows: T[], pick: (r: T) => number, dayOf: (r: T) => string): AdSeriesPoint[] => {
+      const out: AdSeriesPoint[] = [];
+      for (let i = 1; i < rows.length; i++) {
+        out.push({ day: dayOf(rows[i]), value: Math.max(0, pick(rows[i]) - pick(rows[i - 1])) });
+      }
+      return out;
+    };
+
+    return {
+      member: !!m,
+      sharePct: Math.round(AD_PLAYER_SHARE * 100),
+      withdrawEnabled: isWithdrawEnabled(),
+      invitedCount,
+      requiredInvites: AD_REQUIRED_INVITES,
+      minClaim: AD_MIN_CLAIM,
+      earnings: toUiAmount(m?.earnings ?? 0, "base"),
+      lifetime: toUiAmount(m?.lifetime ?? 0, "base"),
+      impressions: m?.impressions ?? 0,
+      personalEarned: moneyDeltas(memberDaily, (r) => r.lifetime, (r) => r.day),
+      personalImpressions: countDeltas(memberDaily, (r) => r.impressions, (r) => r.day),
+      claims: claimsRaw.map((c) => ({ amount: toUiAmount(c.amount, "base"), signature: c.signature, at: c.at })),
+      totalRevenue: toUiAmount(t.revenue, "base"),
+      playerPaid: toUiAmount(playerPaidUnits, "base"),
+      platformCut: toUiAmount(Math.max(0, t.revenue - playerPaidUnits), "base"),
+      totalImpressions: t.impressions,
+      memberCount,
+      activeCampaigns: t.active,
+      houseBalance: toUiAmount(this.houseBalanceUnits, "base"),
+      liabilities: toUiAmount(this.liabilities, "base"),
+      solvent: this.liabilities <= this.houseBalanceUnits,
+      platformRevenue: moneyDeltas(platDaily, (r) => r.revenue, (r) => r.day),
+      platformPaid: moneyDeltas(platDaily, (r) => r.playerPaid, (r) => r.day),
     };
   }
 

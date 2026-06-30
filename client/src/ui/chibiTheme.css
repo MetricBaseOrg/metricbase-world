@@ -2260,6 +2260,28 @@ body {
   cursor: pointer;
 }
 
+.chibi-ads__chart {
+  margin: 2px 0 4px;
+}
+
+.chibi-ads__bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 44px;
+  padding: 3px 4px;
+  border: 2px solid var(--chibi-outline-light);
+  border-radius: 8px;
+  background: var(--chibi-cream-deep);
+}
+
+.chibi-ads__bar {
+  flex: 1;
+  min-width: 2px;
+  background: var(--chibi-mint-deep);
+  border-radius: 2px 2px 0 0;
+}
+
 .chibi-ads__table {
   display: flex;
   flex-direction: column;

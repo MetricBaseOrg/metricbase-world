@@ -673,6 +673,9 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     this.onProtectedMessage("adProgram", (client) => {
       void this.handleAdProgram(client);
     });
+    this.onProtectedMessage("adTransparency", (client) => {
+      void this.handleAdTransparency(client);
+    });
     this.onProtectedMessage("adClaim", (client) => {
       void this.handleAdClaim(client);
     });
@@ -4130,6 +4133,13 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     if (adService.isAdmin(wallet)) await adService.join(wallet);
     else await adService.ensureMemberLoaded(wallet);
     client.send("adProgram", adService.getProgram(wallet, await getInvitedCount(wallet)));
+  }
+
+  private async handleAdTransparency(client: Client) {
+    const wallet = this.playerWallets.get(client.sessionId) ?? "";
+    if (wallet) await adService.ensureMemberLoaded(wallet);
+    const invited = wallet ? await getInvitedCount(wallet) : 0;
+    client.send("adTransparency", await adService.getTransparency(wallet, invited));
   }
 
   private async handleAdClaim(client: Client) {
