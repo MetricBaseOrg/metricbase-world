@@ -70,8 +70,6 @@ export function TopBar({ onLeave }: TopBarProps) {
     return () => window.removeEventListener("pointerdown", onDown);
   }, [menuOpen]);
 
-  if (mobileLayout) return null;
-
   const xp = xpProgress(playerXp, playerLevel);
   const wood = woodcuttingXpProgress(woodcuttingXp, woodcuttingLevel);
   const mine = miningXpProgress(miningXp, miningLevel);
@@ -83,7 +81,7 @@ export function TopBar({ onLeave }: TopBarProps) {
   const characterAppearance = useGameStore((s) => s.characterAppearance);
 
   return (
-    <div className="chibi-topbar chibi-anchor chibi-anchor--top-left">
+    <div className={`chibi-topbar chibi-anchor chibi-anchor--top-left${mobileLayout ? " chibi-topbar--mobile" : ""}`}>
       {spectator ? (
         <span className="chibi-badge" style={{ fontSize: "0.82rem", padding: "6px 12px", background: "#3b82f6", color: "#fff", display: "inline-flex", alignItems: "center", gap: 6 }}>
           👀 SPECTATOR MODE (FREE FLY)

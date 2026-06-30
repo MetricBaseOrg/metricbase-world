@@ -1526,8 +1526,18 @@ body {
 .chibi-currency-strip {
   display: flex;
   align-items: stretch;
+  flex-wrap: wrap;
   gap: 6px;
   margin-top: 8px;
+}
+
+/* On mobile the new HUD card replaces the old gauge panel — keep it on-screen. */
+.chibi-topbar--mobile {
+  max-width: calc(100vw - 16px);
+}
+
+.chibi-topbar--mobile .chibi-hudcard__body {
+  min-width: 0;
 }
 
 .chibi-currency-chip {
