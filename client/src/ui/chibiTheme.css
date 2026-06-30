@@ -2738,6 +2738,17 @@ a.chibi-btn {
   box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
 }
 
+/* On mobile the HUD card is taller (portrait + bars + wrapped currency strip),
+   so drop the centered zone chip + PvP toggle below it instead of over it. */
+@media (max-width: 768px) {
+  .chibi-zone-chip {
+    top: calc(var(--chibi-rail-top) + 170px);
+  }
+  .chibi-pvp-flag {
+    top: calc(var(--chibi-rail-top) + 208px);
+  }
+}
+
 .chibi-pvp-flag.active {
   background: var(--chibi-danger, #ff6b6b);
   color: #fff7ea;
