@@ -29,7 +29,27 @@ export function TopBar({ onLeave }: TopBarProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [soundOn, setSoundOn] = useState(isSoundEnabled);
   const [musicOn, setMusicOn] = useState(isMusicEnabled);
+  const [minimized, setMinimized] = useState(() => {
+    try {
+      return localStorage.getItem("mb_hud_min") === "1";
+    } catch {
+      return false;
+    }
+  });
   const menuRef = useRef<HTMLDivElement | null>(null);
+
+  const toggleMinimized = () => {
+    setMinimized((v) => {
+      const next = !v;
+      try {
+        localStorage.setItem("mb_hud_min", next ? "1" : "0");
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+    playSfx("ui_click");
+  };
 
   const {
     playerName,
@@ -80,6 +100,23 @@ export function TopBar({ onLeave }: TopBarProps) {
 
   const characterAppearance = useGameStore((s) => s.characterAppearance);
 
+  // On mobile the player can collapse the HUD to a small portrait pill to free screen space.
+  const collapsed = mobileLayout && minimized;
+
+  if (collapsed && !spectator) {
+    return (
+      <div className={`chibi-topbar chibi-anchor chibi-anchor--top-left chibi-topbar--mobile chibi-topbar--min`}>
+        <button type="button" className="chibi-hudcard chibi-hudcard--mini" onClick={toggleMinimized} aria-label="Expand HUD" title="Expand HUD">
+          <div className="chibi-hudcard__portrait">
+            <PortraitCanvas appearance={characterAppearance} size={40} />
+            <span className="chibi-hudcard__lvl">Lv {playerLevel}</span>
+          </div>
+          <span className="chibi-hudcard__mini-expand">▸</span>
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className={`chibi-topbar chibi-anchor chibi-anchor--top-left${mobileLayout ? " chibi-topbar--mobile" : ""}`}>
       {spectator ? (
@@ -113,6 +150,17 @@ export function TopBar({ onLeave }: TopBarProps) {
           >
             ⚙️
           </button>
+          {mobileLayout && (
+            <button
+              type="button"
+              className="chibi-btn chibi-btn--ghost chibi-topbar__min"
+              onClick={toggleMinimized}
+              aria-label="Minimize HUD"
+              title="Minimize HUD"
+            >
+              ▾
+            </button>
+          )}
         </div>
       )}
 

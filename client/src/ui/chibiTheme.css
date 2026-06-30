@@ -185,6 +185,32 @@ body {
   font-size: 0.9rem;
 }
 
+.chibi-topbar__min {
+  align-self: center;
+  padding: 4px 7px;
+  font-size: 0.8rem;
+}
+
+/* Collapsed mobile HUD: just the portrait + level, tap to expand. */
+.chibi-hudcard--mini {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  cursor: pointer;
+}
+
+.chibi-hudcard--mini .chibi-hudcard__portrait {
+  width: 40px;
+  height: 40px;
+}
+
+.chibi-hudcard__mini-expand {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: var(--chibi-ink-soft);
+}
+
 .chibi-topbar__menu {
   position: absolute;
   top: calc(100% + 6px);
