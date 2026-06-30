@@ -1559,9 +1559,10 @@ body {
   margin-top: 8px;
 }
 
-/* On mobile the new HUD card replaces the old gauge panel — keep it on-screen. */
+/* On mobile the new HUD card replaces the old gauge panel — keep it on-screen
+   and clear of the top-right social rail (round buttons). */
 .chibi-topbar--mobile {
-  max-width: calc(100vw - 16px);
+  max-width: calc(100vw - 84px);
 }
 
 .chibi-topbar--mobile .chibi-hudcard__body {
