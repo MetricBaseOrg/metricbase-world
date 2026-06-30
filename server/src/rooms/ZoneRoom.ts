@@ -635,14 +635,15 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     this.onProtectedMessage("adServing", (client) => {
       client.send("adServing", adService.getServing());
     });
-    this.onProtectedMessage("adBrandDashboard", (client) => {
+    this.onProtectedMessage("adBrandDashboard", (client, m: { wallet?: string }) => {
       // Always send so houseWallet/mint reach the client even before the wallet
-      // link resolves; balance/campaigns fill in once the wallet is known.
-      const wallet = this.playerWallets.get(client.sessionId) ?? "";
+      // link resolves; show the balance for the linked wallet, or the one the
+      // client reports if none is linked yet.
+      const wallet = this.playerWallets.get(client.sessionId) ?? m.wallet ?? "";
       client.send("adBrandDashboard", adService.getBrandDashboard(wallet));
     });
-    this.onProtectedMessage("adDeposit", (client, m: { signature?: string }) => {
-      void this.handleAdDeposit(client, m.signature ?? "");
+    this.onProtectedMessage("adDeposit", (client, m: { signature?: string; wallet?: string }) => {
+      void this.handleAdDeposit(client, m.signature ?? "", m.wallet);
     });
     this.onProtectedMessage(
       "adCreateCampaign",
@@ -4025,8 +4026,11 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     if (serving.creatives.length > 0) this.broadcast("adServing", serving);
   }
 
-  private async handleAdDeposit(client: Client, signature: string) {
-    const wallet = this.playerWallets.get(client.sessionId);
+  private async handleAdDeposit(client: Client, signature: string, claimedWallet?: string) {
+    // Use the linked wallet, or the one the client reports — the deposit is
+    // verified against the transaction's actual payer, so a claimed wallet can
+    // only credit itself if it really paid.
+    const wallet = this.playerWallets.get(client.sessionId) ?? claimedWallet;
     if (!wallet) return void client.send("adActionResult", { ok: false, error: "Connect your wallet first." });
     if (!signature || signature.length < 32) {
       return void client.send("adActionResult", { ok: false, error: "Missing deposit transaction." });

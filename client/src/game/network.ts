@@ -512,8 +512,8 @@ export class NetworkManager {
   requestAdServing() {
     this.room?.send("adServing", {});
   }
-  requestAdBrandDashboard() {
-    this.room?.send("adBrandDashboard", {});
+  requestAdBrandDashboard(wallet?: string | null) {
+    this.room?.send("adBrandDashboard", { wallet: wallet ?? undefined });
   }
   requestAdAdminList() {
     this.room?.send("adAdminList", {});
@@ -528,8 +528,8 @@ export class NetworkManager {
   requestAdProgram() {
     this.room?.send("adProgram", {});
   }
-  sendAdDeposit(signature: string) {
-    this.room?.send("adDeposit", { signature });
+  sendAdDeposit(signature: string, wallet?: string | null) {
+    this.room?.send("adDeposit", { signature, wallet: wallet ?? undefined });
   }
   sendAdCreateCampaign(c: { name: string; imageUrl: string; headline: string; clickUrl: string; cpm: number }) {
     this.room?.send("adCreateCampaign", c);

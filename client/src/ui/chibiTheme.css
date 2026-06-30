@@ -2228,6 +2228,12 @@ body {
   background: var(--chibi-cream-deep);
 }
 
+.chibi-ads__recover summary {
+  font-size: 0.72rem;
+  color: var(--chibi-ink-soft);
+  cursor: pointer;
+}
+
 .chibi-ads__table {
   display: flex;
   flex-direction: column;

@@ -33,6 +33,7 @@ export function AdsPanel() {
 
   // Campaign form + deposit amount.
   const [depositAmt, setDepositAmt] = useState("");
+  const [recoverTx, setRecoverTx] = useState("");
   const [name, setName] = useState("");
   const [imageUrl, setImageUrl] = useState("");
   const [headline, setHeadline] = useState("");
@@ -70,10 +71,10 @@ export function AdsPanel() {
   useEffect(() => {
     if (!open) return;
     networkManager.requestAdProgram();
-    networkManager.requestAdBrandDashboard();
+    networkManager.requestAdBrandDashboard(walletAddress);
     networkManager.requestAdAdminList();
     networkManager.requestAdAdminDashboard();
-  }, [open]);
+  }, [open, walletAddress]);
 
   if (!open) return null;
 
@@ -98,7 +99,7 @@ export function AdsPanel() {
         mint: dash.mint,
       });
       setNotice("Verifying deposit…");
-      networkManager.sendAdDeposit(signature);
+      networkManager.sendAdDeposit(signature, walletAddress);
       setDepositAmt("");
     } catch (e) {
       setBusy(false);
@@ -220,6 +221,26 @@ export function AdsPanel() {
               <input className="chibi-input" inputMode="decimal" placeholder={`Deposit $BASE (min ${AD_MIN_DEPOSIT})`} value={depositAmt} onChange={(e) => setDepositAmt(e.target.value)} />
               <button type="button" className="chibi-btn chibi-btn--mint" disabled={busy || !walletAddress} onClick={() => void deposit()}>Deposit</button>
             </div>
+            <details className="chibi-ads__recover">
+              <summary>Already paid? Credit a past deposit</summary>
+              <div className="chibi-ads__row" style={{ marginTop: 6 }}>
+                <input className="chibi-input" placeholder="Deposit transaction hash" value={recoverTx} onChange={(e) => setRecoverTx(e.target.value)} />
+                <button
+                  type="button"
+                  className="chibi-btn chibi-btn--secondary"
+                  disabled={busy || !walletAddress || recoverTx.trim().length < 32}
+                  onClick={() => {
+                    setBusy(true);
+                    setError(null);
+                    setNotice("Verifying transaction…");
+                    networkManager.sendAdDeposit(recoverTx.trim(), walletAddress);
+                    setRecoverTx("");
+                  }}
+                >
+                  Credit
+                </button>
+              </div>
+            </details>
 
             <div className="chibi-ads__sub">New campaign</div>
             <input className="chibi-input" placeholder="Campaign name" value={name} onChange={(e) => setName(e.target.value)} />

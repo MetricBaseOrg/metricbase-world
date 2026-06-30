@@ -11,7 +11,11 @@ export function AdBanner() {
 
   useEffect(() => {
     const off = networkManager.onAdServing((payload) => {
-      setCreative(payload.creatives.find((c) => c.slotId === "global_banner") ?? null);
+      // Prefer the banner slot, but fall back to the top-ranked ad so the banner
+      // always shows an ad whenever any campaign is serving.
+      setCreative(
+        payload.creatives.find((c) => c.slotId === "global_banner") ?? payload.creatives[0] ?? null,
+      );
     });
     networkManager.requestAdServing();
     return () => {
