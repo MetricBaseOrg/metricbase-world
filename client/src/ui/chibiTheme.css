@@ -2407,7 +2407,8 @@ body {
 /* On mobile the skill bar floats above the touch controls so abilities are
    tappable; keep it compact and let it scroll if a weapon has many skills. */
 .chibi-skillbar.is-mobile {
-  bottom: 150px;
+  /* Sit clear above the d-pad / action pad (≈174px tall) + any safe-area inset. */
+  bottom: calc(184px + var(--chibi-safe-bottom, 0px));
   gap: 5px;
   padding: 5px 7px;
   max-width: 94vw;
