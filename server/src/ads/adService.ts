@@ -229,14 +229,20 @@ class AdService {
     };
   }
 
-  async creditDeposit(wallet: string, uiAmount: number, signature: string): Promise<boolean> {
+  async creditDeposit(wallet: string, uiAmount: number, signature: string): Promise<{ credited: boolean; balance: number }> {
     const amount = toBaseUnits(uiAmount, "base");
     const res = await creditAdDepositOnce(wallet, amount, signature);
-    if (res.credited) {
-      this.brand(wallet).balance = res.balance;
-      this.recompute(); // a now-funded campaign may move up the ranking
-    }
-    return res.credited;
+    // Always sync the in-memory balance to the DB truth (res.balance is the
+    // current DB balance whether we just credited or it was already there).
+    this.brand(wallet).balance = res.balance;
+    this.recompute();
+    return res;
+  }
+
+  /** Pull a brand's balance from the DB into memory (DB is the source of truth). */
+  async syncBrand(wallet: string): Promise<void> {
+    if (!wallet) return;
+    this.brand(wallet).balance = await getBrandBalance(wallet);
   }
 
   async createCampaign(

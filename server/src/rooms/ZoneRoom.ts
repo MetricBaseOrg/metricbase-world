@@ -638,9 +638,12 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     this.onProtectedMessage("adBrandDashboard", (client, m: { wallet?: string }) => {
       // Always send so houseWallet/mint reach the client even before the wallet
       // link resolves; show the balance for the linked wallet, or the one the
-      // client reports if none is linked yet.
+      // client reports if none is linked yet. Sync from the DB so the balance
+      // reflects deposits credited on another instance/session.
       const wallet = this.playerWallets.get(client.sessionId) ?? m.wallet ?? "";
-      client.send("adBrandDashboard", adService.getBrandDashboard(wallet));
+      void adService.syncBrand(wallet).then(() => {
+        client.send("adBrandDashboard", adService.getBrandDashboard(wallet));
+      });
     });
     this.onProtectedMessage("adDeposit", (client, m: { signature?: string; wallet?: string }) => {
       void this.handleAdDeposit(client, m.signature ?? "", m.wallet);
@@ -4049,10 +4052,14 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     if (!v.ok || v.uiAmount === undefined) {
       return void client.send("adActionResult", { ok: false, error: v.error ?? "Deposit not found." });
     }
-    const credited = await adService.creditDeposit(wallet, v.uiAmount, signature);
-    if (!credited) return void client.send("adActionResult", { ok: false, error: "That deposit was already credited." });
-    client.send("adActionResult", { ok: true });
+    const res = await adService.creditDeposit(wallet, v.uiAmount, signature);
+    // Always refresh the dashboard so the balance shows even if it was already
+    // credited (creditDeposit re-syncs the balance from the DB).
     client.send("adBrandDashboard", adService.getBrandDashboard(wallet));
+    if (!res.credited) {
+      return void client.send("adActionResult", { ok: false, error: "That deposit was already credited — balance refreshed." });
+    }
+    client.send("adActionResult", { ok: true });
   }
 
   private async handleAdCreateCampaign(
