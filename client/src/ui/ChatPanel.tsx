@@ -5,6 +5,7 @@ import { setUiTypingActive } from "../game/inputControl";
 import { networkManager } from "../game/network";
 import { useGameStore } from "../store/gameStore";
 import { useMobileLayout } from "./useMobileLayout";
+import { renderMarkdown } from "./markdown";
 
 export function ChatPanel() {
   const [draft, setDraft] = useState("");
@@ -66,14 +67,15 @@ export function ChatPanel() {
   };
 
   const renderMessage = (message: (typeof messages)[number]) => {
+    const body = <span className="chibi-md">{renderMarkdown(message.body)}</span>;
     if (message.channel === "system") {
-      return <span className="chibi-chat-system">{message.body}</span>;
+      return <span className="chibi-chat-system">{renderMarkdown(message.body)}</span>;
     }
     if (message.channel === "guild") {
       return (
         <>
           <span className="chibi-chat-guild">[Guild] {message.senderName}: </span>
-          <span>{message.body}</span>
+          {body}
         </>
       );
     }
@@ -81,7 +83,7 @@ export function ChatPanel() {
       return (
         <>
           <span className="chibi-chat-party">[Party] {message.senderName}: </span>
-          <span>{message.body}</span>
+          {body}
         </>
       );
     }
@@ -89,9 +91,17 @@ export function ChatPanel() {
       <>
         <span className="chibi-chat-global">[Global] </span>
         <span className="chibi-chat-name">{message.senderName}: </span>
-        <span>{message.body}</span>
+        {body}
       </>
     );
+  };
+
+  // Enter sends; Shift+Enter inserts a newline (long-form, markdown-friendly).
+  const onInputKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      handleSubmit(event);
+    }
   };
 
   const channelToggle =
@@ -160,17 +170,23 @@ export function ChatPanel() {
 
           <form onSubmit={handleSubmit} className="chibi-chat-sheet__form">
             {channelToggle}
-            <input
-              className="chibi-input"
+            <textarea
+              className="chibi-input chibi-chat-input"
               value={draft}
-              onChange={(event) => setDraft(event.target.value.slice(0, CHAT_MAX_LENGTH))}
+              rows={1}
+              onChange={(event) => {
+                setDraft(event.target.value.slice(0, CHAT_MAX_LENGTH));
+                event.target.style.height = "auto";
+                event.target.style.height = `${Math.min(event.target.scrollHeight, 120)}px`;
+              }}
+              onKeyDown={onInputKeyDown}
               onFocus={() => {
                 setUiTypingActive(true);
                 networkManager.sendInput(0, 0);
               }}
               onBlur={() => setUiTypingActive(false)}
-              placeholder={channel === "zone" ? "Type a message..." : `Message your ${channelLabel.toLowerCase()}...`}
-              style={{ flex: 1, minHeight: 44 }}
+              placeholder={channel === "zone" ? "Type a message… (Markdown ok, Shift+Enter = newline)" : `Message your ${channelLabel.toLowerCase()}…`}
+              style={{ flex: 1 }}
             />
             <button
               type="submit"
@@ -199,18 +215,24 @@ export function ChatPanel() {
         )}
       </div>
 
-      <form onSubmit={handleSubmit} style={{ display: "flex", gap: 8 }}>
+      <form onSubmit={handleSubmit} style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
         {channelToggle}
-        <input
-          className="chibi-input"
+        <textarea
+          className="chibi-input chibi-chat-input"
           value={draft}
-          onChange={(event) => setDraft(event.target.value.slice(0, CHAT_MAX_LENGTH))}
+          rows={1}
+          onChange={(event) => {
+            setDraft(event.target.value.slice(0, CHAT_MAX_LENGTH));
+            event.target.style.height = "auto";
+            event.target.style.height = `${Math.min(event.target.scrollHeight, 120)}px`;
+          }}
+          onKeyDown={onInputKeyDown}
           onFocus={() => {
             setUiTypingActive(true);
             networkManager.sendInput(0, 0);
           }}
           onBlur={() => setUiTypingActive(false)}
-          placeholder={channel === "zone" ? "Press Enter to chat global..." : `${channelLabel} chat — press Enter...`}
+          placeholder={channel === "zone" ? "Enter to send · Shift+Enter newline · **markdown**" : `${channelLabel} chat — Enter to send…`}
           style={{ flex: 1 }}
         />
         <button

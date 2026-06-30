@@ -34,7 +34,7 @@ export const VIP_LODGE_MIN_HOLD = 10_000_000;
 /** How close (world pixels) a player must be to trigger a portal tile. */
 export const PORTAL_TRIGGER_RANGE = 48;
 
-export const CHAT_MAX_LENGTH = 200;
+export const CHAT_MAX_LENGTH = 800;
 export const CHAT_COOLDOWN_MS = 500;
 
 export interface ZonePortal {
@@ -179,7 +179,7 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
         id: "hub_tree_north",
         name: "Young Oak",
         tileX: 2,
-        tileY: 3,
+        tileY: 7,
         kind: "tree",
         woodcutting: {
           treeLevel: 1,
@@ -192,8 +192,8 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
       {
         id: "hub_tree_south",
         name: "Young Oak",
-        tileX: 6,
-        tileY: 7,
+        tileX: 3,
+        tileY: 9,
         kind: "tree",
         woodcutting: {
           treeLevel: 1,
@@ -206,8 +206,8 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
       {
         id: "hub_tree_east",
         name: "Sapling",
-        tileX: 8,
-        tileY: 5,
+        tileX: 5,
+        tileY: 9,
         kind: "tree",
         woodcutting: {
           treeLevel: 1,
@@ -293,8 +293,8 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
       { id: "hub_land_3", tileX: 18, tileY: 8 },
       // More homesteads ringing the plaza — NW, N, and E open grass.
       { id: "hub_land_4", tileX: 15, tileY: 7 },
-      { id: "hub_land_5", tileX: 7, tileY: 3 },
-      { id: "hub_land_6", tileX: 4, tileY: 7 },
+      { id: "hub_land_5", tileX: 8, tileY: 4 },
+      { id: "hub_land_6", tileX: 5, tileY: 4 },
       { id: "hub_land_7", tileX: 21, tileY: 8 },
     ],
     billboards: [{ id: "hub_billboard", tileX: 12, tileY: 7 }],
