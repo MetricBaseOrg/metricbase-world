@@ -543,6 +543,12 @@ export class NetworkManager {
   sendAdCreateCampaign(c: { name: string; imageUrl: string; headline: string; clickUrl: string; cpm: number }) {
     this.room?.send("adCreateCampaign", c);
   }
+  sendAdEditCampaign(c: { id: string; name: string; imageUrl: string; headline: string; clickUrl: string; cpm: number }) {
+    this.room?.send("adEditCampaign", c);
+  }
+  sendAdPauseCampaign(id: string, paused: boolean) {
+    this.room?.send("adPauseCampaign", { id, paused });
+  }
   sendAdReview(id: string, status: "approved" | "rejected", note?: string) {
     this.room?.send("adReview", { id, status, note });
   }

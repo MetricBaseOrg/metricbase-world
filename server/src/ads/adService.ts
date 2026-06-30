@@ -23,6 +23,7 @@ import {
   type AdRankEntry,
   type AdTransparencyPayload,
   type AdSeriesPoint,
+  type AdActionResult,
 } from "@metricbase/shared";
 import { randomUUID } from "node:crypto";
 import {
@@ -37,6 +38,7 @@ import {
   saveCampaignStats,
   saveMember,
   setCampaignStatus,
+  updateCampaign,
   sumMemberEarnings,
   sumMemberLifetime,
   takeMemberEarnings,
@@ -351,6 +353,58 @@ class AdService {
     };
     await dbCreateCampaign(row);
     this.campaigns.set(row.id, row);
+  }
+
+  /** Pause (stop serving) or resume a brand's own approved campaign. */
+  async pauseCampaign(wallet: string, id: string, paused: boolean): Promise<AdActionResult> {
+    const c = this.campaigns.get(id);
+    if (!c) return { ok: false, error: "Campaign not found." };
+    if (c.brandWallet !== wallet && !this.isAdmin(wallet)) return { ok: false, error: "That isn't your campaign." };
+    if (paused) {
+      if (c.status !== "approved") return { ok: false, error: "Only an active campaign can be paused." };
+      c.status = "paused";
+    } else {
+      if (c.status !== "paused") return { ok: false, error: "That campaign isn't paused." };
+      c.status = "approved";
+    }
+    await setCampaignStatus(id, c.status);
+    this.recompute();
+    return { ok: true };
+  }
+
+  /**
+   * Edit a brand's own campaign. Changing the bid (CPM) keeps the current status;
+   * changing the creative (name/image/headline/link) sends it back to review.
+   */
+  async editCampaign(
+    wallet: string,
+    id: string,
+    fields: { name: string; imageUrl: string; headline: string; clickUrl: string; cpm: number },
+  ): Promise<AdActionResult> {
+    const c = this.campaigns.get(id);
+    if (!c) return { ok: false, error: "Campaign not found." };
+    if (c.brandWallet !== wallet && !this.isAdmin(wallet)) return { ok: false, error: "That isn't your campaign." };
+
+    const name = fields.name.trim().slice(0, 64);
+    const imageUrl = fields.imageUrl.trim();
+    const headline = fields.headline.trim().slice(0, 120);
+    const clickUrl = fields.clickUrl.trim();
+    const cpm = toBaseUnits(fields.cpm, "base");
+
+    const creativeChanged = name !== c.name || imageUrl !== c.imageUrl || headline !== c.headline || clickUrl !== c.clickUrl;
+    // Creative edits re-enter review; a bid-only change keeps the current status.
+    const status: AdCampaignStatus = creativeChanged ? "pending" : c.status;
+
+    c.name = name;
+    c.imageUrl = imageUrl;
+    c.headline = headline;
+    c.clickUrl = clickUrl;
+    c.cpm = cpm;
+    c.status = status;
+    c.reviewNote = null;
+    await updateCampaign(id, { name, imageUrl, headline, clickUrl, cpm }, status);
+    this.recompute();
+    return { ok: true };
   }
 
   // ---- Admin ops ----

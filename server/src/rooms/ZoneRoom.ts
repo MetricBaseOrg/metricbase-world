@@ -654,6 +654,15 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         void this.handleAdCreateCampaign(client, m);
       },
     );
+    this.onProtectedMessage("adPauseCampaign", (client, m: { id?: string; paused?: boolean }) => {
+      void this.handleAdPauseCampaign(client, m.id ?? "", !!m.paused);
+    });
+    this.onProtectedMessage(
+      "adEditCampaign",
+      (client, m: { id?: string; name?: string; imageUrl?: string; headline?: string; clickUrl?: string; cpm?: number }) => {
+        void this.handleAdEditCampaign(client, m);
+      },
+    );
     this.onProtectedMessage("adAdminList", (client) => {
       const wallet = this.playerWallets.get(client.sessionId);
       if (adService.isAdmin(wallet ?? null)) client.send("adAdminList", { campaigns: adService.listPending() });
@@ -4087,6 +4096,34 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     await adService.createCampaign(wallet, { name, imageUrl, headline, clickUrl, cpm });
     client.send("adActionResult", { ok: true });
     client.send("adBrandDashboard", adService.getBrandDashboard(wallet));
+  }
+
+  private async handleAdPauseCampaign(client: Client, id: string, paused: boolean) {
+    const wallet = this.playerWallets.get(client.sessionId);
+    if (!wallet) return void client.send("adActionResult", { ok: false, error: "Connect your wallet first." });
+    const res = await adService.pauseCampaign(wallet, id, paused);
+    client.send("adActionResult", res);
+    client.send("adBrandDashboard", adService.getBrandDashboard(wallet));
+    this.broadcast("adServing", adService.getServing());
+  }
+
+  private async handleAdEditCampaign(
+    client: Client,
+    m: { id?: string; name?: string; imageUrl?: string; headline?: string; clickUrl?: string; cpm?: number },
+  ) {
+    const wallet = this.playerWallets.get(client.sessionId);
+    if (!wallet) return void client.send("adActionResult", { ok: false, error: "Connect your wallet first." });
+    const name = m.name ?? "";
+    const imageUrl = m.imageUrl ?? "";
+    const headline = m.headline ?? "";
+    const clickUrl = m.clickUrl ?? "";
+    const cpm = Number(m.cpm) || 0;
+    const invalid = validateCampaign(name, imageUrl, headline, clickUrl, cpm);
+    if (invalid) return void client.send("adActionResult", { ok: false, error: invalid });
+    const res = await adService.editCampaign(wallet, m.id ?? "", { name, imageUrl, headline, clickUrl, cpm });
+    client.send("adActionResult", res);
+    client.send("adBrandDashboard", adService.getBrandDashboard(wallet));
+    this.broadcast("adServing", adService.getServing());
   }
 
   private async handleAdReview(client: Client, id: string, status: string, note?: string) {

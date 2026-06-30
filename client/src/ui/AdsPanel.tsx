@@ -42,6 +42,7 @@ export function AdsPanel() {
   const [headline, setHeadline] = useState("");
   const [clickUrl, setClickUrl] = useState("");
   const [cpm, setCpm] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const isAdmin = !!walletAddress && dash?.houseWallet === walletAddress;
 
@@ -114,21 +115,33 @@ export function AdsPanel() {
     }
   };
 
-  const createCampaign = () => {
-    setBusy(true);
-    setError(null);
-    networkManager.sendAdCreateCampaign({
-      name,
-      imageUrl,
-      headline,
-      clickUrl,
-      cpm: Number(cpm) || 0,
-    });
+  const clearForm = () => {
     setName("");
     setImageUrl("");
     setHeadline("");
     setClickUrl("");
     setCpm("");
+    setEditingId(null);
+  };
+
+  const submitCampaign = () => {
+    setBusy(true);
+    setError(null);
+    const fields = { name, imageUrl, headline, clickUrl, cpm: Number(cpm) || 0 };
+    if (editingId) networkManager.sendAdEditCampaign({ id: editingId, ...fields });
+    else networkManager.sendAdCreateCampaign(fields);
+    clearForm();
+  };
+
+  const startEdit = (c: AdCampaign) => {
+    setEditingId(c.id);
+    setName(c.name);
+    setImageUrl(c.imageUrl);
+    setHeadline(c.headline);
+    setClickUrl(c.clickUrl);
+    setCpm(String(c.cpm));
+    setError(null);
+    setNotice("Editing campaign — changing the creative re-enters review.");
   };
 
   const tabs: { id: Tab; label: string }[] = [
@@ -249,13 +262,22 @@ export function AdsPanel() {
               </div>
             </details>
 
-            <div className="chibi-ads__sub">New campaign</div>
+            <div className="chibi-ads__sub">{editingId ? "Edit campaign" : "New campaign"}</div>
             <input className="chibi-input" placeholder="Campaign name" value={name} onChange={(e) => setName(e.target.value)} />
             <input className="chibi-input" placeholder="Image URL (https://…)" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} />
             <input className="chibi-input" placeholder="Headline" value={headline} onChange={(e) => setHeadline(e.target.value)} />
             <input className="chibi-input" placeholder="Click URL (https://…)" value={clickUrl} onChange={(e) => setClickUrl(e.target.value)} />
             <input className="chibi-input" inputMode="decimal" placeholder={`CPM bid — $BASE per 1,000 view-minutes (min ${AD_MIN_CPM})`} value={cpm} onChange={(e) => setCpm(e.target.value)} />
-            <button type="button" className="chibi-btn chibi-btn--primary" disabled={busy} onClick={() => createCampaign()}>Submit for review</button>
+            <div style={{ display: "flex", gap: 6 }}>
+              <button type="button" className="chibi-btn chibi-btn--primary" style={{ flex: 1 }} disabled={busy} onClick={() => submitCampaign()}>
+                {editingId ? "Save changes" : "Submit for review"}
+              </button>
+              {editingId && (
+                <button type="button" className="chibi-btn chibi-btn--ghost" disabled={busy} onClick={() => { clearForm(); setNotice(null); }}>
+                  Cancel
+                </button>
+              )}
+            </div>
 
             {dash && dash.campaigns.length > 0 && (
               <>
@@ -269,7 +291,33 @@ export function AdsPanel() {
                       </div>
                       {c.reviewNote && <div style={{ fontSize: "0.68rem", color: "#d6453b" }}>{c.reviewNote}</div>}
                     </div>
-                    <span className="chibi-stat-pill" style={{ color: statusColor(c.status), textTransform: "capitalize" }}>{c.status}</span>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-end" }}>
+                      <span className="chibi-stat-pill" style={{ color: statusColor(c.status), textTransform: "capitalize" }}>{c.status}</span>
+                      <div style={{ display: "flex", gap: 4 }}>
+                        {(c.status === "approved" || c.status === "paused") && (
+                          <button
+                            type="button"
+                            className="chibi-btn chibi-btn--ghost"
+                            style={{ padding: "2px 7px", fontSize: "0.68rem" }}
+                            disabled={busy}
+                            title={c.status === "approved" ? "Pause (stop serving)" : "Resume"}
+                            onClick={() => { setBusy(true); setError(null); networkManager.sendAdPauseCampaign(c.id, c.status === "approved"); }}
+                          >
+                            {c.status === "approved" ? "⏸ Pause" : "▶ Resume"}
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          className="chibi-btn chibi-btn--ghost"
+                          style={{ padding: "2px 7px", fontSize: "0.68rem" }}
+                          disabled={busy}
+                          title="Edit campaign"
+                          onClick={() => startEdit(c)}
+                        >
+                          ✏️ Edit
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 ))}
               </>

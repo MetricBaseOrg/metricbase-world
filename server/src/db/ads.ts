@@ -122,6 +122,21 @@ export async function createCampaign(c: Omit<AdCampaignRow, "impressions" | "spe
   );
 }
 
+/** Update a campaign's creative + bid + status (brand edit). Clears any review note. */
+export async function updateCampaign(
+  id: string,
+  fields: { name: string; imageUrl: string; headline: string; clickUrl: string; cpm: number },
+  status: AdCampaignStatus,
+): Promise<void> {
+  const db = getPool();
+  if (!db) return;
+  await db.query(
+    `UPDATE ad_campaigns SET name = $2, image_url = $3, headline = $4, click_url = $5, cpm = $6, status = $7, review_note = NULL
+     WHERE id = $1`,
+    [id, fields.name, fields.imageUrl, fields.headline, fields.clickUrl, Math.floor(fields.cpm), status],
+  );
+}
+
 export async function listAllCampaigns(): Promise<AdCampaignRow[]> {
   const db = getPool();
   if (!db) return [];

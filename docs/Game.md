@@ -169,6 +169,9 @@ on-chain to the treasury wallet; claims signed by the house wallet).
   **pending** review. Ads serve once an admin approves.
 - An approved ad serves even at a 0 balance (as free fallback fill); a **funded**
   bid always wins its slot ahead of unfunded ones.
+- **Pause / resume** a campaign anytime to stop or restart serving (and spending).
+- **Edit** a campaign: changing the **bid (CPM)** alone takes effect immediately;
+  changing the **creative** (name/image/headline/link) re-enters review.
 
 ### For everyone (Transparency tab)
 
