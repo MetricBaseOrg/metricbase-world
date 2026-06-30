@@ -1468,6 +1468,7 @@ export class GameScene extends Phaser.Scene {
     this.renderLandPlots(zoneId);
     this.renderBillboards(zoneId);
     this.renderAdBillboards(zoneId);
+    networkManager.requestAdServing(); // refresh served ads for this zone
     this.renderScenery(zoneId);
     this.renderPortals(zoneId);
   }
@@ -1701,7 +1702,10 @@ export class GameScene extends Phaser.Scene {
     if (!slotId) return;
     const slot = AD_SLOTS.find((s) => s.id === slotId);
     if (!slot?.tiles) return;
-    const creative = this.latestAdServing.find((c) => c.slotId === slotId) ?? null;
+    // Show this zone's own ranked ad, or fall back to the top-ranked ad so every
+    // zone's billboard displays an ad whenever any campaign is serving.
+    const creative =
+      this.latestAdServing.find((c) => c.slotId === slotId) ?? this.latestAdServing[0] ?? null;
 
     for (const t of slot.tiles) {
       const { x, y } = tileToWorld(t.x, t.y);
