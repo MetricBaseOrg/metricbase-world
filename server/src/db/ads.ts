@@ -64,6 +64,18 @@ export async function getBrandBalance(wallet: string): Promise<number> {
   return r.rowCount ? Number(r.rows[0].balance) : 0;
 }
 
+/** Full brand row (balance + cumulative lifetime spend) for loading into memory. */
+export async function getBrandState(wallet: string): Promise<{ balance: number; lifetimeSpent: number }> {
+  const db = getPool();
+  if (!db) return { balance: 0, lifetimeSpent: 0 };
+  const r = await db.query<{ balance: string; lifetime_spent: string }>(
+    `SELECT balance, lifetime_spent FROM ad_brands WHERE wallet_address = $1`,
+    [wallet],
+  );
+  if (!r.rowCount) return { balance: 0, lifetimeSpent: 0 };
+  return { balance: Number(r.rows[0].balance), lifetimeSpent: Number(r.rows[0].lifetime_spent ?? 0) };
+}
+
 /** Credit a verified brand deposit exactly once (idempotent on signature). */
 export async function creditAdDepositOnce(
   wallet: string,
@@ -202,11 +214,16 @@ export async function saveMember(wallet: string, earnings: number, lifetime: num
 export async function takeMemberEarnings(wallet: string): Promise<number> {
   const db = getPool();
   if (!db) return 0;
-  const r = await db.query<{ earnings: string }>(
-    `UPDATE ad_members SET earnings = 0 WHERE wallet_address = $1 AND earnings > 0 RETURNING earnings`,
+  // RETURNING reflects post-update values, so capture the prior balance via a
+  // FROM subquery (evaluated against the pre-update snapshot) to return it.
+  const r = await db.query<{ prev: string }>(
+    `UPDATE ad_members AS m SET earnings = 0
+     FROM (SELECT earnings AS prev FROM ad_members WHERE wallet_address = $1) AS old
+     WHERE m.wallet_address = $1 AND m.earnings > 0
+     RETURNING old.prev`,
     [wallet],
   );
-  return r.rowCount ? Number(r.rows[0].earnings) : 0;
+  return r.rowCount ? Number(r.rows[0].prev) : 0;
 }
 
 /** Total $BASE (base units) ever earned by all program members. */

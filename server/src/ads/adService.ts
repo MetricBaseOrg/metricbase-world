@@ -4,6 +4,7 @@
 // interval. Deposits + claims go through the idempotent DB ledger.
 
 import {
+  AD_MIN_CLAIM,
   AD_PLAYER_SHARE,
   AD_SLOTS,
   METRICBASE_TOKEN_MINT,
@@ -25,6 +26,7 @@ import {
   createCampaign as dbCreateCampaign,
   creditAdDepositOnce,
   getBrandBalance,
+  getBrandState,
   joinProgram,
   listAllCampaigns,
   recordAdClaim,
@@ -86,9 +88,10 @@ class AdService {
       for (const row of rows) {
         this.campaigns.set(row.id, row);
         if (!this.brands.has(row.brandWallet)) {
+          const state = await getBrandState(row.brandWallet);
           this.brands.set(row.brandWallet, {
-            balance: await getBrandBalance(row.brandWallet),
-            lifetimeSpent: 0,
+            balance: state.balance,
+            lifetimeSpent: state.lifetimeSpent,
             dirty: false,
           });
         }
@@ -403,6 +406,12 @@ class AdService {
     if (m && m.dirty) {
       m.dirty = false;
       await saveMember(wallet, m.earnings, m.lifetime, m.impressions);
+    }
+    // Enforce the minimum claim before zeroing the balance.
+    const current = m ? m.earnings : (await dbGetMember(wallet))?.earnings ?? 0;
+    const minUnits = toBaseUnits(AD_MIN_CLAIM, "base");
+    if (current < minUnits) {
+      return { ok: false, error: `Minimum claim is ${AD_MIN_CLAIM.toLocaleString()} $BASE.` };
     }
     const amount = await takeMemberEarnings(wallet); // atomic zero-and-return
     if (amount <= 0) return { ok: false, error: "Nothing to claim yet." };
