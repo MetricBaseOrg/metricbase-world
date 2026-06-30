@@ -60,6 +60,7 @@ export * from "./softCurrencies.js";
 export * from "./softShop.js";
 export * from "./casino.js";
 export * from "./mail.js";
+export * from "./ads.js";
 export * from "./crafting.js";
 export * from "./economy.js";
 export * from "./farming.js";

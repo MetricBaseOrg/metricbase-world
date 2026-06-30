@@ -79,6 +79,48 @@ CREATE TABLE IF NOT EXISTS casino_daily (
   streak INTEGER NOT NULL DEFAULT 1
 );
 
+-- ===== Ad marketplace (brand bids + player revenue share) =====
+-- Brand $BASE balances (smallest units) funded by deposits.
+CREATE TABLE IF NOT EXISTS ad_brands (
+  wallet_address VARCHAR(44) PRIMARY KEY,
+  balance BIGINT NOT NULL DEFAULT 0,
+  lifetime_spent BIGINT NOT NULL DEFAULT 0,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+-- Brand campaigns (creative + CPM bid). cpm is base units per 1000 impressions.
+CREATE TABLE IF NOT EXISTS ad_campaigns (
+  id VARCHAR(40) PRIMARY KEY,
+  brand_wallet VARCHAR(44) NOT NULL,
+  name VARCHAR(64) NOT NULL,
+  image_url TEXT NOT NULL,
+  headline VARCHAR(120) NOT NULL DEFAULT '',
+  click_url TEXT NOT NULL,
+  cpm BIGINT NOT NULL,
+  status VARCHAR(12) NOT NULL DEFAULT 'pending',
+  impressions BIGINT NOT NULL DEFAULT 0,
+  spent BIGINT NOT NULL DEFAULT 0,
+  review_note TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS ad_campaigns_brand_idx ON ad_campaigns (brand_wallet);
+CREATE INDEX IF NOT EXISTS ad_campaigns_status_idx ON ad_campaigns (status);
+-- Registered players + their accrued (claimable) ad earnings, base units.
+CREATE TABLE IF NOT EXISTS ad_members (
+  wallet_address VARCHAR(44) PRIMARY KEY,
+  earnings BIGINT NOT NULL DEFAULT 0,
+  lifetime BIGINT NOT NULL DEFAULT 0,
+  impressions BIGINT NOT NULL DEFAULT 0,
+  joined_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+-- Idempotent on-chain ledger for ad deposits + player claims.
+CREATE TABLE IF NOT EXISTS ad_ledger (
+  signature VARCHAR(128) PRIMARY KEY,
+  wallet_address VARCHAR(44) NOT NULL,
+  kind VARCHAR(8) NOT NULL,
+  amount BIGINT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS token_purchases (
   signature VARCHAR(88) PRIMARY KEY,
   wallet VARCHAR(44) NOT NULL,

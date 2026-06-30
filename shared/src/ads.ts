@@ -1,0 +1,129 @@
+// In-game ad marketplace (kickbacks-style): brands bid a CPM for ad slots, the
+// highest bids take the highest-impression slots, and registered players earn a
+// 50% share of the impressions THEY generate, claimable in $BASE.
+//
+// Money is handled in each currency's smallest units server-side; the payloads
+// here speak in whole $BASE UI units. Ads are priced + paid in $BASE.
+
+export type AdSurface = "billboard" | "banner";
+
+export interface AdSlot {
+  id: string;
+  label: string;
+  surface: AdSurface;
+  /** For billboards: the zone the slot lives in (impressions come from players there). */
+  zoneId?: string;
+  /** Relative impression volume — drives auction ranking (higher = premium). */
+  weight: number;
+}
+
+/**
+ * Ad inventory, richest-first. The top CPM bid takes the first slot, the next
+ * bid the second, etc. Add zone billboards here to grow inventory.
+ */
+export const AD_SLOTS: AdSlot[] = [
+  { id: "hub_billboard", label: "Hub Billboard", surface: "billboard", zoneId: "zone_hub", weight: 100 },
+  { id: "global_banner", label: "Global Banner", surface: "banner", weight: 80 },
+  { id: "wilderness_billboard", label: "Wilderness Billboard", surface: "billboard", zoneId: "zone_wilderness", weight: 40 },
+];
+
+export function getAdSlot(id: string): AdSlot | undefined {
+  return AD_SLOTS.find((s) => s.id === id);
+}
+
+export type AdCampaignStatus = "pending" | "approved" | "rejected" | "paused";
+
+export interface AdCampaign {
+  id: string;
+  brandWallet: string;
+  name: string;
+  imageUrl: string;
+  headline: string;
+  clickUrl: string;
+  /** Bid: $BASE per 1,000 impressions (UI units). */
+  cpm: number;
+  status: AdCampaignStatus;
+  impressions: number;
+  /** Total $BASE spent so far (UI units). */
+  spent: number;
+  createdAt: number;
+  /** Admin note on rejection. */
+  reviewNote?: string;
+}
+
+/** The creative currently shown in a slot (sent to every client). */
+export interface AdServedCreative {
+  slotId: string;
+  campaignId: string;
+  imageUrl: string;
+  headline: string;
+  clickUrl: string;
+}
+
+export interface AdServingPayload {
+  creatives: AdServedCreative[];
+}
+
+/** A brand's dashboard view. */
+export interface BrandDashboardPayload {
+  /** Brand's remaining ad balance ($BASE UI units). */
+  balance: number;
+  campaigns: AdCampaign[];
+  houseWallet: string | null;
+  rpcUrl: string | null;
+  /** Resolved $BASE mint to deposit. */
+  mint: string | null;
+}
+
+/** A player's ad-program view. */
+export interface AdProgramPayload {
+  member: boolean;
+  /** Claimable earnings ($BASE UI units). */
+  earnings: number;
+  /** Lifetime earned ($BASE UI units). */
+  lifetime: number;
+  /** Impressions this player has generated. */
+  impressions: number;
+  withdrawEnabled: boolean;
+}
+
+export interface AdActionResult {
+  ok: boolean;
+  error?: string;
+  signature?: string;
+}
+
+// ---- Tuning ----
+
+/** Players earn this share of each impression they generate. */
+export const AD_PLAYER_SHARE = 0.5;
+/** How often a viewing player generates one impression per slot. */
+export const AD_IMPRESSION_INTERVAL_MS = 45_000;
+/** Minimum CPM bid ($BASE per 1,000 impressions). */
+export const AD_MIN_CPM = 1;
+/** Minimum brand deposit ($BASE). */
+export const AD_MIN_DEPOSIT = 100;
+/** Minimum earnings before a player can claim ($BASE). */
+export const AD_MIN_CLAIM = 10;
+/** Ads are priced + paid in $BASE. */
+export const AD_CURRENCY_ID = "base";
+
+export const AD_MAX_HEADLINE = 60;
+export const AD_MAX_NAME = 40;
+
+/** Validate brand-supplied campaign fields; returns an error string or null. */
+export function validateCampaign(
+  name: string,
+  imageUrl: string,
+  headline: string,
+  clickUrl: string,
+  cpm: number,
+): string | null {
+  if (!name.trim()) return "Enter a campaign name.";
+  if (name.length > AD_MAX_NAME) return "Campaign name is too long.";
+  if (headline.length > AD_MAX_HEADLINE) return "Headline is too long.";
+  if (!/^https:\/\/\S+\.\S+/.test(imageUrl)) return "Image URL must be a valid https link.";
+  if (!/^https:\/\/\S+\.\S+/.test(clickUrl)) return "Click URL must be a valid https link.";
+  if (!Number.isFinite(cpm) || cpm < AD_MIN_CPM) return `CPM bid must be at least ${AD_MIN_CPM} $BASE.`;
+  return null;
+}
