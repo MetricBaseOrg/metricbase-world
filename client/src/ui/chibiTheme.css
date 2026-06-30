@@ -2752,6 +2752,9 @@ a.chibi-btn {
     top: calc(var(--chibi-rail-top) + 168px);
     z-index: 41;
   }
+  .chibi-siege-banner {
+    top: calc(var(--chibi-rail-top) + 210px);
+  }
 }
 
 .chibi-pvp-flag.active {
