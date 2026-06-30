@@ -21,6 +21,11 @@ import {
   type CasinoStatePayload,
   type CasinoActionResult,
   type MailStatePayload,
+  type AdServingPayload,
+  type BrandDashboardPayload,
+  type AdProgramPayload,
+  type AdActionResult,
+  type AdCampaign,
   CraftResultPayload,
   FarmStatePayload,
   FarmResultPayload,
@@ -180,6 +185,11 @@ export class NetworkManager {
   private openBlackjackListeners = new Set<(payload: { name: string }) => void>();
   private mailStateListeners = new Set<(payload: MailStatePayload) => void>();
   private mailResultListeners = new Set<(payload: { ok: boolean; error?: string }) => void>();
+  private adServingListeners = new Set<(payload: AdServingPayload) => void>();
+  private adBrandListeners = new Set<(payload: BrandDashboardPayload) => void>();
+  private adAdminListeners = new Set<(payload: { campaigns: AdCampaign[] }) => void>();
+  private adProgramListeners = new Set<(payload: AdProgramPayload) => void>();
+  private adActionListeners = new Set<(payload: AdActionResult) => void>();
   private inventoryResultListeners = new Set<InventoryResultListener>();
   private craftResultListeners = new Set<CraftResultListener>();
   private farmStateListeners = new Set<FarmStateListener>();
@@ -494,6 +504,55 @@ export class NetworkManager {
 
   sendCasinoDailyClaim() {
     this.room?.send("casinoDailyClaim", {});
+  }
+
+  // ---- Ad marketplace ----
+  requestAdServing() {
+    this.room?.send("adServing", {});
+  }
+  requestAdBrandDashboard() {
+    this.room?.send("adBrandDashboard", {});
+  }
+  requestAdAdminList() {
+    this.room?.send("adAdminList", {});
+  }
+  requestAdProgram() {
+    this.room?.send("adProgram", {});
+  }
+  sendAdDeposit(signature: string) {
+    this.room?.send("adDeposit", { signature });
+  }
+  sendAdCreateCampaign(c: { name: string; imageUrl: string; headline: string; clickUrl: string; cpm: number }) {
+    this.room?.send("adCreateCampaign", c);
+  }
+  sendAdReview(id: string, status: "approved" | "rejected", note?: string) {
+    this.room?.send("adReview", { id, status, note });
+  }
+  sendAdJoin() {
+    this.room?.send("adJoin", {});
+  }
+  sendAdClaim() {
+    this.room?.send("adClaim", {});
+  }
+  onAdServing(listener: (p: AdServingPayload) => void) {
+    this.adServingListeners.add(listener);
+    return () => this.adServingListeners.delete(listener);
+  }
+  onAdBrandDashboard(listener: (p: BrandDashboardPayload) => void) {
+    this.adBrandListeners.add(listener);
+    return () => this.adBrandListeners.delete(listener);
+  }
+  onAdAdminList(listener: (p: { campaigns: AdCampaign[] }) => void) {
+    this.adAdminListeners.add(listener);
+    return () => this.adAdminListeners.delete(listener);
+  }
+  onAdProgram(listener: (p: AdProgramPayload) => void) {
+    this.adProgramListeners.add(listener);
+    return () => this.adProgramListeners.delete(listener);
+  }
+  onAdActionResult(listener: (p: AdActionResult) => void) {
+    this.adActionListeners.add(listener);
+    return () => this.adActionListeners.delete(listener);
   }
 
   onCasinoState(listener: (payload: CasinoStatePayload) => void) {
@@ -1266,6 +1325,21 @@ export class NetworkManager {
     });
     this.room.onMessage("mailResult", (payload: { ok: boolean; error?: string }) => {
       for (const listener of this.mailResultListeners) listener(payload);
+    });
+    this.room.onMessage("adServing", (payload: AdServingPayload) => {
+      for (const listener of this.adServingListeners) listener(payload);
+    });
+    this.room.onMessage("adBrandDashboard", (payload: BrandDashboardPayload) => {
+      for (const listener of this.adBrandListeners) listener(payload);
+    });
+    this.room.onMessage("adAdminList", (payload: { campaigns: AdCampaign[] }) => {
+      for (const listener of this.adAdminListeners) listener(payload);
+    });
+    this.room.onMessage("adProgram", (payload: AdProgramPayload) => {
+      for (const listener of this.adProgramListeners) listener(payload);
+    });
+    this.room.onMessage("adActionResult", (payload: AdActionResult) => {
+      for (const listener of this.adActionListeners) listener(payload);
     });
     this.room.onMessage("inventoryResult", (payload: InventoryResultPayload) => {
       if (payload.inventory) {

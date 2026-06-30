@@ -54,6 +54,7 @@ interface GameStore {
   mapOpen: boolean;
   mailOpen: boolean;
   mailUnread: number;
+  adsOpen: boolean;
   housingOpen: boolean;
   housingPlotId: string | null;
   housingPlots: LandPlotState[];
@@ -113,6 +114,7 @@ interface GameStore {
   setMapOpen: (open: boolean) => void;
   setMailOpen: (open: boolean) => void;
   setMailUnread: (n: number) => void;
+  setAdsOpen: (open: boolean) => void;
   openHousing: (plotId: string) => void;
   setHousingOpen: (open: boolean) => void;
   setHousingPlots: (plots: LandPlotState[]) => void;
@@ -167,6 +169,7 @@ export const useGameStore = create<GameStore>((set) => ({
   mapOpen: false,
   mailOpen: false,
   mailUnread: 0,
+  adsOpen: false,
   housingOpen: false,
   housingPlotId: null,
   housingPlots: [],
@@ -260,6 +263,7 @@ export const useGameStore = create<GameStore>((set) => ({
   setMapOpen: (mapOpen) => set({ mapOpen }),
   setMailOpen: (mailOpen) => set({ mailOpen }),
   setMailUnread: (mailUnread) => set({ mailUnread }),
+  setAdsOpen: (adsOpen) => set({ adsOpen }),
   openHousing: (housingPlotId) =>
     set({ housingPlotId, housingOpen: true, inventoryOpen: false, craftOpen: false }),
   setHousingOpen: (housingOpen) => set({ housingOpen }),

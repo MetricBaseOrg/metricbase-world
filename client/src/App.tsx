@@ -23,6 +23,8 @@ import { SoftShopPanel } from "./ui/SoftShopPanel";
 import { BlackjackPanel } from "./ui/BlackjackPanel";
 import { WorldMapPanel } from "./ui/WorldMapPanel";
 import { MailPanel } from "./ui/MailPanel";
+import { AdsPanel } from "./ui/AdsPanel";
+import { AdBanner } from "./ui/AdBanner";
 import { QuestPanel } from "./ui/QuestPanel";
 import { ErrorBoundary } from "./ui/ErrorBoundary";
 import { ArcadeModal } from "./ui/ArcadeModal";
@@ -327,6 +329,8 @@ export function App() {
       {joined && <BlackjackPanel />}
       {joined && <WorldMapPanel />}
       {joined && <MailPanel />}
+      {joined && <AdsPanel />}
+      {joined && <AdBanner />}
       {joined && <HousingPanel />}
       {joined && <PlayerShopPanel />}
       {joined && <InventoryHotkey />}
