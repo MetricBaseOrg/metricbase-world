@@ -1,6 +1,7 @@
-// In-game ad marketplace (kickbacks-style): brands bid a CPM for ad slots, the
-// highest bids take the highest-impression slots, and registered players earn a
-// 50% share of the impressions THEY generate, claimable in $BASE.
+// In-game ad marketplace (kickbacks-style): brands bid a CPM ($BASE per 1,000
+// view-minutes) for ad slots; the highest bids take the highest-impression
+// slots. A viewing player accrues one impression per minute, and registered
+// players earn a 50% share of the impressions THEY generate, claimable in $BASE.
 //
 // Money is handled in each currency's smallest units server-side; the payloads
 // here speak in whole $BASE UI units. Ads are priced + paid in $BASE.
@@ -40,7 +41,7 @@ export interface AdCampaign {
   imageUrl: string;
   headline: string;
   clickUrl: string;
-  /** Bid: $BASE per 1,000 impressions (UI units). */
+  /** Bid: $BASE per 1,000 view-minutes (one impression = a player viewing for a minute). */
   cpm: number;
   status: AdCampaignStatus;
   impressions: number;
@@ -97,9 +98,9 @@ export interface AdActionResult {
 
 /** Players earn this share of each impression they generate. */
 export const AD_PLAYER_SHARE = 0.5;
-/** How often a viewing player generates one impression per slot. */
-export const AD_IMPRESSION_INTERVAL_MS = 45_000;
-/** Minimum CPM bid ($BASE per 1,000 impressions). */
+/** A viewing player generates one impression per minute per slot they see. */
+export const AD_IMPRESSION_INTERVAL_MS = 60_000;
+/** Minimum CPM bid ($BASE per 1,000 view-minutes). */
 export const AD_MIN_CPM = 1;
 /** Minimum brand deposit ($BASE). */
 export const AD_MIN_DEPOSIT = 100;
