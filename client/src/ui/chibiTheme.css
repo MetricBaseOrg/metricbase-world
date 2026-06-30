@@ -181,7 +181,6 @@ body {
 
 .chibi-topbar__gear {
   align-self: center;
-  margin-left: auto;
   padding: 4px 8px;
   font-size: 0.9rem;
 }
@@ -1465,6 +1464,9 @@ body {
   flex-direction: column;
   justify-content: center;
   gap: 4px;
+  /* Grow to fill the row so the bars span its width and the gear sits flush
+     at the right — no blank gap when the card matches the wider strip below. */
+  flex: 1;
   min-width: 168px;
 }
 
