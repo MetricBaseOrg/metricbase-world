@@ -15,8 +15,9 @@ The long-term goal (see `PLAN.md`) is a zero-install MMO with:
 The current build is a playable multiplayer prototype with the full **everyday
 loop** — Gather (woodcutting, mining, fishing, farming), Craft, Trade, and Build
 (housing + player-run shops) — plus quests, a peer-to-peer gold market, a
-Community layer (emotes, online roster, $BASE-holder billboard), and a
-leaderboard.
+Community layer (emotes, online roster, $BASE-holder billboard), a
+leaderboard, and an **in-game ad marketplace** (brands bid CPM for ad space;
+players share 50% of the revenue).
 
 On top of that sits the **PvP Major Upgrade** (see the dedicated section below and
 `pvp-update.md`): a combat foundation (stats, armour, crit, weapon-driven
@@ -54,6 +55,7 @@ Rush arcade.
 19. **Leaderboard** — Open 🏆 to see the top players by **Level**, **Richest** (gold), and **Skills** (total gather levels).
 20. **Persist progress** — Character name, zone, position, level, XP, gold, inventory, equipped weapon, quests, skills, knockout timer, owned plots/shops, and NPC interact cooldowns save to PostgreSQL (Neon).
 21. **Leave World** — Use the HUD button to disconnect and return to the login screen.
+22. **Ad Marketplace (Earn & Advertise)** — Open **⚙️ → 📣 Ads & Earnings**. Players who invite 5 friends can **join the rev-share program** and earn **50% of ad revenue** from impressions they generate just by playing (claim in $BASE). Brands **deposit $BASE, create a campaign, and bid a CPM**; approved ads serve on **in-world billboards** (one per zone) and a **global banner**, ranked by bid. See the dedicated section below.
 
 ### Zones
 
@@ -118,6 +120,60 @@ On mobile, the D-pad, Attack, Interact, inventory, and quest log FAB replace key
 | Gel-Edged Knife | Commendation quest | — (+8 damage) |
 
 Starting gold: **25g**. Knockout respawn costs **100g**.
+
+---
+
+## In-Game Ad Marketplace
+
+A two-sided ad platform (kickbacks.ai-style) where **brands buy ad space** and
+**players share the revenue**. Open it from **⚙️ → 📣 Ads & Earnings**. All money
+moves in **$BASE**, reusing the casino treasury/payout rails (deposits verified
+on-chain to the treasury wallet; claims signed by the house wallet).
+
+### How the auction works
+
+- A campaign bids a **CPM** = $BASE **per 1,000 impressions**. One **impression**
+  is counted per player, per minute, per visible ad slot.
+- Approved campaigns are ranked by **CPM (highest first)** and assigned to slots
+  ranked by **impression weight**: **Hub billboard** (highest) → **global banner**
+  → **Wilderness** → **Grotto** → **Black** billboards.
+- Each impression charges the brand `CPM ÷ 1000`; if the viewer is a registered
+  program member, they earn **50%** of that charge (the platform keeps the rest).
+- Every zone's billboard and the banner always show an ad: a slot with no ad of
+  its own **falls back to the top-ranked ad**, so a single advertiser appears
+  worldwide (those fallback views are free bonus reach — only the real slot
+  assignment is billed). An empty marketplace shows an "Ads here" house promo.
+
+### For players (Earn tab)
+
+- Qualify by **inviting 5 friends**, then **apply** to the program.
+- Earn passively from ads you see while playing; track **claimable / lifetime /
+  impressions**.
+- **Claim** pays out in $BASE to your wallet (minimum **10,000 $BASE**; cash-out
+  requires the house wallet to be configured).
+
+### For brands (Advertise tab)
+
+- **Deposit** $BASE (min **100**) to fund your balance; a "Credit a past deposit"
+  field can recover a deposit by transaction hash (idempotent).
+- **Create a campaign** (name, image URL, headline, click URL, CPM) — it enters
+  **pending** review. Ads serve once an admin approves.
+- An approved ad serves even at a 0 balance (as free fallback fill); a **funded**
+  bid always wins its slot ahead of unfunded ones.
+
+### For admins (Review + Dashboard tabs, treasury wallet only)
+
+- **Review**: approve / reject pending campaigns.
+- **Dashboard**: live monitoring — platform totals (revenue / players paid /
+  platform cut / impressions / active + pending), **slot occupancy**, and the
+  **bid-rank leaderboard** (CPM, balance, views, current slot).
+- The admin (treasury/house wallet, or `ADMIN_WALLETS`) is auto-enrolled in the
+  program and bypasses the invite requirement.
+
+**Code:** `shared/src/ads.ts` (model, slots, tuning), `server/src/ads/adService.ts`
+(ranking, impression charging, claims), `server/src/db/ads.ts` (idempotent
+ledger), `client/src/ui/AdsPanel.tsx` + `AdBanner.tsx` + in-world billboards in
+`GameScene.ts`.
 
 ---
 
