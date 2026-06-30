@@ -155,13 +155,13 @@ export function SkillBar() {
     };
   }, []);
 
-  if (mobile || spectator || knockedOut) return null;
+  if (spectator || knockedOut) return null;
   if (shopOpen || craftOpen || honorShopOpen || blackjackOpen || mapOpen || mailOpen || housingOpen || playerShopOpen) return null;
 
   const now = Date.now();
 
   return (
-    <div className="chibi-skillbar" aria-label="Combat skills">
+    <div className={`chibi-skillbar${mobile ? " is-mobile" : ""}`} aria-label="Combat skills">
       {slots.map((slot) => {
         const cd = cooldowns.current.get(slot.id);
         const remaining = cd ? Math.max(0, cd.endsAt - now) : 0;
