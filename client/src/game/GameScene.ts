@@ -1664,8 +1664,20 @@ export class GameScene extends Phaser.Scene {
     if (isPlayerZoneId(zoneId)) {
       const painted = new Map<string, string>();
       for (const t of config.tiles ?? []) painted.set(`${t.x},${t.y}`, t.type);
+      // Buildings carry their own ground base — hide the default ground under
+      // their footprint so a building's grass base doesn't stack on grass.
+      const covered = new Set<string>();
+      for (const node of config.scenery ?? []) {
+        const asset = getZoneAsset(node.prop);
+        if (!asset?.clearsGround) continue;
+        const half = Math.floor(asset.footprint / 2);
+        for (let dy = -half; dy <= half; dy++) {
+          for (let dx = -half; dx <= half; dx++) covered.add(`${node.tileX + dx},${node.tileY + dy}`);
+        }
+      }
       for (let y = 0; y < PLAYER_ZONE_GRID; y++) {
         for (let x = 0; x < PLAYER_ZONE_GRID; x++) {
+          if (covered.has(`${x},${y}`)) continue;
           this.placeGroundTile(x, y, painted.get(`${x},${y}`) ?? "grass");
         }
       }

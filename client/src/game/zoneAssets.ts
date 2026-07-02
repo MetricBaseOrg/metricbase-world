@@ -5,6 +5,7 @@
 // once, since together they weigh ~12 MB.
 
 import Phaser from "phaser";
+import { TILE_WIDTH } from "@metricbase/shared";
 
 export type ZoneAssetCategory = "ground" | "structure" | "resource" | "decor";
 
@@ -19,23 +20,44 @@ export interface ZoneAsset {
   worldWidth: number;
   /** Vertical anchor (0..1); ground sits lower, upright props anchor at base. */
   anchorY: number;
+  /** Footprint in tiles (per assets.md: buildings are 3×3, everything else 1×1). */
+  footprint: number;
+  /** True when the art carries its own ground base, so the default ground under
+   *  its footprint is hidden (avoids a building's grass base stacking on grass). */
+  clearsGround: boolean;
   /** For resource props: which gather skill this node drives when placed. */
   resourceKind?: "tree" | "rock" | "fish";
 }
 
-// Per-category defaults keep the table terse; entries override as needed.
-const GROUND_W = 74; // slightly over a 64px tile so painted ground overlaps cleanly
-const STRUCT_W = 168; // ~3 tiles, matching the procedural house footprint
+// Sizing follows assets.md: 1×1 tiles/props and 3×3 buildings.
+const GROUND_W = Math.round(TILE_WIDTH * 1.15); // ~74: slight overlap so painted ground has no seams
+const BUILDING_W = TILE_WIDTH * 3; // 192: a 3×3 building footprint
 const RESOURCE_W = 60;
-const DECOR_W = 52;
+const DECOR_W = 56;
 
-const g = (id: string, label: string): ZoneAsset => ({ id, file: `${id}.png`, label, category: "ground", worldWidth: GROUND_W, anchorY: 0.72 });
-const s = (id: string, label: string, worldWidth = STRUCT_W): ZoneAsset => ({ id, file: `${id}.png`, label, category: "structure", worldWidth, anchorY: 0.92 });
-const r = (id: string, label: string, kind: "tree" | "rock" | "fish", worldWidth = RESOURCE_W): ZoneAsset => ({ id, file: `${id}.png`, label, category: "resource", worldWidth, anchorY: 0.9, resourceKind: kind });
-const d = (id: string, label: string, worldWidth = DECOR_W): ZoneAsset => ({ id, file: `${id}.png`, label, category: "decor", worldWidth, anchorY: 0.9 });
+const g = (id: string, label: string): ZoneAsset =>
+  ({ id, file: `${id}.png`, label, category: "ground", worldWidth: GROUND_W, anchorY: 0.72, footprint: 1, clearsGround: false });
+const b = (
+  id: string,
+  label: string,
+  opts: { width?: number; footprint?: number; clearsGround?: boolean } = {},
+): ZoneAsset => ({
+  id,
+  file: `${id}.png`,
+  label,
+  category: "structure",
+  worldWidth: opts.width ?? BUILDING_W,
+  anchorY: 0.9,
+  footprint: opts.footprint ?? 3,
+  clearsGround: opts.clearsGround ?? true,
+});
+const r = (id: string, label: string, kind: "tree" | "rock" | "fish", worldWidth = RESOURCE_W): ZoneAsset =>
+  ({ id, file: `${id}.png`, label, category: "resource", worldWidth, anchorY: 0.9, footprint: 1, clearsGround: false, resourceKind: kind });
+const d = (id: string, label: string, worldWidth = DECOR_W): ZoneAsset =>
+  ({ id, file: `${id}.png`, label, category: "decor", worldWidth, anchorY: 0.9, footprint: 1, clearsGround: false });
 
 export const ZONE_ASSETS: ZoneAsset[] = [
-  // Ground paint
+  // Ground paint (1×1 tiles)
   g("grass", "Grass"),
   g("grass2", "Meadow"),
   g("soil", "Soil"),
@@ -46,18 +68,18 @@ export const ZONE_ASSETS: ZoneAsset[] = [
   g("snow", "Snow"),
   g("lava", "Lava"),
   g("stone-path", "Stone Path"),
-  // Structures
-  s("house", "House"),
-  s("mansion", "Mansion"),
-  s("cabin", "Cabin"),
-  s("shop-blue", "Shop"),
-  s("market-wheat", "Wheat Market"),
-  s("market-carrot", "Carrot Market"),
-  s("windmill", "Windmill", 150),
-  s("well", "Well", 96),
-  s("fence", "Fence", 80),
-  s("gate", "Gate", 90),
-  s("bridge", "Bridge", 120),
+  // Buildings (3×3, carry their own ground base)
+  b("house", "House"),
+  b("mansion", "Mansion"),
+  b("cabin", "Cabin"),
+  b("shop-blue", "Shop"),
+  b("market-wheat", "Wheat Market"),
+  b("market-carrot", "Carrot Market"),
+  b("windmill", "Windmill"),
+  // Barriers: thin structures without a full ground base (1×1, don't clear ground).
+  b("fence", "Fence", { width: TILE_WIDTH, footprint: 1, clearsGround: false }),
+  b("gate", "Gate", { width: TILE_WIDTH, footprint: 1, clearsGround: false }),
+  b("bridge", "Bridge", { clearsGround: false }),
   // Resource nodes (functional gather nodes)
   r("pine", "Pine", "tree"),
   r("pine-small", "Small Pine", "tree"),
@@ -77,7 +99,8 @@ export const ZONE_ASSETS: ZoneAsset[] = [
   r("berry-bush", "Berry Bush", "tree", 52),
   r("crop-field", "Crop Field", "tree", 72),
   r("crop-wheat", "Wheat Crop", "tree", 64),
-  // Decor
+  // Decor (1×1, ground-anchored)
+  d("well", "Well", 64),
   d("lamp", "Lamp"),
   d("torch", "Torch"),
   d("bench", "Bench"),
