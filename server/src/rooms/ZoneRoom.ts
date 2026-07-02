@@ -194,6 +194,10 @@ import {
   getWorldTime,
   ZONE_INTERIOR,
   ZONE_HUB,
+  ZONE_SLOT_COST,
+  ZONE_PASS_MS,
+  playerZoneToConfig,
+  type PlayerZoneRecord,
 } from "@metricbase/shared";
 import { verifyAccessToken } from "../auth/accessToken.js";
 import { isTokenGateEnabled } from "../auth/tokenGate.js";
@@ -242,6 +246,7 @@ import {
 import {
   acceptBidOrder,
   buildMarketState,
+  getMarketDecimals,
   cancelPlayerMarketOrder,
   completeBidPayment,
   fillAskOrder,
@@ -293,6 +298,22 @@ import {
   guildMembersById,
   depositToBankById,
 } from "../guild/guildRegistry.js";
+import {
+  addZoneEarnings,
+  canEnterZone,
+  collectZoneEarnings,
+  createPlayerZone,
+  getPlayerZone,
+  getPublishedZones,
+  getZonesOwnedBy,
+  grantZonePass,
+  isPlayerZoneId,
+  sanitizeBuild,
+  setZoneBuild,
+  setZoneMeta,
+} from "../zones/zoneRegistry.js";
+import { creditTreasuryGold } from "../economy/treasury.js";
+import { isPurchaseRedeemed, recordTokenPurchase } from "../db/tokenPurchases.js";
 import { getTerritoryOwner, setTerritoryOwner } from "../territory/territoryRegistry.js";
 import { getSovereign, setSovereign } from "../siege/siegeRegistry.js";
 import { clearOnline, isOnline, sendToPlayer, sendToPlayers, setOnline } from "../social/presence.js";
@@ -407,10 +428,21 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
    *  a stale onLeave from wiping in-memory state belonging to a new session. */
   private activePlayerSession = new Map<string, string>();
   private zoneConfig!: ZoneConfig;
+  /** Set only for player-owned zones; the owning record backing this room. */
+  private playerZone?: PlayerZoneRecord;
 
   onCreate(options: ZoneRoomOptions) {
     ZoneRoom.activeRooms.add(this);
-    this.zoneConfig = getZoneConfig(options.zoneId);
+    // Player-owned zones ("Worlds") resolve their config from the DB-backed
+    // registry; the built-in zones use the static ZONE_CONFIGS table.
+    if (isPlayerZoneId(options.zoneId)) {
+      const record = getPlayerZone(options.zoneId);
+      if (!record) throw new ServerError(4000, "That World no longer exists.");
+      this.playerZone = record;
+      this.zoneConfig = playerZoneToConfig(record);
+    } else {
+      this.zoneConfig = getZoneConfig(options.zoneId);
+    }
     this.maxClients = MAX_PLAYERS_PER_ZONE;
     this.setState(new ZoneState());
 
@@ -525,6 +557,38 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
     this.onProtectedMessage("buyVipPassGold", (client) => {
       void this.handleBuyVipPassGold(client);
+    });
+
+    // --- Player-owned zones ("Worlds") ---
+    this.onProtectedMessage("buyZoneSlot", (client) => {
+      void this.handleBuyZoneSlot(client);
+    });
+    this.onProtectedMessage("buyGoldFromPip", (client, message: { signature?: string; gold?: number }) => {
+      void this.handleBuyGoldFromPip(client, message.signature ?? "", Number(message.gold) || 0);
+    });
+    this.onMessage("pipGoldInfo", (client) => {
+      this.handlePipGoldInfo(client);
+    });
+    this.onProtectedMessage("zoneBuildSave", (client, message: { zoneId?: string; build?: unknown }) => {
+      void this.handleZoneBuildSave(client, message.zoneId ?? "", message.build);
+    });
+    this.onProtectedMessage(
+      "zoneMetaSet",
+      (client, message: { zoneId?: string; displayName?: string; passPrice?: number; published?: boolean }) => {
+        void this.handleZoneMetaSet(client, message.zoneId ?? "", message);
+      },
+    );
+    this.onProtectedMessage("zoneEarningsCollect", (client, message: { zoneId?: string }) => {
+      void this.handleZoneEarningsCollect(client, message.zoneId ?? "");
+    });
+    this.onProtectedMessage("buyZonePass", (client, message: { zoneId?: string }) => {
+      void this.handleBuyZonePass(client, message.zoneId ?? "");
+    });
+    this.onMessage("worldsList", (client) => {
+      this.handleWorldsList(client);
+    });
+    this.onProtectedMessage("myWorlds", (client) => {
+      this.handleMyWorlds(client);
     });
 
     this.onProtectedMessage("chop", (client, message: { resourceId?: string }) => {
@@ -917,6 +981,12 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       throw error;
     }
 
+    // Player-owned zones gate entry: the owner is always welcome, free zones
+    // are open, and paid zones require an unexpired visitor pass.
+    if (this.playerZone && !canEnterZone(this.playerZone.zoneId, name)) {
+      throw new ServerError(403, "You need a visitor pass to enter this World.");
+    }
+
     // Restore a persisted VIP Lodge pass into the in-memory map (survives restarts).
     if (wallet && saved?.vipPassUntil && saved.vipPassUntil > Date.now()) {
       const existing = ZoneRoom.vipPassUntil.get(wallet) ?? 0;
@@ -1054,6 +1124,11 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     client.send("farmState", this.buildFarmState());
     client.send("housingState", this.buildHousingState());
     client.send("lootBags", { bags: [...this.lootBags.values()] });
+    // Player-owned zones aren't in the client's static ZONE_CONFIGS — push the
+    // projected config so the client can render the owner's build.
+    if (this.playerZone) {
+      client.send("playerZoneConfig", this.zoneConfig);
+    }
     if (this.zoneConfig.capturePoints?.length) {
       client.send("territoryState", this.buildTerritoryState());
     }
@@ -2759,6 +2834,201 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         `${player.name} bought a ${VIP_PASS_DAYS}-day VIP pass for ${VIP_PASS_GOLD_ONLY_COST.toLocaleString()}g!`,
       ),
     );
+  }
+
+  // === Player-owned zones ("Worlds") ===
+
+  /** Buy a blank zone slot for gold (routed to the treasury) and own a World. */
+  private async handleBuyZoneSlot(client: Client) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const wallet = this.playerWallets.get(client.sessionId) ?? null;
+    // Admins found Worlds for free (for testing / official Worlds).
+    const free = adService.isAdmin(wallet);
+    const gold = this.playerGold.get(player.name) ?? STARTING_GOLD;
+    if (!free && gold < ZONE_SLOT_COST) {
+      return void client.send("zoneResult", {
+        ok: false,
+        error: `A World slot costs ${ZONE_SLOT_COST.toLocaleString()} gold.`,
+      });
+    }
+    if (!free) {
+      this.playerGold.set(player.name, gold - ZONE_SLOT_COST);
+      await creditTreasuryGold("zone_slot", ZONE_SLOT_COST);
+    }
+    const zone = createPlayerZone(player.name, wallet);
+    this.sendProfile(client, player);
+    await this.persistPlayer(player);
+    client.send("zoneResult", {
+      ok: true,
+      zoneId: zone.zoneId,
+      message: free ? "World created (admin, free)! Build it, then publish." : "World created! Build it, then publish.",
+    });
+    this.sendMyWorlds(client, player.name);
+    this.broadcastChat(
+      this.systemChat("Worlds", `${player.name} founded a new World! Visit it from the Worlds board.`),
+    );
+  }
+
+  /** Pip's currency desk: burn/transfer $BASE to the treasury for gold, 1:1. */
+  private async handleBuyGoldFromPip(client: Client, signature: string, requestedGold: number) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const wallet = this.playerWallets.get(client.sessionId) ?? null;
+    if (!wallet) {
+      return void client.send("pipGoldResult", { ok: false, error: "Link a wallet first to buy gold from Pip." });
+    }
+    if (!signature || signature.length < 32) {
+      return void client.send("pipGoldResult", { ok: false, error: "Missing payment transaction." });
+    }
+    const treasury = getTreasuryWallet();
+    if (!treasury) {
+      return void client.send("pipGoldResult", { ok: false, error: "Pip's gold desk is closed right now." });
+    }
+    if (await isPurchaseRedeemed(signature)) {
+      return void client.send("pipGoldResult", { ok: false, error: "That payment was already redeemed." });
+    }
+    const mint = process.env.TOKEN_MINT?.trim() || METRICBASE_TOKEN_MINT;
+    const minUiAmount = Math.max(1, Math.floor(requestedGold) || 1);
+    const v = await verifyPeerTokenTransfer(signature, { fromWallet: wallet, toWallet: treasury, mint, minUiAmount });
+    if (!v.ok || v.uiAmount === undefined || v.uiAmount <= 0) {
+      return void client.send("pipGoldResult", { ok: false, error: v.error ?? "Payment not found on-chain." });
+    }
+    // Credit gold 1:1 with the verified on-chain amount (never the client claim).
+    const goldCredited = Math.floor(v.uiAmount);
+    await recordTokenPurchase(signature, wallet, "pip_gold", v.uiAmount);
+    this.playerGold.set(player.name, (this.playerGold.get(player.name) ?? STARTING_GOLD) + goldCredited);
+    this.sendProfile(client, player);
+    await this.persistPlayer(player);
+    client.send("pipGoldResult", { ok: true, gold: goldCredited });
+  }
+
+  /** Tell the client where/how to pay $BASE for gold at Pip's desk. */
+  private handlePipGoldInfo(client: Client) {
+    const treasury = getTreasuryWallet();
+    client.send("pipGoldInfo", {
+      enabled: Boolean(treasury),
+      treasury,
+      mint: process.env.TOKEN_MINT?.trim() || METRICBASE_TOKEN_MINT,
+      decimals: getMarketDecimals(),
+      rpcUrl: process.env.SOLANA_RPC_URL ?? "https://api.mainnet-beta.solana.com",
+    });
+  }
+
+  /** Owner saves an edited build for one of their zones. */
+  private async handleZoneBuildSave(client: Client, zoneId: string, rawBuild: unknown) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const zone = getPlayerZone(zoneId);
+    if (!zone || zone.ownerName !== player.name) {
+      return void client.send("zoneResult", { ok: false, error: "You don't own that World." });
+    }
+    const { build, error } = sanitizeBuild(rawBuild);
+    if (!build) return void client.send("zoneResult", { ok: false, error: error ?? "Invalid build." });
+    setZoneBuild(zoneId, build);
+    client.send("zoneResult", { ok: true, zoneId, message: "World saved." });
+    this.sendMyWorlds(client, player.name);
+  }
+
+  /** Owner updates a zone's name / pass price / published flag. */
+  private async handleZoneMetaSet(
+    client: Client,
+    zoneId: string,
+    patch: { displayName?: string; passPrice?: number; published?: boolean },
+  ) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const zone = getPlayerZone(zoneId);
+    if (!zone || zone.ownerName !== player.name) {
+      return void client.send("zoneResult", { ok: false, error: "You don't own that World." });
+    }
+    setZoneMeta(zoneId, {
+      displayName: patch.displayName,
+      passPrice: patch.passPrice,
+      published: patch.published,
+    });
+    client.send("zoneResult", { ok: true, zoneId, message: "World updated." });
+    this.sendMyWorlds(client, player.name);
+  }
+
+  /** Owner withdraws accumulated pass earnings back into their gold balance. */
+  private async handleZoneEarningsCollect(client: Client, zoneId: string) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const zone = getPlayerZone(zoneId);
+    if (!zone || zone.ownerName !== player.name) {
+      return void client.send("zoneResult", { ok: false, error: "You don't own that World." });
+    }
+    const amount = collectZoneEarnings(zoneId);
+    if (amount <= 0) return void client.send("zoneResult", { ok: false, error: "No earnings to collect yet." });
+    this.playerGold.set(player.name, (this.playerGold.get(player.name) ?? STARTING_GOLD) + amount);
+    this.sendProfile(client, player);
+    await this.persistPlayer(player);
+    client.send("zoneResult", { ok: true, zoneId, message: `Collected ${amount.toLocaleString()} gold.` });
+    this.sendMyWorlds(client, player.name);
+  }
+
+  /** Buy a timed visitor pass to a published zone; gold goes to the owner. */
+  private async handleBuyZonePass(client: Client, zoneId: string) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const zone = getPlayerZone(zoneId);
+    if (!zone || !zone.published) {
+      return void client.send("zoneResult", { ok: false, error: "That World isn't open to visitors." });
+    }
+    if (zone.ownerName === player.name || zone.passPrice <= 0) {
+      return void client.send("zoneResult", { ok: true, zoneId, message: "You already have access." });
+    }
+    if (canEnterZone(zoneId, player.name)) {
+      return void client.send("zoneResult", { ok: true, zoneId, message: "Your pass is still valid." });
+    }
+    const gold = this.playerGold.get(player.name) ?? STARTING_GOLD;
+    if (gold < zone.passPrice) {
+      return void client.send("zoneResult", {
+        ok: false,
+        error: `A pass costs ${zone.passPrice.toLocaleString()} gold.`,
+      });
+    }
+    this.playerGold.set(player.name, gold - zone.passPrice);
+    addZoneEarnings(zoneId, zone.passPrice);
+    grantZonePass(zoneId, player.name, Date.now() + ZONE_PASS_MS);
+    this.sendProfile(client, player);
+    await this.persistPlayer(player);
+    client.send("zoneResult", { ok: true, zoneId, message: `Pass purchased — enjoy ${zone.displayName}!` });
+  }
+
+  /** Send the public directory of published Worlds to a client. */
+  private handleWorldsList(client: Client) {
+    client.send("worldsList", {
+      worlds: getPublishedZones().map((z) => ({
+        zoneId: z.zoneId,
+        displayName: z.displayName,
+        ownerName: z.ownerName,
+        passPrice: z.passPrice,
+        visits: z.visits,
+      })),
+    });
+  }
+
+  /** Send the requesting player their owned Worlds (with build + earnings). */
+  private handleMyWorlds(client: Client) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    this.sendMyWorlds(client, player.name);
+  }
+
+  private sendMyWorlds(client: Client, ownerName: string) {
+    client.send("myWorlds", {
+      worlds: getZonesOwnedBy(ownerName).map((z) => ({
+        zoneId: z.zoneId,
+        displayName: z.displayName,
+        passPrice: z.passPrice,
+        published: z.published,
+        earnings: z.earnings,
+        visits: z.visits,
+        build: z.build,
+      })),
+    });
   }
 
   private async checkTalkObjectives(client: Client, playerName: string, npcId: string) {

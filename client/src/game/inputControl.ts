@@ -1,4 +1,11 @@
 import Phaser from "phaser";
+import type { PlayerZoneBuild } from "@metricbase/shared";
+
+/** A build-editor tool: place a prop, paint a ground tile, or erase. */
+export interface EditTool {
+  type: "prop" | "ground" | "erase";
+  value: string;
+}
 
 let game: Phaser.Game | null = null;
 let uiTypingActive = false;
@@ -134,6 +141,31 @@ export function triggerAbility(abilityId: string): boolean {
   if (!game) return false;
   const scene = game.scene.getScene("GameScene") as AbilityScene | undefined;
   return scene?.useAbility?.(abilityId) ?? false;
+}
+
+type EditScene = Phaser.Scene & {
+  beginWorldEdit?: (zoneId: string) => void;
+  endWorldEdit?: () => void;
+  setWorldEditTool?: (tool: EditTool | null) => void;
+  getWorldEditDraft?: () => PlayerZoneBuild;
+};
+
+function editScene(): EditScene | undefined {
+  return game?.scene.getScene("GameScene") as EditScene | undefined;
+}
+
+/** Enter the in-canvas build editor for a player-owned zone. */
+export function beginWorldEdit(zoneId: string) {
+  editScene()?.beginWorldEdit?.(zoneId);
+}
+export function endWorldEdit() {
+  editScene()?.endWorldEdit?.();
+}
+export function setWorldEditTool(tool: EditTool | null) {
+  editScene()?.setWorldEditTool?.(tool);
+}
+export function getWorldEditDraft(): PlayerZoneBuild | undefined {
+  return editScene()?.getWorldEditDraft?.();
 }
 
 export function consumeMobileInteract(): boolean {

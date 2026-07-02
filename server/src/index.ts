@@ -3,6 +3,7 @@ import { WebSocketTransport } from "@colyseus/ws-transport";
 import {
   GAME_VERSION,
   getZoneConfig,
+  PLAYER_ZONE_ROOM,
   ZONE_BLACK,
   ZONE_GROTTO,
   ZONE_HUB,
@@ -20,6 +21,7 @@ import { invitationsRouter } from "./api/invitations.js";
 import { initDatabase } from "./db/pool.js";
 import { initSellPressure } from "./market/sellPressure.js";
 import { initLandRegistry } from "./housing/landRegistry.js";
+import { initZoneRegistry } from "./zones/zoneRegistry.js";
 import { initFarmRegistry } from "./farming/farmRegistry.js";
 import { initGuildRegistry } from "./guild/guildRegistry.js";
 import { initTerritoryRegistry } from "./territory/territoryRegistry.js";
@@ -65,10 +67,14 @@ gameServer.define(ZONE_GROTTO, ZoneRoom, { zoneId: ZONE_GROTTO });
 gameServer.define(ZONE_INTERIOR, ZoneRoom, { zoneId: ZONE_INTERIOR });
 gameServer.define(ZONE_BLACK, ZoneRoom, { zoneId: ZONE_BLACK });
 gameServer.define(ZONE_JAIL, ZoneRoom, { zoneId: ZONE_JAIL });
+// One room type serves every player-owned zone; filterBy keeps each world's
+// visitors in their own room instance (matched on the zoneId join option).
+gameServer.define(PLAYER_ZONE_ROOM, ZoneRoom).filterBy(["zoneId"]);
 
 await initDatabase();
 await initSellPressure();
 await initLandRegistry();
+await initZoneRegistry();
 await initFarmRegistry();
 await initGuildRegistry();
 await initTerritoryRegistry();

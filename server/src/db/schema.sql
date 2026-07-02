@@ -217,6 +217,37 @@ ALTER TABLE land_plots ADD COLUMN IF NOT EXISTS light_on BOOLEAN NOT NULL DEFAUL
 ALTER TABLE land_plots ADD COLUMN IF NOT EXISTS energy INTEGER NOT NULL DEFAULT 100;
 ALTER TABLE land_plots ADD COLUMN IF NOT EXISTS energy_at BIGINT;
 
+-- Treasury gold accounting: running totals of in-game gold routed to the
+-- treasury (e.g. zone-slot sales), kept per source for auditing / buybacks.
+CREATE TABLE IF NOT EXISTS treasury_gold (
+  source VARCHAR(32) PRIMARY KEY,
+  gold BIGINT NOT NULL DEFAULT 0,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Player-owned zones ("Worlds"): a blank zone slot bought for gold, built by
+-- its owner from placeable props/nodes, and monetised via visitor passes. The
+-- whole editable layout lives in the `build` JSON blob; `meta` in columns.
+CREATE TABLE IF NOT EXISTS player_zones (
+  zone_id VARCHAR(64) PRIMARY KEY,
+  owner_wallet VARCHAR(44),
+  owner_name VARCHAR(16) NOT NULL,
+  display_name VARCHAR(24) NOT NULL,
+  pass_price INTEGER NOT NULL DEFAULT 0,
+  published BOOLEAN NOT NULL DEFAULT false,
+  earnings INTEGER NOT NULL DEFAULT 0,
+  visits INTEGER NOT NULL DEFAULT 0,
+  build JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+-- Per-visitor zone passes: which wallet may enter which zone, until when.
+CREATE TABLE IF NOT EXISTS zone_passes (
+  zone_id VARCHAR(64) NOT NULL,
+  holder_name VARCHAR(16) NOT NULL,
+  expires_at BIGINT NOT NULL,
+  PRIMARY KEY (zone_id, holder_name)
+);
+
 -- Guilds: persistent player organizations. Members stored as a JSON name array.
 CREATE TABLE IF NOT EXISTS guilds (
   id VARCHAR(64) PRIMARY KEY,

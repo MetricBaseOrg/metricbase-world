@@ -6,7 +6,9 @@ import {
   ChopStartPayload,
   CharacterLookupResponse,
   ChatMessagePayload,
-  getZoneConfig,
+  PLAYER_ZONE_ROOM,
+  type ZoneConfig,
+  type PlayerZoneBuild,
   JoinOptions,
   InventoryResultPayload,
   InventoryStatePayload,
@@ -61,6 +63,7 @@ import {
 } from "@metricbase/shared";
 import { getValidWalletSession } from "../wallet/tokenGate";
 import { getHttpServerUrl, getWebSocketUrl } from "./serverUrl";
+import { isPlayerZoneId, resolveZoneConfig, setPlayerZoneConfig } from "./playerZoneConfig";
 
 export interface RemotePlayer {
   sessionId: string;
@@ -77,6 +80,41 @@ export interface RemotePlayer {
   criminal: boolean;
   speedMult: number;
   petId: string;
+}
+
+export interface WorldDirectoryEntry {
+  zoneId: string;
+  displayName: string;
+  ownerName: string;
+  passPrice: number;
+  visits: number;
+}
+export interface MyWorldEntry {
+  zoneId: string;
+  displayName: string;
+  passPrice: number;
+  published: boolean;
+  earnings: number;
+  visits: number;
+  build: PlayerZoneBuild;
+}
+export interface ZoneResultPayload {
+  ok: boolean;
+  zoneId?: string;
+  message?: string;
+  error?: string;
+}
+export interface PipGoldResultPayload {
+  ok: boolean;
+  gold?: number;
+  error?: string;
+}
+export interface PipGoldInfoPayload {
+  enabled: boolean;
+  treasury: string | null;
+  mint: string;
+  decimals: number;
+  rpcUrl: string;
 }
 
 type ConnectionListener = (connected: boolean, playerCount: number) => void;
@@ -201,6 +239,12 @@ export class NetworkManager {
   private latestFarmState: FarmStatePayload = { plots: [] };
   private housingStateListeners = new Set<HousingStateListener>();
   private housingResultListeners = new Set<HousingResultListener>();
+  private worldsListListeners = new Set<(worlds: WorldDirectoryEntry[]) => void>();
+  private myWorldsListeners = new Set<(worlds: MyWorldEntry[]) => void>();
+  private zoneResultListeners = new Set<(result: ZoneResultPayload) => void>();
+  private pipGoldResultListeners = new Set<(result: PipGoldResultPayload) => void>();
+  private pipGoldInfoListeners = new Set<(info: PipGoldInfoPayload) => void>();
+  private zoneConfigUpdateListeners = new Set<(zoneId: string) => void>();
   private latestHousingState: HousingStatePayload = { plots: [] };
   private emoteListeners = new Set<EmoteListener>();
   private worldStatsListeners = new Set<WorldStatsListener>();
@@ -287,7 +331,7 @@ export class NetworkManager {
   }
 
   get zoneName(): string {
-    return getZoneConfig(this.currentZoneId).displayName;
+    return resolveZoneConfig(this.currentZoneId).displayName;
   }
 
   async lookupCharacter(name: string): Promise<CharacterLookupResponse> {
@@ -411,6 +455,65 @@ export class NetworkManager {
 
   sendBuyVipPassGold() {
     this.room?.send("buyVipPassGold", {});
+  }
+
+  // --- Player-owned zones ("Worlds") ---
+  sendBuyZoneSlot() {
+    this.room?.send("buyZoneSlot", {});
+  }
+  sendBuyGoldFromPip(signature: string, gold: number) {
+    this.room?.send("buyGoldFromPip", { signature, gold });
+  }
+  sendZoneBuildSave(zoneId: string, build: PlayerZoneBuild) {
+    this.room?.send("zoneBuildSave", { zoneId, build });
+  }
+  sendZoneMetaSet(zoneId: string, patch: { displayName?: string; passPrice?: number; published?: boolean }) {
+    this.room?.send("zoneMetaSet", { zoneId, ...patch });
+  }
+  sendZoneEarningsCollect(zoneId: string) {
+    this.room?.send("zoneEarningsCollect", { zoneId });
+  }
+  sendBuyZonePass(zoneId: string) {
+    this.room?.send("buyZonePass", { zoneId });
+  }
+  requestWorldsList() {
+    this.room?.send("worldsList", {});
+  }
+  requestMyWorlds() {
+    this.room?.send("myWorlds", {});
+  }
+  requestPipGoldInfo() {
+    this.room?.send("pipGoldInfo", {});
+  }
+
+  onWorldsList(listener: (worlds: WorldDirectoryEntry[]) => void) {
+    this.worldsListListeners.add(listener);
+    return () => this.worldsListListeners.delete(listener);
+  }
+  onMyWorlds(listener: (worlds: MyWorldEntry[]) => void) {
+    this.myWorldsListeners.add(listener);
+    return () => this.myWorldsListeners.delete(listener);
+  }
+  onZoneResult(listener: (result: ZoneResultPayload) => void) {
+    this.zoneResultListeners.add(listener);
+    return () => this.zoneResultListeners.delete(listener);
+  }
+  onPipGoldResult(listener: (result: PipGoldResultPayload) => void) {
+    this.pipGoldResultListeners.add(listener);
+    return () => this.pipGoldResultListeners.delete(listener);
+  }
+  onPipGoldInfo(listener: (info: PipGoldInfoPayload) => void) {
+    this.pipGoldInfoListeners.add(listener);
+    return () => this.pipGoldInfoListeners.delete(listener);
+  }
+  /** Fires when the current player-zone's config is (re)pushed by the server. */
+  onZoneConfigUpdate(listener: (zoneId: string) => void) {
+    this.zoneConfigUpdateListeners.add(listener);
+    return () => this.zoneConfigUpdateListeners.delete(listener);
+  }
+  /** Enter a player-owned zone by id (leaves the current room). */
+  async enterWorld(zoneId: string) {
+    await this.transferToZone(zoneId);
   }
 
   sendToggleLamp(on: boolean) {
@@ -1160,7 +1263,8 @@ export class NetworkManager {
       this.client = new Client(getWebSocketUrl());
     }
 
-    const config = getZoneConfig(zoneId);
+    // Player zones share one room type keyed by zoneId; built-ins use their own.
+    const roomName = isPlayerZoneId(zoneId) ? PLAYER_ZONE_ROOM : resolveZoneConfig(zoneId).roomName;
     const options: JoinOptions = {
       name: this.playerName,
       zoneId,
@@ -1170,7 +1274,7 @@ export class NetworkManager {
       ...(spectate !== undefined ? { spectate } : {}),
     };
     try {
-      this.room = await this.client.joinOrCreate(config.roomName, options, ZoneState);
+      this.room = await this.client.joinOrCreate(roomName, options, ZoneState);
     } catch (error) {
       throw new Error(formatJoinError(error));
     }
@@ -1193,6 +1297,31 @@ export class NetworkManager {
       void this.transferToZone(payload.targetZone).catch((error) => {
         console.error("Zone transfer failed:", error);
       });
+    });
+    // Player-owned zones push their layout after join; cache it and re-emit the
+    // zone so the scene re-renders with the owner's build.
+    this.room.onMessage("playerZoneConfig", (config: ZoneConfig) => {
+      setPlayerZoneConfig(config);
+      // Same-zone update: re-render only the config-driven layers (a full
+      // emitZone would tear down players/loot and hit renderZone's early-return).
+      if (config.id === this.currentZoneId) {
+        for (const l of this.zoneConfigUpdateListeners) l(config.id);
+      }
+    });
+    this.room.onMessage("worldsList", (msg: { worlds: WorldDirectoryEntry[] }) => {
+      for (const l of this.worldsListListeners) l(msg.worlds ?? []);
+    });
+    this.room.onMessage("myWorlds", (msg: { worlds: MyWorldEntry[] }) => {
+      for (const l of this.myWorldsListeners) l(msg.worlds ?? []);
+    });
+    this.room.onMessage("zoneResult", (msg: ZoneResultPayload) => {
+      for (const l of this.zoneResultListeners) l(msg);
+    });
+    this.room.onMessage("pipGoldResult", (msg: PipGoldResultPayload) => {
+      for (const l of this.pipGoldResultListeners) l(msg);
+    });
+    this.room.onMessage("pipGoldInfo", (msg: PipGoldInfoPayload) => {
+      for (const l of this.pipGoldInfoListeners) l(msg);
     });
     this.room.onMessage("profile", (profile: ProfilePayload) => {
       for (const listener of this.profileListeners) {
@@ -1662,7 +1791,7 @@ export class NetworkManager {
   }
 
   private emitZone(zoneId: string) {
-    const zoneName = getZoneConfig(zoneId).displayName;
+    const zoneName = resolveZoneConfig(zoneId).displayName;
     for (const listener of this.zoneListeners) {
       listener(zoneId, zoneName);
     }

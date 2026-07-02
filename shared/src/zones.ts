@@ -99,6 +99,8 @@ export interface ZoneConfig {
   scenery?: SceneryNode[];
   /** Guild-capturable control points (Territory Control). */
   capturePoints?: CapturePoint[];
+  /** Ground-paint overrides (player zones only): sparse per-tile palette types. */
+  tiles?: { x: number; y: number; type: string }[];
 }
 
 export const ZONE_CONFIGS: Record<string, ZoneConfig> = {

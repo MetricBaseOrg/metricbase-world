@@ -10,7 +10,6 @@ import {
   type AvatarAction,
   type AvatarDirection,
   type CharacterAppearance,
-  getZoneConfig,
   normalizeCharacterAppearance,
   MAP_HEIGHT,
   MAP_WIDTH,
@@ -29,6 +28,7 @@ import {
   TILE_GRASS,
   TILE_WATER,
   tileToWorld,
+  worldToTile,
   type FarmStatePayload,
   type HousingStatePayload,
   type LootBagState,
@@ -57,6 +57,14 @@ import {
 import { playSfx } from "../audio/soundEffects";
 import { useGameStore } from "../store/gameStore";
 import { networkManager, RemotePlayer } from "./network";
+import { resolveZoneConfig, setPlayerZoneConfig } from "./playerZoneConfig";
+import { ensureZoneAssetLoaded, getZoneAsset, zoneAssetScale, zoneAssetTextureKey } from "./zoneAssets";
+import type { EditTool } from "./inputControl";
+import {
+  emptyPlayerZoneBuild,
+  PLAYER_ZONE_GRID,
+  type PlayerZoneBuild,
+} from "@metricbase/shared";
 import { buildZoneMap } from "./mapData";
 import { PredictedPosition, reconcilePrediction, stepPrediction } from "./prediction";
 
@@ -220,6 +228,14 @@ export class GameScene extends Phaser.Scene {
   private renderedFarmPlots = new Map<string, RenderedFarmPlot>();
   private renderedLandPlots = new Map<string, RenderedLandPlot>();
   private renderedScenery: Phaser.GameObjects.Sprite[] = [];
+  /** Ground-paint overlay sprites for player zones (below props/players). */
+  private groundPaintSprites: Phaser.GameObjects.Image[] = [];
+  // --- Build editor (player-owned zones) ---
+  private worldEditing = false;
+  private worldEditZoneId: string | null = null;
+  private worldEditTool: EditTool | null = null;
+  private worldEditDraft: PlayerZoneBuild | null = null;
+  private editGrid?: Phaser.GameObjects.Graphics;
   /** Walk-up-and-interact scenery props (arcade cabinet, blackjack table). */
   private interactableScenery: { id: string; worldX: number; worldY: number; label: string }[] = [];
   /** Warm light pools cast by lamp/lantern/fire scenery; brighten + flicker at night. */
@@ -304,6 +320,11 @@ export class GameScene extends Phaser.Scene {
     // browser context menu so right-click reads as an attack.
     this.input.mouse?.disableContextMenu();
     this.input.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
+      // In build-edit mode, taps place/paint/erase instead of moving.
+      if (this.worldEditing) {
+        this.handleEditTap(pointer);
+        return;
+      }
       if (pointer.rightButtonDown()) {
         this.pointerAttackQueued = true;
         return;
@@ -426,6 +447,11 @@ export class GameScene extends Phaser.Scene {
       this.localLampGlow?.setVisible(false);
       this.renderZone(zoneId);
       playSfx("zone_enter");
+    });
+
+    const unsubscribeZoneConfig = networkManager.onZoneConfigUpdate((zoneId) => {
+      // Don't clobber an in-progress local edit with the server's echo.
+      if (!this.worldEditing) this.refreshZoneContent(zoneId);
     });
 
     const unsubscribeMobHealth = networkManager.onMobHealth((payload) => {
@@ -662,6 +688,7 @@ export class GameScene extends Phaser.Scene {
       this.scale.off(Phaser.Scale.Events.RESIZE, this.handleViewportResize, this);
       unsubscribePlayers();
       unsubscribeZone();
+      unsubscribeZoneConfig();
       unsubscribeMobHealth();
       unsubscribeNpcPositions();
       unsubscribeAttackResult();
@@ -898,7 +925,7 @@ export class GameScene extends Phaser.Scene {
         }
       }
       if (bestNpc) {
-        const config = getZoneConfig(this.currentZoneId ?? networkManager.zoneId);
+        const config = resolveZoneConfig(this.currentZoneId ?? networkManager.zoneId);
         const npcDef = config.npcs.find((n) => n.id === bestNpc!.id);
         const name = bestNpc.label.text || "them";
         const label = npcDef?.shopId ? `Shop with ${name}` : `Talk to ${name}`;
@@ -1181,7 +1208,7 @@ export class GameScene extends Phaser.Scene {
     const zoneId = this.currentZoneId ?? networkManager.zoneId;
     if (!zoneId) return;
 
-    const config = getZoneConfig(zoneId);
+    const config = resolveZoneConfig(zoneId);
     const spawn = tileToWorld(config.spawnTile.x, config.spawnTile.y);
     this.centerCameraOn(spawn.x, spawn.y);
   }
@@ -1208,7 +1235,7 @@ export class GameScene extends Phaser.Scene {
     if (!sessionId || !playerName || !appearance || this.findLocalPlayer()) return;
 
     const zoneId = this.currentZoneId ?? networkManager.zoneId;
-    const config = getZoneConfig(zoneId);
+    const config = resolveZoneConfig(zoneId);
     const spawn = tileToWorld(config.spawnTile.x, config.spawnTile.y);
 
     this.upsertLocalPlayer({
@@ -1419,6 +1446,7 @@ export class GameScene extends Phaser.Scene {
     this.clearBillboards();
     this.clearAdBillboards();
     this.clearScenery();
+    this.clearGroundPaint();
     this.clearPortals();
     this.clearGroundDetails();
 
@@ -1462,6 +1490,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.renderGroundDetails(zoneId, ground);
+    this.renderGroundPaint(zoneId);
     this.renderNpcs(zoneId);
     this.renderResources(zoneId);
     this.renderFarmPlots(zoneId);
@@ -1474,7 +1503,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private renderPortals(zoneId: string) {
-    const config = getZoneConfig(zoneId);
+    const config = resolveZoneConfig(zoneId);
     for (const portal of config.portals) {
       const { x, y } = tileToWorld(portal.tileX, portal.tileY);
 
@@ -1518,7 +1547,7 @@ export class GameScene extends Phaser.Scene {
    * purely decorative (non-collidable).
    */
   private renderGroundDetails(zoneId: string, ground: number[][]) {
-    const config = getZoneConfig(zoneId);
+    const config = resolveZoneConfig(zoneId);
     const occupied = new Set<string>();
     const mark = (x: number, y: number) => occupied.add(`${x},${y}`);
     for (const n of config.npcs) mark(n.tileX, n.tileY);
@@ -1556,10 +1585,28 @@ export class GameScene extends Phaser.Scene {
   }
 
   private renderScenery(zoneId: string) {
-    const config = getZoneConfig(zoneId);
+    const config = resolveZoneConfig(zoneId);
     for (const node of config.scenery ?? []) {
       const { x, y } = tileToWorld(node.tileX, node.tileY);
       const flat = node.flat ?? false;
+      // Player-zone props render from lazily-loaded PNG art; built-in props use
+      // the procedurally-baked scenery_<prop> textures.
+      const asset = getZoneAsset(node.prop);
+      if (asset) {
+        const key = zoneAssetTextureKey(node.prop);
+        const sprite = this.add.sprite(x, y, key).setOrigin(0.5, asset.anchorY).setDepth(y);
+        const applyReady = () => {
+          if (!sprite.active) return;
+          sprite.setTexture(key).setScale(zoneAssetScale(this, node.prop)).setOrigin(0.5, asset.anchorY).setVisible(true);
+        };
+        if (this.textures.exists(key)) applyReady();
+        else {
+          sprite.setVisible(false);
+          ensureZoneAssetLoaded(this, node.prop, applyReady);
+        }
+        this.renderedScenery.push(sprite);
+        continue;
+      }
       const sprite = this.add.sprite(x, y, `scenery_${node.prop}`).setOrigin(0.5, flat ? 0.5 : 0.92);
       // Flat props (rugs) sit just above the floor tile but beneath players;
       // upright furniture depth-sorts by world Y so the player can pass in
@@ -1602,6 +1649,151 @@ export class GameScene extends Phaser.Scene {
     this.sceneryLights = [];
   }
 
+  /** Render an owner's ground-paint tiles as flat sprites beneath everything. */
+  private renderGroundPaint(zoneId: string) {
+    this.clearGroundPaint();
+    const config = resolveZoneConfig(zoneId);
+    for (const t of config.tiles ?? []) {
+      const asset = getZoneAsset(t.type);
+      if (!asset) continue;
+      const { x, y } = tileToWorld(t.x, t.y);
+      const key = zoneAssetTextureKey(t.type);
+      // Anchor like a ground tile and sit just below props/players.
+      const img = this.add.image(x, y, key).setOrigin(0.5, asset.anchorY).setDepth(x + y - 0.5);
+      const applyReady = () => {
+        if (!img.active) return;
+        img.setTexture(key).setScale(zoneAssetScale(this, t.type)).setOrigin(0.5, asset.anchorY).setVisible(true);
+      };
+      if (this.textures.exists(key)) applyReady();
+      else {
+        img.setVisible(false);
+        ensureZoneAssetLoaded(this, t.type, applyReady);
+      }
+      this.groundPaintSprites.push(img);
+    }
+  }
+
+  private clearGroundPaint() {
+    this.groundPaintSprites.forEach((s) => s.destroy());
+    this.groundPaintSprites = [];
+  }
+
+  // === Build editor (player-owned zones) ===
+
+  /** Re-render just the config-driven layers after a server config push. */
+  refreshZoneContent(zoneId: string) {
+    if (this.currentZoneId !== zoneId) return;
+    this.clearScenery();
+    this.clearGroundPaint();
+    this.clearResources();
+    this.clearLandPlots();
+    this.clearPortals();
+    this.renderGroundPaint(zoneId);
+    this.renderResources(zoneId);
+    this.renderLandPlots(zoneId);
+    this.renderScenery(zoneId);
+    this.renderPortals(zoneId);
+  }
+
+  beginWorldEdit(zoneId: string) {
+    const cfg = resolveZoneConfig(zoneId);
+    this.worldEditDraft = {
+      spawnTile: { ...cfg.spawnTile },
+      scenery: (cfg.scenery ?? []).map((n) => ({ ...n })),
+      landPlots: (cfg.landPlots ?? []).map((n) => ({ ...n })),
+      farmPlots: (cfg.farmPlots ?? []).map((n) => ({ ...n })),
+      resources: (cfg.resources ?? []).map((n) => ({ ...n })),
+      tiles: (cfg.tiles ?? []).map((t) => ({ ...t })),
+    };
+    this.worldEditing = true;
+    this.worldEditZoneId = zoneId;
+    this.drawEditGrid();
+  }
+
+  endWorldEdit() {
+    this.worldEditing = false;
+    this.worldEditTool = null;
+    this.editGrid?.destroy();
+    this.editGrid = undefined;
+  }
+
+  setWorldEditTool(tool: EditTool | null) {
+    this.worldEditTool = tool;
+  }
+
+  getWorldEditDraft(): PlayerZoneBuild {
+    return this.worldEditDraft ?? emptyPlayerZoneBuild();
+  }
+
+  private handleEditTap(pointer: Phaser.Input.Pointer) {
+    const draft = this.worldEditDraft;
+    const tool = this.worldEditTool;
+    const zoneId = this.worldEditZoneId;
+    if (!draft || !tool || !zoneId) return;
+    const { tileX, tileY } = worldToTile(pointer.worldX, pointer.worldY);
+    if (tileX < 0 || tileY < 0 || tileX >= PLAYER_ZONE_GRID || tileY >= PLAYER_ZONE_GRID) return;
+
+    if (tool.type === "prop") {
+      const id = `e${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
+      draft.scenery.push({ id, tileX, tileY, prop: tool.value });
+    } else if (tool.type === "ground") {
+      const existing = draft.tiles.find((t) => t.x === tileX && t.y === tileY);
+      if (existing) existing.type = tool.value;
+      else draft.tiles.push({ x: tileX, y: tileY, type: tool.value });
+    } else {
+      // Erase: remove the topmost prop on the tile, else clear its paint.
+      let removed = false;
+      for (let i = draft.scenery.length - 1; i >= 0; i--) {
+        if (draft.scenery[i].tileX === tileX && draft.scenery[i].tileY === tileY) {
+          draft.scenery.splice(i, 1);
+          removed = true;
+          break;
+        }
+      }
+      if (!removed) {
+        const ti = draft.tiles.findIndex((t) => t.x === tileX && t.y === tileY);
+        if (ti >= 0) draft.tiles.splice(ti, 1);
+      }
+    }
+    this.applyDraftLive();
+  }
+
+  /** Reflect the working draft into the cached config and re-render live. */
+  private applyDraftLive() {
+    const zoneId = this.worldEditZoneId;
+    const draft = this.worldEditDraft;
+    if (!zoneId || !draft) return;
+    const cfg = resolveZoneConfig(zoneId);
+    setPlayerZoneConfig({
+      ...cfg,
+      scenery: draft.scenery,
+      resources: draft.resources,
+      landPlots: draft.landPlots,
+      farmPlots: draft.farmPlots,
+      tiles: draft.tiles,
+    });
+    this.clearScenery();
+    this.clearGroundPaint();
+    this.renderGroundPaint(zoneId);
+    this.renderScenery(zoneId);
+  }
+
+  /** A subtle iso grid so the owner can see where taps land while editing. */
+  private drawEditGrid() {
+    this.editGrid?.destroy();
+    const g = this.add.graphics().setDepth(118).setAlpha(0.35);
+    g.lineStyle(1, 0xffffff, 0.5);
+    for (let i = 0; i <= PLAYER_ZONE_GRID; i++) {
+      const a = tileToWorld(i, 0);
+      const b = tileToWorld(i, PLAYER_ZONE_GRID);
+      g.lineBetween(a.x, a.y, b.x, b.y);
+      const c = tileToWorld(0, i);
+      const d = tileToWorld(PLAYER_ZONE_GRID, i);
+      g.lineBetween(c.x, c.y, d.x, d.y);
+    }
+    this.editGrid = g;
+  }
+
   /**
    * Brighten the lamp/lantern/fire light pools as night falls, with a gentle
    * pulse for lamps and a livelier flicker for fire (which stays lit by day).
@@ -1624,7 +1816,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private renderBillboards(zoneId: string) {
-    const config = getZoneConfig(zoneId);
+    const config = resolveZoneConfig(zoneId);
     for (const node of config.billboards ?? []) {
       const { x, y } = tileToWorld(node.tileX, node.tileY);
       const sprite = this.add.sprite(x, y, "billboard").setOrigin(0.5, 0.92).setDepth(y);
@@ -1808,7 +2000,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private renderFarmPlots(zoneId: string) {
-    const config = getZoneConfig(zoneId);
+    const config = resolveZoneConfig(zoneId);
     for (const plot of config.farmPlots ?? []) {
       // Anchor at the centre of the 2x2 footprint.
       const { x, y } = tileToWorld(plot.tileX + 0.5, plot.tileY + 0.5);
@@ -1854,7 +2046,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private renderLandPlots(zoneId: string) {
-    const config = getZoneConfig(zoneId);
+    const config = resolveZoneConfig(zoneId);
     for (const plot of config.landPlots ?? []) {
       // tileX/tileY is the centre tile of the 3x3 footprint.
       const { x, y } = tileToWorld(plot.tileX, plot.tileY);
@@ -2034,7 +2226,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private renderNpcs(zoneId: string) {
-    const config = getZoneConfig(zoneId);
+    const config = resolveZoneConfig(zoneId);
 
     for (const npc of config.npcs) {
       const { x, y } = tileToWorld(npc.tileX, npc.tileY);
@@ -2141,7 +2333,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private renderResources(zoneId: string) {
-    const config = getZoneConfig(zoneId);
+    const config = resolveZoneConfig(zoneId);
 
     for (const resource of config.resources ?? []) {
       const { x, y } = tileToWorld(resource.tileX, resource.tileY);
@@ -2740,7 +2932,7 @@ export class GameScene extends Phaser.Scene {
 
   /** Draw/update the territory capture flags from server state. */
   private syncTerritory(points: TerritoryPointState[]) {
-    const config = getZoneConfig(this.currentZoneId ?? networkManager.zoneId);
+    const config = resolveZoneConfig(this.currentZoneId ?? networkManager.zoneId);
     const tiles = new Map((config.capturePoints ?? []).map((p) => [p.id, p]));
 
     for (const point of points) {
