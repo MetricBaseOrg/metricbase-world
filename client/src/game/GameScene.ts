@@ -63,6 +63,7 @@ import type { EditTool } from "./inputControl";
 import {
   emptyPlayerZoneBuild,
   PLAYER_ZONE_GRID,
+  TILE_HEIGHT,
   type PlayerZoneBuild,
 } from "@metricbase/shared";
 import { buildZoneMap } from "./mapData";
@@ -1595,18 +1596,37 @@ export class GameScene extends Phaser.Scene {
       const flat = node.flat ?? false;
       // Player-zone props render from lazily-loaded PNG art; built-in props use
       // the procedurally-baked scenery_<prop> textures.
-      const asset = getZoneAsset(node.prop);
+      // PNG art is only used in player-owned zones; built-in zones keep their
+      // procedurally-baked scenery_<prop> textures untouched.
+      const asset = isPlayerZoneId(zoneId) ? getZoneAsset(node.prop) : undefined;
       if (asset) {
         const key = zoneAssetTextureKey(node.prop);
-        // Buildings have their ground tiles baked into the art, so they lay into
-        // the terrain like a big ground tile (depth-banded by tile, players walk
-        // over them). Other props stand upright and depth-sort by world Y.
-        const groundLike = asset.category === "structure";
-        const depth = groundLike ? node.tileX + node.tileY + 0.2 : y;
-        const sprite = this.add.sprite(x, y, key).setOrigin(0.5, asset.anchorY).setDepth(depth);
+        const N = asset.footprint;
+        // Multi-tile buildings carry a baked N×N ground base: the placed tile is
+        // the back corner, and the sprite is bottom-anchored on the footprint's
+        // front-bottom vertex so the base lays flush into the cleared footprint.
+        const isBuilding = asset.category === "structure" && asset.clearsGround && N > 1;
+        let px = x;
+        let py = y;
+        let originY = asset.anchorY;
+        let depth = y;
+        if (isBuilding) {
+          const front = tileToWorld(node.tileX + N - 1, node.tileY + N - 1);
+          px = x; // footprint centre-x equals the back-corner tile's x in iso
+          py = front.y + TILE_HEIGHT / 2;
+          originY = 1;
+          depth = node.tileX + node.tileY + N * 2; // sort above the footprint ground
+        } else if (asset.bakedTile) {
+          // 1×1 props with a baked ground tile bottom-anchor on the tile's front
+          // vertex so their tile registers with the grid; they still occlude by
+          // world Y so the player can pass behind them.
+          py = y + TILE_HEIGHT / 2;
+          originY = 1;
+        }
+        const sprite = this.add.sprite(px, py, key).setOrigin(0.5, originY).setDepth(depth);
         const applyReady = () => {
           if (!sprite.active) return;
-          sprite.setTexture(key).setScale(zoneAssetScale(this, node.prop)).setOrigin(0.5, asset.anchorY).setVisible(true);
+          sprite.setTexture(key).setScale(zoneAssetScale(this, node.prop)).setOrigin(0.5, originY).setVisible(true);
         };
         if (this.textures.exists(key)) applyReady();
         else {
@@ -1675,9 +1695,9 @@ export class GameScene extends Phaser.Scene {
       for (const node of config.scenery ?? []) {
         const asset = getZoneAsset(node.prop);
         if (!asset?.clearsGround) continue;
-        const half = Math.floor(asset.footprint / 2);
-        for (let dy = -half; dy <= half; dy++) {
-          for (let dx = -half; dx <= half; dx++) covered.add(`${node.tileX + dx},${node.tileY + dy}`);
+        // The placed tile is the footprint's back corner; it extends south-east.
+        for (let dy = 0; dy < asset.footprint; dy++) {
+          for (let dx = 0; dx < asset.footprint; dx++) covered.add(`${node.tileX + dx},${node.tileY + dy}`);
         }
       }
       for (let y = 0; y < PLAYER_ZONE_GRID; y++) {

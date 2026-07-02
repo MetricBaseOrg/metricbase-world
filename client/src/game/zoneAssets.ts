@@ -25,40 +25,47 @@ export interface ZoneAsset {
   /** True when the art carries its own ground base, so the default ground under
    *  its footprint is hidden (avoids a building's grass base stacking on grass). */
   clearsGround: boolean;
+  /** True when the art has a baked-in ground tile at its base (all assets except
+   *  barrel) — such props are bottom-anchored so their tile sits on the grid. */
+  bakedTile: boolean;
   /** For resource props: which gather skill this node drives when placed. */
   resourceKind?: "tree" | "rock" | "fish";
 }
 
-// Sizing follows assets.md: 1×1 tiles/props and 3×3 buildings.
+// Sizing follows assets.md: 1×1 tiles/props, plus 2×2 and 3×3 buildings.
 const GROUND_W = Math.round(TILE_WIDTH * 1.15); // ~74: slight overlap so painted ground has no seams
-// A 3×3 iso footprint is 3×TILE_WIDTH (192px) wide; the baked grass base fills
-// ~94% of the building image, so scale the image up so the base covers the 3×3.
-const BUILDING_W = Math.round((TILE_WIDTH * 3) / 0.94); // ~204
 const RESOURCE_W = 60;
 const DECOR_W = 56;
+// A building's baked base fills ~94% of the image width, so scale so the base
+// covers its N×N footprint (N×TILE_WIDTH wide).
+const buildingWidth = (footprint: number) => Math.round((TILE_WIDTH * footprint) / 0.94);
 
 const g = (id: string, label: string): ZoneAsset =>
-  ({ id, file: `${id}.png`, label, category: "ground", worldWidth: GROUND_W, anchorY: 0.72, footprint: 1, clearsGround: false });
+  ({ id, file: `${id}.png`, label, category: "ground", worldWidth: GROUND_W, anchorY: 0.72, footprint: 1, clearsGround: false, bakedTile: true });
 const b = (
   id: string,
   label: string,
-  opts: { width?: number; footprint?: number; clearsGround?: boolean } = {},
-): ZoneAsset => ({
-  id,
-  file: `${id}.png`,
-  label,
-  // Buildings carry baked-in ground tiles, so they anchor like a ground tile
-  // (not an upright prop) — the attached base registers with the tile grid.
-  category: "structure",
-  worldWidth: opts.width ?? BUILDING_W,
-  anchorY: 0.7,
-  footprint: opts.footprint ?? 3,
-  clearsGround: opts.clearsGround ?? true,
-});
+  opts: { footprint?: number; clearsGround?: boolean } = {},
+): ZoneAsset => {
+  const footprint = opts.footprint ?? 3;
+  return {
+    id,
+    file: `${id}.png`,
+    label,
+    category: "structure",
+    worldWidth: buildingWidth(footprint),
+    anchorY: 0.7,
+    footprint,
+    // Buildings carry a baked-in N×N ground base, so the default ground under
+    // their footprint is hidden and the building is laid into the terrain.
+    clearsGround: opts.clearsGround ?? true,
+    bakedTile: true,
+  };
+};
 const r = (id: string, label: string, kind: "tree" | "rock" | "fish", worldWidth = RESOURCE_W): ZoneAsset =>
-  ({ id, file: `${id}.png`, label, category: "resource", worldWidth, anchorY: 0.9, footprint: 1, clearsGround: false, resourceKind: kind });
-const d = (id: string, label: string, worldWidth = DECOR_W): ZoneAsset =>
-  ({ id, file: `${id}.png`, label, category: "decor", worldWidth, anchorY: 0.9, footprint: 1, clearsGround: false });
+  ({ id, file: `${id}.png`, label, category: "resource", worldWidth, anchorY: 0.9, footprint: 1, clearsGround: false, bakedTile: true, resourceKind: kind });
+const d = (id: string, label: string, worldWidth = DECOR_W, bakedTile = true): ZoneAsset =>
+  ({ id, file: `${id}.png`, label, category: "decor", worldWidth, anchorY: 0.9, footprint: 1, clearsGround: false, bakedTile });
 
 export const ZONE_ASSETS: ZoneAsset[] = [
   // Ground paint (1×1 tiles)
@@ -72,18 +79,18 @@ export const ZONE_ASSETS: ZoneAsset[] = [
   g("snow", "Snow"),
   g("lava", "Lava"),
   g("stone-path", "Stone Path"),
-  // Buildings (3×3, carry their own ground base)
+  // Buildings — 3×3 homes, 2×2 markets/windmill (carry their own ground base)
   b("house", "House"),
   b("mansion", "Mansion"),
   b("cabin", "Cabin"),
   b("shop-blue", "Shop"),
-  b("market-wheat", "Wheat Market"),
-  b("market-carrot", "Carrot Market"),
-  b("windmill", "Windmill"),
-  // Barriers: thin structures without a full ground base (1×1, don't clear ground).
-  b("fence", "Fence", { width: TILE_WIDTH, footprint: 1, clearsGround: false }),
-  b("gate", "Gate", { width: TILE_WIDTH, footprint: 1, clearsGround: false }),
-  b("bridge", "Bridge", { clearsGround: false }),
+  b("market-wheat", "Wheat Market", { footprint: 2 }),
+  b("market-carrot", "Carrot Market", { footprint: 2 }),
+  b("windmill", "Windmill", { footprint: 2 }),
+  // Barriers: thin 1×1 structures without a full ground base (don't clear ground).
+  b("fence", "Fence", { footprint: 1, clearsGround: false }),
+  b("gate", "Gate", { footprint: 1, clearsGround: false }),
+  b("bridge", "Bridge", { footprint: 1, clearsGround: false }),
   // Resource nodes (functional gather nodes)
   r("pine", "Pine", "tree"),
   r("pine-small", "Small Pine", "tree"),
@@ -111,7 +118,8 @@ export const ZONE_ASSETS: ZoneAsset[] = [
   d("flowerbed", "Flowerbed"),
   d("fontain", "Fountain", 72),
   d("statue", "Statue"),
-  d("barrel", "Barrel", 40),
+  d("barrel", "Barrel", 40, false), // the one prop with no baked tile
+
   d("crates", "Crates"),
   d("signpost", "Signpost"),
   d("hedge", "Hedge"),
@@ -124,9 +132,11 @@ export function getZoneAsset(id: string): ZoneAsset | undefined {
   return BY_ID.get(id);
 }
 
-/** Texture key a placed prop renders under (matches GameScene's scenery path). */
+/** Texture key a placed prop renders under. A dedicated namespace avoids
+ *  colliding with the built-in procedural `scenery_<id>` textures (e.g. hedge,
+ *  bench, signpost exist in both), which would otherwise mask the PNG art. */
 export function zoneAssetTextureKey(id: string): string {
-  return `scenery_${id}`;
+  return `pz_${id}`;
 }
 
 /**

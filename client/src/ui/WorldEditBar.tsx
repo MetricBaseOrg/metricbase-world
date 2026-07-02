@@ -129,7 +129,7 @@ export function WorldEditBar() {
 
   if (!editing) {
     return (
-      <div style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", zIndex: 18, pointerEvents: "auto" }}>
+      <div style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", zIndex: 18, pointerEvents: "auto" }}>
         <button
           type="button"
           className="chibi-btn chibi-btn--gold"
