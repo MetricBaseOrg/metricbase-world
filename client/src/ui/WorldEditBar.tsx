@@ -42,6 +42,12 @@ export function WorldEditBar() {
     };
   }, []);
 
+  // Refresh ownership whenever we enter a zone, so the Build button reliably
+  // appears right after transferring into a World we own.
+  useEffect(() => {
+    networkManager.requestMyWorlds();
+  }, [zoneId]);
+
   // Leaving the zone (or losing ownership) ends any active edit session.
   useEffect(() => {
     if (editing && !ownedIds.has(zoneId)) {

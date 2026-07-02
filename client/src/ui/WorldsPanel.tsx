@@ -296,8 +296,8 @@ export function WorldsPanel() {
                   >
                     {w.published ? "Unpublish" : "Publish"}
                   </button>
-                  <button type="button" className="chibi-btn chibi-btn--secondary" onClick={() => enter(w.zoneId)}>
-                    Visit
+                  <button type="button" className="chibi-btn chibi-btn--primary" onClick={() => enter(w.zoneId)}>
+                    🔨 Build
                   </button>
                   <button
                     type="button"
@@ -309,7 +309,7 @@ export function WorldsPanel() {
                   </button>
                 </div>
                 <div className="chibi-text-muted" style={{ fontSize: "0.7rem", marginTop: 6 }}>
-                  ✏️ Enter your World, then use the Build tools to place props & paint the ground.
+                  ✏️ Tap “🔨 Build” to enter your World — the Build bar appears bottom-left for placing props & painting ground.
                 </div>
               </div>
             );
