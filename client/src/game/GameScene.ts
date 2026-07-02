@@ -63,7 +63,6 @@ import type { EditTool } from "./inputControl";
 import {
   emptyPlayerZoneBuild,
   PLAYER_ZONE_GRID,
-  TILE_HEIGHT,
   type PlayerZoneBuild,
 } from "@metricbase/shared";
 import { buildZoneMap } from "./mapData";
@@ -1608,23 +1607,18 @@ export class GameScene extends Phaser.Scene {
         // depth-sort by the front tile's world Y so the player passes behind/in
         // front correctly.
         const isBuilding = asset.category === "structure" && asset.clearsGround && N > 1;
+        // Everything is anchored by its measured surface line at the tile centre
+        // so it sits flush with the ground. Buildings use the footprint centre.
         let px = x;
         let py = y;
-        let originY = asset.anchorY;
-        let depth = y;
+        let depth = y; // 1×1 props occlude/sort by world Y (walk behind & in front)
         if (isBuilding) {
           const front = tileToWorld(node.tileX + N - 1, node.tileY + N - 1);
           px = x; // footprint centre-x equals the back-corner tile's x in iso
-          py = (y + front.y) / 2; // footprint centre (flush with surrounding ground)
-          originY = asset.anchorY; // ~0.70: the base-grass centre of the art
-          depth = front.y; // occlude/depth-sort by the base's front row
-        } else if (asset.bakedTile) {
-          // 1×1 props with a baked ground tile bottom-anchor on the tile's front
-          // vertex so their tile registers with the grid; they still occlude by
-          // world Y so the player can pass behind them.
-          py = y + TILE_HEIGHT / 2;
-          originY = 1;
+          py = (y + front.y) / 2; // footprint centre
+          depth = front.y; // sort by the base's front row
         }
+        const originY = asset.anchorY;
         const sprite = this.add.sprite(px, py, key).setOrigin(0.5, originY).setDepth(depth);
         const applyReady = () => {
           if (!sprite.active) return;
@@ -1713,20 +1707,19 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  /** Place a single hand-drawn ground tile sprite at a tile coordinate. Bottom-
-   *  anchored on the tile's front vertex (like every prop) so the iso blocks
-   *  tessellate into a clean floor instead of stacking. */
+  /** Place a single hand-drawn ground tile sprite at a tile coordinate. The
+   *  block's top-face centre (its measured anchor) sits on the tile centre so
+   *  the tiles tessellate into a clean, level floor. */
   private placeGroundTile(tileX: number, tileY: number, type: string) {
     const asset = getZoneAsset(type);
     if (!asset) return;
     const { x, y } = tileToWorld(tileX, tileY);
-    const py = y + TILE_HEIGHT / 2; // tile's front/bottom vertex
     const key = zoneAssetTextureKey(type);
     // Sit just below props/players at the same depth band as the tile.
-    const img = this.add.image(x, py, key).setOrigin(0.5, 1).setDepth(tileX + tileY - 0.5);
+    const img = this.add.image(x, y, key).setOrigin(0.5, asset.anchorY).setDepth(tileX + tileY - 0.5);
     const applyReady = () => {
       if (!img.active) return;
-      img.setTexture(key).setScale(zoneAssetScale(this, type)).setOrigin(0.5, 1).setVisible(true);
+      img.setTexture(key).setScale(zoneAssetScale(this, type)).setOrigin(0.5, asset.anchorY).setVisible(true);
     };
     if (this.textures.exists(key)) applyReady();
     else {
