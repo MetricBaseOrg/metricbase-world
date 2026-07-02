@@ -1715,8 +1715,11 @@ export class GameScene extends Phaser.Scene {
     if (!asset) return;
     const { x, y } = tileToWorld(tileX, tileY);
     const key = zoneAssetTextureKey(type);
-    // Sit just below props/players at the same depth band as the tile.
-    const img = this.add.image(x, y, key).setOrigin(0.5, asset.anchorY).setDepth(tileX + tileY - 0.5);
+    // Depth by world Y (same scale as props/buildings) so ground in FRONT of a
+    // building correctly draws over its base — otherwise buildings, sorted by
+    // world Y, always render on top of the tile-indexed ground and look raised.
+    // The -2 keeps a tile's ground just beneath a prop standing on that tile.
+    const img = this.add.image(x, y, key).setOrigin(0.5, asset.anchorY).setDepth(y - 2);
     const applyReady = () => {
       if (!img.active) return;
       img.setTexture(key).setScale(zoneAssetScale(this, type)).setOrigin(0.5, asset.anchorY).setVisible(true);
