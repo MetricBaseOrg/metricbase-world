@@ -1602,9 +1602,11 @@ export class GameScene extends Phaser.Scene {
       if (asset) {
         const key = zoneAssetTextureKey(node.prop);
         const N = asset.footprint;
-        // Multi-tile buildings carry a baked N×N ground base: the placed tile is
-        // the back corner, and the sprite is bottom-anchored on the footprint's
-        // front-bottom vertex so the base lays flush into the cleared footprint.
+        // Multi-tile buildings carry a baked N×N ground base. The placed tile is
+        // the back corner; anchor the base by its centre at the footprint's
+        // centre so it sits FLUSH with the ground (not raised on a pedestal), and
+        // depth-sort by the front tile's world Y so the player passes behind/in
+        // front correctly.
         const isBuilding = asset.category === "structure" && asset.clearsGround && N > 1;
         let px = x;
         let py = y;
@@ -1613,9 +1615,9 @@ export class GameScene extends Phaser.Scene {
         if (isBuilding) {
           const front = tileToWorld(node.tileX + N - 1, node.tileY + N - 1);
           px = x; // footprint centre-x equals the back-corner tile's x in iso
-          py = front.y + TILE_HEIGHT / 2;
-          originY = 1;
-          depth = node.tileX + node.tileY + N * 2; // sort above the footprint ground
+          py = (y + front.y) / 2; // footprint centre (flush with surrounding ground)
+          originY = asset.anchorY; // ~0.70: the base-grass centre of the art
+          depth = front.y; // occlude/depth-sort by the base's front row
         } else if (asset.bakedTile) {
           // 1×1 props with a baked ground tile bottom-anchor on the tile's front
           // vertex so their tile registers with the grid; they still occlude by
