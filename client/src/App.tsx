@@ -65,6 +65,7 @@ export function App() {
     setSkillState,
     invitationsOpen,
     setInvitationsOpen,
+    worldEditing,
   } = useGameStore();
 
   const previousLevelRef = useRef(1);
@@ -344,7 +345,7 @@ export function App() {
         </ErrorBoundary>
       )}
       {joined && <ChatPanel />}
-      {joined && (
+      {joined && !worldEditing && (
         <div className="chibi-social-rail">
           <GuildPanel />
           <PartyPanel />
@@ -356,11 +357,11 @@ export function App() {
       {joined && <ArcadeModal />}
       {joined && <BlackZoneModal />}
       {joined && <VipLodgeModal />}
-      {joined && <PvpFlagButton />}
-      {joined && <DuelControls />}
+      {joined && !worldEditing && <PvpFlagButton />}
+      {joined && !worldEditing && <DuelControls />}
       {joined && <SiegeBanner />}
-      {joined && <SkillBar />}
-      {joined && <EmoteBar />}
+      {joined && !worldEditing && <SkillBar />}
+      {joined && !worldEditing && <EmoteBar />}
       {joined && <TouchControls />}
       {joined && <DeathOverlay />}
       {joined && invitationsOpen && <InvitationsModal onClose={() => setInvitationsOpen(false)} />}

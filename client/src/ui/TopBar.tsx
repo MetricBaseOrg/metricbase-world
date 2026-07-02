@@ -200,7 +200,11 @@ export function TopBar({ onLeave }: TopBarProps) {
       )}
 
       {menuOpen && (
-        <div className="chibi-topbar__menu" ref={menuRef}>
+        <div
+          className="chibi-topbar__menu"
+          ref={menuRef}
+          style={{ maxHeight: "min(70vh, 520px)", overflowY: "auto" }}
+        >
           {(equippedWeaponId || equippedToolId) && (
             <div className="chibi-text-muted" style={{ fontSize: "0.74rem", marginBottom: 6 }}>
               {equippedWeaponId && <div>⚔️ {getItemDefinition(equippedWeaponId).name}</div>}

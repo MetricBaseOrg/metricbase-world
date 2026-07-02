@@ -20,6 +20,7 @@ const CATEGORIES: { id: ZoneAssetCategory; label: string }[] = [
 
 export function WorldEditBar() {
   const zoneId = useGameStore((state) => state.zoneId);
+  const setWorldEditing = useGameStore((state) => state.setWorldEditing);
   const [ownedIds, setOwnedIds] = useState<Set<string>>(new Set());
   const [editing, setEditing] = useState(false);
   const [category, setCategory] = useState<ZoneAssetCategory>("structure");
@@ -54,8 +55,9 @@ export function WorldEditBar() {
       endWorldEdit();
       setEditing(false);
       setTool(null);
+      setWorldEditing(false);
     }
-  }, [zoneId, ownedIds, editing]);
+  }, [zoneId, ownedIds, editing, setWorldEditing]);
 
   const assetsInCategory = useMemo(
     () => ZONE_ASSETS.filter((a) => a.category === category),
@@ -68,6 +70,7 @@ export function WorldEditBar() {
     playSfx("ui_open");
     beginWorldEdit(zoneId);
     setEditing(true);
+    setWorldEditing(true);
   };
 
   const pick = (assetId: string, cat: ZoneAssetCategory) => {
@@ -95,13 +98,14 @@ export function WorldEditBar() {
     endWorldEdit();
     setEditing(false);
     setTool(null);
+    setWorldEditing(false);
   };
 
   if (!editing) {
     return (
-      <div className="chibi-anchor chibi-anchor--bottom-left" style={{ pointerEvents: "auto", margin: 12 }}>
+      <div style={{ position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)", zIndex: 18, pointerEvents: "auto" }}>
         <button type="button" className="chibi-btn chibi-btn--gold" onClick={startEdit}>
-          🔨 Build World
+          🔨 Build
         </button>
       </div>
     );
@@ -109,8 +113,17 @@ export function WorldEditBar() {
 
   return (
     <div
-      className="chibi-panel chibi-anchor chibi-anchor--bottom-left"
-      style={{ pointerEvents: "auto", margin: 12, maxWidth: 300, width: "80vw" }}
+      className="chibi-panel"
+      style={{
+        position: "absolute",
+        top: 8,
+        right: 8,
+        width: "min(300px, 82vw)",
+        maxHeight: "calc(100% - 16px)",
+        overflowY: "auto",
+        zIndex: 23,
+        pointerEvents: "auto",
+      }}
     >
       <div className="chibi-close-row">
         <div className="chibi-title chibi-title--sm">🔨 Build Mode</div>
@@ -129,7 +142,7 @@ export function WorldEditBar() {
           <button
             key={c.id}
             type="button"
-            className={`chibi-btn ${category === c.id ? "chibi-btn--primary" : "chibi-btn--secondary"}`}
+            className={`chibi-btn ${category === c.id ? "chibi-btn--primary" : "chibi-btn--ghost"}`}
             style={{ flex: 1, padding: "4px 2px", fontSize: "0.72rem" }}
             onClick={() => setCategory(c.id)}
           >
@@ -152,7 +165,7 @@ export function WorldEditBar() {
           <button
             key={a.id}
             type="button"
-            className={`chibi-btn ${tool?.value === a.id ? "chibi-btn--mint" : "chibi-btn--secondary"}`}
+            className={`chibi-btn ${tool?.value === a.id ? "chibi-btn--mint" : "chibi-btn--ghost"}`}
             style={{ padding: "6px 4px", fontSize: "0.72rem" }}
             onClick={() => pick(a.id, a.category)}
           >
