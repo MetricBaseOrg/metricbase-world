@@ -57,7 +57,7 @@ import {
 import { playSfx } from "../audio/soundEffects";
 import { useGameStore } from "../store/gameStore";
 import { networkManager, RemotePlayer } from "./network";
-import { resolveZoneConfig, setPlayerZoneConfig } from "./playerZoneConfig";
+import { isPlayerZoneId, resolveZoneConfig, setPlayerZoneConfig } from "./playerZoneConfig";
 import { ensureZoneAssetLoaded, getZoneAsset, zoneAssetScale, zoneAssetTextureKey } from "./zoneAssets";
 import type { EditTool } from "./inputControl";
 import {
@@ -1451,8 +1451,12 @@ export class GameScene extends Phaser.Scene {
     this.clearGroundDetails();
 
     const ground = buildZoneMap(zoneId);
+    // Player-owned zones render their whole ground from the hand-drawn PNG art
+    // (grass by default + painted overrides); the built-in zones keep the crisp
+    // procedural tileset untouched.
+    const playerZone = isPlayerZoneId(zoneId);
 
-    for (let y = 0; y < MAP_HEIGHT; y++) {
+    for (let y = 0; !playerZone && y < MAP_HEIGHT; y++) {
       for (let x = 0; x < MAP_WIDTH; x++) {
         const tileIndex = ground[y][x];
         const { x: worldX, y: worldY } = tileToWorld(x, y);
@@ -1489,7 +1493,7 @@ export class GameScene extends Phaser.Scene {
       }
     }
 
-    this.renderGroundDetails(zoneId, ground);
+    if (!playerZone) this.renderGroundDetails(zoneId, ground);
     this.renderGroundPaint(zoneId);
     this.renderNpcs(zoneId);
     this.renderResources(zoneId);
@@ -1649,28 +1653,45 @@ export class GameScene extends Phaser.Scene {
     this.sceneryLights = [];
   }
 
-  /** Render an owner's ground-paint tiles as flat sprites beneath everything. */
+  /**
+   * Ground for player zones: the whole floor is PNG art (grass by default, plus
+   * the owner's painted overrides). For built-in zones this only paints the
+   * (normally empty) tiles list, leaving the procedural tileset in charge.
+   */
   private renderGroundPaint(zoneId: string) {
     this.clearGroundPaint();
     const config = resolveZoneConfig(zoneId);
-    for (const t of config.tiles ?? []) {
-      const asset = getZoneAsset(t.type);
-      if (!asset) continue;
-      const { x, y } = tileToWorld(t.x, t.y);
-      const key = zoneAssetTextureKey(t.type);
-      // Anchor like a ground tile and sit just below props/players.
-      const img = this.add.image(x, y, key).setOrigin(0.5, asset.anchorY).setDepth(x + y - 0.5);
-      const applyReady = () => {
-        if (!img.active) return;
-        img.setTexture(key).setScale(zoneAssetScale(this, t.type)).setOrigin(0.5, asset.anchorY).setVisible(true);
-      };
-      if (this.textures.exists(key)) applyReady();
-      else {
-        img.setVisible(false);
-        ensureZoneAssetLoaded(this, t.type, applyReady);
+    if (isPlayerZoneId(zoneId)) {
+      const painted = new Map<string, string>();
+      for (const t of config.tiles ?? []) painted.set(`${t.x},${t.y}`, t.type);
+      for (let y = 0; y < PLAYER_ZONE_GRID; y++) {
+        for (let x = 0; x < PLAYER_ZONE_GRID; x++) {
+          this.placeGroundTile(x, y, painted.get(`${x},${y}`) ?? "grass");
+        }
       }
-      this.groundPaintSprites.push(img);
+    } else {
+      for (const t of config.tiles ?? []) this.placeGroundTile(t.x, t.y, t.type);
     }
+  }
+
+  /** Place a single hand-drawn ground tile sprite at a tile coordinate. */
+  private placeGroundTile(tileX: number, tileY: number, type: string) {
+    const asset = getZoneAsset(type);
+    if (!asset) return;
+    const { x, y } = tileToWorld(tileX, tileY);
+    const key = zoneAssetTextureKey(type);
+    // Sit just below props/players at the same depth band as the tile.
+    const img = this.add.image(x, y, key).setOrigin(0.5, asset.anchorY).setDepth(tileX + tileY - 0.5);
+    const applyReady = () => {
+      if (!img.active) return;
+      img.setTexture(key).setScale(zoneAssetScale(this, type)).setOrigin(0.5, asset.anchorY).setVisible(true);
+    };
+    if (this.textures.exists(key)) applyReady();
+    else {
+      img.setVisible(false);
+      ensureZoneAssetLoaded(this, type, applyReady);
+    }
+    this.groundPaintSprites.push(img);
   }
 
   private clearGroundPaint() {
@@ -1726,13 +1747,34 @@ export class GameScene extends Phaser.Scene {
   }
 
   private handleEditTap(pointer: Phaser.Input.Pointer) {
+    const { tileX, tileY } = worldToTile(pointer.worldX, pointer.worldY);
+    this.applyEditAtTile(tileX, tileY);
+  }
+
+  /**
+   * Place the current tool at a browser client coordinate — used when a palette
+   * item is dragged out of the DOM and dropped onto the game canvas.
+   */
+  placeToolAtClient(clientX: number, clientY: number) {
+    if (!this.worldEditing) return;
+    const canvas = this.game.canvas;
+    const rect = canvas.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    const gx = ((clientX - rect.left) / rect.width) * this.scale.gameSize.width;
+    const gy = ((clientY - rect.top) / rect.height) * this.scale.gameSize.height;
+    const wp = this.cameras.main.getWorldPoint(gx, gy);
+    const { tileX, tileY } = worldToTile(wp.x, wp.y);
+    this.applyEditAtTile(tileX, tileY);
+  }
+
+  private applyEditAtTile(tileX: number, tileY: number) {
     const draft = this.worldEditDraft;
     const tool = this.worldEditTool;
     const zoneId = this.worldEditZoneId;
     if (!draft || !tool || !zoneId) return;
-    const { tileX, tileY } = worldToTile(pointer.worldX, pointer.worldY);
     if (tileX < 0 || tileY < 0 || tileX >= PLAYER_ZONE_GRID || tileY >= PLAYER_ZONE_GRID) return;
 
+    let groundChanged = false;
     if (tool.type === "prop") {
       const id = `e${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
       draft.scenery.push({ id, tileX, tileY, prop: tool.value });
@@ -1740,6 +1782,7 @@ export class GameScene extends Phaser.Scene {
       const existing = draft.tiles.find((t) => t.x === tileX && t.y === tileY);
       if (existing) existing.type = tool.value;
       else draft.tiles.push({ x: tileX, y: tileY, type: tool.value });
+      groundChanged = true;
     } else {
       // Erase: remove the topmost prop on the tile, else clear its paint.
       let removed = false;
@@ -1752,14 +1795,17 @@ export class GameScene extends Phaser.Scene {
       }
       if (!removed) {
         const ti = draft.tiles.findIndex((t) => t.x === tileX && t.y === tileY);
-        if (ti >= 0) draft.tiles.splice(ti, 1);
+        if (ti >= 0) {
+          draft.tiles.splice(ti, 1);
+          groundChanged = true;
+        }
       }
     }
-    this.applyDraftLive();
+    this.applyDraftLive(groundChanged);
   }
 
   /** Reflect the working draft into the cached config and re-render live. */
-  private applyDraftLive() {
+  private applyDraftLive(groundChanged: boolean) {
     const zoneId = this.worldEditZoneId;
     const draft = this.worldEditDraft;
     if (!zoneId || !draft) return;
@@ -1773,9 +1819,10 @@ export class GameScene extends Phaser.Scene {
       tiles: draft.tiles,
     });
     this.clearScenery();
-    this.clearGroundPaint();
-    this.renderGroundPaint(zoneId);
     this.renderScenery(zoneId);
+    // Rebuilding the full PNG ground (24x24 sprites) is only needed when a
+    // ground tile actually changed — placing props leaves the floor alone.
+    if (groundChanged) this.renderGroundPaint(zoneId);
   }
 
   /** A subtle iso grid so the owner can see where taps land while editing. */

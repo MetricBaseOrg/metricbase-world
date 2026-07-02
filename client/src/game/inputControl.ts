@@ -148,6 +148,7 @@ type EditScene = Phaser.Scene & {
   endWorldEdit?: () => void;
   setWorldEditTool?: (tool: EditTool | null) => void;
   getWorldEditDraft?: () => PlayerZoneBuild;
+  placeToolAtClient?: (clientX: number, clientY: number) => void;
 };
 
 function editScene(): EditScene | undefined {
@@ -166,6 +167,14 @@ export function setWorldEditTool(tool: EditTool | null) {
 }
 export function getWorldEditDraft(): PlayerZoneBuild | undefined {
   return editScene()?.getWorldEditDraft?.();
+}
+/** Drop the current build tool at a browser client coordinate over the canvas. */
+export function placeWorldEditAt(clientX: number, clientY: number) {
+  editScene()?.placeToolAtClient?.(clientX, clientY);
+}
+/** The Phaser canvas element, so the DOM drag layer can hit-test drops. */
+export function getGameCanvas(): HTMLCanvasElement | null {
+  return game?.canvas ?? null;
 }
 
 export function consumeMobileInteract(): boolean {

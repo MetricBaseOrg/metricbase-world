@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { playSfx } from "../audio/soundEffects";
 import {
   beginWorldEdit,
   endWorldEdit,
+  getGameCanvas,
   getWorldEditDraft,
+  placeWorldEditAt,
   setWorldEditTool,
   type EditTool,
 } from "../game/inputControl";
@@ -26,6 +28,8 @@ export function WorldEditBar() {
   const [category, setCategory] = useState<ZoneAssetCategory>("structure");
   const [tool, setTool] = useState<EditTool | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  // Floating drag ghost while dragging a palette item onto the map.
+  const [ghost, setGhost] = useState<{ file: string; x: number; y: number } | null>(null);
 
   useEffect(() => {
     const off = networkManager.onMyWorlds((worlds) => {
@@ -87,6 +91,28 @@ export function WorldEditBar() {
     setWorldEditTool(t);
   };
 
+  // Drag a palette item out onto the map: select it as the tool, follow the
+  // pointer with a ghost, and drop it on whatever tile is under the cursor.
+  const startDrag = (asset: { id: string; file: string; category: ZoneAssetCategory }, e: ReactPointerEvent) => {
+    e.preventDefault();
+    pick(asset.id, asset.category);
+    setGhost({ file: asset.file, x: e.clientX, y: e.clientY });
+    const move = (ev: PointerEvent) => setGhost((g) => (g ? { ...g, x: ev.clientX, y: ev.clientY } : g));
+    const up = (ev: PointerEvent) => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      setGhost(null);
+      // Only place if released over the game canvas (not over the palette / UI).
+      const el = document.elementFromPoint(ev.clientX, ev.clientY);
+      if (el && el === getGameCanvas()) {
+        placeWorldEditAt(ev.clientX, ev.clientY);
+        playSfx("ui_click");
+      }
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  };
+
   const save = () => {
     playSfx("ui_click");
     const draft = getWorldEditDraft();
@@ -103,8 +129,13 @@ export function WorldEditBar() {
 
   if (!editing) {
     return (
-      <div style={{ position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)", zIndex: 18, pointerEvents: "auto" }}>
-        <button type="button" className="chibi-btn chibi-btn--gold" onClick={startEdit}>
+      <div style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", zIndex: 18, pointerEvents: "auto" }}>
+        <button
+          type="button"
+          className="chibi-btn chibi-btn--gold"
+          style={{ padding: "10px 16px", fontSize: "0.9rem", display: "inline-flex", alignItems: "center", gap: 6 }}
+          onClick={startEdit}
+        >
           🔨 Build
         </button>
       </div>
@@ -113,7 +144,7 @@ export function WorldEditBar() {
 
   return (
     <div
-      className="chibi-panel"
+      className="chibi-panel chibi-panel--floating"
       style={{
         position: "absolute",
         top: 8,
@@ -143,7 +174,7 @@ export function WorldEditBar() {
             key={c.id}
             type="button"
             className={`chibi-btn ${category === c.id ? "chibi-btn--primary" : "chibi-btn--ghost"}`}
-            style={{ flex: 1, padding: "4px 2px", fontSize: "0.72rem" }}
+            style={{ flex: 1, padding: "8px 4px", fontSize: "0.72rem" }}
             onClick={() => setCategory(c.id)}
           >
             {c.label}
@@ -166,9 +197,11 @@ export function WorldEditBar() {
             key={a.id}
             type="button"
             className={`chibi-btn ${tool?.value === a.id ? "chibi-btn--mint" : "chibi-btn--ghost"}`}
-            style={{ padding: "6px 4px", fontSize: "0.72rem" }}
+            style={{ padding: "8px 6px", fontSize: "0.72rem", touchAction: "none", display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}
+            onPointerDown={(e) => startDrag(a, e)}
             onClick={() => pick(a.id, a.category)}
           >
+            <img src={`/assets/${a.file}`} alt="" draggable={false} style={{ width: 40, height: 40, objectFit: "contain", pointerEvents: "none" }} />
             {a.label}
           </button>
         ))}
@@ -178,18 +211,40 @@ export function WorldEditBar() {
         <button
           type="button"
           className={`chibi-btn ${tool?.type === "erase" ? "chibi-btn--gold" : "chibi-btn--secondary"}`}
-          style={{ flex: 1 }}
+          style={{ flex: 1, padding: "10px 12px" }}
           onClick={pickErase}
         >
           🧹 Erase
         </button>
-        <button type="button" className="chibi-btn chibi-btn--mint" style={{ flex: 1 }} onClick={save}>
+        <button type="button" className="chibi-btn chibi-btn--mint" style={{ flex: 1, padding: "10px 12px" }} onClick={save}>
           💾 Save
         </button>
       </div>
       <div className="chibi-text-muted" style={{ fontSize: "0.68rem", marginTop: 6 }}>
-        Tap a tile to {tool?.type === "erase" ? "remove" : tool ? "place" : "…pick a tool first"}.
+        {tool?.type === "erase"
+          ? "Tap a tile to remove what's on it."
+          : "Drag an item onto the map to place it — or tap it, then tap tiles."}
       </div>
+
+      {ghost && (
+        <img
+          src={`/assets/${ghost.file}`}
+          alt=""
+          draggable={false}
+          style={{
+            position: "fixed",
+            left: ghost.x,
+            top: ghost.y,
+            width: 64,
+            height: 64,
+            objectFit: "contain",
+            transform: "translate(-50%, -60%)",
+            pointerEvents: "none",
+            opacity: 0.85,
+            zIndex: 9999,
+          }}
+        />
+      )}
     </div>
   );
 }
