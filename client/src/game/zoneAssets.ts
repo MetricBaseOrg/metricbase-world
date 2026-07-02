@@ -31,7 +31,9 @@ export interface ZoneAsset {
 
 // Sizing follows assets.md: 1×1 tiles/props and 3×3 buildings.
 const GROUND_W = Math.round(TILE_WIDTH * 1.15); // ~74: slight overlap so painted ground has no seams
-const BUILDING_W = TILE_WIDTH * 3; // 192: a 3×3 building footprint
+// A 3×3 iso footprint is 3×TILE_WIDTH (192px) wide; the baked grass base fills
+// ~94% of the building image, so scale the image up so the base covers the 3×3.
+const BUILDING_W = Math.round((TILE_WIDTH * 3) / 0.94); // ~204
 const RESOURCE_W = 60;
 const DECOR_W = 56;
 
@@ -45,9 +47,11 @@ const b = (
   id,
   file: `${id}.png`,
   label,
+  // Buildings carry baked-in ground tiles, so they anchor like a ground tile
+  // (not an upright prop) — the attached base registers with the tile grid.
   category: "structure",
   worldWidth: opts.width ?? BUILDING_W,
-  anchorY: 0.9,
+  anchorY: 0.7,
   footprint: opts.footprint ?? 3,
   clearsGround: opts.clearsGround ?? true,
 });

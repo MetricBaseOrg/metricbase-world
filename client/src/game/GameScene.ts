@@ -1598,7 +1598,12 @@ export class GameScene extends Phaser.Scene {
       const asset = getZoneAsset(node.prop);
       if (asset) {
         const key = zoneAssetTextureKey(node.prop);
-        const sprite = this.add.sprite(x, y, key).setOrigin(0.5, asset.anchorY).setDepth(y);
+        // Buildings have their ground tiles baked into the art, so they lay into
+        // the terrain like a big ground tile (depth-banded by tile, players walk
+        // over them). Other props stand upright and depth-sort by world Y.
+        const groundLike = asset.category === "structure";
+        const depth = groundLike ? node.tileX + node.tileY + 0.2 : y;
+        const sprite = this.add.sprite(x, y, key).setOrigin(0.5, asset.anchorY).setDepth(depth);
         const applyReady = () => {
           if (!sprite.active) return;
           sprite.setTexture(key).setScale(zoneAssetScale(this, node.prop)).setOrigin(0.5, asset.anchorY).setVisible(true);
