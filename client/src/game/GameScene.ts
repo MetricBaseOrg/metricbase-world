@@ -1711,17 +1711,20 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  /** Place a single hand-drawn ground tile sprite at a tile coordinate. */
+  /** Place a single hand-drawn ground tile sprite at a tile coordinate. Bottom-
+   *  anchored on the tile's front vertex (like every prop) so the iso blocks
+   *  tessellate into a clean floor instead of stacking. */
   private placeGroundTile(tileX: number, tileY: number, type: string) {
     const asset = getZoneAsset(type);
     if (!asset) return;
     const { x, y } = tileToWorld(tileX, tileY);
+    const py = y + TILE_HEIGHT / 2; // tile's front/bottom vertex
     const key = zoneAssetTextureKey(type);
     // Sit just below props/players at the same depth band as the tile.
-    const img = this.add.image(x, y, key).setOrigin(0.5, asset.anchorY).setDepth(tileX + tileY - 0.5);
+    const img = this.add.image(x, py, key).setOrigin(0.5, 1).setDepth(tileX + tileY - 0.5);
     const applyReady = () => {
       if (!img.active) return;
-      img.setTexture(key).setScale(zoneAssetScale(this, type)).setOrigin(0.5, asset.anchorY).setVisible(true);
+      img.setTexture(key).setScale(zoneAssetScale(this, type)).setOrigin(0.5, 1).setVisible(true);
     };
     if (this.textures.exists(key)) applyReady();
     else {

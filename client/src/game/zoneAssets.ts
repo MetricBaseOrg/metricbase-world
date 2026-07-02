@@ -33,7 +33,9 @@ export interface ZoneAsset {
 }
 
 // Sizing follows assets.md: 1×1 tiles/props, plus 2×2 and 3×3 buildings.
-const GROUND_W = Math.round(TILE_WIDTH * 1.15); // ~74: slight overlap so painted ground has no seams
+// The grass top face fills ~97% of the image, so scale so the top face ≈ one
+// tile wide (TILE_WIDTH) and the bottom-anchored blocks tessellate cleanly.
+const GROUND_W = Math.round(TILE_WIDTH / 0.97); // ~66
 const RESOURCE_W = 60;
 const DECOR_W = 56;
 // A building's baked base fills ~94% of the image width, so scale so the base
