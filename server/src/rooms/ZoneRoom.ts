@@ -208,7 +208,7 @@ import {
   saveCharacter,
 } from "../db/characters.js";
 import { isInvitationSystemActive, validateAndUseInviteCode, getInvitedCount } from "../db/invitations.js";
-import { isWalkable, blockPlotFootprint } from "../map/collision.js";
+import { isWalkable, blockPlotFootprint, clearCollisionCache } from "../map/collision.js";
 import { checkWalletTokenGate, getWalletTokenBalance } from "../solana/tokenBalance.js";
 import { verifyTokenBurn } from "../solana/verifyTokenBurn.js";
 import { getCachedHolderCount } from "../solana/holderCount.js";
@@ -2926,6 +2926,20 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     const { build, error } = sanitizeBuild(rawBuild);
     if (!build) return void client.send("zoneResult", { ok: false, error: error ?? "Invalid build." });
     setZoneBuild(zoneId, build);
+    // The build changed which tiles are solid — drop the cached collision grid.
+    clearCollisionCache(zoneId);
+    // Push the updated config to everyone currently in that World so their
+    // scene re-renders (including the owner who just saved).
+    const record = getPlayerZone(zoneId);
+    if (record) {
+      for (const room of ZoneRoom.activeRooms) {
+        if (room.zoneConfig.id === zoneId) {
+          const cfg = playerZoneToConfig(record);
+          room.zoneConfig = cfg;
+          room.broadcast("playerZoneConfig", cfg);
+        }
+      }
+    }
     client.send("zoneResult", { ok: true, zoneId, message: "World saved." });
     this.sendMyWorlds(client, player.name);
   }

@@ -188,12 +188,25 @@ export const ZONE_MAP_BUILDERS: Record<string, () => GroundLayer> = {
   zone_jail: buildJailMap,
 };
 
+/**
+ * Base map for a player-owned zone ("World"): open, walkable grass with a wall
+ * border and a single exit portal on the west edge. Owner-placed structures and
+ * ground paint are layered on top separately (client render + server collision).
+ */
+export function buildPlayerZoneMap(): GroundLayer {
+  const layer = createEmptyLayer();
+  stampBorder(layer);
+  stampPortal(layer, 1, Math.floor(MAP_HEIGHT / 2));
+  return layer;
+}
+
 export function buildZoneMap(zoneId: string): GroundLayer {
   const builder = ZONE_MAP_BUILDERS[zoneId];
-  if (!builder) {
-    throw new Error(`Unknown zone map: ${zoneId}`);
-  }
-  return builder();
+  if (builder) return builder();
+  // Player-owned zones aren't in the static builder table — they all share the
+  // same open base map (id prefix mirrors PLAYER_ZONE_PREFIX in playerZones.ts).
+  if (zoneId.startsWith("pz_")) return buildPlayerZoneMap();
+  throw new Error(`Unknown zone map: ${zoneId}`);
 }
 
 /** Walls and water block movement; grass and stone (and portals) are walkable. */

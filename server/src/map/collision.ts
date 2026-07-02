@@ -4,13 +4,31 @@ import {
   isBlockingTile,
   MAP_HEIGHT,
   MAP_WIDTH,
+  PLAYER_ZONE_PREFIX,
+  playerZoneToConfig,
   TILE_WALL,
   worldToTile,
   type LandPlotNode,
+  type ZoneConfig,
 } from "@metricbase/shared";
 import { getPlotOwner } from "../housing/landRegistry.js";
+import { getPlayerZone } from "../zones/zoneRegistry.js";
 
 const collisionCache = new Map<string, number[][]>();
+
+/** Resolve a zone's config from the static table or the player-zone registry. */
+function resolveConfig(zoneId: string): Pick<ZoneConfig, "landPlots" | "scenery"> {
+  if (zoneId.startsWith(PLAYER_ZONE_PREFIX)) {
+    const record = getPlayerZone(zoneId);
+    return record ? playerZoneToConfig(record) : { landPlots: [], scenery: [] };
+  }
+  return getZoneConfig(zoneId);
+}
+
+/** Drop a zone's cached collision grid so it rebuilds (e.g. after a build edit). */
+export function clearCollisionCache(zoneId: string): void {
+  collisionCache.delete(zoneId);
+}
 
 function stampPlot(grid: number[][], plot: LandPlotNode) {
   for (let dy = -1; dy <= 1; dy++) {
@@ -32,14 +50,15 @@ function getCollisionGrid(zoneId: string): number[][] {
 
   // Only *built* structures block movement — an empty "for sale" plot is open
   // ground players can walk and farm on. Owned plots are solid (3x3 footprint).
-  for (const plot of getZoneConfig(zoneId).landPlots ?? []) {
+  const config = resolveConfig(zoneId);
+  for (const plot of config.landPlots ?? []) {
     if (getPlotOwner(plot.id)) stampPlot(map, plot);
   }
 
   // Solid scenery (big furniture like the arcade cabinet / blackjack table)
   // blocks its own tile. Only the collision grid is stamped — the client builds
   // its own ground map for rendering, so the floor still shows beneath the prop.
-  for (const node of getZoneConfig(zoneId).scenery ?? []) {
+  for (const node of config.scenery ?? []) {
     if (node.solid && node.tileY >= 0 && node.tileY < MAP_HEIGHT && node.tileX >= 0 && node.tileX < MAP_WIDTH) {
       map[node.tileY][node.tileX] = TILE_WALL;
     }
