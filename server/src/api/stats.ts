@@ -3,7 +3,7 @@ import { GAME_VERSION } from "@metricbase/shared";
 import { getPool } from "../db/pool.js";
 import { ZoneRoom } from "../rooms/ZoneRoom.js";
 import { getDailySeries, getMetricTotals } from "../economy/metrics.js";
-import { getBaseHolderStats } from "../solana/holderCount.js";
+import { getPlayerHeldBase } from "../solana/playerHeldBase.js";
 
 export const statsRouter = Router();
 
@@ -70,7 +70,7 @@ async function buildStats(): Promise<EconomyStats> {
     }
   }
 
-  const holderStats = await getBaseHolderStats();
+  const playerHeld = await getPlayerHeldBase();
   const activity = getMetricTotals();
   const daily = await getDailySeries(14);
   // Fold in the $BASE gold-market volume per day from market_trades.
@@ -99,8 +99,8 @@ async function buildStats(): Promise<EconomyStats> {
     assetMarket: { listings: alCount, askValue: alValue, totalOwned: aiOwned },
     baseToken: {
       burned: activity["base.burned"] ?? 0,
-      heldByPlayers: holderStats?.totalHeld ?? 0,
-      holders: holderStats?.holders ?? 0,
+      heldByPlayers: playerHeld?.totalHeld ?? 0,
+      holders: playerHeld?.holders ?? 0,
     },
     topHolders,
     activity,

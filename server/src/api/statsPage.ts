@@ -59,7 +59,7 @@ export const STATS_PAGE_HTML = `<!doctype html>
 
   <div class="grid" style="margin-top:14px">
     <div class="card"><h2>🔥 $BASE burned</h2><div class="big burn" id="baseBurned">—</div><div class="sub">tokens burned via in-game sinks (Black Zone, VIP)</div></div>
-    <div class="card"><h2>💎 $BASE held by players</h2><div class="big gold" id="baseHeld">—</div><div class="sub"><span id="baseHolders">—</span> wallets holding $BASE</div></div>
+    <div class="card"><h2>💎 $BASE held by players</h2><div class="big gold" id="baseHeld">—</div><div class="sub"><span id="baseHolders">—</span> bonded player wallets holding $BASE</div></div>
   </div>
 
   <div class="card wide" style="margin-top:14px">
