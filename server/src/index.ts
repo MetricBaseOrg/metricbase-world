@@ -86,17 +86,29 @@ await initZoneRegistry();
 await initAssetInventory();
 await initAssetMarket();
 await initMetrics();
-// Backfill historical $BASE burned from existing lifetime Black Zone passes
-// (each is a one-time BLACK_ZONE_BURN_AMOUNT burn), so /stats reflects burns
-// that predate the base.burned metric. Idempotent — safe on every boot.
+// Backfill lifetime metrics that predate the tracking system from durable
+// character state, so /stats reflects history rather than starting at zero.
+// Only metrics with an exact durable source are reconstructed (fabricating the
+// rest — gather/craft/sell/etc., which have no per-event log — would be
+// dishonest on a transparency dashboard). Idempotent: ensureMetricFloor never
+// lowers a value, so this is safe on every boot and won't double-count.
 try {
   const pool = getPool();
   if (pool) {
-    const r = await pool.query<{ n: number }>("SELECT COUNT(*)::int AS n FROM characters WHERE black_pass = true");
-    await ensureMetricFloor("base.burned", (r.rows[0]?.n ?? 0) * BLACK_ZONE_BURN_AMOUNT);
+    // $BASE burned: each lifetime Black Zone pass is a one-time BLACK_ZONE_BURN_AMOUNT burn.
+    const bp = await pool.query<{ n: number }>("SELECT COUNT(*)::int AS n FROM characters WHERE black_pass = true");
+    await ensureMetricFloor("base.burned", (bp.rows[0]?.n ?? 0) * BLACK_ZONE_BURN_AMOUNT);
+    // Quests completed: durably stored per character in quest_progress.completed.
+    const q = await pool.query<{ n: number }>(
+      "SELECT COALESCE(SUM(jsonb_array_length(COALESCE(quest_progress->'completed','[]'::jsonb))),0)::int AS n FROM characters",
+    );
+    await ensureMetricFloor("quest.completed", q.rows[0]?.n ?? 0);
+    // PvP kills: durably stored per character (current season is a safe floor).
+    const pv = await pool.query<{ n: number }>("SELECT COALESCE(SUM(pvp_kills),0)::int AS n FROM characters");
+    await ensureMetricFloor("pvp.kills", pv.rows[0]?.n ?? 0);
   }
 } catch (error) {
-  console.warn("[startup] base.burned backfill failed:", error);
+  console.warn("[startup] metric backfill failed:", error);
 }
 await initFarmRegistry();
 await initGuildRegistry();
