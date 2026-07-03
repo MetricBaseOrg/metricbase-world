@@ -374,6 +374,16 @@ function countBuildAssets(build: PlayerZoneBuild): Map<string, number> {
 
 export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   public static activeRooms = new Set<ZoneRoom>();
+
+  /** Total non-spectator players across all active rooms (for public stats). */
+  public static onlinePlayerCount(): number {
+    let n = 0;
+    for (const room of ZoneRoom.activeRooms) {
+      for (const [, p] of room.state.players) if (!p.spectator) n++;
+    }
+    return n;
+  }
+
   private inputs = new Map<string, PendingInput>();
   private chatCooldowns = new Map<string, number>();
   private npcInteractAt = new Map<string, Record<string, number>>();

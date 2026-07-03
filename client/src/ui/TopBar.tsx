@@ -12,6 +12,7 @@ import { isMusicEnabled, setMusicEnabled } from "../audio/backgroundMusic";
 import { isSoundEnabled, playSfx, setSoundEnabled } from "../audio/soundEffects";
 import { nudgeZoom } from "../game/inputControl";
 import { networkManager } from "../game/network";
+import { getHttpServerUrl } from "../game/serverUrl";
 import { useGameStore } from "../store/gameStore";
 import { shortenWallet } from "../wallet/solanaProvider";
 import { DayNightClock } from "./DayNightClock";
@@ -241,6 +242,9 @@ export function TopBar({ onLeave }: TopBarProps) {
 
           <a href="/docs" target="_blank" rel="noopener noreferrer" className="chibi-stat-pill" style={{ display: "inline-flex", gap: 6, marginTop: 8, textDecoration: "none", fontSize: "0.78rem" }}>
             📖 How to Play
+          </a>
+          <a href={`${getHttpServerUrl()}/stats`} target="_blank" rel="noopener noreferrer" className="chibi-stat-pill" style={{ display: "inline-flex", gap: 6, marginTop: 8, marginLeft: 8, textDecoration: "none", fontSize: "0.78rem" }}>
+            📊 Economy
           </a>
 
           <button type="button" className="chibi-btn chibi-btn--gold" style={{ width: "100%", marginTop: 8, padding: "8px 10px" }}
