@@ -4,10 +4,12 @@ import {
   isBlockingTile,
   MAP_HEIGHT,
   MAP_WIDTH,
+  isZonePropSolid,
   PLAYER_ZONE_PREFIX,
   playerZoneToConfig,
   TILE_WALL,
   worldToTile,
+  zonePropFootprint,
   type LandPlotNode,
   type ZoneConfig,
 } from "@metricbase/shared";
@@ -47,6 +49,7 @@ function getCollisionGrid(zoneId: string): number[][] {
   if (cached) return cached;
 
   const map = buildZoneMap(zoneId);
+  const playerZone = zoneId.startsWith(PLAYER_ZONE_PREFIX);
 
   // Only *built* structures block movement — an empty "for sale" plot is open
   // ground players can walk and farm on. Owned plots are solid (3x3 footprint).
@@ -55,12 +58,19 @@ function getCollisionGrid(zoneId: string): number[][] {
     if (getPlotOwner(plot.id)) stampPlot(map, plot);
   }
 
-  // Solid scenery (big furniture like the arcade cabinet / blackjack table)
-  // blocks its own tile. Only the collision grid is stamped — the client builds
-  // its own ground map for rendering, so the floor still shows beneath the prop.
+  const block = (x: number, y: number) => {
+    if (x >= 0 && y >= 0 && x < MAP_WIDTH && y < MAP_HEIGHT) map[y][x] = TILE_WALL;
+  };
   for (const node of config.scenery ?? []) {
-    if (node.solid && node.tileY >= 0 && node.tileY < MAP_HEIGHT && node.tileX >= 0 && node.tileX < MAP_WIDTH) {
-      map[node.tileY][node.tileX] = TILE_WALL;
+    if (playerZone) {
+      // Player-zone builds: buildings block their whole N×N footprint (anchored
+      // at the back corner), barriers block their tile. Trees/decor stay open.
+      if (!isZonePropSolid(node.prop)) continue;
+      const n = zonePropFootprint(node.prop);
+      for (let dy = 0; dy < n; dy++) for (let dx = 0; dx < n; dx++) block(node.tileX + dx, node.tileY + dy);
+    } else if (node.solid) {
+      // Built-in solid scenery (arcade cabinet / blackjack table) blocks its tile.
+      block(node.tileX, node.tileY);
     }
   }
 
