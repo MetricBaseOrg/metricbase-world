@@ -48,6 +48,9 @@ export function SkillBar() {
   const adsOpen = useGameStore((state) => state.adsOpen);
   const housingOpen = useGameStore((state) => state.housingOpen);
   const playerShopOpen = useGameStore((state) => state.playerShopOpen);
+  const worldsOpen = useGameStore((state) => state.worldsOpen);
+  const buildShopOpen = useGameStore((state) => state.buildShopOpen);
+  const worldEditing = useGameStore((state) => state.worldEditing);
   const equippedWeaponId = useGameStore((state) => state.equippedWeaponId);
   const inventory = useGameStore((state) => state.inventory);
 
@@ -158,6 +161,7 @@ export function SkillBar() {
 
   if (spectator || knockedOut) return null;
   if (shopOpen || craftOpen || honorShopOpen || blackjackOpen || mapOpen || mailOpen || adsOpen || housingOpen || playerShopOpen) return null;
+  if (worldsOpen || buildShopOpen || worldEditing) return null;
 
   const now = Date.now();
 

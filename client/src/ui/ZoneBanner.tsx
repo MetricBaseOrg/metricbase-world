@@ -12,6 +12,7 @@ export function ZoneBanner() {
   const zoneName = useGameStore((state) => state.zoneName);
   const worldEditing = useGameStore((state) => state.worldEditing);
   const buildShopOpen = useGameStore((state) => state.buildShopOpen);
+  const worldsOpen = useGameStore((state) => state.worldsOpen);
   const [showBanner, setShowBanner] = useState(false);
   const lastZone = useRef<string | null>(null);
 
@@ -25,8 +26,8 @@ export function ZoneBanner() {
     return () => window.clearTimeout(timer);
   }, [zoneId]);
 
-  // Keep the corner chip / banner out of the way while building.
-  if (worldEditing || buildShopOpen) return null;
+  // Keep the corner chip / banner out of the way while building or managing worlds.
+  if (worldEditing || buildShopOpen || worldsOpen) return null;
 
   return (
     <>
