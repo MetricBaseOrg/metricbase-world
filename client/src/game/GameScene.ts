@@ -62,8 +62,10 @@ import { ensureZoneAssetLoaded, getZoneAsset, zoneAssetScale, zoneAssetTextureKe
 import type { EditTool } from "./inputControl";
 import {
   emptyPlayerZoneBuild,
+  isZonePropSolid,
   makePlayerZoneResource,
   PLAYER_ZONE_GRID,
+  zonePropFootprint,
   type PlayerZoneBuild,
 } from "@metricbase/shared";
 import { buildZoneMap } from "./mapData";
@@ -239,6 +241,18 @@ export class GameScene extends Phaser.Scene {
   private worldEditDraft: PlayerZoneBuild | null = null;
   private editGrid?: Phaser.GameObjects.Graphics;
   private spawnMarker?: Phaser.GameObjects.Text;
+  /** Red tint over tiles that block movement, shown while editing (walk guide). */
+  private walkGuide?: Phaser.GameObjects.Graphics;
+  /** An object picked up with the Move tool, following the cursor until dropped. */
+  private editHeld:
+    | {
+        kind: "scenery" | "resource";
+        node: { tileX: number; tileY: number; prop?: string };
+        origin: { x: number; y: number };
+        ghost?: Phaser.GameObjects.Sprite;
+      }
+    | null = null;
+  private editPickupTile: { x: number; y: number } | null = null;
   /** Walk-up-and-interact scenery props (arcade cabinet, blackjack table). */
   private interactableScenery: { id: string; worldX: number; worldY: number; label: string }[] = [];
   /** Warm light pools cast by lamp/lantern/fire scenery; brighten + flicker at night. */
@@ -328,9 +342,9 @@ export class GameScene extends Phaser.Scene {
     // browser context menu so right-click reads as an attack.
     this.input.mouse?.disableContextMenu();
     this.input.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
-      // In build-edit mode, taps place/paint/erase instead of moving.
+      // In build-edit mode, taps place/paint/erase/move instead of moving.
       if (this.worldEditing) {
-        this.handleEditTap(pointer);
+        this.handleEditPointerDown(pointer);
         return;
       }
       if (pointer.rightButtonDown()) {
@@ -351,6 +365,18 @@ export class GameScene extends Phaser.Scene {
         } else {
           this.setMoveTarget(pointer.worldX, pointer.worldY);
         }
+      }
+    });
+
+    // Releasing the pointer over the map drops a Move-tool object at that tile
+    // (drag-and-drop). A release on the same tile it was picked up from keeps it
+    // held, so a plain click-then-click also works.
+    this.input.on("pointerup", (pointer: Phaser.Input.Pointer) => {
+      if (!this.worldEditing) return;
+      if (this.worldEditTool?.type !== "move" || !this.editHeld || !this.editPickupTile) return;
+      const { tileX, tileY } = worldToTile(pointer.worldX, pointer.worldY);
+      if (tileX !== this.editPickupTile.x || tileY !== this.editPickupTile.y) {
+        this.dropHeldAt(tileX, tileY);
       }
     });
 
@@ -738,6 +764,26 @@ export class GameScene extends Phaser.Scene {
   }
 
   update(_time: number, delta: number) {
+    // While an object is held with the Move tool, its ghost snaps to the tile
+    // under the cursor and turns red where it can't be dropped.
+    const heldGhost = this.editHeld?.ghost;
+    if (this.worldEditing && this.editHeld && heldGhost) {
+      const held = this.editHeld;
+      const ghost = heldGhost;
+      const p = this.input.activePointer;
+      const { tileX, tileY } = worldToTile(p.worldX, p.worldY);
+      const { x, y } = tileToWorld(tileX, tileY);
+      // Multi-tile buildings render at their footprint centre, so preview there.
+      const n = held.kind === "scenery" ? zonePropFootprint(held.node.prop ?? "") : 1;
+      const asset = held.node.prop ? getZoneAsset(held.node.prop) : undefined;
+      let py = y;
+      if (asset && asset.category === "structure" && asset.clearsGround && n > 1) {
+        py = (y + tileToWorld(tileX + n - 1, tileY + n - 1).y) / 2;
+      }
+      ghost.setPosition(x, py);
+      ghost.setTint(this.canDropHeldAt(tileX, tileY) ? 0xffffff : 0xff6b6b);
+    }
+
     const chopping = Date.now() < this.localChoppingUntil;
     const blocked = isUiTypingActive() || useGameStore.getState().knockedOut || chopping;
 
@@ -1780,6 +1826,7 @@ export class GameScene extends Phaser.Scene {
     this.worldEditZoneId = zoneId;
     this.drawEditGrid();
     this.drawSpawnMarker(this.worldEditDraft.spawnTile.x, this.worldEditDraft.spawnTile.y);
+    this.drawWalkGuide();
   }
 
   endWorldEdit() {
@@ -1789,6 +1836,11 @@ export class GameScene extends Phaser.Scene {
     this.editGrid = undefined;
     this.spawnMarker?.destroy();
     this.spawnMarker = undefined;
+    this.walkGuide?.destroy();
+    this.walkGuide = undefined;
+    this.editHeld?.ghost?.destroy();
+    this.editHeld = null;
+    this.editPickupTile = null;
   }
 
   /** Show where visitors will spawn while editing (a pin the owner can move). */
@@ -1812,9 +1864,101 @@ export class GameScene extends Phaser.Scene {
     return this.worldEditDraft ?? emptyPlayerZoneBuild();
   }
 
-  private handleEditTap(pointer: Phaser.Input.Pointer) {
+  private handleEditPointerDown(pointer: Phaser.Input.Pointer) {
     const { tileX, tileY } = worldToTile(pointer.worldX, pointer.worldY);
+    if (this.worldEditTool?.type === "move") {
+      if (this.editHeld) {
+        // Second tap of a click-to-move: drop the held object here.
+        this.dropHeldAt(tileX, tileY);
+      } else {
+        // Pick up whatever object sits on this tile and carry it.
+        this.pickUpAt(tileX, tileY);
+        this.editPickupTile = this.editHeld ? { x: tileX, y: tileY } : null;
+      }
+      return;
+    }
     this.applyEditAtTile(tileX, tileY);
+  }
+
+  /** Grab the topmost scenery/resource whose footprint covers this tile. */
+  private pickUpAt(tileX: number, tileY: number) {
+    const draft = this.worldEditDraft;
+    if (!draft) return;
+    for (let i = draft.scenery.length - 1; i >= 0; i--) {
+      const s = draft.scenery[i];
+      const n = zonePropFootprint(s.prop);
+      if (tileX >= s.tileX && tileX < s.tileX + n && tileY >= s.tileY && tileY < s.tileY + n) {
+        const [node] = draft.scenery.splice(i, 1);
+        this.editHeld = { kind: "scenery", node, origin: { x: node.tileX, y: node.tileY }, ghost: this.makeGhost(node.prop) };
+        this.applyDraftLive(false);
+        return;
+      }
+    }
+    for (let i = draft.resources.length - 1; i >= 0; i--) {
+      const r = draft.resources[i];
+      if (r.tileX === tileX && r.tileY === tileY) {
+        const [node] = draft.resources.splice(i, 1);
+        this.editHeld = { kind: "resource", node, origin: { x: node.tileX, y: node.tileY }, ghost: this.makeGhost(node.prop) };
+        this.applyDraftLive(false);
+        return;
+      }
+    }
+  }
+
+  /** A translucent sprite that follows the cursor while an object is held. */
+  private makeGhost(prop?: string): Phaser.GameObjects.Sprite | undefined {
+    if (!prop) return undefined;
+    const key = zoneAssetTextureKey(prop);
+    const asset = getZoneAsset(prop);
+    const originY = asset?.anchorY ?? 0.9;
+    const ghost = this.add.sprite(0, 0, key).setOrigin(0.5, originY).setDepth(1_000_001).setAlpha(0.7);
+    const applyReady = () => {
+      if (ghost.active) ghost.setTexture(key).setScale(zoneAssetScale(this, prop)).setVisible(true);
+    };
+    if (this.textures.exists(key)) applyReady();
+    else {
+      ghost.setVisible(false);
+      ensureZoneAssetLoaded(this, prop, applyReady);
+    }
+    return ghost;
+  }
+
+  /** True if the held object fits on the grid here without trapping the spawn. */
+  private canDropHeldAt(tileX: number, tileY: number): boolean {
+    if (!this.editHeld) return false;
+    const n = this.editHeld.kind === "scenery" ? zonePropFootprint(this.editHeld.node.prop ?? "") : 1;
+    if (tileX < 0 || tileY < 0 || tileX + n > PLAYER_ZONE_GRID || tileY + n > PLAYER_ZONE_GRID) return false;
+    // Keep the visitor spawn tile walkable: a solid prop can't cover it.
+    const prop = this.editHeld.node.prop;
+    const spawn = this.worldEditDraft?.spawnTile;
+    if (prop && isZonePropSolid(prop) && spawn) {
+      for (let dy = 0; dy < n; dy++)
+        for (let dx = 0; dx < n; dx++)
+          if (tileX + dx === spawn.x && tileY + dy === spawn.y) return false;
+    }
+    return true;
+  }
+
+  /** Place the held object at a tile (or back at its origin if it doesn't fit). */
+  private dropHeldAt(tileX: number, tileY: number) {
+    const held = this.editHeld;
+    const draft = this.worldEditDraft;
+    if (!held || !draft) return;
+    let tx = tileX;
+    let ty = tileY;
+    if (!this.canDropHeldAt(tileX, tileY)) {
+      // Doesn't fit / would trap the spawn — snap it back where it came from.
+      tx = held.origin.x;
+      ty = held.origin.y;
+    }
+    held.node.tileX = tx;
+    held.node.tileY = ty;
+    if (held.kind === "scenery") draft.scenery.push(held.node as (typeof draft.scenery)[number]);
+    else draft.resources.push(held.node as (typeof draft.resources)[number]);
+    held.ghost?.destroy();
+    this.editHeld = null;
+    this.editPickupTile = null;
+    this.applyDraftLive(false);
   }
 
   /**
@@ -1844,10 +1988,13 @@ export class GameScene extends Phaser.Scene {
     if (tool.type === "spawn") {
       draft.spawnTile = { x: tileX, y: tileY };
       this.drawSpawnMarker(tileX, tileY);
+      this.drawWalkGuide();
       return;
     } else if (tool.type === "prop") {
       const id = `e${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
       const asset = getZoneAsset(tool.value);
+      // Safety: don't let a solid prop cover the visitor spawn (would trap it).
+      if (isZonePropSolid(tool.value) && this.footprintCoversSpawn(tool.value, tileX, tileY)) return;
       if (asset?.category === "resource" && asset.resourceKind) {
         // Resource assets become functional gather nodes visitors can harvest.
         draft.resources.push(makePlayerZoneResource(id, tool.value, asset.resourceKind, asset.label, tileX, tileY));
@@ -1910,6 +2057,51 @@ export class GameScene extends Phaser.Scene {
     // Rebuilding the full PNG ground (24x24 sprites) is only needed when a
     // ground tile actually changed — placing props leaves the floor alone.
     if (groundChanged) this.renderGroundPaint(zoneId);
+    this.drawWalkGuide();
+  }
+
+  /** Does the prop's footprint, placed here, cover the visitor spawn tile? */
+  private footprintCoversSpawn(prop: string, tileX: number, tileY: number): boolean {
+    const spawn = this.worldEditDraft?.spawnTile;
+    if (!spawn) return false;
+    const n = zonePropFootprint(prop);
+    for (let dy = 0; dy < n; dy++)
+      for (let dx = 0; dx < n; dx++)
+        if (tileX + dx === spawn.x && tileY + dy === spawn.y) return true;
+    return false;
+  }
+
+  /**
+   * Walkability guide shown while editing: tiles that block movement (solid
+   * props and their footprints) are tinted red, and the visitor spawn tile is
+   * tinted green, so the owner can see the zone stays walkable as they build.
+   */
+  private drawWalkGuide() {
+    const draft = this.worldEditDraft;
+    if (!draft) return;
+    if (!this.walkGuide) this.walkGuide = this.add.graphics().setDepth(100_500);
+    const g = this.walkGuide;
+    g.clear();
+    const fillTile = (tx: number, ty: number, color: number) => {
+      const a = tileToWorld(tx, ty);
+      const b = tileToWorld(tx + 1, ty);
+      const c = tileToWorld(tx + 1, ty + 1);
+      const d = tileToWorld(tx, ty + 1);
+      g.fillStyle(color, 0.3);
+      g.beginPath();
+      g.moveTo(a.x, a.y);
+      g.lineTo(b.x, b.y);
+      g.lineTo(c.x, c.y);
+      g.lineTo(d.x, d.y);
+      g.closePath();
+      g.fillPath();
+    };
+    for (const s of draft.scenery) {
+      if (!isZonePropSolid(s.prop)) continue;
+      const n = zonePropFootprint(s.prop);
+      for (let dy = 0; dy < n; dy++) for (let dx = 0; dx < n; dx++) fillTile(s.tileX + dx, s.tileY + dy, 0xff5a5a);
+    }
+    fillTile(draft.spawnTile.x, draft.spawnTile.y, 0x4be08a);
   }
 
   /** A subtle iso grid so the owner can see where taps land while editing. */

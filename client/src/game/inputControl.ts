@@ -4,7 +4,7 @@ import type { PlayerZoneBuild } from "@metricbase/shared";
 /** A build-editor tool: place a prop, paint a ground tile, erase, or set the
  *  visitor spawn point. */
 export interface EditTool {
-  type: "prop" | "ground" | "erase" | "spawn";
+  type: "prop" | "ground" | "erase" | "spawn" | "move";
   value: string;
 }
 

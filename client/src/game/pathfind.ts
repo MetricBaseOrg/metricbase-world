@@ -49,17 +49,10 @@ function tileSolid(grid: CollisionGrid, x: number, y: number): boolean {
   return grid[y]?.[x] ?? true;
 }
 
-/** Mirrors the server's isWalkable: the player footprint samples 4 tiles. */
+/** Mirrors the server's isWalkable: the player occupies a single tile. */
 export function isWorldWalkable(grid: CollisionGrid, worldX: number, worldY: number): boolean {
   const { tileX, tileY } = worldToTile(worldX, worldY);
-  const samples: [number, number][] = [
-    [tileX, tileY],
-    [tileX + 1, tileY],
-    [tileX, tileY + 1],
-    [tileX + 1, tileY + 1],
-  ];
-  for (const [x, y] of samples) if (tileSolid(grid, x, y)) return false;
-  return true;
+  return !tileSolid(grid, tileX, tileY);
 }
 
 /** Collision-aware movement step (slides along walls like the server). */
