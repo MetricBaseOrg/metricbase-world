@@ -77,6 +77,29 @@ export function getMetricTotals(): Record<string, number> {
   return Object.fromEntries(totals);
 }
 
+/**
+ * Ensure a lifetime metric is at least `floor`, backfilling the difference.
+ * Used to reconstruct history that predates a metric (e.g. $BASE burned from
+ * existing Black Zone passes). Idempotent: it never lowers a value, so it's safe
+ * to run on every boot and won't double-count as new events accrue.
+ */
+export async function ensureMetricFloor(metric: string, floor: number): Promise<void> {
+  const target = Math.floor(floor);
+  if (target <= 0 || (totals.get(metric) ?? 0) >= target) return;
+  totals.set(metric, target);
+  const pool = getPool();
+  if (!pool) return;
+  try {
+    await pool.query(
+      `INSERT INTO economy_metrics (metric, value) VALUES ($1, $2)
+       ON CONFLICT (metric) DO UPDATE SET value = GREATEST(economy_metrics.value, EXCLUDED.value)`,
+      [metric, target],
+    );
+  } catch (error) {
+    console.warn("[metrics] floor backfill failed:", error);
+  }
+}
+
 /** Per-day series for the given metrics over the last `days` days (incl. today). */
 export async function getDailySeries(days = 14): Promise<{ day: string; metric: string; value: number }[]> {
   const pool = getPool();

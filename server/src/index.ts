@@ -1,6 +1,7 @@
 import { Server } from "@colyseus/core";
 import { WebSocketTransport } from "@colyseus/ws-transport";
 import {
+  BLACK_ZONE_BURN_AMOUNT,
   GAME_VERSION,
   getZoneConfig,
   PLAYER_ZONE_ROOM,
@@ -18,13 +19,13 @@ import { authRouter } from "./api/auth.js";
 import { characterRouter } from "./api/characters.js";
 import { tokenShopRouter } from "./api/tokenShop.js";
 import { invitationsRouter } from "./api/invitations.js";
-import { initDatabase } from "./db/pool.js";
+import { getPool, initDatabase } from "./db/pool.js";
 import { initSellPressure } from "./market/sellPressure.js";
 import { initLandRegistry } from "./housing/landRegistry.js";
 import { initZoneRegistry } from "./zones/zoneRegistry.js";
 import { initAssetInventory } from "./zones/assetInventory.js";
 import { initAssetMarket } from "./zones/assetMarket.js";
-import { initMetrics } from "./economy/metrics.js";
+import { ensureMetricFloor, initMetrics } from "./economy/metrics.js";
 import { initFarmRegistry } from "./farming/farmRegistry.js";
 import { initGuildRegistry } from "./guild/guildRegistry.js";
 import { initTerritoryRegistry } from "./territory/territoryRegistry.js";
@@ -85,6 +86,18 @@ await initZoneRegistry();
 await initAssetInventory();
 await initAssetMarket();
 await initMetrics();
+// Backfill historical $BASE burned from existing lifetime Black Zone passes
+// (each is a one-time BLACK_ZONE_BURN_AMOUNT burn), so /stats reflects burns
+// that predate the base.burned metric. Idempotent — safe on every boot.
+try {
+  const pool = getPool();
+  if (pool) {
+    const r = await pool.query<{ n: number }>("SELECT COUNT(*)::int AS n FROM characters WHERE black_pass = true");
+    await ensureMetricFloor("base.burned", (r.rows[0]?.n ?? 0) * BLACK_ZONE_BURN_AMOUNT);
+  }
+} catch (error) {
+  console.warn("[startup] base.burned backfill failed:", error);
+}
 await initFarmRegistry();
 await initGuildRegistry();
 await initTerritoryRegistry();
