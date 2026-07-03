@@ -218,6 +218,7 @@ export function WorldEditBar() {
           <button
             key={a.id}
             type="button"
+            title={a.desc}
             className={`chibi-btn ${tool?.value === a.id ? "chibi-btn--mint" : "chibi-btn--ghost"}`}
             style={{ padding: "8px 6px", fontSize: "0.72rem", display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}
             onPointerDown={(e) => startDrag(a, e)}
@@ -235,6 +236,40 @@ export function WorldEditBar() {
           </button>
         ))}
       </div>
+
+      {/* Brief for the selected asset — what it is, footprint, price/owned. */}
+      {(tool?.type === "prop" || tool?.type === "ground") &&
+        (() => {
+          const a = ZONE_ASSETS.find((x) => x.id === tool.value);
+          if (!a) return null;
+          const price = zoneAssetPrice(a.id);
+          return (
+            <div
+              className="chibi-card"
+              style={{ marginTop: 8, padding: "8px 10px", display: "flex", gap: 8, alignItems: "flex-start" }}
+            >
+              <img
+                src={`/assets/${a.file}`}
+                alt=""
+                draggable={false}
+                style={{ width: 34, height: 34, objectFit: "contain", flexShrink: 0 }}
+              />
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontWeight: 700, fontSize: "0.78rem" }}>
+                  {a.label}
+                  <span className="chibi-text-muted" style={{ fontWeight: 600, fontSize: "0.66rem", marginLeft: 6 }}>
+                    {a.footprint > 1 ? `${a.footprint}×${a.footprint} tiles` : "1×1 tile"} ·{" "}
+                    {price === 0 ? "Free" : `${price.toLocaleString()}g`}
+                    {(owned[a.id] ?? 0) > 0 ? ` · ×${owned[a.id]} owned` : ""}
+                  </span>
+                </div>
+                <div className="chibi-text-muted" style={{ fontSize: "0.7rem", marginTop: 2, lineHeight: 1.4 }}>
+                  {a.desc}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
       <button
         type="button"
         className="chibi-btn chibi-btn--gold"

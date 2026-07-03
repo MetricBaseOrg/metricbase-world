@@ -15,6 +15,8 @@ export interface ZoneAsset {
   /** File under /assets. */
   file: string;
   label: string;
+  /** One-line brief shown in the builder palette + Build Shop. */
+  desc: string;
   category: ZoneAssetCategory;
   /** Target on-screen width in world px; scale is derived from this at load. */
   worldWidth: number;
@@ -55,6 +57,66 @@ const ANCHOR: Record<string, number> = {
 };
 const anchor = (id: string, fallback: number) => ANCHOR[id] ?? fallback;
 
+// One-line briefs for the builder palette + Build Shop. Honest about gameplay:
+// footprint, whether it blocks walking, and whether it's a functional node.
+const DESC: Record<string, string> = {
+  // ground paint
+  grass: "Classic green ground — free to paint anywhere.",
+  grass2: "Lighter flowery meadow for cozy clearings.",
+  soil: "Tilled earth — great around farms and paths.",
+  empty: "Plain bare dirt — free to paint anywhere.",
+  water: "Sparkling shallow water for lakes and moats.",
+  water2: "Darker deep water — pairs well with Water edges.",
+  river: "Flowing river strip for streams and borders.",
+  snow: "Frosty ground for winter builds.",
+  lava: "Molten ground for dramatic, dangerous-looking flair.",
+  "stone-path": "Paved stone walkway to guide visitors around.",
+  // buildings & barriers
+  house: "Cozy starter home. 3×3 tiles, blocks walking.",
+  mansion: "Grand estate for a wealthy plot. 3×3, blocks walking.",
+  cabin: "Rustic woodland cabin. 3×3, blocks walking.",
+  "shop-blue": "Blue-roofed shop building. 3×3, blocks walking.",
+  "market-wheat": "Wheat market stall. 2×2, blocks walking.",
+  "market-carrot": "Carrot market stall. 2×2, blocks walking.",
+  windmill: "Countryside windmill. 2×2, blocks walking.",
+  fence: "Thin barrier — blocks walking. Chain into walls.",
+  gate: "Ornate fence gate — solid; leave an open tile beside it.",
+  bridge: "Wooden bridge plank — lay across water strips (walkable).",
+  // resource nodes (functional)
+  pine: "Evergreen pine — a real Woodcutting node visitors can chop.",
+  "pine-small": "Little pine — quick Woodcutting node.",
+  sapling: "Young sapling — starter Woodcutting node.",
+  "young-oak": "Sturdy young oak Woodcutting node.",
+  "wild-oak": "Broad wild oak Woodcutting node.",
+  ironwood: "Tough ironwood — premium Woodcutting node.",
+  hardwood: "Dense hardwood Woodcutting node.",
+  "ancient-hardwood": "Ancient giant — top-tier Woodcutting node.",
+  "cavern-hardwood": "Cave-grown hardwood Woodcutting node.",
+  "copper-rock": "Copper rock — a Mining node visitors can mine.",
+  "iron-deposit": "Iron deposit Mining node.",
+  "iron-vein": "Rich iron vein Mining node.",
+  "gem-studded": "Gem-studded rock — sparkly Mining node.",
+  "obsidian-gem": "Obsidian gem rock — rare-looking Mining node.",
+  "fish-pond": "Stocked pond — a Fishing node visitors can fish.",
+  "berry-bush": "Berry bush — quick gather node.",
+  "crop-field": "Planted field visitors can harvest.",
+  "crop-wheat": "Golden wheat patch — harvestable node.",
+  // decor
+  well: "Stone well centrepiece — solid, blocks walking.",
+  lamp: "Decorative street lamp for paths and plazas.",
+  torch: "Rustic torch post for entrances.",
+  bench: "Park bench for scenic rest spots.",
+  flowerbed: "Bright flower patch to add colour.",
+  fontain: "Ornate plaza fountain — solid, blocks walking.",
+  statue: "Stone statue landmark — solid, blocks walking.",
+  barrel: "Storage barrel — tuck beside houses and shops.",
+  crates: "Stacked supply crates for markets and docks.",
+  signpost: "Wooden signpost for entrances and crossroads.",
+  hedge: "Trimmed hedge for garden borders (walkable).",
+  "king-crystal": "Glowing crystal monument — solid showpiece.",
+};
+const desc = (id: string) => DESC[id] ?? "";
+
 // Sizing follows assets.md: the base fills ~all of the image width, so a 1×1
 // tile ≈ TILE_WIDTH and an N×N building ≈ N×TILE_WIDTH.
 const GROUND_W = Math.round(TILE_WIDTH / 0.97); // ~66
@@ -62,7 +124,7 @@ const PROP_W = 66; // 1×1 props: base ≈ one ground tile
 const buildingWidth = (footprint: number) => TILE_WIDTH * footprint;
 
 const g = (id: string, label: string): ZoneAsset =>
-  ({ id, file: `${id}.png`, label, category: "ground", worldWidth: GROUND_W, anchorY: anchor(id, 0.44), footprint: 1, clearsGround: false, bakedTile: true });
+  ({ id, file: `${id}.png`, label, desc: desc(id), category: "ground", worldWidth: GROUND_W, anchorY: anchor(id, 0.44), footprint: 1, clearsGround: false, bakedTile: true });
 const b = (
   id: string,
   label: string,
@@ -73,6 +135,7 @@ const b = (
     id,
     file: `${id}.png`,
     label,
+    desc: desc(id),
     category: "structure",
     worldWidth: buildingWidth(footprint),
     anchorY: anchor(id, 0.65),
@@ -84,9 +147,9 @@ const b = (
   };
 };
 const r = (id: string, label: string, kind: "tree" | "rock" | "fish", worldWidth = PROP_W): ZoneAsset =>
-  ({ id, file: `${id}.png`, label, category: "resource", worldWidth, anchorY: anchor(id, 0.7), footprint: 1, clearsGround: false, bakedTile: true, resourceKind: kind });
+  ({ id, file: `${id}.png`, label, desc: desc(id), category: "resource", worldWidth, anchorY: anchor(id, 0.7), footprint: 1, clearsGround: false, bakedTile: true, resourceKind: kind });
 const d = (id: string, label: string, worldWidth = PROP_W, bakedTile = true): ZoneAsset =>
-  ({ id, file: `${id}.png`, label, category: "decor", worldWidth, anchorY: anchor(id, 0.7), footprint: 1, clearsGround: false, bakedTile });
+  ({ id, file: `${id}.png`, label, desc: desc(id), category: "decor", worldWidth, anchorY: anchor(id, 0.7), footprint: 1, clearsGround: false, bakedTile });
 
 export const ZONE_ASSETS: ZoneAsset[] = [
   // Ground paint (1×1 tiles)

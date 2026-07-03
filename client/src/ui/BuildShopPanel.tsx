@@ -87,11 +87,19 @@ export function BuildShopPanel() {
             {shopItems.map((a) => {
               const price = zoneAssetPrice(a.id);
               return (
-                <div key={a.id} className="chibi-card" style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 10px" }}>
+                <div key={a.id} className="chibi-card" title={a.desc} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 10px" }}>
                   <img src={`/assets/${a.file}`} alt="" style={{ width: 38, height: 38, objectFit: "contain" }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 600, fontSize: "0.82rem" }}>{a.label}</div>
-                    <div className="chibi-text-muted" style={{ fontSize: "0.7rem" }}>{price.toLocaleString()}g · owned {owned[a.id] ?? 0}</div>
+                    <div style={{ fontWeight: 600, fontSize: "0.82rem" }}>
+                      {a.label}
+                      {a.footprint > 1 && (
+                        <span className="chibi-text-muted" style={{ fontWeight: 600, fontSize: "0.66rem", marginLeft: 5 }}>
+                          {a.footprint}×{a.footprint}
+                        </span>
+                      )}
+                    </div>
+                    <div className="chibi-text-muted" style={{ fontSize: "0.68rem", lineHeight: 1.35 }}>{a.desc}</div>
+                    <div className="chibi-text-muted" style={{ fontSize: "0.7rem", marginTop: 1 }}>{price.toLocaleString()}g · owned {owned[a.id] ?? 0}</div>
                   </div>
                   <button type="button" className="chibi-btn chibi-btn--gold" style={{ padding: "6px 10px" }} disabled={playerGold < price} onClick={() => { playSfx("ui_click"); networkManager.sendBuildShopBuy(a.id, 1); }}>Buy</button>
                   <button type="button" className="chibi-btn chibi-btn--secondary" style={{ padding: "6px 8px" }} disabled={playerGold < price * 5} onClick={() => { playSfx("ui_click"); networkManager.sendBuildShopBuy(a.id, 5); }}>×5</button>
@@ -106,7 +114,7 @@ export function BuildShopPanel() {
         <div style={{ marginTop: 10, maxHeight: "52vh", overflowY: "auto", display: "grid", gap: 6 }}>
           {listings.length === 0 && <div className="chibi-text-muted" style={{ fontSize: "0.8rem" }}>No listings yet. Sell some assets to start the market!</div>}
           {listings.map((l) => (
-            <div key={l.id} className="chibi-card" style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 10px" }}>
+            <div key={l.id} className="chibi-card" title={getZoneAsset(l.assetId)?.desc} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 10px" }}>
               <img src={`/assets/${getZoneAsset(l.assetId)?.file ?? ""}`} alt="" style={{ width: 38, height: 38, objectFit: "contain" }} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 600, fontSize: "0.82rem" }}>{l.qty}× {label(l.assetId)}</div>
@@ -128,7 +136,7 @@ export function BuildShopPanel() {
           {ownedList.map(([id, count]) => {
             const s = sell[id] ?? { qty: "1", price: String(zoneAssetPrice(id)) };
             return (
-              <div key={id} className="chibi-card" style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px" }}>
+              <div key={id} className="chibi-card" title={getZoneAsset(id)?.desc} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px" }}>
                 <img src={`/assets/${getZoneAsset(id)?.file ?? ""}`} alt="" style={{ width: 34, height: 34, objectFit: "contain" }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 600, fontSize: "0.78rem" }}>{label(id)} <span className="chibi-text-muted">×{count}</span></div>
