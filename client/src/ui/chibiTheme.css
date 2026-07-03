@@ -390,6 +390,9 @@ body {
   box-shadow: 0 4px 0 var(--chibi-shadow);
   touch-action: manipulation;
   min-height: 44px;
+  /* Sensible default so buttons that don't set their own aren't cramped. Icon
+     buttons and others override this with their own padding. */
+  padding: 8px 14px;
 }
 
 .chibi-btn:hover:not(:disabled) {
