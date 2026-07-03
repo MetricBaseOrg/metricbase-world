@@ -62,6 +62,7 @@ import { ensureZoneAssetLoaded, getZoneAsset, zoneAssetScale, zoneAssetTextureKe
 import type { EditTool } from "./inputControl";
 import {
   emptyPlayerZoneBuild,
+  getCropMarket,
   isZonePropSolid,
   makePlayerZoneResource,
   PLAYER_ZONE_GRID,
@@ -1688,6 +1689,16 @@ export class GameScene extends Phaser.Scene {
           ensureZoneAssetLoaded(this, node.prop, applyReady);
         }
         this.renderedScenery.push(sprite);
+        // Placed crop markets are functional: walk up + interact to trade.
+        const market = getCropMarket(node.prop);
+        if (market) {
+          this.interactableScenery.push({
+            id: node.id,
+            worldX: px,
+            worldY: py,
+            label: `Trade at ${market.label}`,
+          });
+        }
         continue;
       }
       const sprite = this.add.sprite(x, y, `scenery_${node.prop}`).setOrigin(0.5, flat ? 0.5 : 0.92);

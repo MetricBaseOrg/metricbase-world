@@ -57,6 +57,8 @@ interface GameStore {
   adsOpen: boolean;
   worldsOpen: boolean;
   buildShopOpen: boolean;
+  /** Crop-market prop id ("market-wheat"/"market-carrot") while trading, else null. */
+  cropMarketOpen: string | null;
   /** True while the player is actively editing a World (hides gameplay HUD). */
   worldEditing: boolean;
   housingOpen: boolean;
@@ -121,6 +123,7 @@ interface GameStore {
   setAdsOpen: (open: boolean) => void;
   setWorldsOpen: (open: boolean) => void;
   setBuildShopOpen: (open: boolean) => void;
+  setCropMarketOpen: (market: string | null) => void;
   setWorldEditing: (editing: boolean) => void;
   openHousing: (plotId: string) => void;
   setHousingOpen: (open: boolean) => void;
@@ -179,6 +182,7 @@ export const useGameStore = create<GameStore>((set) => ({
   adsOpen: false,
   worldsOpen: false,
   buildShopOpen: false,
+  cropMarketOpen: null,
   worldEditing: false,
   housingOpen: false,
   housingPlotId: null,
@@ -276,6 +280,7 @@ export const useGameStore = create<GameStore>((set) => ({
   setAdsOpen: (adsOpen) => set({ adsOpen }),
   setWorldsOpen: (worldsOpen) => set({ worldsOpen }),
   setBuildShopOpen: (buildShopOpen) => set({ buildShopOpen }),
+  setCropMarketOpen: (cropMarketOpen) => set({ cropMarketOpen }),
   setWorldEditing: (worldEditing) => set({ worldEditing }),
   openHousing: (housingPlotId) =>
     set({ housingPlotId, housingOpen: true, inventoryOpen: false, craftOpen: false }),

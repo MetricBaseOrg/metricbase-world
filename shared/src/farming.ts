@@ -57,7 +57,8 @@ export interface FarmResultPayload {
   playerName?: string;
 }
 
-// One crop for v1. Seeds are sold by Pip (a gold sink that bootstraps farming).
+// Seeds are sold by Pip and at player-placed crop markets (gold sinks that
+// bootstrap farming).
 export const FARM_CROPS: Record<string, FarmCrop> = {
   item_wheat_seed: {
     seedItemId: "item_wheat_seed",
@@ -67,11 +68,59 @@ export const FARM_CROPS: Record<string, FarmCrop> = {
     skillXp: 14,
     yield: 2,
   },
+  item_carrot_seed: {
+    seedItemId: "item_carrot_seed",
+    cropItemId: "item_carrot",
+    name: "Carrot",
+    growMs: 150_000,
+    skillXp: 22,
+    yield: 2,
+  },
 };
 
 export function getFarmCropBySeed(seedItemId: string): FarmCrop | undefined {
   return FARM_CROPS[seedItemId];
 }
 
-/** The default seed a player plants (v1 has a single crop). */
+/** The fallback seed when a player has none (also the cheapest crop). */
 export const DEFAULT_FARM_SEED = "item_wheat_seed";
+
+// ---- Crop markets ----------------------------------------------------------
+// Placeable market buildings ("market-wheat" / "market-carrot" zone assets)
+// double as trading posts: walk up + interact to buy that crop's seeds and
+// sell its harvest. Buying burns gold; selling mints it (like the NPC shop).
+
+export interface CropMarketDef {
+  /** Zone-asset prop id that hosts this market. */
+  propId: string;
+  label: string;
+  seedItemId: string;
+  cropItemId: string;
+  /** Gold to buy one seed. */
+  seedPrice: number;
+  /** Gold paid per crop sold. */
+  cropSellPrice: number;
+}
+
+export const CROP_MARKETS: Record<string, CropMarketDef> = {
+  "market-wheat": {
+    propId: "market-wheat",
+    label: "Wheat Market",
+    seedItemId: "item_wheat_seed",
+    cropItemId: "item_wheat",
+    seedPrice: 5, // matches Pip's seed price
+    cropSellPrice: 7, // matches the NPC shop's wheat buyback
+  },
+  "market-carrot": {
+    propId: "market-carrot",
+    label: "Carrot Market",
+    seedItemId: "item_carrot_seed",
+    cropItemId: "item_carrot",
+    seedPrice: 9, // slower crop, pricier seed…
+    cropSellPrice: 14, // …but a better payout per harvest
+  },
+};
+
+export function getCropMarket(propId: string): CropMarketDef | undefined {
+  return CROP_MARKETS[propId];
+}

@@ -121,6 +121,22 @@ export const ITEMS: Record<string, ItemDefinition> = {
     maxStack: 99,
     kind: "material",
   },
+  item_carrot_seed: {
+    id: "item_carrot_seed",
+    name: "Carrot Seed",
+    description: "Plant in a farm plot, then harvest carrots once it grows. Sold at Carrot Markets.",
+    stackable: true,
+    maxStack: 99,
+    kind: "material",
+  },
+  item_carrot: {
+    id: "item_carrot",
+    name: "Carrot",
+    description: "A crunchy orange carrot pulled fresh from the soil. Carrot Markets buy them.",
+    stackable: true,
+    maxStack: 99,
+    kind: "material",
+  },
   item_bread: {
     id: "item_bread",
     name: "Bread",

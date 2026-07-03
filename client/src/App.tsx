@@ -32,6 +32,7 @@ import { QuestPanel } from "./ui/QuestPanel";
 import { ErrorBoundary } from "./ui/ErrorBoundary";
 import { ArcadeModal } from "./ui/ArcadeModal";
 import { BlackZoneModal } from "./ui/BlackZoneModal";
+import { CropMarketPanel } from "./ui/CropMarketPanel";
 import { DuelControls } from "./ui/DuelControls";
 import { PvpFlagButton } from "./ui/PvpFlagButton";
 import { VipLodgeModal } from "./ui/VipLodgeModal";
@@ -359,6 +360,7 @@ export function App() {
       {joined && <ArcadeModal />}
       {joined && <BlackZoneModal />}
       {joined && <VipLodgeModal />}
+      {joined && <CropMarketPanel />}
       {joined && !worldEditing && <PvpFlagButton />}
       {joined && !worldEditing && <DuelControls />}
       {joined && <SiegeBanner />}

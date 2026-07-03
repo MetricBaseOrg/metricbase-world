@@ -112,6 +112,12 @@ export interface MyWorldEntry {
   online: number;
   build: PlayerZoneBuild;
 }
+export interface CropMarketResultPayload {
+  ok: boolean;
+  market?: string;
+  message?: string;
+  error?: string;
+}
 export interface ZoneResultPayload {
   ok: boolean;
   zoneId?: string;
@@ -251,6 +257,8 @@ export class NetworkManager {
   private casinoStateListeners = new Set<(payload: CasinoStatePayload) => void>();
   private casinoResultListeners = new Set<(payload: CasinoActionResult) => void>();
   private openBlackjackListeners = new Set<(payload: { name: string }) => void>();
+  private openCropMarketListeners = new Set<(payload: { market: string }) => void>();
+  private cropMarketResultListeners = new Set<(payload: CropMarketResultPayload) => void>();
   private mailStateListeners = new Set<(payload: MailStatePayload) => void>();
   private mailResultListeners = new Set<(payload: { ok: boolean; error?: string }) => void>();
   private adServingListeners = new Set<(payload: AdServingPayload) => void>();
@@ -766,6 +774,20 @@ export class NetworkManager {
   onOpenBlackjack(listener: (payload: { name: string }) => void) {
     this.openBlackjackListeners.add(listener);
     return () => this.openBlackjackListeners.delete(listener);
+  }
+
+  onOpenCropMarket(listener: (payload: { market: string }) => void) {
+    this.openCropMarketListeners.add(listener);
+    return () => this.openCropMarketListeners.delete(listener);
+  }
+
+  onCropMarketResult(listener: (payload: CropMarketResultPayload) => void) {
+    this.cropMarketResultListeners.add(listener);
+    return () => this.cropMarketResultListeners.delete(listener);
+  }
+
+  sendCropMarketTrade(market: string, action: "buySeed" | "sellCrop", qty: number) {
+    this.room?.send("cropMarketTrade", { market, action, qty });
   }
 
   requestMailState() {
@@ -1554,6 +1576,12 @@ export class NetworkManager {
     });
     this.room.onMessage("openBlackjack", (payload: { name: string }) => {
       for (const listener of this.openBlackjackListeners) listener(payload);
+    });
+    this.room.onMessage("openCropMarket", (payload: { market: string }) => {
+      for (const listener of this.openCropMarketListeners) listener(payload);
+    });
+    this.room.onMessage("cropMarketResult", (payload: CropMarketResultPayload) => {
+      for (const listener of this.cropMarketResultListeners) listener(payload);
     });
     this.room.onMessage("mailState", (payload: MailStatePayload) => {
       for (const listener of this.mailStateListeners) listener(payload);

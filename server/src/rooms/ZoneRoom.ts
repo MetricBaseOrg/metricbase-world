@@ -37,6 +37,9 @@ import {
   computeFishDurationMs,
   FARM_RANGE,
   getFarmCropBySeed,
+  getCropMarket,
+  FARM_CROPS,
+  zonePropFootprint,
   DEFAULT_FARM_SEED,
   PLOT_PRICE,
   LIGHT_OIL_ITEM,
@@ -622,6 +625,9 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     });
     this.onProtectedMessage("buyZonePass", (client, message: { zoneId?: string }) => {
       void this.handleBuyZonePass(client, message.zoneId ?? "");
+    });
+    this.onProtectedMessage("cropMarketTrade", (client, message: { market?: string; action?: string; qty?: number }) => {
+      void this.handleCropMarketTrade(client, String(message.market ?? ""), String(message.action ?? ""), Number(message.qty) || 1);
     });
     this.onMessage("worldsList", (client) => {
       this.handleWorldsList(client);
@@ -1744,16 +1750,22 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
     const npc = this.zoneConfig.npcs.find((entry) => entry.id === npcId);
     if (!npc) {
-      // Interactable scenery (arcade cabinet / blackjack table) — no NPC needed.
-      const prop = this.zoneConfig.scenery?.find((s) => s.id === npcId && s.interact);
+      // Interactable scenery — arcade/blackjack tables, or a placed crop market.
+      const prop = this.zoneConfig.scenery?.find((s) => s.id === npcId && (s.interact || getCropMarket(s.prop)));
       if (prop) {
-        const propPos = tileToWorld(prop.tileX, prop.tileY);
-        if (Math.hypot(player.x - propPos.x, player.y - propPos.y) > NPC_INTERACT_RANGE) return;
+        // Multi-tile buildings anchor at their back corner; measure from the
+        // footprint centre so standing at the front counts as "close".
+        const n = zonePropFootprint(prop.prop);
+        const propPos = tileToWorld(prop.tileX + (n - 1) / 2, prop.tileY + (n - 1) / 2);
+        if (Math.hypot(player.x - propPos.x, player.y - propPos.y) > NPC_INTERACT_RANGE + (n - 1) * 32) return;
+        const market = getCropMarket(prop.prop);
         if (prop.interact === "arcade" && prop.arcadeUrl) {
           client.send("openArcade", { name: "Base Rush", url: prop.arcadeUrl });
         } else if (prop.interact === "blackjack") {
           client.send("openBlackjack", { name: "Blackjack" });
           void this.sendCasinoState(client);
+        } else if (market) {
+          client.send("openCropMarket", { market: market.propId });
         }
       }
       return;
@@ -3176,6 +3188,72 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     this.sendProfile(client, player);
     await this.persistPlayer(player);
     client.send("zoneResult", { ok: true, zoneId, message: `Pass purchased — enjoy ${zone.displayName}!` });
+  }
+
+  /** Trade at a placed crop-market building: buy its seeds or sell its crop. */
+  private async handleCropMarketTrade(client: Client, marketId: string, action: string, rawQty: number) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const market = getCropMarket(marketId);
+    if (!market) return void client.send("cropMarketResult", { ok: false, error: "Unknown market." });
+    // A matching market building must be placed in this zone, near the player.
+    const near = (this.zoneConfig.scenery ?? []).some((s) => {
+      if (s.prop !== market.propId) return false;
+      const n = zonePropFootprint(s.prop);
+      const pos = tileToWorld(s.tileX + (n - 1) / 2, s.tileY + (n - 1) / 2);
+      return Math.hypot(player.x - pos.x, player.y - pos.y) <= NPC_INTERACT_RANGE + (n - 1) * 32 + 24;
+    });
+    if (!near) return void client.send("cropMarketResult", { ok: false, error: "Walk up to the market first." });
+
+    const qty = Math.max(1, Math.min(99, Math.floor(rawQty) || 1));
+    const gold = this.playerGold.get(player.name) ?? STARTING_GOLD;
+    const inventory = this.inventories.get(player.name) ?? [];
+
+    if (action === "buySeed") {
+      const { inventory: next, added } = addItemToInventory(inventory, market.seedItemId, qty);
+      if (added <= 0) return void client.send("cropMarketResult", { ok: false, error: "Inventory full." });
+      const cost = market.seedPrice * added;
+      if (gold < cost) return void client.send("cropMarketResult", { ok: false, error: "Not enough gold." });
+      this.playerGold.set(player.name, gold - cost);
+      burnGold(cost);
+      bumpMetric("buy.count", added);
+      bumpMetric("buy.gold", cost);
+      this.inventories.set(player.name, next);
+      this.sendProfile(client, player);
+      this.sendInventory(client, player.name);
+      await this.persistPlayer(player);
+      return void client.send("cropMarketResult", {
+        ok: true,
+        market: marketId,
+        message: `Bought ${added}× ${ITEMS[market.seedItemId]?.name ?? "seeds"} for ${cost.toLocaleString()}g.`,
+      });
+    }
+
+    if (action === "sellCrop") {
+      const owned = getItemQuantity(inventory, market.cropItemId);
+      const count = Math.min(qty, owned);
+      if (count <= 0) {
+        return void client.send("cropMarketResult", {
+          ok: false,
+          error: `You have no ${ITEMS[market.cropItemId]?.name ?? "crops"} to sell.`,
+        });
+      }
+      const { inventory: next } = removeItemFromInventory(inventory, market.cropItemId, count);
+      const payout = market.cropSellPrice * count;
+      this.playerGold.set(player.name, gold + payout);
+      mintGold(payout);
+      bumpMetric("sell.count", count);
+      bumpMetric("sell.gold", payout);
+      this.inventories.set(player.name, next);
+      this.sendProfile(client, player);
+      this.sendInventory(client, player.name);
+      await this.persistPlayer(player);
+      return void client.send("cropMarketResult", {
+        ok: true,
+        market: marketId,
+        message: `Sold ${count}× ${ITEMS[market.cropItemId]?.name ?? "crops"} for ${payout.toLocaleString()}g.`,
+      });
+    }
   }
 
   /** Players currently inside a given zone across all live rooms. */
@@ -5569,16 +5647,18 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     const now = Date.now();
 
     if (!active) {
-      // Plant the default crop if the player has a seed.
-      const crop = getFarmCropBySeed(DEFAULT_FARM_SEED);
-      if (!crop) return;
+      // Plant whichever seed the player owns (crop-table order: wheat first,
+      // then carrot); fall back to the default seed for the error message.
       let inventory = this.inventories.get(player.name) ?? [];
-      if (getItemQuantity(inventory, crop.seedItemId) < 1) {
+      const ownedSeed = Object.keys(FARM_CROPS).find((seedId) => getItemQuantity(inventory, seedId) >= 1);
+      const crop = getFarmCropBySeed(ownedSeed ?? DEFAULT_FARM_SEED);
+      if (!crop) return;
+      if (!ownedSeed) {
         client.send("farmResult", {
           ok: false,
           plotId,
           action: "plant",
-          error: `You need a ${ITEMS[crop.seedItemId]?.name ?? "seed"} (buy from Pip).`,
+          error: `You need a ${ITEMS[crop.seedItemId]?.name ?? "seed"} (buy from Pip or a crop market).`,
         });
         return;
       }
