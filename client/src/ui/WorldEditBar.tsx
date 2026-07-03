@@ -24,6 +24,8 @@ const CATEGORIES: { id: ZoneAssetCategory; label: string }[] = [
 export function WorldEditBar() {
   const zoneId = useGameStore((state) => state.zoneId);
   const setWorldEditing = useGameStore((state) => state.setWorldEditing);
+  const setBuildShopOpen = useGameStore((state) => state.setBuildShopOpen);
+  const [owned, setOwned] = useState<Record<string, number>>({});
   const [ownedIds, setOwnedIds] = useState<Set<string>>(new Set());
   const [editing, setEditing] = useState(false);
   const [category, setCategory] = useState<ZoneAssetCategory>("structure");
@@ -42,9 +44,11 @@ export function WorldEditBar() {
       else if (r.error) setNotice(r.error);
       window.setTimeout(() => setNotice(null), 2500);
     });
+    const offInv = networkManager.onAssetInventory(setOwned);
     return () => {
       off();
       offResult();
+      offInv();
     };
   }, []);
 
@@ -212,11 +216,26 @@ export function WorldEditBar() {
             <img src={`/assets/${a.file}`} alt="" draggable={false} style={{ width: 40, height: 40, objectFit: "contain", pointerEvents: "none" }} />
             {a.label}
             <span style={{ fontSize: "0.62rem", opacity: 0.85 }}>
-              {zoneAssetPrice(a.id) === 0 ? "Free" : `${zoneAssetPrice(a.id).toLocaleString()}g`}
+              {zoneAssetPrice(a.id) === 0
+                ? "Free"
+                : (owned[a.id] ?? 0) > 0
+                  ? `×${owned[a.id]}`
+                  : `${zoneAssetPrice(a.id).toLocaleString()}g`}
             </span>
           </button>
         ))}
       </div>
+      <button
+        type="button"
+        className="chibi-btn chibi-btn--gold"
+        style={{ width: "100%", marginTop: 6, padding: "8px 10px" }}
+        onClick={() => {
+          playSfx("ui_open");
+          setBuildShopOpen(true);
+        }}
+      >
+        🛒 Build Shop
+      </button>
 
       <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
         <button

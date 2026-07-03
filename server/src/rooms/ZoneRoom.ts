@@ -197,7 +197,8 @@ import {
   ZONE_SLOT_COST,
   ZONE_PASS_MS,
   playerZoneToConfig,
-  zoneBuildCost,
+  zoneAssetPrice,
+  type PlayerZoneBuild,
   type PlayerZoneRecord,
 } from "@metricbase/shared";
 import { verifyAccessToken } from "../auth/accessToken.js";
@@ -317,6 +318,7 @@ import {
 } from "../zones/zoneRegistry.js";
 import { creditTreasuryGold } from "../economy/treasury.js";
 import { isPurchaseRedeemed, recordTokenPurchase } from "../db/tokenPurchases.js";
+import { adjustAsset, getAssetInventory, getAssetQty } from "../zones/assetInventory.js";
 import { getTerritoryOwner, setTerritoryOwner } from "../territory/territoryRegistry.js";
 import { getSovereign, setSovereign } from "../siege/siegeRegistry.js";
 import { clearOnline, isOnline, sendToPlayer, sendToPlayers, setOnline } from "../social/presence.js";
@@ -350,6 +352,16 @@ function getClientRpcUrl(): string {
 }
 
 type JoinAuthData = JoinOptions & { wallet?: string };
+
+/** Count each placeable asset used in a build (ground paint + scenery + nodes). */
+function countBuildAssets(build: PlayerZoneBuild): Map<string, number> {
+  const counts = new Map<string, number>();
+  const add = (id: string) => counts.set(id, (counts.get(id) ?? 0) + 1);
+  for (const t of build.tiles) add(t.type);
+  for (const s of build.scenery) add(s.prop);
+  for (const r of build.resources) add(r.prop ?? r.name);
+  return counts;
+}
 
 export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   public static activeRooms = new Set<ZoneRoom>();
@@ -595,6 +607,13 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     });
     this.onProtectedMessage("myWorlds", (client) => {
       this.handleMyWorlds(client);
+    });
+    this.onProtectedMessage("assetInventory", (client) => {
+      const p = this.state.players.get(client.sessionId);
+      if (p) this.sendAssetInventory(client, p.name);
+    });
+    this.onProtectedMessage("buildShopBuy", (client, message: { assetId?: string; qty?: number }) => {
+      void this.handleBuildShopBuy(client, message.assetId ?? "", Number(message.qty) || 1);
     });
 
     this.onProtectedMessage("chop", (client, message: { resourceId?: string }) => {
@@ -1130,6 +1149,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     client.send("farmState", this.buildFarmState());
     client.send("housingState", this.buildHousingState());
     client.send("lootBags", { bags: [...this.lootBags.values()] });
+    this.sendAssetInventory(client, player.name);
     // Player-owned zones aren't in the client's static ZONE_CONFIGS — push the
     // projected config so the client can render the owner's build.
     if (this.playerZone) {
@@ -2932,24 +2952,48 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     const { build, error } = sanitizeBuild(rawBuild);
     if (!build) return void client.send("zoneResult", { ok: false, error: error ?? "Invalid build." });
 
-    // Charge gold for newly-placed assets (grass/bare-dirt are free). We bill the
-    // increase in total build value since the last save; removing items never
-    // refunds. Admins build for free.
+    // Reconcile placed assets against the owner's inventory. Newly-placed assets
+    // are taken from inventory first (free); any shortfall is bought inline at
+    // its gold price. Removed assets are returned to inventory. Grass/bare-dirt
+    // (price 0) are free & unlimited. Admins build for free with no inventory use.
     const wallet = this.playerWallets.get(client.sessionId) ?? null;
-    const cost = Math.max(0, zoneBuildCost(build) - zoneBuildCost(zone.build));
-    if (cost > 0 && !adService.isAdmin(wallet)) {
+    const isAdmin = adService.isAdmin(wallet);
+    const oldCounts = countBuildAssets(zone.build);
+    const newCounts = countBuildAssets(build);
+    const consume = new Map<string, number>();
+    const restore = new Map<string, number>();
+    let goldCost = 0;
+    for (const id of new Set([...oldCounts.keys(), ...newCounts.keys()])) {
+      const price = zoneAssetPrice(id);
+      if (price <= 0) continue; // free assets never touch inventory/gold
+      const delta = (newCounts.get(id) ?? 0) - (oldCounts.get(id) ?? 0);
+      if (delta > 0 && !isAdmin) {
+        const fromInv = Math.min(getAssetQty(player.name, id), delta);
+        if (fromInv > 0) consume.set(id, fromInv);
+        goldCost += (delta - fromInv) * price;
+      } else if (delta < 0 && !isAdmin) {
+        restore.set(id, -delta);
+      }
+    }
+    if (!isAdmin && goldCost > 0) {
       const gold = this.playerGold.get(player.name) ?? STARTING_GOLD;
-      if (gold < cost) {
+      if (gold < goldCost) {
         return void client.send("zoneResult", {
           ok: false,
-          error: `You need ${cost.toLocaleString()} gold to build this (you have ${gold.toLocaleString()}).`,
+          error: `You need ${goldCost.toLocaleString()} gold to build this (you have ${gold.toLocaleString()}). Buy assets in the Build Shop first.`,
         });
       }
-      this.playerGold.set(player.name, gold - cost);
-      await creditTreasuryGold("zone_build", cost);
+      this.playerGold.set(player.name, gold - goldCost);
+      await creditTreasuryGold("zone_build", goldCost);
       this.sendProfile(client, player);
       await this.persistPlayer(player);
     }
+    if (!isAdmin) {
+      for (const [id, n] of consume) adjustAsset(player.name, id, -n);
+      for (const [id, n] of restore) adjustAsset(player.name, id, n);
+      if (consume.size || restore.size) this.sendAssetInventory(client, player.name);
+    }
+    const cost = goldCost;
 
     setZoneBuild(zoneId, build);
     // The build changed which tiles are solid — drop the cached collision grid.
@@ -3075,6 +3119,40 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         build: z.build,
       })),
     });
+  }
+
+  private sendAssetInventory(client: Client, playerName: string) {
+    client.send("assetInventory", { assets: getAssetInventory(playerName) });
+  }
+
+  /** Buy build-asset items for gold (the Build Shop). Adds them to inventory. */
+  private async handleBuildShopBuy(client: Client, assetId: string, qty: number) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const count = Math.max(1, Math.min(999, Math.floor(qty)));
+    const price = zoneAssetPrice(assetId);
+    if (!assetId || price <= 0) {
+      return void client.send("buildShopResult", { ok: false, error: "That item can't be bought." });
+    }
+    const wallet = this.playerWallets.get(client.sessionId) ?? null;
+    const free = adService.isAdmin(wallet);
+    const total = price * count;
+    if (!free) {
+      const gold = this.playerGold.get(player.name) ?? STARTING_GOLD;
+      if (gold < total) {
+        return void client.send("buildShopResult", {
+          ok: false,
+          error: `Need ${total.toLocaleString()} gold (you have ${gold.toLocaleString()}).`,
+        });
+      }
+      this.playerGold.set(player.name, gold - total);
+      await creditTreasuryGold("build_shop", total);
+      this.sendProfile(client, player);
+      await this.persistPlayer(player);
+    }
+    adjustAsset(player.name, assetId, count);
+    this.sendAssetInventory(client, player.name);
+    client.send("buildShopResult", { ok: true, assetId, qty: count });
   }
 
   private async checkTalkObjectives(client: Client, playerName: string, npcId: string) {

@@ -26,6 +26,7 @@ import { MailPanel } from "./ui/MailPanel";
 import { AdsPanel } from "./ui/AdsPanel";
 import { WorldsPanel } from "./ui/WorldsPanel";
 import { WorldEditBar } from "./ui/WorldEditBar";
+import { BuildShopPanel } from "./ui/BuildShopPanel";
 import { AdBanner } from "./ui/AdBanner";
 import { QuestPanel } from "./ui/QuestPanel";
 import { ErrorBoundary } from "./ui/ErrorBoundary";
@@ -335,6 +336,7 @@ export function App() {
       {joined && <AdsPanel />}
       {joined && <AdBanner />}
       {joined && <WorldsPanel />}
+      {joined && <BuildShopPanel />}
       {joined && <WorldEditBar />}
       {joined && <HousingPanel />}
       {joined && <PlayerShopPanel />}

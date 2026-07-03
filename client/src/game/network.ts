@@ -246,6 +246,9 @@ export class NetworkManager {
   private pipGoldResultListeners = new Set<(result: PipGoldResultPayload) => void>();
   private pipGoldInfoListeners = new Set<(info: PipGoldInfoPayload) => void>();
   private zoneConfigUpdateListeners = new Set<(zoneId: string) => void>();
+  private assetInventoryListeners = new Set<(assets: Record<string, number>) => void>();
+  private latestAssetInventory: Record<string, number> = {};
+  private buildShopResultListeners = new Set<(r: { ok: boolean; assetId?: string; error?: string }) => void>();
   private latestHousingState: HousingStatePayload = { plots: [] };
   private emoteListeners = new Set<EmoteListener>();
   private worldStatsListeners = new Set<WorldStatsListener>();
@@ -488,6 +491,24 @@ export class NetworkManager {
   }
   requestPipGoldInfo() {
     this.room?.send("pipGoldInfo", {});
+  }
+  requestAssetInventory() {
+    this.room?.send("assetInventory", {});
+  }
+  sendBuildShopBuy(assetId: string, qty: number) {
+    this.room?.send("buildShopBuy", { assetId, qty });
+  }
+  getAssetInventory(): Record<string, number> {
+    return this.latestAssetInventory;
+  }
+  onAssetInventory(listener: (assets: Record<string, number>) => void) {
+    this.assetInventoryListeners.add(listener);
+    listener(this.latestAssetInventory);
+    return () => this.assetInventoryListeners.delete(listener);
+  }
+  onBuildShopResult(listener: (r: { ok: boolean; assetId?: string; error?: string }) => void) {
+    this.buildShopResultListeners.add(listener);
+    return () => this.buildShopResultListeners.delete(listener);
   }
 
   onWorldsList(listener: (worlds: WorldDirectoryEntry[]) => void) {
@@ -1326,6 +1347,13 @@ export class NetworkManager {
     });
     this.room.onMessage("pipGoldInfo", (msg: PipGoldInfoPayload) => {
       for (const l of this.pipGoldInfoListeners) l(msg);
+    });
+    this.room.onMessage("assetInventory", (msg: { assets: Record<string, number> }) => {
+      this.latestAssetInventory = msg.assets ?? {};
+      for (const l of this.assetInventoryListeners) l(this.latestAssetInventory);
+    });
+    this.room.onMessage("buildShopResult", (msg: { ok: boolean; assetId?: string; error?: string }) => {
+      for (const l of this.buildShopResultListeners) l(msg);
     });
     this.room.onMessage("profile", (profile: ProfilePayload) => {
       for (const listener of this.profileListeners) {

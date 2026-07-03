@@ -56,6 +56,7 @@ interface GameStore {
   mailUnread: number;
   adsOpen: boolean;
   worldsOpen: boolean;
+  buildShopOpen: boolean;
   /** True while the player is actively editing a World (hides gameplay HUD). */
   worldEditing: boolean;
   housingOpen: boolean;
@@ -119,6 +120,7 @@ interface GameStore {
   setMailUnread: (n: number) => void;
   setAdsOpen: (open: boolean) => void;
   setWorldsOpen: (open: boolean) => void;
+  setBuildShopOpen: (open: boolean) => void;
   setWorldEditing: (editing: boolean) => void;
   openHousing: (plotId: string) => void;
   setHousingOpen: (open: boolean) => void;
@@ -176,6 +178,7 @@ export const useGameStore = create<GameStore>((set) => ({
   mailUnread: 0,
   adsOpen: false,
   worldsOpen: false,
+  buildShopOpen: false,
   worldEditing: false,
   housingOpen: false,
   housingPlotId: null,
@@ -272,6 +275,7 @@ export const useGameStore = create<GameStore>((set) => ({
   setMailUnread: (mailUnread) => set({ mailUnread }),
   setAdsOpen: (adsOpen) => set({ adsOpen }),
   setWorldsOpen: (worldsOpen) => set({ worldsOpen }),
+  setBuildShopOpen: (buildShopOpen) => set({ buildShopOpen }),
   setWorldEditing: (worldEditing) => set({ worldEditing }),
   openHousing: (housingPlotId) =>
     set({ housingPlotId, housingOpen: true, inventoryOpen: false, craftOpen: false }),

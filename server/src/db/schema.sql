@@ -242,6 +242,25 @@ CREATE TABLE IF NOT EXISTS player_zones (
 );
 -- Gold a visitor pays the owner per gather (added later).
 ALTER TABLE player_zones ADD COLUMN IF NOT EXISTS gather_tax INTEGER NOT NULL DEFAULT 0;
+
+-- Build-asset inventory: how many of each placeable asset a player owns (bought
+-- from the Build Shop or P2P, consumed when placed, returned when removed).
+CREATE TABLE IF NOT EXISTS asset_inventory (
+  player_name VARCHAR(16) NOT NULL,
+  asset_id VARCHAR(32) NOT NULL,
+  qty INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (player_name, asset_id)
+);
+
+-- Player-to-player asset market: an open listing of build assets for gold.
+CREATE TABLE IF NOT EXISTS asset_listings (
+  id VARCHAR(64) PRIMARY KEY,
+  seller_name VARCHAR(16) NOT NULL,
+  asset_id VARCHAR(32) NOT NULL,
+  qty INTEGER NOT NULL,
+  price INTEGER NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 -- Per-visitor zone passes: which wallet may enter which zone, until when.
 CREATE TABLE IF NOT EXISTS zone_passes (
   zone_id VARCHAR(64) NOT NULL,
