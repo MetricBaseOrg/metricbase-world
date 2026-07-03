@@ -40,9 +40,10 @@ const ANCHOR: Record<string, number> = {
   // ground (top-face centre)
   grass: 0.445, grass2: 0.404, soil: 0.387, empty: 0.382, water: 0.429, water2: 0.365,
   river: 0.49, snow: 0.483, lava: 0.47, "stone-path": 0.481,
-  // buildings (base surface)
-  house: 0.708, mansion: 0.622, cabin: 0.629, "shop-blue": 0.64, "market-wheat": 0.697,
-  "market-carrot": 0.699, windmill: 0.717, fence: 0.684, gate: 0.723, bridge: 0.499,
+  // buildings — the base grass-surface line (top of the base block, not the
+  // wider skirt/shadow below it, which would push the grass up = "too high").
+  house: 0.598, mansion: 0.598, cabin: 0.594, "shop-blue": 0.597, "market-wheat": 0.598,
+  "market-carrot": 0.598, windmill: 0.615, fence: 0.684, gate: 0.723, bridge: 0.499,
   // resources (base surface)
   pine: 0.791, "pine-small": 0.6, sapling: 0.559, "young-oak": 0.701, "wild-oak": 0.748,
   ironwood: 0.729, hardwood: 0.729, "ancient-hardwood": 0.73, "cavern-hardwood": 0.73,
