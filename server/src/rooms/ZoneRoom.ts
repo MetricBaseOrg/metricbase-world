@@ -319,6 +319,15 @@ import {
 import { creditTreasuryGold } from "../economy/treasury.js";
 import { isPurchaseRedeemed, recordTokenPurchase } from "../db/tokenPurchases.js";
 import { adjustAsset, getAssetInventory, getAssetQty } from "../zones/assetInventory.js";
+import {
+  addPendingGold,
+  cancelListing,
+  completeBuy,
+  createListing,
+  getAssetListings,
+  getListing,
+  takePendingGold,
+} from "../zones/assetMarket.js";
 import { getTerritoryOwner, setTerritoryOwner } from "../territory/territoryRegistry.js";
 import { getSovereign, setSovereign } from "../siege/siegeRegistry.js";
 import { clearOnline, isOnline, sendToPlayer, sendToPlayers, setOnline } from "../social/presence.js";
@@ -614,6 +623,21 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     });
     this.onProtectedMessage("buildShopBuy", (client, message: { assetId?: string; qty?: number }) => {
       void this.handleBuildShopBuy(client, message.assetId ?? "", Number(message.qty) || 1);
+    });
+    this.onMessage("assetMarket", (client) => {
+      client.send("assetMarket", { listings: getAssetListings() });
+    });
+    this.onProtectedMessage(
+      "assetMarketList",
+      (client, message: { assetId?: string; qty?: number; price?: number }) => {
+        this.handleAssetMarketList(client, message.assetId ?? "", Number(message.qty) || 0, Number(message.price) || 0);
+      },
+    );
+    this.onProtectedMessage("assetMarketCancel", (client, message: { id?: string }) => {
+      this.handleAssetMarketCancel(client, message.id ?? "");
+    });
+    this.onProtectedMessage("assetMarketBuy", (client, message: { id?: string }) => {
+      void this.handleAssetMarketBuy(client, message.id ?? "");
     });
 
     this.onProtectedMessage("chop", (client, message: { resourceId?: string }) => {
@@ -1129,7 +1153,9 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     this.inputs.set(client.sessionId, { dx: 0, dy: 0 });
     this.questProgress.set(player.name, saved?.questProgress ?? { active: [], objectiveIndex: {}, completed: [] });
     this.inventories.set(player.name, normalizeInventory(saved?.inventory));
-    this.playerGold.set(player.name, saved?.gold ?? STARTING_GOLD);
+    // Collect any gold owed from asset sales made while offline.
+    const owed = takePendingGold(player.name);
+    this.playerGold.set(player.name, (saved?.gold ?? STARTING_GOLD) + owed);
     const eq = normalizeEquipment(saved?.equipment);
     this.playerEquipment.set(player.name, eq);
     player.weaponId = eq.weaponId ?? "";
@@ -3153,6 +3179,70 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     adjustAsset(player.name, assetId, count);
     this.sendAssetInventory(client, player.name);
     client.send("buildShopResult", { ok: true, assetId, qty: count });
+  }
+
+  private broadcastAssetMarket() {
+    const payload = { listings: getAssetListings() };
+    for (const room of ZoneRoom.activeRooms) room.broadcast("assetMarket", payload);
+  }
+
+  /** Credit gold to a player by name across any room; queue it if they're offline. */
+  private creditPlayerByName(name: string, amount: number) {
+    if (amount <= 0) return;
+    for (const room of ZoneRoom.activeRooms) {
+      const sessionId = room.activePlayerSession.get(name);
+      const p = sessionId ? room.state.players.get(sessionId) : undefined;
+      const client = sessionId ? room.clients.find((c) => c.sessionId === sessionId) : undefined;
+      if (p && client) {
+        room.playerGold.set(name, (room.playerGold.get(name) ?? STARTING_GOLD) + amount);
+        room.sendProfile(client, p);
+        void room.persistPlayer(p);
+        return;
+      }
+    }
+    addPendingGold(name, amount); // offline — collected on next join
+  }
+
+  private handleAssetMarketList(client: Client, assetId: string, qty: number, price: number) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const result = createListing(player.name, assetId, qty, price);
+    if (!result.ok) return void client.send("zoneResult", { ok: false, error: result.error });
+    this.sendAssetInventory(client, player.name);
+    this.broadcastAssetMarket();
+    client.send("zoneResult", { ok: true, message: "Listed on the market." });
+  }
+
+  private handleAssetMarketCancel(client: Client, id: string) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const result = cancelListing(player.name, id);
+    if (!result.ok) return void client.send("zoneResult", { ok: false, error: result.error });
+    this.sendAssetInventory(client, player.name);
+    this.broadcastAssetMarket();
+    client.send("zoneResult", { ok: true, message: "Listing cancelled — assets returned." });
+  }
+
+  private async handleAssetMarketBuy(client: Client, id: string) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const listing = getListing(id);
+    if (!listing) return void client.send("zoneResult", { ok: false, error: "That listing is gone." });
+    if (listing.sellerName === player.name) {
+      return void client.send("zoneResult", { ok: false, error: "That's your listing — cancel it instead." });
+    }
+    const gold = this.playerGold.get(player.name) ?? STARTING_GOLD;
+    if (gold < listing.price) {
+      return void client.send("zoneResult", { ok: false, error: `Need ${listing.price.toLocaleString()} gold.` });
+    }
+    this.playerGold.set(player.name, gold - listing.price);
+    completeBuy(player.name, id);
+    this.creditPlayerByName(listing.sellerName, listing.price);
+    this.sendProfile(client, player);
+    await this.persistPlayer(player);
+    this.sendAssetInventory(client, player.name);
+    this.broadcastAssetMarket();
+    client.send("zoneResult", { ok: true, message: `Bought ${listing.qty}× for ${listing.price.toLocaleString()}g.` });
   }
 
   private async checkTalkObjectives(client: Client, playerName: string, npcId: string) {

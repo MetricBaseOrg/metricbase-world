@@ -110,6 +110,14 @@ export interface PipGoldResultPayload {
   gold?: number;
   error?: string;
 }
+export interface AssetListingView {
+  id: string;
+  sellerName: string;
+  assetId: string;
+  qty: number;
+  price: number;
+  shopPrice: number;
+}
 export interface PipGoldInfoPayload {
   enabled: boolean;
   treasury: string | null;
@@ -249,6 +257,8 @@ export class NetworkManager {
   private assetInventoryListeners = new Set<(assets: Record<string, number>) => void>();
   private latestAssetInventory: Record<string, number> = {};
   private buildShopResultListeners = new Set<(r: { ok: boolean; assetId?: string; error?: string }) => void>();
+  private assetMarketListeners = new Set<(listings: AssetListingView[]) => void>();
+  private latestAssetMarket: AssetListingView[] = [];
   private latestHousingState: HousingStatePayload = { plots: [] };
   private emoteListeners = new Set<EmoteListener>();
   private worldStatsListeners = new Set<WorldStatsListener>();
@@ -509,6 +519,23 @@ export class NetworkManager {
   onBuildShopResult(listener: (r: { ok: boolean; assetId?: string; error?: string }) => void) {
     this.buildShopResultListeners.add(listener);
     return () => this.buildShopResultListeners.delete(listener);
+  }
+  requestAssetMarket() {
+    this.room?.send("assetMarket", {});
+  }
+  sendAssetMarketList(assetId: string, qty: number, price: number) {
+    this.room?.send("assetMarketList", { assetId, qty, price });
+  }
+  sendAssetMarketCancel(id: string) {
+    this.room?.send("assetMarketCancel", { id });
+  }
+  sendAssetMarketBuy(id: string) {
+    this.room?.send("assetMarketBuy", { id });
+  }
+  onAssetMarket(listener: (listings: AssetListingView[]) => void) {
+    this.assetMarketListeners.add(listener);
+    listener(this.latestAssetMarket);
+    return () => this.assetMarketListeners.delete(listener);
   }
 
   onWorldsList(listener: (worlds: WorldDirectoryEntry[]) => void) {
@@ -1354,6 +1381,10 @@ export class NetworkManager {
     });
     this.room.onMessage("buildShopResult", (msg: { ok: boolean; assetId?: string; error?: string }) => {
       for (const l of this.buildShopResultListeners) l(msg);
+    });
+    this.room.onMessage("assetMarket", (msg: { listings: AssetListingView[] }) => {
+      this.latestAssetMarket = msg.listings ?? [];
+      for (const l of this.assetMarketListeners) l(this.latestAssetMarket);
     });
     this.room.onMessage("profile", (profile: ProfilePayload) => {
       for (const listener of this.profileListeners) {

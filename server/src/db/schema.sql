@@ -261,6 +261,13 @@ CREATE TABLE IF NOT EXISTS asset_listings (
   price INTEGER NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Gold owed to a player from asset sales while they were offline; applied on
+-- their next join.
+CREATE TABLE IF NOT EXISTS pending_gold (
+  player_name VARCHAR(16) PRIMARY KEY,
+  amount INTEGER NOT NULL DEFAULT 0
+);
 -- Per-visitor zone passes: which wallet may enter which zone, until when.
 CREATE TABLE IF NOT EXISTS zone_passes (
   zone_id VARCHAR(64) NOT NULL,
