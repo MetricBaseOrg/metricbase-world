@@ -236,6 +236,7 @@ export class GameScene extends Phaser.Scene {
   private worldEditTool: EditTool | null = null;
   private worldEditDraft: PlayerZoneBuild | null = null;
   private editGrid?: Phaser.GameObjects.Graphics;
+  private spawnMarker?: Phaser.GameObjects.Text;
   /** Walk-up-and-interact scenery props (arcade cabinet, blackjack table). */
   private interactableScenery: { id: string; worldX: number; worldY: number; label: string }[] = [];
   /** Warm light pools cast by lamp/lantern/fire scenery; brighten + flicker at night. */
@@ -1768,6 +1769,7 @@ export class GameScene extends Phaser.Scene {
     this.worldEditing = true;
     this.worldEditZoneId = zoneId;
     this.drawEditGrid();
+    this.drawSpawnMarker(this.worldEditDraft.spawnTile.x, this.worldEditDraft.spawnTile.y);
   }
 
   endWorldEdit() {
@@ -1775,6 +1777,21 @@ export class GameScene extends Phaser.Scene {
     this.worldEditTool = null;
     this.editGrid?.destroy();
     this.editGrid = undefined;
+    this.spawnMarker?.destroy();
+    this.spawnMarker = undefined;
+  }
+
+  /** Show where visitors will spawn while editing (a pin the owner can move). */
+  private drawSpawnMarker(tileX: number, tileY: number) {
+    const { x, y } = tileToWorld(tileX, tileY);
+    if (!this.spawnMarker) {
+      this.spawnMarker = this.add
+        .text(x, y, "📍", { fontSize: "28px" })
+        .setOrigin(0.5, 0.9)
+        .setDepth(1_000_000);
+    } else {
+      this.spawnMarker.setPosition(x, y);
+    }
   }
 
   setWorldEditTool(tool: EditTool | null) {
@@ -1814,7 +1831,11 @@ export class GameScene extends Phaser.Scene {
     if (tileX < 0 || tileY < 0 || tileX >= PLAYER_ZONE_GRID || tileY >= PLAYER_ZONE_GRID) return;
 
     let groundChanged = false;
-    if (tool.type === "prop") {
+    if (tool.type === "spawn") {
+      draft.spawnTile = { x: tileX, y: tileY };
+      this.drawSpawnMarker(tileX, tileY);
+      return;
+    } else if (tool.type === "prop") {
       const id = `e${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
       draft.scenery.push({ id, tileX, tileY, prop: tool.value });
     } else if (tool.type === "ground") {

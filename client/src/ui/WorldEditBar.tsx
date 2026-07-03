@@ -91,6 +91,13 @@ export function WorldEditBar() {
     setWorldEditTool(t);
   };
 
+  const pickSpawn = () => {
+    playSfx("ui_click");
+    const t: EditTool = { type: "spawn", value: "" };
+    setTool(t);
+    setWorldEditTool(t);
+  };
+
   // Drag a palette item out onto the map: select it as the tool, follow the
   // pointer with a ghost, and drop it on whatever tile is under the cursor.
   const startDrag = (asset: { id: string; file: string; category: ZoneAssetCategory }, e: ReactPointerEvent) => {
@@ -216,6 +223,14 @@ export function WorldEditBar() {
         >
           🧹 Erase
         </button>
+        <button
+          type="button"
+          className={`chibi-btn ${tool?.type === "spawn" ? "chibi-btn--gold" : "chibi-btn--secondary"}`}
+          style={{ flex: 1, padding: "10px 12px" }}
+          onClick={pickSpawn}
+        >
+          📍 Spawn
+        </button>
         <button type="button" className="chibi-btn chibi-btn--mint" style={{ flex: 1, padding: "10px 12px" }} onClick={save}>
           💾 Save
         </button>
@@ -223,7 +238,9 @@ export function WorldEditBar() {
       <div className="chibi-text-muted" style={{ fontSize: "0.68rem", marginTop: 6 }}>
         {tool?.type === "erase"
           ? "Tap a tile to remove what's on it."
-          : "Drag an item onto the map to place it — or tap it, then tap tiles."}
+          : tool?.type === "spawn"
+            ? "Tap a tile to set where visitors arrive (📍)."
+            : "Drag an item onto the map to place it — or tap it, then tap tiles."}
       </div>
 
       {ghost && (

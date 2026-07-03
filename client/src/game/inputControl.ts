@@ -1,9 +1,10 @@
 import Phaser from "phaser";
 import type { PlayerZoneBuild } from "@metricbase/shared";
 
-/** A build-editor tool: place a prop, paint a ground tile, or erase. */
+/** A build-editor tool: place a prop, paint a ground tile, erase, or set the
+ *  visitor spawn point. */
 export interface EditTool {
-  type: "prop" | "ground" | "erase";
+  type: "prop" | "ground" | "erase" | "spawn";
   value: string;
 }
 
