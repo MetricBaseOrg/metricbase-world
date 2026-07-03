@@ -1879,6 +1879,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
     const defeated = nextHp === 0;
     if (defeated) {
+      bumpMetric("mob.kills", 1);
       this.mobRespawnAt.set(npcId, now + npc.combat.respawnMs);
 
       // Party play: nearby party members fighting in this zone share the spoils.
@@ -2391,6 +2392,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     const knockedOut = next === 0;
     let arrested = false;
     if (knockedOut) {
+      bumpMetric("pvp.kills", 1);
       const victimWasCriminal = victim.criminal;
       // Drop loot per tier (red: resources; black: everything).
       this.dropLootBag(victim, tier);
@@ -3120,6 +3122,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     }
     this.playerGold.set(player.name, gold - zone.passPrice);
     addZoneEarnings(zoneId, zone.passPrice);
+    bumpMetric("pass.sold", 1);
+    bumpMetric("pass.gold", zone.passPrice);
     grantZonePass(zoneId, player.name, Date.now() + ZONE_PASS_MS);
     this.sendProfile(client, player);
     await this.persistPlayer(player);
@@ -3321,6 +3325,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
     progress = completeQuest(progress, questId);
     this.questProgress.set(playerName, progress);
+    bumpMetric("quest.completed", 1);
     this.grantXp(client, player, quest.rewardXp, `completed ${quest.title}`);
     if (quest.rewardGold) {
       this.grantGold(client, player, quest.rewardGold, `completed ${quest.title}`);
@@ -5264,6 +5269,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       if (tax > 0 && gold >= tax) {
         this.playerGold.set(player.name, gold - tax);
         addZoneTax(this.playerZone.zoneId, tax);
+        bumpMetric("gathertax.gold", tax);
       }
     }
 
@@ -5559,6 +5565,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     this.sendProfile(client, player);
     const crop = getFarmCropBySeed(active.seedId);
     const yieldQty = crop?.yield ?? 1;
+    bumpMetric("farm.harvest", yieldQty);
     await this.grantLoot(client, player.name, active.cropId, yieldQty);
     const skillXp = crop?.skillXp ?? 10;
     const { newLevel, leveledUp } = this.grantSkillXp(player.name, "farming", skillXp);

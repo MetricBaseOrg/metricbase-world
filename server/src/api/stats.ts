@@ -20,7 +20,7 @@ async function scalar(sql: string, def = 0): Promise<number> {
 interface EconomyStats {
   version: string;
   updatedAt: number;
-  players: { registered: number; online: number; circulatingGold: number };
+  players: { registered: number; online: number; circulatingGold: number; avgLevel: number; maxLevel: number };
   worlds: { total: number; published: number };
   treasury: { total: number; bySource: { source: string; gold: number }[] };
   goldMarket: { trades: number; goldVolume: number };
@@ -32,10 +32,12 @@ interface EconomyStats {
 
 async function buildStats(): Promise<EconomyStats> {
   const pool = getPool();
-  const [registered, circulatingGold, worldsTotal, worldsPub, gmTrades, gmVol, alCount, alValue, aiOwned] =
+  const [registered, circulatingGold, avgLevel, maxLevel, worldsTotal, worldsPub, gmTrades, gmVol, alCount, alValue, aiOwned] =
     await Promise.all([
       scalar("SELECT COUNT(*) v FROM characters"),
       scalar("SELECT COALESCE(SUM(gold),0) v FROM characters"),
+      scalar("SELECT COALESCE(ROUND(AVG(level)),0) v FROM characters"),
+      scalar("SELECT COALESCE(MAX(level),0) v FROM characters"),
       scalar("SELECT COUNT(*) v FROM player_zones"),
       scalar("SELECT COUNT(*) v FROM player_zones WHERE published"),
       scalar("SELECT COUNT(*) v FROM market_trades"),
@@ -67,11 +69,26 @@ async function buildStats(): Promise<EconomyStats> {
   }
 
   const daily = await getDailySeries(14);
+  // Fold in the $BASE gold-market volume per day from market_trades.
+  if (pool) {
+    try {
+      const m = await pool.query<{ day: Date; v: string }>(
+        `SELECT created_at::date AS day, SUM(gold_amount) v FROM market_trades
+         WHERE created_at >= (CURRENT_DATE - 13) GROUP BY 1 ORDER BY 1`,
+      );
+      for (const r of m.rows) {
+        const day = r.day instanceof Date ? r.day.toISOString().slice(0, 10) : String(r.day).slice(0, 10);
+        daily.push({ day, metric: "market.gold", value: Number(r.v) });
+      }
+    } catch {
+      /* ignore */
+    }
+  }
 
   return {
     version: GAME_VERSION,
     updatedAt: Date.now(),
-    players: { registered, online: ZoneRoom.onlinePlayerCount(), circulatingGold },
+    players: { registered, online: ZoneRoom.onlinePlayerCount(), circulatingGold, avgLevel, maxLevel },
     worlds: { total: worldsTotal, published: worldsPub },
     treasury: { total: bySource.reduce((a, b) => a + b.gold, 0), bySource },
     goldMarket: { trades: gmTrades, goldVolume: gmVol },

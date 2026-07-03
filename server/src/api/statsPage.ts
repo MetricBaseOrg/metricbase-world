@@ -51,7 +51,7 @@ export const STATS_PAGE_HTML = `<!doctype html>
 </header>
 <div class="wrap">
   <div class="grid">
-    <div class="card"><h2>Players</h2><div class="big" id="registered">—</div><div class="sub"><span id="online">—</span> online now</div></div>
+    <div class="card"><h2>Players</h2><div class="big" id="registered">—</div><div class="sub"><span id="online">—</span> online · avg Lv <span id="avgLevel">—</span> · top Lv <span id="maxLevel">—</span></div></div>
     <div class="card"><h2>Circulating gold</h2><div class="big gold" id="circulating">—</div><div class="sub">held by all players</div></div>
     <div class="card"><h2>Player Worlds</h2><div class="big mint" id="worlds">—</div><div class="sub"><span id="worldsPub">—</span> published</div></div>
     <div class="card"><h2>Treasury (burned)</h2><div class="big burn" id="treasury">—</div><div class="sub">gold removed from circulation</div></div>
@@ -75,6 +75,12 @@ export const STATS_PAGE_HTML = `<!doctype html>
       <span><span class="dot" style="background:var(--sell)"></span>Sold to shop</span>
       <span><span class="dot" style="background:var(--buy)"></span>Bought</span>
     </div>
+  </div>
+
+  <div class="card wide" style="margin-top:14px">
+    <h2>💹 $BASE gold-market volume (last 14 days)</h2>
+    <svg id="mktChart" viewBox="0 0 720 220" role="img" aria-label="Gold-market volume per day"></svg>
+    <div class="legend"><span><span class="dot" style="background:var(--sell)"></span>Gold traded for $BASE per day</span></div>
   </div>
 
   <div class="card wide" style="margin-top:14px">
@@ -143,6 +149,8 @@ async function load(){
     set("ver",s.version);
     set("registered",fmt(s.players.registered));
     set("online",fmt(s.players.online));
+    set("avgLevel",fmt(s.players.avgLevel||0));
+    set("maxLevel",fmt(s.players.maxLevel||0));
     set("circulating",fmt(s.players.circulatingGold)+"g");
     set("worlds",fmt(s.worlds.total));
     set("worldsPub",fmt(s.worlds.published));
@@ -156,9 +164,13 @@ async function load(){
       {name:"Crafted",color:"#e09b2d",vals:series(daily,days,"craft.count")},
       {name:"Sold",color:"#5a97e0",vals:series(daily,days,"sell.count")},
       {name:"Bought",color:"#d85f97",vals:series(daily,days,"buy.count")}]);
-    var tiles=[["Gathered",a["gather.count"]],["Crafted",a["craft.count"]],["Sold to shop",a["sell.count"]],
-      ["Bought",a["buy.count"]],["Assets placed",a["asset.placed"]],["Assets bought",a["asset.bought"]],
-      ["Assets traded",a["asset.sold"]],["Mob gold",a["mob.gold"]],["Quest gold",a["quest.gold"]]];
+    lineChart(el("mktChart"),days,[{name:"Gold volume",color:"#5a97e0",vals:series(daily,days,"market.gold")}]);
+    var tiles=[["Mobs defeated",a["mob.kills"]],["Quests done",a["quest.completed"]],["PvP kills",a["pvp.kills"]],
+      ["Gathered",a["gather.count"]],["Wood",a["gather.woodcutting"]],["Ore",a["gather.mining"]],["Fish",a["gather.fishing"]],
+      ["Crops harvested",a["farm.harvest"]],["Crafted",a["craft.count"]],["Sold to shop",a["sell.count"]],
+      ["Bought from shop",a["buy.count"]],["Assets placed",a["asset.placed"]],["Assets bought",a["asset.bought"]],
+      ["Assets traded",a["asset.sold"]],["World passes sold",a["pass.sold"]],["Pass gold",a["pass.gold"]],
+      ["Gather tax paid",a["gathertax.gold"]],["Gold from mobs",a["mob.gold"]],["Gold from quests",a["quest.gold"]]];
     el("totals").innerHTML=tiles.map(function(t){return '<div class="tile"><div class="n">'+fmt(t[1]||0)+'</div><div class="l">'+t[0]+'</div></div>';}).join("");
     rows(el("treasurySrc"),s.treasury.bySource,function(x){return '<div class="row"><span>'+x.source+'</span><b>'+fmt(x.gold)+'g</b></div>';});
     rows(el("assetMkt"),[{k:"Active listings",v:s.assetMarket.listings},{k:"Listed value",v:s.assetMarket.askValue+"g"},{k:"Assets owned",v:s.assetMarket.totalOwned},{k:"$BASE trades",v:s.goldMarket.trades},{k:"Market gold vol.",v:s.goldMarket.goldVolume+"g"}],function(x){return '<div class="row"><span>'+x.k+'</span><b>'+(typeof x.v==="number"?fmt(x.v):x.v)+'</b></div>';});
