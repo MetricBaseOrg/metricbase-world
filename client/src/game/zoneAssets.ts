@@ -67,7 +67,7 @@ const DESC: Record<string, string> = {
   empty: "Plain bare dirt — free to paint anywhere.",
   water: "Sparkling shallow water for lakes and moats.",
   water2: "Darker deep water — pairs well with Water edges.",
-  river: "Flowing river strip for streams and borders.",
+  river: "Flowing river spanning 2×2 tiles — chain into streams.",
   snow: "Frosty ground for winter builds.",
   lava: "Molten ground for dramatic, dangerous-looking flair.",
   "stone-path": "Paved stone walkway to guide visitors around.",
@@ -81,7 +81,7 @@ const DESC: Record<string, string> = {
   windmill: "Countryside windmill. 2×2, blocks walking.",
   fence: "Thin barrier — blocks walking. Chain into walls.",
   gate: "Ornate fence gate — solid; leave an open tile beside it.",
-  bridge: "Wooden bridge plank — lay across water strips (walkable).",
+  bridge: "Wooden bridge spanning 2×2 tiles — lay across rivers (walkable).",
   // resource nodes (functional)
   pine: "Evergreen pine — a real Woodcutting node visitors can chop.",
   "pine-small": "Little pine — quick Woodcutting node.",
@@ -123,8 +123,8 @@ const GROUND_W = Math.round(TILE_WIDTH / 0.97); // ~66
 const PROP_W = 66; // 1×1 props: base ≈ one ground tile
 const buildingWidth = (footprint: number) => TILE_WIDTH * footprint;
 
-const g = (id: string, label: string): ZoneAsset =>
-  ({ id, file: `${id}.png`, label, desc: desc(id), category: "ground", worldWidth: GROUND_W, anchorY: anchor(id, 0.44), footprint: 1, clearsGround: false, bakedTile: true });
+const g = (id: string, label: string, footprint = 1): ZoneAsset =>
+  ({ id, file: `${id}.png`, label, desc: desc(id), category: "ground", worldWidth: GROUND_W * footprint, anchorY: anchor(id, 0.44), footprint, clearsGround: false, bakedTile: true });
 const b = (
   id: string,
   label: string,
@@ -159,7 +159,7 @@ export const ZONE_ASSETS: ZoneAsset[] = [
   g("empty", "Bare Dirt"),
   g("water", "Water"),
   g("water2", "Deep Water"),
-  g("river", "River"),
+  g("river", "River", 2),
   g("snow", "Snow"),
   g("lava", "Lava"),
   g("stone-path", "Stone Path"),
@@ -174,7 +174,7 @@ export const ZONE_ASSETS: ZoneAsset[] = [
   // Barriers: thin 1×1 structures without a full ground base (don't clear ground).
   b("fence", "Fence", { footprint: 1, clearsGround: false }),
   b("gate", "Gate", { footprint: 1, clearsGround: false }),
-  b("bridge", "Bridge", { footprint: 1, clearsGround: false }),
+  b("bridge", "Bridge", { footprint: 2, clearsGround: false }),
   // Resource nodes (functional gather nodes)
   r("pine", "Pine", "tree"),
   r("pine-small", "Small Pine", "tree"),

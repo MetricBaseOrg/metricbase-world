@@ -1663,7 +1663,9 @@ export class GameScene extends Phaser.Scene {
         // centre so it sits FLUSH with the ground (not raised on a pedestal), and
         // depth-sort by the front tile's world Y so the player passes behind/in
         // front correctly.
-        const isBuilding = asset.category === "structure" && asset.clearsGround && N > 1;
+        // Any multi-tile structure (incl. the bridge, which doesn't clear the
+        // ground under it) is anchored on its footprint centre.
+        const isBuilding = asset.category === "structure" && N > 1;
         // Everything is anchored by its measured surface line at the tile centre
         // so it sits flush with the ground. Buildings use the footprint centre.
         let px = x;
@@ -1765,12 +1767,24 @@ export class GameScene extends Phaser.Scene {
           for (let dx = 0; dx < asset.footprint; dx++) covered.add(`${node.tileX + dx},${node.tileY + dy}`);
         }
       }
+      // Multi-tile ground paint (e.g. the 2×2 river): the painted tile is the
+      // back corner; its art covers the whole footprint, so hide the default
+      // ground beneath it and render it once, separately from the tile loop.
+      const multi: { x: number; y: number; type: string }[] = [];
+      for (const [key, type] of painted) {
+        const n = getZoneAsset(type)?.footprint ?? 1;
+        if (n <= 1) continue;
+        const [x, y] = key.split(",").map(Number);
+        multi.push({ x, y, type });
+        for (let dy = 0; dy < n; dy++) for (let dx = 0; dx < n; dx++) covered.add(`${x + dx},${y + dy}`);
+      }
       for (let y = 0; y < PLAYER_ZONE_GRID; y++) {
         for (let x = 0; x < PLAYER_ZONE_GRID; x++) {
           if (covered.has(`${x},${y}`)) continue;
           this.placeGroundTile(x, y, painted.get(`${x},${y}`) ?? "grass");
         }
       }
+      for (const m of multi) this.placeGroundTile(m.x, m.y, m.type);
     } else {
       for (const t of config.tiles ?? []) this.placeGroundTile(t.x, t.y, t.type);
     }
@@ -1782,7 +1796,9 @@ export class GameScene extends Phaser.Scene {
   private placeGroundTile(tileX: number, tileY: number, type: string) {
     const asset = getZoneAsset(type);
     if (!asset) return;
-    const { x, y } = tileToWorld(tileX, tileY);
+    // Multi-tile ground art (2×2 river) is anchored on its footprint centre.
+    const n = asset.footprint;
+    const { x, y } = tileToWorld(tileX + (n - 1) / 2, tileY + (n - 1) / 2);
     const key = zoneAssetTextureKey(type);
     // Depth by world Y so the ground in FRONT of a prop/building occludes its
     // base (embedded look). The player is lifted above the ground in player
@@ -1994,6 +2010,11 @@ export class GameScene extends Phaser.Scene {
     const zoneId = this.worldEditZoneId;
     if (!draft || !tool || !zoneId) return;
     if (tileX < 0 || tileY < 0 || tileX >= PLAYER_ZONE_GRID || tileY >= PLAYER_ZONE_GRID) return;
+    // Multi-tile assets (2×2 river/bridge, 3×3 homes) must fit inside the grid.
+    if (tool.type === "prop" || tool.type === "ground") {
+      const fp = getZoneAsset(tool.value)?.footprint ?? 1;
+      if (tileX + fp > PLAYER_ZONE_GRID || tileY + fp > PLAYER_ZONE_GRID) return;
+    }
 
     let groundChanged = false;
     if (tool.type === "spawn") {
@@ -2037,7 +2058,12 @@ export class GameScene extends Phaser.Scene {
         }
       }
       if (!removed) {
-        const ti = draft.tiles.findIndex((t) => t.x === tileX && t.y === tileY);
+        // Painted ground may span multiple tiles (2×2 river): erase the paint
+        // whose footprint covers the tapped tile, not just an exact match.
+        const ti = draft.tiles.findIndex((t) => {
+          const n = getZoneAsset(t.type)?.footprint ?? 1;
+          return tileX >= t.x && tileX < t.x + n && tileY >= t.y && tileY < t.y + n;
+        });
         if (ti >= 0) {
           draft.tiles.splice(ti, 1);
           groundChanged = true;
