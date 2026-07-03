@@ -14,6 +14,8 @@ export interface PeerTokenTransferExpectation {
 export interface PeerTokenTransferVerification {
   ok: boolean;
   error?: string;
+  /** True when the failure is transient (not found yet) — safe to retry later. */
+  retryable?: boolean;
   fromWallet?: string;
   toWallet?: string;
   uiAmount?: number;
@@ -22,11 +24,12 @@ export interface PeerTokenTransferVerification {
 export async function verifyPeerTokenTransfer(
   signature: string,
   expected: PeerTokenTransferExpectation,
+  attempts = 6,
 ): Promise<PeerTokenTransferVerification> {
   const connection = new Connection(getRpcUrl(), "confirmed");
 
   let tx;
-  for (let attempt = 0; attempt < 6; attempt++) {
+  for (let attempt = 0; attempt < Math.max(1, attempts); attempt++) {
     tx = await connection.getParsedTransaction(signature, {
       maxSupportedTransactionVersion: 0,
       commitment: "confirmed",
@@ -36,7 +39,9 @@ export async function verifyPeerTokenTransfer(
   }
 
   if (!tx) {
-    return { ok: false, error: "Transaction not found yet. Wait a moment and try again." };
+    // Not found yet ≠ invalid. The payment may still be settling; the caller
+    // should treat this as retryable so a real payment is never dropped.
+    return { ok: false, retryable: true, error: "Transaction not found yet. Wait a moment and try again." };
   }
 
   if (tx.meta?.err) {

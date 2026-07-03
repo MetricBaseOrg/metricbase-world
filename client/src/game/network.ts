@@ -109,6 +109,12 @@ export interface PipGoldResultPayload {
   ok: boolean;
   gold?: number;
   error?: string;
+  /** The payment signature this result refers to (for reclaiming unclaimed buys). */
+  signature?: string;
+  /** True when the failure is transient — the same signature should be retried. */
+  retryable?: boolean;
+  /** True when gold was queued (applied on next join) rather than credited live. */
+  viaPending?: boolean;
 }
 export interface AssetListingView {
   id: string;

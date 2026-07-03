@@ -12,6 +12,39 @@ import { useGameStore } from "../store/gameStore";
 
 type Tab = "directory" | "mine";
 
+// Paid-but-uncredited Pip gold purchases are stashed locally so the payment is
+// never lost: if verification is slow, the tab reloads, or the connection drops
+// mid-credit, the client re-submits the SAME signature until the (idempotent)
+// server credits it.
+const UNCLAIMED_KEY = "pipUnclaimedGold";
+type UnclaimedBuy = { signature: string; amount: number };
+
+function loadUnclaimed(): UnclaimedBuy[] {
+  try {
+    const raw = JSON.parse(localStorage.getItem(UNCLAIMED_KEY) ?? "[]");
+    return Array.isArray(raw) ? raw.filter((x) => x && typeof x.signature === "string") : [];
+  } catch {
+    return [];
+  }
+}
+function saveUnclaimed(list: UnclaimedBuy[]) {
+  try {
+    localStorage.setItem(UNCLAIMED_KEY, JSON.stringify(list));
+  } catch {
+    /* storage unavailable — best effort */
+  }
+}
+function addUnclaimed(buy: UnclaimedBuy) {
+  const list = loadUnclaimed();
+  if (!list.some((x) => x.signature === buy.signature)) {
+    list.push(buy);
+    saveUnclaimed(list);
+  }
+}
+function removeUnclaimed(signature: string) {
+  saveUnclaimed(loadUnclaimed().filter((x) => x.signature !== signature));
+}
+
 export function WorldsPanel() {
   const open = useGameStore((state) => state.worldsOpen);
   const setWorldsOpen = useGameStore((state) => state.setWorldsOpen);
@@ -51,7 +84,22 @@ export function WorldsPanel() {
     const offPipInfo = networkManager.onPipGoldInfo(setPipInfo);
     const offPipResult = networkManager.onPipGoldResult((r) => {
       setPending(false);
-      setNotice(r.ok ? `Bought ${(r.gold ?? 0).toLocaleString()} gold from Pip!` : r.error ?? "Purchase failed.");
+      if (r.ok) {
+        if (r.signature) removeUnclaimed(r.signature);
+        setNotice(
+          r.viaPending
+            ? `Bought ${(r.gold ?? 0).toLocaleString()} gold — it'll appear on your next relog.`
+            : `Bought ${(r.gold ?? 0).toLocaleString()} gold from Pip!`,
+        );
+        return;
+      }
+      // Failure: keep the signature stashed for another try UNLESS it's terminal
+      // (already credited, or an on-chain rejection that will never succeed).
+      const terminal =
+        !!r.error &&
+        (/already/i.test(r.error) || (r.retryable === false && /(on-chain|too few|did not send|failed)/i.test(r.error)));
+      if (r.signature && terminal) removeUnclaimed(r.signature);
+      setNotice(r.error ?? "Purchase failed.");
     });
     return () => {
       offDir();
@@ -71,6 +119,17 @@ export function WorldsPanel() {
       setNotice(null);
     }
   }, [open]);
+
+  // Recover any paid-but-uncredited Pip purchases: re-submit each stashed
+  // signature. The server is idempotent, so this safely finishes a purchase that
+  // failed to credit earlier (slow confirmation, reload, or a dropped socket).
+  useEffect(() => {
+    if (!open || !walletAddress) return;
+    const unclaimed = loadUnclaimed();
+    if (unclaimed.length === 0) return;
+    setNotice("Recovering a previous $BASE payment…");
+    for (const buy of unclaimed) networkManager.sendBuyGoldFromPip(buy.signature, buy.amount);
+  }, [open, walletAddress]);
 
   if (!open) return null;
 
@@ -130,6 +189,9 @@ export function WorldsPanel() {
         decimals: pipInfo.decimals,
         rpcUrl: pipInfo.rpcUrl,
       });
+      // Record the paid signature BEFORE asking the server to credit it, so a
+      // reload or dropped connection can't lose a real payment.
+      addUnclaimed({ signature, amount });
       networkManager.sendBuyGoldFromPip(signature, amount);
       setBuyGold("");
     } catch (err) {

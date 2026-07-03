@@ -318,7 +318,7 @@ import {
 } from "../zones/zoneRegistry.js";
 import { creditTreasuryGold } from "../economy/treasury.js";
 import { bumpMetric, burnGold, mintGold } from "../economy/metrics.js";
-import { isPurchaseRedeemed, recordTokenPurchase } from "../db/tokenPurchases.js";
+import { creditGoldForPurchase, isPurchaseRedeemed } from "../db/tokenPurchases.js";
 import { adjustAsset, getAssetInventory, getAssetQty } from "../zones/assetInventory.js";
 import {
   addPendingGold,
@@ -2953,21 +2953,61 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       return void client.send("pipGoldResult", { ok: false, error: "Pip's gold desk is closed right now." });
     }
     if (await isPurchaseRedeemed(signature)) {
-      return void client.send("pipGoldResult", { ok: false, error: "That payment was already redeemed." });
+      return void client.send("pipGoldResult", { ok: false, signature, error: "That payment was already credited." });
     }
     const mint = process.env.TOKEN_MINT?.trim() || METRICBASE_TOKEN_MINT;
     const minUiAmount = Math.max(1, Math.floor(requestedGold) || 1);
-    const v = await verifyPeerTokenTransfer(signature, { fromWallet: wallet, toWallet: treasury, mint, minUiAmount });
-    if (!v.ok || v.uiAmount === undefined || v.uiAmount <= 0) {
-      return void client.send("pipGoldResult", { ok: false, error: v.error ?? "Payment not found on-chain." });
+
+    // Verify the on-chain payment. A network hiccup or a not-yet-settled tx is
+    // transient — flag it retryable so the client re-submits the SAME signature
+    // rather than the player losing paid $BASE.
+    let v;
+    try {
+      v = await verifyPeerTokenTransfer(signature, { fromWallet: wallet, toWallet: treasury, mint, minUiAmount }, 10);
+    } catch (error) {
+      console.warn("[pip] verify threw:", error);
+      return void client.send("pipGoldResult", {
+        ok: false,
+        signature,
+        retryable: true,
+        error: "Couldn't reach the network to confirm your payment. Your $BASE is safe — it'll be credited automatically.",
+      });
     }
-    // Credit gold 1:1 with the verified on-chain amount (never the client claim).
+    if (!v.ok || v.uiAmount === undefined || v.uiAmount <= 0) {
+      return void client.send("pipGoldResult", {
+        ok: false,
+        signature,
+        retryable: v.retryable === true,
+        error: v.error ?? "Payment not found on-chain.",
+      });
+    }
+
+    // Credit gold 1:1 with the verified on-chain amount (never the client claim),
+    // atomically with recording the signature so a crash can't lose it and a
+    // retry can't double-credit.
     const goldCredited = Math.floor(v.uiAmount);
-    await recordTokenPurchase(signature, wallet, "pip_gold", v.uiAmount);
-    this.playerGold.set(player.name, (this.playerGold.get(player.name) ?? STARTING_GOLD) + goldCredited);
+    let res;
+    try {
+      res = await creditGoldForPurchase(signature, wallet, "pip_gold", v.uiAmount, player.name, goldCredited);
+    } catch (error) {
+      console.error("[pip] credit failed after verify:", error);
+      return void client.send("pipGoldResult", {
+        ok: false,
+        signature,
+        retryable: true,
+        error: "Payment verified but crediting hit a snag. Your $BASE is safe — it'll be credited automatically.",
+      });
+    }
+    if (!res.credited) {
+      return void client.send("pipGoldResult", { ok: false, signature, error: "That payment was already credited." });
+    }
+    // Sync the live session to the authoritative DB balance (viaPending means the
+    // character row wasn't saved yet, so it's applied on their next join).
+    if (res.newGold != null) this.playerGold.set(player.name, res.newGold);
+    else if (!res.viaPending)
+      this.playerGold.set(player.name, (this.playerGold.get(player.name) ?? STARTING_GOLD) + goldCredited);
     this.sendProfile(client, player);
-    await this.persistPlayer(player);
-    client.send("pipGoldResult", { ok: true, gold: goldCredited });
+    client.send("pipGoldResult", { ok: true, signature, gold: goldCredited, viaPending: res.viaPending });
   }
 
   /** Tell the client where/how to pay $BASE for gold at Pip's desk. */
