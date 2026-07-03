@@ -225,6 +225,19 @@ CREATE TABLE IF NOT EXISTS treasury_gold (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Economy activity metrics: lifetime running counters (gathered, crafted, sold,
+-- gold minted/burned, etc.) plus per-day buckets for charts. Powers /stats.
+CREATE TABLE IF NOT EXISTS economy_metrics (
+  metric VARCHAR(48) PRIMARY KEY,
+  value BIGINT NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS economy_daily (
+  day DATE NOT NULL,
+  metric VARCHAR(48) NOT NULL,
+  value BIGINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (day, metric)
+);
+
 -- Player-owned zones ("Worlds"): a blank zone slot bought for gold, built by
 -- its owner from placeable props/nodes, and monetised via visitor passes. The
 -- whole editable layout lives in the `build` JSON blob; `meta` in columns.

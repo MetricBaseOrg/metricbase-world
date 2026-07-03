@@ -2,6 +2,7 @@ import { Router } from "express";
 import { GAME_VERSION } from "@metricbase/shared";
 import { getPool } from "../db/pool.js";
 import { ZoneRoom } from "../rooms/ZoneRoom.js";
+import { getDailySeries, getMetricTotals } from "../economy/metrics.js";
 
 export const statsRouter = Router();
 
@@ -25,6 +26,8 @@ interface EconomyStats {
   goldMarket: { trades: number; goldVolume: number };
   assetMarket: { listings: number; askValue: number; totalOwned: number };
   topHolders: { name: string; gold: number }[];
+  activity: Record<string, number>;
+  daily: { day: string; metric: string; value: number }[];
 }
 
 async function buildStats(): Promise<EconomyStats> {
@@ -63,6 +66,8 @@ async function buildStats(): Promise<EconomyStats> {
     }
   }
 
+  const daily = await getDailySeries(14);
+
   return {
     version: GAME_VERSION,
     updatedAt: Date.now(),
@@ -72,6 +77,8 @@ async function buildStats(): Promise<EconomyStats> {
     goldMarket: { trades: gmTrades, goldVolume: gmVol },
     assetMarket: { listings: alCount, askValue: alValue, totalOwned: aiOwned },
     topHolders,
+    activity: getMetricTotals(),
+    daily,
   };
 }
 

@@ -317,6 +317,7 @@ import {
   setZoneMeta,
 } from "../zones/zoneRegistry.js";
 import { creditTreasuryGold } from "../economy/treasury.js";
+import { bumpMetric, burnGold, mintGold } from "../economy/metrics.js";
 import { isPurchaseRedeemed, recordTokenPurchase } from "../db/tokenPurchases.js";
 import { adjustAsset, getAssetInventory, getAssetQty } from "../zones/assetInventory.js";
 import {
@@ -2999,10 +3000,12 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     const consume = new Map<string, number>();
     const restore = new Map<string, number>();
     let goldCost = 0;
+    let placed = 0;
     for (const id of new Set([...oldCounts.keys(), ...newCounts.keys()])) {
       const price = zoneAssetPrice(id);
       if (price <= 0) continue; // free assets never touch inventory/gold
       const delta = (newCounts.get(id) ?? 0) - (oldCounts.get(id) ?? 0);
+      if (delta > 0) placed += delta;
       if (delta > 0 && !isAdmin) {
         const fromInv = Math.min(getAssetQty(player.name, id), delta);
         if (fromInv > 0) consume.set(id, fromInv);
@@ -3029,6 +3032,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       for (const [id, n] of restore) adjustAsset(player.name, id, n);
       if (consume.size || restore.size) this.sendAssetInventory(client, player.name);
     }
+    if (placed > 0) bumpMetric("asset.placed", placed);
     const cost = goldCost;
 
     setZoneBuild(zoneId, build);
@@ -3187,6 +3191,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       await this.persistPlayer(player);
     }
     adjustAsset(player.name, assetId, count);
+    bumpMetric("asset.bought", count);
+    if (!free) bumpMetric("asset.buyGold", total);
     this.sendAssetInventory(client, player.name);
     client.send("buildShopResult", { ok: true, assetId, qty: count });
   }
@@ -3247,6 +3253,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     }
     this.playerGold.set(player.name, gold - listing.price);
     completeBuy(player.name, id);
+    bumpMetric("asset.sold", listing.qty);
+    bumpMetric("asset.saleGold", listing.price);
     this.creditPlayerByName(listing.sellerName, listing.price);
     this.sendProfile(client, player);
     await this.persistPlayer(player);
@@ -3705,6 +3713,11 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   ) {
     if (amount <= 0) return;
 
+    // Track gold entering circulation for the economy dashboard.
+    mintGold(amount);
+    if (reason.startsWith("defeated")) bumpMetric("mob.gold", amount);
+    else if (reason.startsWith("completed")) bumpMetric("quest.gold", amount);
+
     // Guild income tax: a slice of earnings is skimmed straight to the guild bank.
     const tax = applyGuildTax(player.name, amount);
     const kept = amount - tax;
@@ -3940,6 +3953,9 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     }
 
     this.playerGold.set(player.name, gold - offer.price);
+    burnGold(offer.price);
+    bumpMetric("buy.count", 1);
+    bumpMetric("buy.gold", offer.price);
     this.inventories.set(player.name, inventory);
     this.sendProfile(client, player);
     this.sendInventory(client, player.name);
@@ -4001,6 +4017,9 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     const unitPrice = effectiveSellPrice(itemId, basePrice);
     const payout = unitPrice * removed;
     recordSale(itemId, removed);
+    mintGold(payout);
+    bumpMetric("sell.count", removed);
+    bumpMetric("sell.gold", payout);
     const gold = (this.playerGold.get(player.name) ?? STARTING_GOLD) + payout;
     this.playerGold.set(player.name, gold);
     this.inventories.set(player.name, inventory);
@@ -4841,6 +4860,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     gold -= recipe.goldCost;
     this.playerGold.set(playerName, gold);
     this.inventories.set(playerName, inventory);
+    bumpMetric("craft.count", recipe.output.quantity);
+    if (recipe.goldCost > 0) burnGold(recipe.goldCost); // forge fee sink
     this.sendInventory(client, playerName);
     this.sendProfile(client, player);
 
@@ -5245,6 +5266,9 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         addZoneTax(this.playerZone.zoneId, tax);
       }
     }
+
+    bumpMetric("gather.count", lootQuantity);
+    bumpMetric(`gather.${gather.skill}`, lootQuantity);
 
     const skillXpGained = gather.skillXp;
     const { newLevel, leveledUp } = this.grantSkillXp(player.name, gather.skill, skillXpGained);

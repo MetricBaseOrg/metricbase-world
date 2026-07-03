@@ -1,4 +1,5 @@
 import { getPool } from "../db/pool.js";
+import { bumpMetric, burnGold } from "./metrics.js";
 
 /**
  * Credit in-game gold to the treasury under a named source (e.g. "zone_slot").
@@ -8,6 +9,9 @@ import { getPool } from "../db/pool.js";
 export async function creditTreasuryGold(source: string, gold: number): Promise<void> {
   const amount = Math.floor(gold);
   if (amount <= 0) return;
+  // Gold routed to the treasury has left circulation — track it as burned.
+  burnGold(amount);
+  bumpMetric(`sink.${source}`, amount);
   const pool = getPool();
   if (!pool) return;
   try {
