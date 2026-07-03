@@ -68,6 +68,7 @@ import {
 } from "@metricbase/shared";
 import { buildZoneMap } from "./mapData";
 import { PredictedPosition, reconcilePrediction, stepPrediction } from "./prediction";
+import { buildCollisionGrid, collisionStep, findPath, type CollisionGrid } from "./pathfind";
 
 interface RenderedPlayer {
   name: string;
@@ -260,6 +261,10 @@ export class GameScene extends Phaser.Scene {
   private targetReticle: Phaser.GameObjects.Graphics | null = null;
   /** Click/tap-to-move destination in world coords; cleared on arrival or keyboard input. */
   private moveTarget: { x: number; y: number } | null = null;
+  /** Waypoints (world-space tile centres) the click-to-move path follows. */
+  private movePath: { x: number; y: number }[] = [];
+  /** Client collision grid for the current zone (walls + solid props). */
+  private collisionGrid: CollisionGrid | null = null;
   private moveMarker: Phaser.GameObjects.Graphics | null = null;
   /** Left-click selected hostile player (PvP target). */
   private selectedPlayerName: string | null = null;
@@ -1506,6 +1511,7 @@ export class GameScene extends Phaser.Scene {
     networkManager.requestAdServing(); // refresh served ads for this zone
     this.renderScenery(zoneId);
     this.renderPortals(zoneId);
+    this.rebuildCollisionGrid(zoneId);
   }
 
   private renderPortals(zoneId: string) {
@@ -1755,6 +1761,7 @@ export class GameScene extends Phaser.Scene {
     this.renderLandPlots(zoneId);
     this.renderScenery(zoneId);
     this.renderPortals(zoneId);
+    this.rebuildCollisionGrid(zoneId);
   }
 
   beginWorldEdit(zoneId: string) {
@@ -2973,9 +2980,29 @@ export class GameScene extends Phaser.Scene {
     return false;
   }
 
+  /** (Re)build the collision grid used for pathfinding + prediction sliding. */
+  private rebuildCollisionGrid(zoneId: string) {
+    const built = new Set<string>();
+    for (const plot of networkManager.getHousingState().plots) {
+      if (plot.structure && plot.structure !== "none") built.add(plot.plotId);
+    }
+    this.collisionGrid = buildCollisionGrid(zoneId, built);
+  }
+
   /** Set a click/tap-to-move destination and pop a marker there. */
   private setMoveTarget(worldX: number, worldY: number) {
     this.moveTarget = { x: worldX, y: worldY };
+    // Route around obstacles with A* over the collision grid; fall back to a
+    // straight line if there's no grid or no path.
+    const local = this.findLocalPlayer();
+    if (this.collisionGrid && local) {
+      const path = findPath(this.collisionGrid, local.predicted, { x: worldX, y: worldY });
+      // Replace the final waypoint with the exact click point for a precise stop.
+      if (path.length) path[path.length - 1] = { x: worldX, y: worldY };
+      this.movePath = path;
+    } else {
+      this.movePath = [];
+    }
     const marker = this.moveMarker;
     if (!marker) return;
     marker.clear();
@@ -2993,6 +3020,7 @@ export class GameScene extends Phaser.Scene {
 
   private clearMoveTarget() {
     this.moveTarget = null;
+    this.movePath = [];
     if (this.moveMarker) {
       this.tweens.killTweensOf(this.moveMarker);
       this.moveMarker.setVisible(false);
@@ -3254,7 +3282,7 @@ export class GameScene extends Phaser.Scene {
     return false;
   }
 
-  /** Click-to-move axis toward the active move target, or null when none/arrived. */
+  /** Click-to-move axis toward the next path waypoint (or the target), or null. */
   private getMoveTargetAxis(): { dx: number; dy: number } | null {
     if (!this.moveTarget) return null;
     const local = this.findLocalPlayer();
@@ -3262,14 +3290,22 @@ export class GameScene extends Phaser.Scene {
       this.clearMoveTarget();
       return null;
     }
-    const dx = this.moveTarget.x - local.predicted.x;
-    const dy = this.moveTarget.y - local.predicted.y;
+    // Advance past any path waypoints we've reached.
+    while (this.movePath.length) {
+      const wp = this.movePath[0];
+      if (Math.hypot(wp.x - local.predicted.x, wp.y - local.predicted.y) <= 8) this.movePath.shift();
+      else break;
+    }
+    const aim = this.movePath[0] ?? this.moveTarget;
+    const dx = aim.x - local.predicted.x;
+    const dy = aim.y - local.predicted.y;
     const distance = Math.hypot(dx, dy);
-    // Arrived (within a few pixels) — stop and clear.
-    if (distance <= 6) {
+    // Arrived at the final destination — stop and clear.
+    if (this.movePath.length === 0 && distance <= 6) {
       this.clearMoveTarget();
       return null;
     }
+    if (distance === 0) return null;
     return { dx: dx / distance, dy: dy / distance };
   }
 
@@ -3731,7 +3767,11 @@ export class GameScene extends Phaser.Scene {
     if (!local) return;
 
     if (dx !== 0 || dy !== 0) {
-      local.predicted = stepPrediction(local.predicted, dx, dy, delta, this.localSpeedMult);
+      // Predict with the same wall-sliding the server uses so the character
+      // doesn't drift into buildings and get snapped back (the "bump").
+      local.predicted = this.collisionGrid
+        ? collisionStep(this.collisionGrid, local.predicted, dx, dy, delta, this.localSpeedMult)
+        : stepPrediction(local.predicted, dx, dy, delta, this.localSpeedMult);
     }
 
     const x = Math.round(local.predicted.x);

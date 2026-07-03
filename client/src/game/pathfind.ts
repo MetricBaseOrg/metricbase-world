@@ -1,0 +1,174 @@
+import {
+  buildZoneMap,
+  isBlockingTile,
+  isZonePropSolid,
+  MAP_HEIGHT,
+  MAP_WIDTH,
+  PLAYER_SPEED,
+  tileToWorld,
+  worldToTile,
+  zonePropFootprint,
+} from "@metricbase/shared";
+import { isPlayerZoneId, resolveZoneConfig } from "./playerZoneConfig";
+
+export type CollisionGrid = boolean[][]; // grid[y][x] === true means solid
+
+/**
+ * Build a client-side collision grid that mirrors the server: base map walls/
+ * water, plus solid props. For player zones that means building footprints and
+ * barriers; for built-in zones, solid scenery and built land plots.
+ */
+export function buildCollisionGrid(zoneId: string, builtLandPlots: Set<string> = new Set()): CollisionGrid {
+  const ground = buildZoneMap(zoneId);
+  const grid: CollisionGrid = ground.map((row) => row.map((t) => isBlockingTile(t)));
+  const config = resolveZoneConfig(zoneId);
+  const player = isPlayerZoneId(zoneId);
+  const stamp = (x: number, y: number) => {
+    if (x >= 0 && y >= 0 && x < MAP_WIDTH && y < MAP_HEIGHT) grid[y][x] = true;
+  };
+  for (const node of config.scenery ?? []) {
+    if (player) {
+      if (!isZonePropSolid(node.prop)) continue;
+      const n = zonePropFootprint(node.prop);
+      for (let dy = 0; dy < n; dy++) for (let dx = 0; dx < n; dx++) stamp(node.tileX + dx, node.tileY + dy);
+    } else if (node.solid) {
+      stamp(node.tileX, node.tileY);
+    }
+  }
+  if (!player) {
+    for (const plot of config.landPlots ?? []) {
+      if (!builtLandPlots.has(plot.id)) continue;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) stamp(plot.tileX + dx, plot.tileY + dy);
+    }
+  }
+  return grid;
+}
+
+function tileSolid(grid: CollisionGrid, x: number, y: number): boolean {
+  if (x < 0 || y < 0 || x >= MAP_WIDTH || y >= MAP_HEIGHT) return true;
+  return grid[y]?.[x] ?? true;
+}
+
+/** Mirrors the server's isWalkable: the player footprint samples 4 tiles. */
+export function isWorldWalkable(grid: CollisionGrid, worldX: number, worldY: number): boolean {
+  const { tileX, tileY } = worldToTile(worldX, worldY);
+  const samples: [number, number][] = [
+    [tileX, tileY],
+    [tileX + 1, tileY],
+    [tileX, tileY + 1],
+    [tileX + 1, tileY + 1],
+  ];
+  for (const [x, y] of samples) if (tileSolid(grid, x, y)) return false;
+  return true;
+}
+
+/** Collision-aware movement step (slides along walls like the server). */
+export function collisionStep(
+  grid: CollisionGrid,
+  pos: { x: number; y: number },
+  dx: number,
+  dy: number,
+  deltaMs: number,
+  speedMult = 1,
+): { x: number; y: number } {
+  const len = Math.hypot(dx, dy);
+  if (len === 0) return pos;
+  const speed = PLAYER_SPEED * (speedMult || 1) * (deltaMs / 1000);
+  const nextX = pos.x + (dx / len) * speed;
+  const nextY = pos.y + (dy / len) * speed;
+  let x = pos.x;
+  let y = pos.y;
+  if (isWorldWalkable(grid, nextX, y)) x = nextX;
+  if (isWorldWalkable(grid, x, nextY)) y = nextY;
+  return { x, y };
+}
+
+/** A tile the player can stand on (centre passes the footprint collision test). */
+function canStand(grid: CollisionGrid, tx: number, ty: number): boolean {
+  if (tx < 0 || ty < 0 || tx >= MAP_WIDTH || ty >= MAP_HEIGHT) return false;
+  const w = tileToWorld(tx, ty);
+  return isWorldWalkable(grid, w.x, w.y);
+}
+
+function nearestWalkable(grid: CollisionGrid, tx: number, ty: number): { x: number; y: number } | null {
+  for (let r = 0; r <= 6; r++) {
+    for (let dy = -r; dy <= r; dy++) {
+      for (let dx = -r; dx <= r; dx++) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+        if (canStand(grid, tx + dx, ty + dy)) return { x: tx + dx, y: ty + dy };
+      }
+    }
+  }
+  return null;
+}
+
+const NEIGHBORS: [number, number][] = [
+  [1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1],
+];
+
+/**
+ * A* from the player to a clicked world point over the collision grid. Returns
+ * world-space waypoints (tile centres). Empty if there's no route.
+ */
+export function findPath(
+  grid: CollisionGrid,
+  fromWorld: { x: number; y: number },
+  toWorld: { x: number; y: number },
+): { x: number; y: number }[] {
+  const s = worldToTile(fromWorld.x, fromWorld.y);
+  let goal = worldToTile(toWorld.x, toWorld.y);
+  if (!canStand(grid, goal.tileX, goal.tileY)) {
+    const near = nearestWalkable(grid, goal.tileX, goal.tileY);
+    if (!near) return [];
+    goal = { tileX: near.x, tileY: near.y };
+  }
+  const startKey = `${s.tileX},${s.tileY}`;
+  const goalKey = `${goal.tileX},${goal.tileY}`;
+  if (startKey === goalKey) return [];
+
+  const h = (x: number, y: number) => Math.abs(x - goal.tileX) + Math.abs(y - goal.tileY);
+  const open = new Map<string, { x: number; y: number; g: number; f: number }>();
+  const came = new Map<string, string>();
+  const gScore = new Map<string, number>();
+  open.set(startKey, { x: s.tileX, y: s.tileY, g: 0, f: h(s.tileX, s.tileY) });
+  gScore.set(startKey, 0);
+
+  let iterations = 0;
+  while (open.size && iterations++ < 4000) {
+    // Pop the lowest-f node.
+    let bestKey = "";
+    let best = Infinity;
+    for (const [k, n] of open) if (n.f < best) ((best = n.f), (bestKey = k));
+    const cur = open.get(bestKey)!;
+    open.delete(bestKey);
+    if (bestKey === goalKey) {
+      // Reconstruct.
+      const tiles: [number, number][] = [];
+      let k: string | undefined = goalKey;
+      while (k) {
+        const [x, y] = k.split(",").map(Number);
+        tiles.push([x, y]);
+        k = came.get(k);
+      }
+      tiles.reverse();
+      tiles.shift(); // drop the start tile
+      return tiles.map(([x, y]) => tileToWorld(x, y));
+    }
+    for (const [dx, dy] of NEIGHBORS) {
+      const nx = cur.x + dx;
+      const ny = cur.y + dy;
+      if (!canStand(grid, nx, ny)) continue;
+      // Don't cut diagonally through a solid corner.
+      if (dx !== 0 && dy !== 0 && (!canStand(grid, cur.x + dx, cur.y) || !canStand(grid, cur.x, cur.y + dy))) continue;
+      const step = dx !== 0 && dy !== 0 ? 1.4 : 1;
+      const nk = `${nx},${ny}`;
+      const tentative = (gScore.get(bestKey) ?? Infinity) + step;
+      if (tentative < (gScore.get(nk) ?? Infinity)) {
+        came.set(nk, bestKey);
+        gScore.set(nk, tentative);
+        open.set(nk, { x: nx, y: ny, g: tentative, f: tentative + h(nx, ny) });
+      }
+    }
+  }
+  return [];
+}

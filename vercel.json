@@ -10,6 +10,14 @@
       "destination": "/docs.html"
     },
     {
+      "source": "/stats",
+      "destination": "https://metricbaseserver-production.up.railway.app/stats"
+    },
+    {
+      "source": "/api/stats",
+      "destination": "https://metricbaseserver-production.up.railway.app/api/stats"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
