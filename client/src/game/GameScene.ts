@@ -263,6 +263,7 @@ export class GameScene extends Phaser.Scene {
   private moveTarget: { x: number; y: number } | null = null;
   /** Waypoints (world-space tile centres) the click-to-move path follows. */
   private movePath: { x: number; y: number }[] = [];
+  private movePathGfx?: Phaser.GameObjects.Graphics;
   /** Client collision grid for the current zone (walls + solid props). */
   private collisionGrid: CollisionGrid | null = null;
   private moveMarker: Phaser.GameObjects.Graphics | null = null;
@@ -355,8 +356,9 @@ export class GameScene extends Phaser.Scene {
 
     // Targeting reticle drawn over the currently selected / engaged hostile.
     this.targetReticle = this.add.graphics().setDepth(120).setVisible(false);
-    // Click-to-move destination marker.
+    // Click-to-move destination marker + the faint routed path.
     this.moveMarker = this.add.graphics().setDepth(119).setVisible(false);
+    this.movePathGfx = this.add.graphics().setDepth(118);
 
     // Day/night lighting tint. A rectangle pinned over the visible world each
     // frame (origin top-left); colour + opacity come from the shared clock.
@@ -3021,6 +3023,7 @@ export class GameScene extends Phaser.Scene {
   private clearMoveTarget() {
     this.moveTarget = null;
     this.movePath = [];
+    this.movePathGfx?.clear();
     if (this.moveMarker) {
       this.tweens.killTweensOf(this.moveMarker);
       this.moveMarker.setVisible(false);
@@ -3784,6 +3787,24 @@ export class GameScene extends Phaser.Scene {
     local.shadow.setPosition(x, y + 4);
     local.shadow.setDepth(y - 0.5);
     this.positionPet(local);
+    this.drawMovePath(local.predicted);
+  }
+
+  /** Faint dotted trail from the player along the remaining routed path. */
+  private drawMovePath(from: { x: number; y: number }) {
+    const g = this.movePathGfx;
+    if (!g) return;
+    g.clear();
+    if (!this.moveTarget || this.movePath.length === 0) return;
+    const pts = [from, ...this.movePath];
+    g.lineStyle(2, 0x9ad7ff, 0.35);
+    g.beginPath();
+    g.moveTo(pts[0].x, pts[0].y);
+    for (let i = 1; i < pts.length; i++) g.lineTo(pts[i].x, pts[i].y);
+    g.strokePath();
+    for (let i = 1; i < pts.length; i++) {
+      g.fillStyle(0xffffff, 0.5).fillCircle(pts[i].x, pts[i].y, 2.5);
+    }
   }
 
   /**
