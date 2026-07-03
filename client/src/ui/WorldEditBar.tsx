@@ -106,6 +106,9 @@ export function WorldEditBar() {
   // Drag a palette item out onto the map: select it as the tool, follow the
   // pointer with a ghost, and drop it on whatever tile is under the cursor.
   const startDrag = (asset: { id: string; file: string; category: ZoneAssetCategory }, e: ReactPointerEvent) => {
+    // On touch, dragging fights list-scrolling, so leave touch to scroll + tap
+    // (tap selects the tool, then tap a map tile to place). Drag is mouse-only.
+    if (e.pointerType !== "mouse") return;
     e.preventDefault();
     pick(asset.id, asset.category);
     setGhost({ file: asset.file, x: e.clientX, y: e.clientY });
@@ -209,7 +212,7 @@ export function WorldEditBar() {
             key={a.id}
             type="button"
             className={`chibi-btn ${tool?.value === a.id ? "chibi-btn--mint" : "chibi-btn--ghost"}`}
-            style={{ padding: "8px 6px", fontSize: "0.72rem", touchAction: "none", display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}
+            style={{ padding: "8px 6px", fontSize: "0.72rem", display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}
             onPointerDown={(e) => startDrag(a, e)}
             onClick={() => pick(a.id, a.category)}
           >

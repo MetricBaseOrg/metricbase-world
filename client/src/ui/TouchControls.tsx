@@ -30,6 +30,9 @@ export function TouchControls() {
   const mapOpen = useGameStore((state) => state.mapOpen);
   const mailOpen = useGameStore((state) => state.mailOpen);
   const knockedOut = useGameStore((state) => state.knockedOut);
+  const worldsOpen = useGameStore((state) => state.worldsOpen);
+  const buildShopOpen = useGameStore((state) => state.buildShopOpen);
+  const worldEditing = useGameStore((state) => state.worldEditing);
   const toggleInventoryOpen = useGameStore((state) => state.toggleInventoryOpen);
   const toggleCraftOpen = useGameStore((state) => state.toggleCraftOpen);
   const activeDirections = useRef(new Set<Direction>());
@@ -84,7 +87,9 @@ export function TouchControls() {
     honorShopOpen ||
     mapOpen ||
     mailOpen ||
-    knockedOut
+    knockedOut ||
+    worldsOpen ||
+    buildShopOpen
   )
     return null;
 
@@ -124,6 +129,8 @@ export function TouchControls() {
         </button>
       </div>
 
+      {/* Combat/action buttons are hidden while building (keep movement only). */}
+      {!worldEditing && (
       <div className="chibi-action-pad" aria-label="Action controls">
         <button
           type="button"
@@ -162,6 +169,7 @@ export function TouchControls() {
           🔨
         </button>
       </div>
+      )}
     </div>
   );
 }
