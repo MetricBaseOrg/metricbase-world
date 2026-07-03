@@ -57,6 +57,11 @@ export const STATS_PAGE_HTML = `<!doctype html>
     <div class="card"><h2>Treasury (burned)</h2><div class="big burn" id="treasury">—</div><div class="sub">gold removed from circulation</div></div>
   </div>
 
+  <div class="grid" style="margin-top:14px">
+    <div class="card"><h2>🔥 $BASE burned</h2><div class="big burn" id="baseBurned">—</div><div class="sub">tokens burned via in-game sinks (Black Zone, VIP)</div></div>
+    <div class="card"><h2>💎 $BASE held by players</h2><div class="big gold" id="baseHeld">—</div><div class="sub"><span id="baseHolders">—</span> wallets holding $BASE</div></div>
+  </div>
+
   <div class="card wide" style="margin-top:14px">
     <h2>💰 Gold flow — minted vs burned (last 14 days)</h2>
     <svg id="goldChart" viewBox="0 0 720 240" role="img" aria-label="Gold minted and burned per day"></svg>
@@ -155,6 +160,10 @@ async function load(){
     set("worlds",fmt(s.worlds.total));
     set("worldsPub",fmt(s.worlds.published));
     set("treasury",fmt(s.treasury.total)+"g");
+    var bt=s.baseToken||{burned:0,heldByPlayers:0,holders:0};
+    set("baseBurned",fmt(bt.burned)+" $BASE");
+    set("baseHeld",fmt(bt.heldByPlayers)+" $BASE");
+    set("baseHolders",fmt(bt.holders));
     var days=lastDays(14),a=s.activity||{},daily=s.daily||[];
     lineChart(el("goldChart"),days,[
       {name:"Minted",color:"#3fae74",vals:series(daily,days,"gold.minted")},

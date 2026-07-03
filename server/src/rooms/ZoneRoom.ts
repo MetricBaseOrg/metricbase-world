@@ -2823,6 +2823,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
     // One-time burn grants LIFETIME Black-zone access; persist it.
     ZoneRoom.blackPassWallets.add(wallet);
+    bumpMetric("base.burned", Math.round(result.burned ?? BLACK_ZONE_BURN_AMOUNT));
     await this.persistPlayer(player);
     client.send("blackPassResult", { ok: true });
     this.broadcastChat(
@@ -2861,6 +2862,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     }
 
     this.playerGold.set(player.name, gold - VIP_PASS_GOLD_COST);
+    bumpMetric("base.burned", Math.round(result.burned ?? VIP_PASS_BURN_AMOUNT));
     ZoneRoom.vipPassUntil.set(wallet, Date.now() + VIP_PASS_DAYS * 24 * 60 * 60 * 1000);
     this.sendProfile(client, player);
     await this.persistPlayer(player);
