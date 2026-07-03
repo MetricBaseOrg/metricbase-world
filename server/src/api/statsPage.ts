@@ -98,6 +98,28 @@ export const STATS_PAGE_HTML = `<!doctype html>
     <div class="card"><h2>Asset market</h2><div id="assetMkt"></div></div>
     <div class="card"><h2>Top gold holders</h2><div id="holders"></div></div>
   </div>
+
+  <h2 style="margin:24px 4px 2px;font-size:1.05rem">📣 Ads Marketplace</h2>
+  <div class="grid">
+    <div class="card"><h2>Ad revenue</h2><div class="big" id="adRevenue">—</div><div class="sub">brand $BASE spent on impressions</div></div>
+    <div class="card"><h2>Paid to players</h2><div class="big mint" id="adPaid">—</div><div class="sub"><span id="adShare">—</span>% revenue share</div></div>
+    <div class="card"><h2>Ad impressions</h2><div class="big" id="adImpr">—</div><div class="sub">creatives served</div></div>
+    <div class="card"><h2>Active campaigns</h2><div class="big" id="adActive">—</div><div class="sub"><span id="adBrands">—</span> brands · <span id="adPending">—</span> pending</div></div>
+  </div>
+
+  <div class="card wide" style="margin-top:14px">
+    <h2>📣 Ad revenue vs player payouts (last 14 days)</h2>
+    <svg id="adChart" viewBox="0 0 720 240" role="img" aria-label="Ad revenue and player payouts per day"></svg>
+    <div class="legend">
+      <span><span class="dot" style="background:#5a97e0"></span>Brand ad spend</span>
+      <span><span class="dot" style="background:#3fae74"></span>Paid to players</span>
+    </div>
+  </div>
+
+  <div class="card wide" style="margin-top:14px">
+    <h2>📦 Ad marketplace totals</h2>
+    <div class="tiles" id="adTotals"></div>
+  </div>
 </div>
 <footer>Numbers are live from the game database. Gold is <b>minted</b> by gameplay (selling gathered goods, mob & quest rewards) and <b>burned</b> by sinks (the shop, forge fees, founding &amp; building Worlds).</footer>
 <div class="tip" id="tip"></div>
@@ -114,6 +136,8 @@ function hideTip(){tip.style.opacity=0;}
 function lastDays(n){var out=[];var d=new Date();for(var i=n-1;i>=0;i--){var t=new Date(d);t.setDate(d.getDate()-i);out.push(t.toISOString().slice(0,10));}return out;}
 // Turn the daily rows into aligned value arrays per metric.
 function series(daily,days,metric){var m={};daily.forEach(function(r){if(r.metric===metric)m[r.day]=r.value;});return days.map(function(d){return m[d]||0;});}
+// Align an ad {day,value}[] series onto the days axis.
+function adSeries(points,days){var m={};(points||[]).forEach(function(p){m[p.day]=p.value;});return days.map(function(d){return m[d]||0;});}
 
 // Draw a multi-series line chart into an <svg> (720x240 viewBox).
 function lineChart(svg,days,seriesArr){
@@ -184,6 +208,23 @@ async function load(){
     rows(el("treasurySrc"),s.treasury.bySource,function(x){return '<div class="row"><span>'+x.source+'</span><b>'+fmt(x.gold)+'g</b></div>';});
     rows(el("assetMkt"),[{k:"Active listings",v:s.assetMarket.listings},{k:"Listed value",v:s.assetMarket.askValue+"g"},{k:"Assets owned",v:s.assetMarket.totalOwned},{k:"$BASE trades",v:s.goldMarket.trades},{k:"Market gold vol.",v:s.goldMarket.goldVolume+"g"}],function(x){return '<div class="row"><span>'+x.k+'</span><b>'+(typeof x.v==="number"?fmt(x.v):x.v)+'</b></div>';});
     rows(el("holders"),s.topHolders,function(x){return '<div class="row"><span>'+x.name+'</span><b>'+fmt(x.gold)+'g</b></div>';});
+
+    var ad=s.ads||{daily:{}};var adDaily=ad.daily||{};
+    set("adRevenue",fmt(ad.totalRevenue)+" $BASE");
+    set("adPaid",fmt(ad.playerPaid)+" $BASE");
+    set("adShare",fmt(ad.sharePct));
+    set("adImpr",fmt(ad.totalImpressions));
+    set("adActive",fmt(ad.activeCampaigns));
+    set("adBrands",fmt(ad.brands));
+    set("adPending",fmt(ad.pendingCampaigns));
+    lineChart(el("adChart"),days,[
+      {name:"Ad spend",color:"#5a97e0",vals:adSeries(adDaily.revenue,days)},
+      {name:"Paid to players",color:"#3fae74",vals:adSeries(adDaily.playerPaid,days)}]);
+    var adTiles=[["Brands",ad.brands],["Program members",ad.members],["Player share %",ad.sharePct],
+      ["Active campaigns",ad.activeCampaigns],["Pending review",ad.pendingCampaigns],["Total campaigns",ad.totalCampaigns],
+      ["Impressions",ad.totalImpressions],["Platform cut ($BASE)",ad.platformCut],
+      ["Unclaimed to players ($BASE)",ad.unclaimed],["Brand deposits ($BASE)",ad.brandDeposits]];
+    el("adTotals").innerHTML=adTiles.map(function(t){return '<div class="tile"><div class="n">'+fmt(t[1]||0)+'</div><div class="l">'+t[0]+'</div></div>';}).join("");
   }catch(e){/* keep last values */}
 }
 load();setInterval(load,20000);

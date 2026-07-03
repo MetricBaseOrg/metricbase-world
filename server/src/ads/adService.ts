@@ -54,6 +54,23 @@ import { getMember as dbGetMember } from "../db/ads.js";
 import { getTreasuryWallet } from "../solana/verifyTokenTransfer.js";
 import { getHouseBalanceUi, getHouseWalletAddress, isWithdrawEnabled, sendPayout } from "../solana/housePayout.js";
 
+/** Public ad-marketplace summary for /stats. Money fields are $BASE UI amounts. */
+export interface AdPublicStats {
+  totalRevenue: number;
+  playerPaid: number;
+  platformCut: number;
+  unclaimed: number;
+  brandDeposits: number;
+  totalImpressions: number;
+  activeCampaigns: number;
+  pendingCampaigns: number;
+  totalCampaigns: number;
+  brands: number;
+  members: number;
+  sharePct: number;
+  daily: { revenue: AdSeriesPoint[]; playerPaid: AdSeriesPoint[]; impressions: AdSeriesPoint[] };
+}
+
 interface BrandState {
   balance: number; // base units
   lifetimeSpent: number;
@@ -477,6 +494,49 @@ class AdService {
       solvent: this.liabilities <= this.houseBalanceUnits,
       slots,
       rank,
+    };
+  }
+
+  /**
+   * Public, wallet-agnostic ad-marketplace summary for the /stats dashboard.
+   * Read-only and cheap (no flush/snapshot): in-memory campaign totals plus DB
+   * sums for lifetime player payouts and program members, with 14-day delta
+   * series for charts. All money fields are $BASE UI amounts.
+   */
+  async getPublicStats(): Promise<AdPublicStats> {
+    const t = this.platformTotals();
+    const playerPaidUnits = await sumMemberLifetime();
+    const unclaimedUnits = await sumMemberEarnings();
+    const members = await countMembers();
+
+    let brandDepositUnits = 0;
+    for (const b of this.brands.values()) brandDepositUnits += b.balance;
+
+    const platDaily = await getDailySeries(14);
+    const revenue: AdSeriesPoint[] = [];
+    const playerPaid: AdSeriesPoint[] = [];
+    const impressions: AdSeriesPoint[] = [];
+    for (let i = 1; i < platDaily.length; i++) {
+      const day = platDaily[i].day;
+      revenue.push({ day, value: toUiAmount(Math.max(0, platDaily[i].revenue - platDaily[i - 1].revenue), "base") });
+      playerPaid.push({ day, value: toUiAmount(Math.max(0, platDaily[i].playerPaid - platDaily[i - 1].playerPaid), "base") });
+      impressions.push({ day, value: Math.max(0, platDaily[i].impressions - platDaily[i - 1].impressions) });
+    }
+
+    return {
+      totalRevenue: toUiAmount(t.revenue, "base"),
+      playerPaid: toUiAmount(playerPaidUnits, "base"),
+      platformCut: toUiAmount(Math.max(0, t.revenue - playerPaidUnits), "base"),
+      unclaimed: toUiAmount(unclaimedUnits, "base"),
+      brandDeposits: toUiAmount(brandDepositUnits, "base"),
+      totalImpressions: t.impressions,
+      activeCampaigns: t.active,
+      pendingCampaigns: t.pending,
+      totalCampaigns: this.campaigns.size,
+      brands: this.brands.size,
+      members,
+      sharePct: Math.round(AD_PLAYER_SHARE * 100),
+      daily: { revenue, playerPaid, impressions },
     };
   }
 

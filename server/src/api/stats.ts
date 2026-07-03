@@ -4,6 +4,7 @@ import { getPool } from "../db/pool.js";
 import { ZoneRoom } from "../rooms/ZoneRoom.js";
 import { getDailySeries, getMetricTotals } from "../economy/metrics.js";
 import { getPlayerHeldBase } from "../solana/playerHeldBase.js";
+import { adService, type AdPublicStats } from "../ads/adService.js";
 
 export const statsRouter = Router();
 
@@ -27,6 +28,7 @@ interface EconomyStats {
   goldMarket: { trades: number; goldVolume: number };
   assetMarket: { listings: number; askValue: number; totalOwned: number };
   baseToken: { burned: number; heldByPlayers: number; holders: number };
+  ads: AdPublicStats;
   topHolders: { name: string; gold: number }[];
   activity: Record<string, number>;
   daily: { day: string; metric: string; value: number }[];
@@ -71,6 +73,7 @@ async function buildStats(): Promise<EconomyStats> {
   }
 
   const playerHeld = await getPlayerHeldBase();
+  const ads = await adService.getPublicStats();
   const activity = getMetricTotals();
   const daily = await getDailySeries(14);
   // Fold in the $BASE gold-market volume per day from market_trades.
@@ -102,6 +105,7 @@ async function buildStats(): Promise<EconomyStats> {
       heldByPlayers: playerHeld?.totalHeld ?? 0,
       holders: playerHeld?.holders ?? 0,
     },
+    ads,
     topHolders,
     activity,
     daily,
