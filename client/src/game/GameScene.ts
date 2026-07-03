@@ -1616,10 +1616,9 @@ export class GameScene extends Phaser.Scene {
           const front = tileToWorld(node.tileX + N - 1, node.tileY + N - 1);
           px = x; // footprint centre-x equals the back-corner tile's x in iso
           py = (y + front.y) / 2; // footprint centre
-          // Depth in the GROUND band (tile-indexed) just above its footprint, so
-          // ground in front occludes the base (embedded look) and the player —
-          // an entity sorted by world Y — always renders above it.
-          depth = (node.tileX + N - 1) + (node.tileY + N - 1) + 0.5;
+          // Sort like a prop at the footprint centre so ground in front occludes
+          // the base the same way it does for a 1×1 node.
+          depth = py;
         }
         const originY = asset.anchorY;
         const sprite = this.add.sprite(px, py, key).setOrigin(0.5, originY).setDepth(depth);
@@ -1718,10 +1717,10 @@ export class GameScene extends Phaser.Scene {
     if (!asset) return;
     const { x, y } = tileToWorld(tileX, tileY);
     const key = zoneAssetTextureKey(type);
-    // Ground is a bottom layer (tile-indexed, always beneath entities) so it
-    // never clips the player. Buildings live in this same band so ground in
-    // FRONT of a building occludes its base and it reads as embedded.
-    const img = this.add.image(x, y, key).setOrigin(0.5, asset.anchorY).setDepth(tileX + tileY - 0.5);
+    // Depth by world Y so the ground in FRONT of a prop/building occludes its
+    // base (embedded look). The player is lifted above the ground in player
+    // zones (see localPlayerDepth) so this never clips the character.
+    const img = this.add.image(x, y, key).setOrigin(0.5, asset.anchorY).setDepth(y - 2);
     const applyReady = () => {
       if (!img.active) return;
       img.setTexture(key).setScale(zoneAssetScale(this, type)).setOrigin(0.5, asset.anchorY).setVisible(true);
@@ -3682,12 +3681,21 @@ export class GameScene extends Phaser.Scene {
     const y = Math.round(local.predicted.y);
     local.baseY = y;
     local.sprite.setPosition(x, y);
-    local.sprite.setDepth(y);
+    local.sprite.setDepth(y + this.playerDepthLift());
     local.label.setPosition(x, y - 42);
     local.label.setDepth(y + 1);
     local.shadow.setPosition(x, y + 4);
     local.shadow.setDepth(y - 0.5);
     this.positionPet(local);
+  }
+
+  /**
+   * In player zones the ground is depth-sorted by world Y (so ground in front of
+   * a prop occludes its base). Lift the player one half-tile above that so the
+   * tile directly in front never draws over the character's feet.
+   */
+  private playerDepthLift(): number {
+    return isPlayerZoneId(this.currentZoneId ?? "") ? 16 : 0;
   }
 
   private interpolateRemotePlayers() {
@@ -3698,7 +3706,7 @@ export class GameScene extends Phaser.Scene {
       const y = Math.round(Phaser.Math.Linear(rendered.baseY, rendered.targetY, alpha));
       rendered.baseY = y;
       rendered.sprite.setPosition(x, y);
-      rendered.sprite.setDepth(y);
+      rendered.sprite.setDepth(y + this.playerDepthLift());
       rendered.label.setPosition(x, y - 42);
       rendered.label.setDepth(y + 1);
       rendered.shadow.setPosition(x, y + 4);
