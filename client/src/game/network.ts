@@ -31,6 +31,8 @@ import {
   type AdAdminDashboardPayload,
   type AdTransparencyPayload,
   CraftResultPayload,
+  type DailyStatePayload,
+  type DailyResultPayload,
   FarmStatePayload,
   FarmResultPayload,
   HousingStatePayload,
@@ -259,6 +261,8 @@ export class NetworkManager {
   private openBlackjackListeners = new Set<(payload: { name: string }) => void>();
   private openCropMarketListeners = new Set<(payload: { market: string }) => void>();
   private cropMarketResultListeners = new Set<(payload: CropMarketResultPayload) => void>();
+  private dailyStateListeners = new Set<(payload: DailyStatePayload) => void>();
+  private dailyResultListeners = new Set<(payload: DailyResultPayload) => void>();
   private mailStateListeners = new Set<(payload: MailStatePayload) => void>();
   private mailResultListeners = new Set<(payload: { ok: boolean; error?: string }) => void>();
   private adServingListeners = new Set<(payload: AdServingPayload) => void>();
@@ -788,6 +792,28 @@ export class NetworkManager {
 
   sendCropMarketTrade(market: string, action: "buySeed" | "sellCrop", qty: number) {
     this.room?.send("cropMarketTrade", { market, action, qty });
+  }
+
+  onDailyState(listener: (payload: DailyStatePayload) => void) {
+    this.dailyStateListeners.add(listener);
+    return () => this.dailyStateListeners.delete(listener);
+  }
+
+  onDailyResult(listener: (payload: DailyResultPayload) => void) {
+    this.dailyResultListeners.add(listener);
+    return () => this.dailyResultListeners.delete(listener);
+  }
+
+  requestDailyState() {
+    this.room?.send("dailyState", {});
+  }
+
+  sendDailyClaimTask(taskId: string) {
+    this.room?.send("dailyClaimTask", { taskId });
+  }
+
+  sendDailyClaimLogin() {
+    this.room?.send("dailyClaimLogin", {});
   }
 
   requestMailState() {
@@ -1582,6 +1608,12 @@ export class NetworkManager {
     });
     this.room.onMessage("cropMarketResult", (payload: CropMarketResultPayload) => {
       for (const listener of this.cropMarketResultListeners) listener(payload);
+    });
+    this.room.onMessage("dailyState", (payload: DailyStatePayload) => {
+      for (const listener of this.dailyStateListeners) listener(payload);
+    });
+    this.room.onMessage("dailyResult", (payload: DailyResultPayload) => {
+      for (const listener of this.dailyResultListeners) listener(payload);
     });
     this.room.onMessage("mailState", (payload: MailStatePayload) => {
       for (const listener of this.mailStateListeners) listener(payload);

@@ -282,6 +282,18 @@ CREATE TABLE IF NOT EXISTS asset_listings (
 
 -- Gold owed to a player from asset sales while they were offline; applied on
 -- their next join.
+-- Daily quests + login streak, one row per player. Progress/claims reset when
+-- `day` rolls over (handled in code); streak survives across days.
+CREATE TABLE IF NOT EXISTS daily_state (
+  player_name VARCHAR(16) PRIMARY KEY,
+  day VARCHAR(10) NOT NULL,
+  progress JSONB NOT NULL DEFAULT '{}'::jsonb,
+  claimed JSONB NOT NULL DEFAULT '{}'::jsonb,
+  login_claimed BOOLEAN NOT NULL DEFAULT false,
+  streak INTEGER NOT NULL DEFAULT 0,
+  last_login_day VARCHAR(10)
+);
+
 CREATE TABLE IF NOT EXISTS pending_gold (
   player_name VARCHAR(16) PRIMARY KEY,
   amount INTEGER NOT NULL DEFAULT 0

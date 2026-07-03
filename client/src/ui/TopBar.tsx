@@ -247,6 +247,11 @@ export function TopBar({ onLeave }: TopBarProps) {
           </a>
 
           <button type="button" className="chibi-btn chibi-btn--gold" style={{ width: "100%", marginTop: 8, padding: "8px 10px" }}
+            onClick={() => { playSfx("ui_open"); useGameStore.getState().setDailyOpen(true); setMenuOpen(false); }}>
+            📅 Daily Rewards
+          </button>
+
+          <button type="button" className="chibi-btn chibi-btn--gold" style={{ width: "100%", marginTop: 8, padding: "8px 10px" }}
             onClick={() => { playSfx("ui_open"); useGameStore.getState().setAdsOpen(true); setMenuOpen(false); }}>
             📣 Ads &amp; Earnings
           </button>

@@ -41,6 +41,10 @@ import {
   FARM_CROPS,
   zonePropFootprint,
   DEFAULT_FARM_SEED,
+  dailyDayKey,
+  dailyTasksFor,
+  loginRewardGold,
+  type DailyStatePayload,
   PLOT_PRICE,
   LIGHT_OIL_ITEM,
   LIGHT_REFUEL_AMOUNT,
@@ -323,6 +327,7 @@ import {
 import { creditTreasuryGold } from "../economy/treasury.js";
 import { bumpMetric, burnGold, mintGold } from "../economy/metrics.js";
 import { creditGoldForPurchase, isPurchaseRedeemed } from "../db/tokenPurchases.js";
+import { emptyDailyRow, loadDailyState, saveDailyState, type DailyRow } from "../db/daily.js";
 import { adjustAsset, getAssetInventory, getAssetQty } from "../zones/assetInventory.js";
 import {
   addPendingGold,
@@ -628,6 +633,15 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     });
     this.onProtectedMessage("cropMarketTrade", (client, message: { market?: string; action?: string; qty?: number }) => {
       void this.handleCropMarketTrade(client, String(message.market ?? ""), String(message.action ?? ""), Number(message.qty) || 1);
+    });
+    this.onProtectedMessage("dailyState", (client) => {
+      void this.handleDailyState(client);
+    });
+    this.onProtectedMessage("dailyClaimTask", (client, message: { taskId?: string }) => {
+      void this.handleDailyClaimTask(client, String(message.taskId ?? ""));
+    });
+    this.onProtectedMessage("dailyClaimLogin", (client) => {
+      void this.handleDailyClaimLogin(client);
     });
     this.onMessage("worldsList", (client) => {
       this.handleWorldsList(client);
@@ -1172,6 +1186,13 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
     this.state.players.set(client.sessionId, player);
     this.activePlayerSession.set(player.name, client.sessionId);
+    // Load daily-quest state (ticks the login streak); entering someone else's
+    // World counts toward the "visit a player World" task.
+    void this.ensureDaily(player.name).then(() => {
+      if (this.playerZone && this.playerZone.ownerName !== player.name) {
+        this.bumpDaily(player.name, "visitWorld");
+      }
+    });
     setOnline(player.name, client, (type, payload) => client.send(type, payload));
     this.inputs.set(client.sessionId, { dx: 0, dy: 0 });
     this.questProgress.set(player.name, saved?.questProgress ?? { active: [], objectiveIndex: {}, completed: [] });
@@ -1898,6 +1919,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     const defeated = nextHp === 0;
     if (defeated) {
       bumpMetric("mob.kills", 1);
+      this.bumpDaily(player.name, "mobs");
       this.mobRespawnAt.set(npcId, now + npc.combat.respawnMs);
 
       // Party play: nearby party members fighting in this zone share the spoils.
@@ -3190,6 +3212,129 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     client.send("zoneResult", { ok: true, zoneId, message: `Pass purchased — enjoy ${zone.displayName}!` });
   }
 
+  // ---- Daily quests + login streak ----------------------------------------
+  // Process-global so state follows the player across zone rooms; persisted to
+  // daily_state so it survives restarts.
+  private static dailyStates = new Map<string, DailyRow>();
+
+  /** Reset progress/claims when the UTC day rolls over (streak is separate). */
+  private static rollDailyDay(state: DailyRow): void {
+    const today = dailyDayKey();
+    if (state.day === today) return;
+    state.day = today;
+    state.progress = {};
+    state.claimed = {};
+    state.loginClaimed = false;
+  }
+
+  /** Load (or create) a player's daily state and apply the login-streak tick. */
+  private async ensureDaily(playerName: string): Promise<DailyRow> {
+    let state = ZoneRoom.dailyStates.get(playerName);
+    if (!state) {
+      state = (await loadDailyState(playerName)) ?? emptyDailyRow(dailyDayKey());
+      ZoneRoom.dailyStates.set(playerName, state);
+    }
+    ZoneRoom.rollDailyDay(state);
+    const today = dailyDayKey();
+    if (state.lastLoginDay !== today) {
+      const yesterday = dailyDayKey(Date.now() - 24 * 60 * 60 * 1000);
+      state.streak = state.lastLoginDay === yesterday ? state.streak + 1 : 1;
+      state.lastLoginDay = today;
+      void saveDailyState(playerName, state);
+    }
+    return state;
+  }
+
+  private buildDailyPayload(state: DailyRow): DailyStatePayload {
+    return {
+      day: state.day,
+      streak: Math.max(1, state.streak),
+      loginClaimed: state.loginClaimed,
+      loginGold: loginRewardGold(Math.max(1, state.streak)),
+      tasks: dailyTasksFor(state.day).map((t) => ({
+        ...t,
+        progress: Math.min(t.target, state.progress[t.id] ?? 0),
+        claimed: Boolean(state.claimed[t.id]),
+      })),
+    };
+  }
+
+  private clientFor(playerName: string): Client | undefined {
+    const session = this.activePlayerSession.get(playerName);
+    if (!session) return undefined;
+    for (const c of this.clients) if (c.sessionId === session) return c;
+    return undefined;
+  }
+
+  /** Tick a daily task counter (no-op unless that task is active today). */
+  private bumpDaily(playerName: string, taskId: string, n = 1): void {
+    const state = ZoneRoom.dailyStates.get(playerName);
+    if (!state) return;
+    ZoneRoom.rollDailyDay(state);
+    const task = dailyTasksFor(state.day).find((t) => t.id === taskId);
+    if (!task || state.claimed[taskId]) return;
+    const cur = state.progress[taskId] ?? 0;
+    if (cur >= task.target) return;
+    state.progress[taskId] = Math.min(task.target, cur + n);
+    void saveDailyState(playerName, state);
+    // Push fresh state so progress bars tick live while the panel is open.
+    const client = this.clientFor(playerName);
+    if (client) client.send("dailyState", this.buildDailyPayload(state));
+  }
+
+  private async handleDailyState(client: Client) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const state = await this.ensureDaily(player.name);
+    client.send("dailyState", this.buildDailyPayload(state));
+  }
+
+  private async handleDailyClaimTask(client: Client, taskId: string) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const state = await this.ensureDaily(player.name);
+    const task = dailyTasksFor(state.day).find((t) => t.id === taskId);
+    if (!task) return void client.send("dailyResult", { ok: false, error: "That task isn't active today." });
+    if (state.claimed[taskId]) return void client.send("dailyResult", { ok: false, error: "Already claimed." });
+    if ((state.progress[taskId] ?? 0) < task.target) {
+      return void client.send("dailyResult", { ok: false, error: "Not finished yet." });
+    }
+    state.claimed[taskId] = true;
+    if (task.gold > 0) {
+      mintGold(task.gold);
+      bumpMetric("daily.gold", task.gold);
+      this.playerGold.set(player.name, (this.playerGold.get(player.name) ?? STARTING_GOLD) + task.gold);
+    }
+    if (task.gems > 0) this.playerGems.set(player.name, (this.playerGems.get(player.name) ?? 0) + task.gems);
+    bumpMetric("daily.claimed", 1);
+    this.sendProfile(client, player);
+    await this.persistPlayer(player);
+    void saveDailyState(player.name, state);
+    client.send("dailyResult", {
+      ok: true,
+      message: `Claimed ${task.gold.toLocaleString()}g${task.gems > 0 ? ` + ${task.gems}💎` : ""}!`,
+    });
+    client.send("dailyState", this.buildDailyPayload(state));
+  }
+
+  private async handleDailyClaimLogin(client: Client) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const state = await this.ensureDaily(player.name);
+    if (state.loginClaimed) return void client.send("dailyResult", { ok: false, error: "Already claimed today." });
+    const gold = loginRewardGold(Math.max(1, state.streak));
+    state.loginClaimed = true;
+    mintGold(gold);
+    bumpMetric("daily.gold", gold);
+    bumpMetric("daily.login", 1);
+    this.playerGold.set(player.name, (this.playerGold.get(player.name) ?? STARTING_GOLD) + gold);
+    this.sendProfile(client, player);
+    await this.persistPlayer(player);
+    void saveDailyState(player.name, state);
+    client.send("dailyResult", { ok: true, message: `Day ${state.streak} login bonus: ${gold.toLocaleString()}g!` });
+    client.send("dailyState", this.buildDailyPayload(state));
+  }
+
   /** Trade at a placed crop-market building: buy its seeds or sell its crop. */
   private async handleCropMarketTrade(client: Client, marketId: string, action: string, rawQty: number) {
     const player = this.state.players.get(client.sessionId);
@@ -3244,6 +3389,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       mintGold(payout);
       bumpMetric("sell.count", count);
       bumpMetric("sell.gold", payout);
+      this.bumpDaily(player.name, "sell", count);
       this.inventories.set(player.name, next);
       this.sendProfile(client, player);
       this.sendInventory(client, player.name);
@@ -4172,6 +4318,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     mintGold(payout);
     bumpMetric("sell.count", removed);
     bumpMetric("sell.gold", payout);
+    this.bumpDaily(player.name, "sell", removed);
     const gold = (this.playerGold.get(player.name) ?? STARTING_GOLD) + payout;
     this.playerGold.set(player.name, gold);
     this.inventories.set(player.name, inventory);
@@ -5013,6 +5160,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     this.playerGold.set(playerName, gold);
     this.inventories.set(playerName, inventory);
     bumpMetric("craft.count", recipe.output.quantity);
+    this.bumpDaily(playerName, "craft", recipe.output.quantity);
     if (recipe.goldCost > 0) burnGold(recipe.goldCost); // forge fee sink
     this.sendInventory(client, playerName);
     this.sendProfile(client, player);
@@ -5422,6 +5570,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
     bumpMetric("gather.count", lootQuantity);
     bumpMetric(`gather.${gather.skill}`, lootQuantity);
+    this.bumpDaily(player.name, "gather", lootQuantity);
 
     const skillXpGained = gather.skillXp;
     const { newLevel, leveledUp } = this.grantSkillXp(player.name, gather.skill, skillXpGained);
@@ -5715,6 +5864,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     const crop = getFarmCropBySeed(active.seedId);
     const yieldQty = crop?.yield ?? 1;
     bumpMetric("farm.harvest", yieldQty);
+    this.bumpDaily(player.name, "harvest", yieldQty);
     await this.grantLoot(client, player.name, active.cropId, yieldQty);
     const skillXp = crop?.skillXp ?? 10;
     const { newLevel, leveledUp } = this.grantSkillXp(player.name, "farming", skillXp);
