@@ -88,6 +88,13 @@ export interface WorldDirectoryEntry {
   ownerName: string;
   passPrice: number;
   visits: number;
+  /** Founding time (epoch ms), for "New" sorting. */
+  createdAt: number;
+  /** Players inside right now. */
+  online: number;
+  gatherTax: number;
+  /** Placed props + resource nodes — a rough "how built is it" signal. */
+  props: number;
 }
 export interface MyWorldEntry {
   zoneId: string;
@@ -97,6 +104,12 @@ export interface MyWorldEntry {
   earnings: number;
   visits: number;
   gatherTax: number;
+  /** Lifetime analytics counters. */
+  passesSold: number;
+  passGold: number;
+  taxGold: number;
+  lifetimeEarnings: number;
+  online: number;
   build: PlayerZoneBuild;
 }
 export interface ZoneResultPayload {

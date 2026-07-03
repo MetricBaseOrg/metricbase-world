@@ -312,6 +312,7 @@ import {
   getZonesOwnedBy,
   grantZonePass,
   isPlayerZoneId,
+  recordZoneVisit,
   sanitizeBuild,
   setZoneBuild,
   setZoneMeta,
@@ -1045,6 +1046,11 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     // are open, and paid zones require an unexpired visitor pass.
     if (this.playerZone && !canEnterZone(this.playerZone.zoneId, name)) {
       throw new ServerError(403, "You need a visitor pass to enter this World.");
+    }
+    // Count the visit for the directory's popularity stats (dedup per day;
+    // owner entries don't count).
+    if (this.playerZone && !options.spectate) {
+      recordZoneVisit(this.playerZone.zoneId, name);
     }
 
     // Restore a persisted VIP Lodge pass into the in-memory map (survives restarts).
@@ -3172,6 +3178,18 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     client.send("zoneResult", { ok: true, zoneId, message: `Pass purchased — enjoy ${zone.displayName}!` });
   }
 
+  /** Players currently inside a given zone across all live rooms. */
+  private static zoneOnlineCount(zoneId: string): number {
+    let online = 0;
+    for (const room of ZoneRoom.activeRooms) {
+      if (room.zoneConfig.id !== zoneId) continue;
+      for (const player of room.state.players.values()) {
+        if (!player.spectator) online++;
+      }
+    }
+    return online;
+  }
+
   /** Send the public directory of published Worlds to a client. */
   private handleWorldsList(client: Client) {
     client.send("worldsList", {
@@ -3181,6 +3199,10 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         ownerName: z.ownerName,
         passPrice: z.passPrice,
         visits: z.visits,
+        createdAt: z.createdAt,
+        online: ZoneRoom.zoneOnlineCount(z.zoneId),
+        gatherTax: z.gatherTax,
+        props: z.build.scenery.length + z.build.resources.length,
       })),
     });
   }
@@ -3202,6 +3224,11 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         earnings: z.earnings,
         visits: z.visits,
         gatherTax: z.gatherTax,
+        passesSold: z.passesSold,
+        passGold: z.passGold,
+        taxGold: z.taxGold,
+        lifetimeEarnings: z.lifetimeEarnings,
+        online: ZoneRoom.zoneOnlineCount(z.zoneId),
         build: z.build,
       })),
     });

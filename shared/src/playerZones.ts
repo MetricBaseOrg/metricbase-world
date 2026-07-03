@@ -63,10 +63,20 @@ export interface PlayerZoneMeta {
   published: boolean;
   /** Uncollected gold earned from pass sales + gather tax, withdrawable. */
   earnings: number;
-  /** Lifetime pass purchases, for the directory. */
+  /** Lifetime visitor entries (unique per visitor per day), for the directory. */
   visits: number;
   /** Gold a visitor pays the owner each time they gather a node here (0 = free). */
   gatherTax: number;
+  /** Lifetime passes purchased. */
+  passesSold: number;
+  /** Lifetime gold earned from pass sales. */
+  passGold: number;
+  /** Lifetime gold earned from gather tax. */
+  taxGold: number;
+  /** Lifetime gold earned in total (pass + tax), never reset by collection. */
+  lifetimeEarnings: number;
+  /** Founding time (epoch ms), for "New" sorting in the directory. */
+  createdAt: number;
 }
 
 /** Bound on the per-gather visitor tax an owner can charge. */

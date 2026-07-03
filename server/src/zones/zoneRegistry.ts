@@ -71,6 +71,11 @@ export function createPlayerZone(ownerName: string, ownerWallet: string | null):
     earnings: 0,
     visits: 0,
     gatherTax: 0,
+    passesSold: 0,
+    passGold: 0,
+    taxGold: 0,
+    lifetimeEarnings: 0,
+    createdAt: Date.now(),
     build: emptyPlayerZoneBuild(),
   };
   zones.set(zoneId, record);
@@ -148,8 +153,11 @@ export function getZoneGatherTax(zoneId: string): number {
 export function addZoneEarnings(zoneId: string, gold: number): void {
   const zone = zones.get(zoneId);
   if (!zone || gold <= 0) return;
-  zone.earnings += Math.floor(gold);
-  zone.visits += 1;
+  const amount = Math.floor(gold);
+  zone.earnings += amount;
+  zone.passesSold += 1;
+  zone.passGold += amount;
+  zone.lifetimeEarnings += amount;
   void savePlayerZone(zone);
 }
 
@@ -157,7 +165,25 @@ export function addZoneEarnings(zoneId: string, gold: number): void {
 export function addZoneTax(zoneId: string, gold: number): void {
   const zone = zones.get(zoneId);
   if (!zone || gold <= 0) return;
-  zone.earnings += Math.floor(gold);
+  const amount = Math.floor(gold);
+  zone.earnings += amount;
+  zone.taxGold += amount;
+  zone.lifetimeEarnings += amount;
+  void savePlayerZone(zone);
+}
+
+// Visit dedup: one counted visit per visitor per zone per day, kept in memory
+// (a restart may re-count a same-day return — acceptable for a popularity stat).
+const visitSeen = new Set<string>();
+
+/** Count a visitor entering a zone (owner entries don't count). */
+export function recordZoneVisit(zoneId: string, visitorName: string): void {
+  const zone = zones.get(zoneId);
+  if (!zone || zone.ownerName === visitorName) return;
+  const key = `${zoneId}|${visitorName}|${new Date().toISOString().slice(0, 10)}`;
+  if (visitSeen.has(key)) return;
+  visitSeen.add(key);
+  zone.visits += 1;
   void savePlayerZone(zone);
 }
 

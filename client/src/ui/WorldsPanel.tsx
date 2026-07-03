@@ -11,6 +11,7 @@ import { sendMetricbaseTokenPayment } from "../wallet/tokenPayment";
 import { useGameStore } from "../store/gameStore";
 
 type Tab = "directory" | "mine";
+type DirSort = "popular" | "new";
 
 // Paid-but-uncredited Pip gold purchases are stashed locally so the payment is
 // never lost: if verification is slow, the tab reloads, or the connection drops
@@ -53,6 +54,7 @@ export function WorldsPanel() {
   const walletAddress = useGameStore((state) => state.walletAddress);
 
   const [tab, setTab] = useState<Tab>("directory");
+  const [dirSort, setDirSort] = useState<DirSort>("popular");
   const [pipInfo, setPipInfo] = useState<PipGoldInfoPayload | null>(null);
   const [buyGold, setBuyGold] = useState("");
   const [directory, setDirectory] = useState<WorldDirectoryEntry[]>([]);
@@ -239,35 +241,97 @@ export function WorldsPanel() {
 
       {tab === "directory" && (
         <div style={{ marginTop: 12, maxHeight: "50vh", overflowY: "auto" }}>
+          {directory.length > 1 && (
+            <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
+              {(
+                [
+                  ["popular", "🔥 Popular"],
+                  ["new", "✨ New"],
+                ] as [DirSort, string][]
+              ).map(([id, label]) => (
+                <button
+                  key={id}
+                  type="button"
+                  className={`chibi-btn ${dirSort === id ? "chibi-btn--primary" : "chibi-btn--ghost"}`}
+                  style={{ flex: 1, padding: "6px 10px", fontSize: "0.74rem", minHeight: 34 }}
+                  onClick={() => setDirSort(id)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
           {directory.length === 0 && (
             <div className="chibi-text-muted" style={{ fontSize: "0.82rem" }}>
               No published Worlds yet. Found one from “My Worlds”!
             </div>
           )}
-          {directory.map((w) => (
-            <div key={w.zoneId} className="chibi-card" style={{ marginBottom: 8, padding: "10px 12px" }}>
-              <div style={{ fontWeight: 600 }}>{w.displayName}</div>
-              <div className="chibi-text-muted" style={{ fontSize: "0.75rem", marginTop: 2 }}>
-                by {w.ownerName} · {w.visits} visits · {w.passPrice > 0 ? `${w.passPrice.toLocaleString()}g pass` : "Free entry"}
-              </div>
-              <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
-                <button type="button" className="chibi-btn chibi-btn--mint" style={{ flex: 1 }} onClick={() => enter(w.zoneId)}>
-                  Enter
-                </button>
-                {w.passPrice > 0 && w.ownerName !== playerName && (
-                  <button
-                    type="button"
-                    className="chibi-btn chibi-btn--gold"
-                    style={{ flex: 1 }}
-                    disabled={pending || playerGold < w.passPrice}
-                    onClick={() => buyPass(w.zoneId)}
-                  >
-                    Buy Pass
+          {(() => {
+            const sorted = [...directory].sort((a, b) =>
+              dirSort === "new" ? (b.createdAt ?? 0) - (a.createdAt ?? 0) : b.visits - a.visits,
+            );
+            // The most-visited world (with real traffic) gets a Featured crown.
+            const featuredId = [...directory].sort((a, b) => b.visits - a.visits).find((w) => w.visits > 0)?.zoneId;
+            return sorted.map((w) => (
+              <div key={w.zoneId} className="chibi-card" style={{ marginBottom: 8, padding: "10px 12px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                  <span style={{ fontWeight: 700 }}>{w.displayName}</span>
+                  {w.zoneId === featuredId && (
+                    <span
+                      style={{
+                        fontSize: "0.62rem",
+                        fontWeight: 800,
+                        background: "#ffe9b0",
+                        border: "1.5px solid #e0a92e",
+                        borderRadius: 999,
+                        padding: "1px 8px",
+                        color: "#8a6414",
+                      }}
+                    >
+                      👑 Featured
+                    </span>
+                  )}
+                  {(w.online ?? 0) > 0 && (
+                    <span
+                      style={{
+                        fontSize: "0.62rem",
+                        fontWeight: 800,
+                        background: "#dcf5e7",
+                        border: "1.5px solid #3fae74",
+                        borderRadius: 999,
+                        padding: "1px 8px",
+                        color: "#1d7a4c",
+                      }}
+                    >
+                      🟢 {w.online} here now
+                    </span>
+                  )}
+                </div>
+                <div className="chibi-text-muted" style={{ fontSize: "0.73rem", marginTop: 3, lineHeight: 1.5 }}>
+                  by {w.ownerName} · 👣 {w.visits.toLocaleString()} visits · 🧱 {w.props ?? 0} builds
+                  <br />
+                  {w.passPrice > 0 ? `🎟️ ${w.passPrice.toLocaleString()}g pass` : "🆓 Free entry"}
+                  {(w.gatherTax ?? 0) > 0 ? ` · 🌾 ${w.gatherTax}g gather tax` : ""}
+                </div>
+                <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
+                  <button type="button" className="chibi-btn chibi-btn--mint" style={{ flex: 1 }} onClick={() => enter(w.zoneId)}>
+                    Enter
                   </button>
-                )}
+                  {w.passPrice > 0 && w.ownerName !== playerName && (
+                    <button
+                      type="button"
+                      className="chibi-btn chibi-btn--gold"
+                      style={{ flex: 1 }}
+                      disabled={pending || playerGold < w.passPrice}
+                      onClick={() => buyPass(w.zoneId)}
+                    >
+                      Buy Pass
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            ));
+          })()}
         </div>
       )}
 
@@ -346,7 +410,47 @@ export function WorldsPanel() {
                   }
                 />
                 <div className="chibi-text-muted" style={{ fontSize: "0.7rem", marginTop: 2 }}>
-                  Max {MAX_ZONE_PASS_PRICE.toLocaleString()}g pass · {w.visits} visits · {w.earnings.toLocaleString()}g earned. Visitors pay the tax to you per node they harvest.
+                  Max {MAX_ZONE_PASS_PRICE.toLocaleString()}g pass. Visitors pay the tax to you per node they harvest.
+                </div>
+
+                {/* Owner analytics: lifetime performance of this World. */}
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(3, 1fr)",
+                    gap: 6,
+                    marginTop: 8,
+                  }}
+                >
+                  {(
+                    [
+                      ["👣", "Visits", w.visits],
+                      ["🟢", "Here now", w.online ?? 0],
+                      ["🎟️", "Passes sold", w.passesSold ?? 0],
+                      ["🪙", "Pass gold", w.passGold ?? 0],
+                      ["🌾", "Tax gold", w.taxGold ?? 0],
+                      ["💰", "Lifetime", w.lifetimeEarnings ?? 0],
+                    ] as [string, string, number][]
+                  ).map(([em, label, val]) => (
+                    <div
+                      key={label}
+                      title={val.toLocaleString()}
+                      style={{
+                        background: "#fffdf6",
+                        border: "1.5px solid #e6d3aa",
+                        borderRadius: 10,
+                        padding: "6px 8px",
+                        textAlign: "center",
+                      }}
+                    >
+                      <div style={{ fontWeight: 800, fontSize: "0.85rem" }}>
+                        {val >= 10000 ? `${(val / 1000).toFixed(val >= 100000 ? 0 : 1)}k` : val.toLocaleString()}
+                      </div>
+                      <div className="chibi-text-muted" style={{ fontSize: "0.6rem" }}>
+                        {em} {label}
+                      </div>
+                    </div>
+                  ))}
                 </div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
                   <button

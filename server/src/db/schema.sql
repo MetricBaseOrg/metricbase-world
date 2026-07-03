@@ -255,6 +255,11 @@ CREATE TABLE IF NOT EXISTS player_zones (
 );
 -- Gold a visitor pays the owner per gather (added later).
 ALTER TABLE player_zones ADD COLUMN IF NOT EXISTS gather_tax INTEGER NOT NULL DEFAULT 0;
+-- Owner analytics counters (added later): lifetime totals, never reset.
+ALTER TABLE player_zones ADD COLUMN IF NOT EXISTS passes_sold INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE player_zones ADD COLUMN IF NOT EXISTS pass_gold BIGINT NOT NULL DEFAULT 0;
+ALTER TABLE player_zones ADD COLUMN IF NOT EXISTS tax_gold BIGINT NOT NULL DEFAULT 0;
+ALTER TABLE player_zones ADD COLUMN IF NOT EXISTS lifetime_earnings BIGINT NOT NULL DEFAULT 0;
 
 -- Build-asset inventory: how many of each placeable asset a player owns (bought
 -- from the Build Shop or P2P, consumed when placed, returned when removed).
