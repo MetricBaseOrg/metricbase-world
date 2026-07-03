@@ -1616,7 +1616,10 @@ export class GameScene extends Phaser.Scene {
           const front = tileToWorld(node.tileX + N - 1, node.tileY + N - 1);
           px = x; // footprint centre-x equals the back-corner tile's x in iso
           py = (y + front.y) / 2; // footprint centre
-          depth = front.y; // sort by the base's front row
+          // Depth in the GROUND band (tile-indexed) just above its footprint, so
+          // ground in front occludes the base (embedded look) and the player —
+          // an entity sorted by world Y — always renders above it.
+          depth = (node.tileX + N - 1) + (node.tileY + N - 1) + 0.5;
         }
         const originY = asset.anchorY;
         const sprite = this.add.sprite(px, py, key).setOrigin(0.5, originY).setDepth(depth);
@@ -1715,11 +1718,10 @@ export class GameScene extends Phaser.Scene {
     if (!asset) return;
     const { x, y } = tileToWorld(tileX, tileY);
     const key = zoneAssetTextureKey(type);
-    // Depth by world Y (same scale as props/buildings) so ground in FRONT of a
-    // building correctly draws over its base — otherwise buildings, sorted by
-    // world Y, always render on top of the tile-indexed ground and look raised.
-    // The -2 keeps a tile's ground just beneath a prop standing on that tile.
-    const img = this.add.image(x, y, key).setOrigin(0.5, asset.anchorY).setDepth(y - 2);
+    // Ground is a bottom layer (tile-indexed, always beneath entities) so it
+    // never clips the player. Buildings live in this same band so ground in
+    // FRONT of a building occludes its base and it reads as embedded.
+    const img = this.add.image(x, y, key).setOrigin(0.5, asset.anchorY).setDepth(tileX + tileY - 0.5);
     const applyReady = () => {
       if (!img.active) return;
       img.setTexture(key).setScale(zoneAssetScale(this, type)).setOrigin(0.5, asset.anchorY).setVisible(true);
