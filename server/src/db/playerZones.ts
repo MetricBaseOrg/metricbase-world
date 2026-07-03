@@ -36,9 +36,10 @@ export async function loadPlayerZones(): Promise<PlayerZoneRecord[]> {
       published: boolean | null;
       earnings: number | null;
       visits: number | null;
+      gather_tax: number | null;
       build: unknown;
     }>(
-      "SELECT zone_id, owner_wallet, owner_name, display_name, pass_price, published, earnings, visits, build FROM player_zones",
+      "SELECT zone_id, owner_wallet, owner_name, display_name, pass_price, published, earnings, visits, gather_tax, build FROM player_zones",
     );
     return res.rows.map((row) => ({
       zoneId: row.zone_id,
@@ -49,6 +50,7 @@ export async function loadPlayerZones(): Promise<PlayerZoneRecord[]> {
       published: Boolean(row.published),
       earnings: row.earnings ?? 0,
       visits: row.visits ?? 0,
+      gatherTax: row.gather_tax ?? 0,
       build: normalizeBuild(row.build),
     }));
   } catch (error) {
@@ -62,13 +64,13 @@ export async function savePlayerZone(zone: PlayerZoneRecord): Promise<void> {
   if (!pool) return;
   try {
     await pool.query(
-      `INSERT INTO player_zones (zone_id, owner_wallet, owner_name, display_name, pass_price, published, earnings, visits, build)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      `INSERT INTO player_zones (zone_id, owner_wallet, owner_name, display_name, pass_price, published, earnings, visits, gather_tax, build)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
        ON CONFLICT (zone_id)
        DO UPDATE SET owner_wallet = EXCLUDED.owner_wallet, owner_name = EXCLUDED.owner_name,
                      display_name = EXCLUDED.display_name, pass_price = EXCLUDED.pass_price,
                      published = EXCLUDED.published, earnings = EXCLUDED.earnings,
-                     visits = EXCLUDED.visits, build = EXCLUDED.build`,
+                     visits = EXCLUDED.visits, gather_tax = EXCLUDED.gather_tax, build = EXCLUDED.build`,
       [
         zone.zoneId,
         zone.ownerWallet,
@@ -78,6 +80,7 @@ export async function savePlayerZone(zone: PlayerZoneRecord): Promise<void> {
         zone.published,
         zone.earnings,
         zone.visits,
+        zone.gatherTax,
         JSON.stringify(zone.build ?? emptyPlayerZoneBuild()),
       ],
     );

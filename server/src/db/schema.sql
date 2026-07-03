@@ -240,6 +240,8 @@ CREATE TABLE IF NOT EXISTS player_zones (
   build JSONB NOT NULL DEFAULT '{}'::jsonb,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+-- Gold a visitor pays the owner per gather (added later).
+ALTER TABLE player_zones ADD COLUMN IF NOT EXISTS gather_tax INTEGER NOT NULL DEFAULT 0;
 -- Per-visitor zone passes: which wallet may enter which zone, until when.
 CREATE TABLE IF NOT EXISTS zone_passes (
   zone_id VARCHAR(64) NOT NULL,

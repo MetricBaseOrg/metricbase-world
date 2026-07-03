@@ -2,6 +2,7 @@ import {
   emptyPlayerZoneBuild,
   MAX_ZONE_FARM_PLOTS,
   MAX_ZONE_LAND_PLOTS,
+  MAX_GATHER_TAX,
   MAX_ZONE_NAME_LENGTH,
   MAX_ZONE_PAINTED_TILES,
   MAX_ZONE_PASS_PRICE,
@@ -69,6 +70,7 @@ export function createPlayerZone(ownerName: string, ownerWallet: string | null):
     published: false,
     earnings: 0,
     visits: 0,
+    gatherTax: 0,
     build: emptyPlayerZoneBuild(),
   };
   zones.set(zoneId, record);
@@ -117,10 +119,10 @@ export function setZoneBuild(zoneId: string, build: PlayerZoneBuild): void {
   void savePlayerZone(zone);
 }
 
-/** Update listing metadata (name/price/published) on a zone. */
+/** Update listing metadata (name/price/published/gather tax) on a zone. */
 export function setZoneMeta(
   zoneId: string,
-  patch: { displayName?: string; passPrice?: number; published?: boolean },
+  patch: { displayName?: string; passPrice?: number; published?: boolean; gatherTax?: number },
 ): void {
   const zone = zones.get(zoneId);
   if (!zone) return;
@@ -130,8 +132,16 @@ export function setZoneMeta(
   if (typeof patch.passPrice === "number" && Number.isFinite(patch.passPrice)) {
     zone.passPrice = Math.max(MIN_ZONE_PASS_PRICE, Math.min(MAX_ZONE_PASS_PRICE, Math.floor(patch.passPrice)));
   }
+  if (typeof patch.gatherTax === "number" && Number.isFinite(patch.gatherTax)) {
+    zone.gatherTax = Math.max(0, Math.min(MAX_GATHER_TAX, Math.floor(patch.gatherTax)));
+  }
   if (typeof patch.published === "boolean") zone.published = patch.published;
   void savePlayerZone(zone);
+}
+
+/** The per-gather visitor tax an owner charges in a zone (0 if none/unknown). */
+export function getZoneGatherTax(zoneId: string): number {
+  return zones.get(zoneId)?.gatherTax ?? 0;
 }
 
 /** Credit gold earned from a pass sale to the owner's withdrawable balance. */
@@ -140,6 +150,14 @@ export function addZoneEarnings(zoneId: string, gold: number): void {
   if (!zone || gold <= 0) return;
   zone.earnings += Math.floor(gold);
   zone.visits += 1;
+  void savePlayerZone(zone);
+}
+
+/** Credit gather-tax gold to the owner (no visit increment). */
+export function addZoneTax(zoneId: string, gold: number): void {
+  const zone = zones.get(zoneId);
+  if (!zone || gold <= 0) return;
+  zone.earnings += Math.floor(gold);
   void savePlayerZone(zone);
 }
 

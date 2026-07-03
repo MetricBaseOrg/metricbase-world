@@ -61,11 +61,16 @@ export interface PlayerZoneMeta {
   passPrice: number;
   /** Only published zones appear in the Worlds directory / accept visitors. */
   published: boolean;
-  /** Uncollected gold earned from pass sales, withdrawable by the owner. */
+  /** Uncollected gold earned from pass sales + gather tax, withdrawable. */
   earnings: number;
   /** Lifetime pass purchases, for the directory. */
   visits: number;
+  /** Gold a visitor pays the owner each time they gather a node here (0 = free). */
+  gatherTax: number;
 }
+
+/** Bound on the per-gather visitor tax an owner can charge. */
+export const MAX_GATHER_TAX = 1000;
 
 /** A full player-zone record: metadata plus its build. */
 export interface PlayerZoneRecord extends PlayerZoneMeta {

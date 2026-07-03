@@ -96,6 +96,7 @@ export interface MyWorldEntry {
   published: boolean;
   earnings: number;
   visits: number;
+  gatherTax: number;
   build: PlayerZoneBuild;
 }
 export interface ZoneResultPayload {
@@ -467,7 +468,10 @@ export class NetworkManager {
   sendZoneBuildSave(zoneId: string, build: PlayerZoneBuild) {
     this.room?.send("zoneBuildSave", { zoneId, build });
   }
-  sendZoneMetaSet(zoneId: string, patch: { displayName?: string; passPrice?: number; published?: boolean }) {
+  sendZoneMetaSet(
+    zoneId: string,
+    patch: { displayName?: string; passPrice?: number; published?: boolean; gatherTax?: number },
+  ) {
     this.room?.send("zoneMetaSet", { zoneId, ...patch });
   }
   sendZoneEarningsCollect(zoneId: string) {

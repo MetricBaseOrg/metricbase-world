@@ -27,7 +27,7 @@ export function WorldsPanel() {
   const [notice, setNotice] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   // Local edits to a world's meta before saving.
-  const [drafts, setDrafts] = useState<Record<string, { displayName: string; passPrice: string }>>({});
+  const [drafts, setDrafts] = useState<Record<string, { displayName: string; passPrice: string; gatherTax: string }>>({});
 
   useEffect(() => {
     const offDir = networkManager.onWorldsList(setDirectory);
@@ -36,7 +36,7 @@ export function WorldsPanel() {
       setDrafts((prev) => {
         const next = { ...prev };
         for (const w of worlds) {
-          if (!next[w.zoneId]) next[w.zoneId] = { displayName: w.displayName, passPrice: String(w.passPrice) };
+          if (!next[w.zoneId]) next[w.zoneId] = { displayName: w.displayName, passPrice: String(w.passPrice), gatherTax: String(w.gatherTax) };
         }
         return next;
       });
@@ -99,7 +99,10 @@ export function WorldsPanel() {
     networkManager.sendBuyZonePass(zoneId);
   };
 
-  const saveMeta = (w: MyWorldEntry, patch: { displayName?: string; passPrice?: number; published?: boolean }) => {
+  const saveMeta = (
+    w: MyWorldEntry,
+    patch: { displayName?: string; passPrice?: number; published?: boolean; gatherTax?: number },
+  ) => {
     playSfx("ui_click");
     setPending(true);
     networkManager.sendZoneMetaSet(w.zoneId, patch);
@@ -250,7 +253,7 @@ export function WorldsPanel() {
           </div>
 
           {mine.map((w) => {
-            const draft = drafts[w.zoneId] ?? { displayName: w.displayName, passPrice: String(w.passPrice) };
+            const draft = drafts[w.zoneId] ?? { displayName: w.displayName, passPrice: String(w.passPrice), gatherTax: String(w.gatherTax) };
             return (
               <div key={w.zoneId} className="chibi-card" style={{ marginTop: 10, padding: "10px 12px" }}>
                 <div className="chibi-label" style={{ marginBottom: 4 }}>Name</div>
@@ -271,8 +274,17 @@ export function WorldsPanel() {
                     setDrafts((p) => ({ ...p, [w.zoneId]: { ...draft, passPrice: e.target.value.replace(/[^0-9]/g, "") } }))
                   }
                 />
+                <div className="chibi-label" style={{ margin: "8px 0 4px" }}>Gather tax (gold per harvest, 0 = free)</div>
+                <input
+                  className="chibi-input"
+                  inputMode="numeric"
+                  value={draft.gatherTax}
+                  onChange={(e) =>
+                    setDrafts((p) => ({ ...p, [w.zoneId]: { ...draft, gatherTax: e.target.value.replace(/[^0-9]/g, "") } }))
+                  }
+                />
                 <div className="chibi-text-muted" style={{ fontSize: "0.7rem", marginTop: 2 }}>
-                  Max {MAX_ZONE_PASS_PRICE.toLocaleString()}g · {w.visits} visits · {w.earnings.toLocaleString()}g earned
+                  Max {MAX_ZONE_PASS_PRICE.toLocaleString()}g pass · {w.visits} visits · {w.earnings.toLocaleString()}g earned. Visitors pay the tax to you per node they harvest.
                 </div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
                   <button
@@ -283,6 +295,7 @@ export function WorldsPanel() {
                       saveMeta(w, {
                         displayName: draft.displayName.trim() || w.displayName,
                         passPrice: Math.min(MAX_ZONE_PASS_PRICE, Number(draft.passPrice) || 0),
+                        gatherTax: Number(draft.gatherTax) || 0,
                       })
                     }
                   >

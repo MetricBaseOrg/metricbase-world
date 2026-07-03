@@ -62,6 +62,7 @@ import { ensureZoneAssetLoaded, getZoneAsset, zoneAssetScale, zoneAssetTextureKe
 import type { EditTool } from "./inputControl";
 import {
   emptyPlayerZoneBuild,
+  makePlayerZoneResource,
   PLAYER_ZONE_GRID,
   type PlayerZoneBuild,
 } from "@metricbase/shared";
@@ -1837,20 +1838,35 @@ export class GameScene extends Phaser.Scene {
       return;
     } else if (tool.type === "prop") {
       const id = `e${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
-      draft.scenery.push({ id, tileX, tileY, prop: tool.value });
+      const asset = getZoneAsset(tool.value);
+      if (asset?.category === "resource" && asset.resourceKind) {
+        // Resource assets become functional gather nodes visitors can harvest.
+        draft.resources.push(makePlayerZoneResource(id, tool.value, asset.resourceKind, asset.label, tileX, tileY));
+      } else {
+        draft.scenery.push({ id, tileX, tileY, prop: tool.value });
+      }
     } else if (tool.type === "ground") {
       const existing = draft.tiles.find((t) => t.x === tileX && t.y === tileY);
       if (existing) existing.type = tool.value;
       else draft.tiles.push({ x: tileX, y: tileY, type: tool.value });
       groundChanged = true;
     } else {
-      // Erase: remove the topmost prop on the tile, else clear its paint.
+      // Erase: remove the topmost prop/resource on the tile, else clear paint.
       let removed = false;
       for (let i = draft.scenery.length - 1; i >= 0; i--) {
         if (draft.scenery[i].tileX === tileX && draft.scenery[i].tileY === tileY) {
           draft.scenery.splice(i, 1);
           removed = true;
           break;
+        }
+      }
+      if (!removed) {
+        for (let i = draft.resources.length - 1; i >= 0; i--) {
+          if (draft.resources[i].tileX === tileX && draft.resources[i].tileY === tileY) {
+            draft.resources.splice(i, 1);
+            removed = true;
+            break;
+          }
         }
       }
       if (!removed) {
@@ -1880,6 +1896,8 @@ export class GameScene extends Phaser.Scene {
     });
     this.clearScenery();
     this.renderScenery(zoneId);
+    this.clearResources();
+    this.renderResources(zoneId);
     // Rebuilding the full PNG ground (24x24 sprites) is only needed when a
     // ground tile actually changed — placing props leaves the floor alone.
     if (groundChanged) this.renderGroundPaint(zoneId);
@@ -2453,20 +2471,38 @@ export class GameScene extends Phaser.Scene {
       const labelOffset = kind === "rock" ? 34 : kind === "fish" ? 30 : 54;
       const labelColor = kind === "rock" ? "#e6d6b8" : kind === "fish" ? "#a7dcff" : "#9be870";
 
-      const sprite = this.add.sprite(x, y, texture);
-      sprite.setOrigin(0.5, originY);
-      // Fish ripples lie flat on the water; everything else sorts by position.
-      sprite.setDepth(kind === "fish" ? y - 4 : y);
-      sprite.setAlpha(available ? 1 : 0.35);
-      // Tier-2 nodes get a distinct tint so they read apart from starter nodes:
-      // steel-blue iron deposits, deep-green hardwoods, and rosy deep pools.
-      if (kind === "rock" && resource.mining?.lootItemId === "item_iron_ore") {
-        sprite.setTint(0x9fb6c8);
-      } else if (kind === "tree" && resource.woodcutting?.lootItemId === "item_hardwood") {
-        sprite.setTint(0x8aa55a);
-      } else if (kind === "fish" && resource.fishing?.lootItemId === "item_salmon") {
-        sprite.setTint(0xffb0c0);
+      // Player-zone nodes render their hand-drawn PNG art; built-in zones use
+      // the procedurally-baked tree/rock/fishspot textures.
+      const asset = resource.prop ? getZoneAsset(resource.prop) : undefined;
+      let sprite: Phaser.GameObjects.Sprite;
+      if (asset) {
+        const key = zoneAssetTextureKey(resource.prop!);
+        sprite = this.add.sprite(x, y, key).setOrigin(0.5, asset.anchorY).setDepth(y);
+        const applyReady = () => {
+          if (!sprite.active) return;
+          sprite.setTexture(key).setScale(zoneAssetScale(this, resource.prop!)).setOrigin(0.5, asset.anchorY).setVisible(true);
+          sprite.setAlpha(available ? 1 : 0.35);
+        };
+        if (this.textures.exists(key)) applyReady();
+        else {
+          sprite.setVisible(false);
+          ensureZoneAssetLoaded(this, resource.prop!, applyReady);
+        }
+      } else {
+        sprite = this.add.sprite(x, y, texture);
+        sprite.setOrigin(0.5, originY);
+        // Fish ripples lie flat on the water; everything else sorts by position.
+        sprite.setDepth(kind === "fish" ? y - 4 : y);
+        // Tier-2 nodes get a distinct tint so they read apart from starter nodes.
+        if (kind === "rock" && resource.mining?.lootItemId === "item_iron_ore") {
+          sprite.setTint(0x9fb6c8);
+        } else if (kind === "tree" && resource.woodcutting?.lootItemId === "item_hardwood") {
+          sprite.setTint(0x8aa55a);
+        } else if (kind === "fish" && resource.fishing?.lootItemId === "item_salmon") {
+          sprite.setTint(0xffb0c0);
+        }
       }
+      sprite.setAlpha(available ? 1 : 0.35);
 
       const label = this.add
         .text(x, y - labelOffset, resource.name, {

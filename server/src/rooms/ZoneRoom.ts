@@ -300,11 +300,13 @@ import {
 } from "../guild/guildRegistry.js";
 import {
   addZoneEarnings,
+  addZoneTax,
   canEnterZone,
   collectZoneEarnings,
   createPlayerZone,
   getPlayerZone,
   getPublishedZones,
+  getZoneGatherTax,
   getZonesOwnedBy,
   grantZonePass,
   isPlayerZoneId,
@@ -574,7 +576,10 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     });
     this.onProtectedMessage(
       "zoneMetaSet",
-      (client, message: { zoneId?: string; displayName?: string; passPrice?: number; published?: boolean }) => {
+      (
+        client,
+        message: { zoneId?: string; displayName?: string; passPrice?: number; published?: boolean; gatherTax?: number },
+      ) => {
         void this.handleZoneMetaSet(client, message.zoneId ?? "", message);
       },
     );
@@ -2948,7 +2953,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   private async handleZoneMetaSet(
     client: Client,
     zoneId: string,
-    patch: { displayName?: string; passPrice?: number; published?: boolean },
+    patch: { displayName?: string; passPrice?: number; published?: boolean; gatherTax?: number },
   ) {
     const player = this.state.players.get(client.sessionId);
     if (!player) return;
@@ -2960,6 +2965,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       displayName: patch.displayName,
       passPrice: patch.passPrice,
       published: patch.published,
+      gatherTax: patch.gatherTax,
     });
     client.send("zoneResult", { ok: true, zoneId, message: "World updated." });
     this.sendMyWorlds(client, player.name);
@@ -3040,6 +3046,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         published: z.published,
         earnings: z.earnings,
         visits: z.visits,
+        gatherTax: z.gatherTax,
         build: z.build,
       })),
     });
@@ -5022,6 +5029,17 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
           body: `✨ ${player.name} found a rare ${getItemDefinition(rareItemId).name}!`,
           sentAt: now,
         });
+      }
+    }
+
+    // Visitor gather tax: in a player-owned World, a non-owner pays the owner a
+    // per-gather fee (the owner's revenue for stocking their World with nodes).
+    if (client && this.playerZone && this.playerZone.ownerName !== player.name) {
+      const tax = getZoneGatherTax(this.playerZone.zoneId);
+      const gold = this.playerGold.get(player.name) ?? STARTING_GOLD;
+      if (tax > 0 && gold >= tax) {
+        this.playerGold.set(player.name, gold - tax);
+        addZoneTax(this.playerZone.zoneId, tax);
       }
     }
 
