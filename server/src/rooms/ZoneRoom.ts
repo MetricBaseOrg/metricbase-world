@@ -197,6 +197,7 @@ import {
   ZONE_SLOT_COST,
   ZONE_PASS_MS,
   playerZoneToConfig,
+  zoneBuildCost,
   type PlayerZoneRecord,
 } from "@metricbase/shared";
 import { verifyAccessToken } from "../auth/accessToken.js";
@@ -2930,6 +2931,26 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     }
     const { build, error } = sanitizeBuild(rawBuild);
     if (!build) return void client.send("zoneResult", { ok: false, error: error ?? "Invalid build." });
+
+    // Charge gold for newly-placed assets (grass/bare-dirt are free). We bill the
+    // increase in total build value since the last save; removing items never
+    // refunds. Admins build for free.
+    const wallet = this.playerWallets.get(client.sessionId) ?? null;
+    const cost = Math.max(0, zoneBuildCost(build) - zoneBuildCost(zone.build));
+    if (cost > 0 && !adService.isAdmin(wallet)) {
+      const gold = this.playerGold.get(player.name) ?? STARTING_GOLD;
+      if (gold < cost) {
+        return void client.send("zoneResult", {
+          ok: false,
+          error: `You need ${cost.toLocaleString()} gold to build this (you have ${gold.toLocaleString()}).`,
+        });
+      }
+      this.playerGold.set(player.name, gold - cost);
+      await creditTreasuryGold("zone_build", cost);
+      this.sendProfile(client, player);
+      await this.persistPlayer(player);
+    }
+
     setZoneBuild(zoneId, build);
     // The build changed which tiles are solid — drop the cached collision grid.
     clearCollisionCache(zoneId);
@@ -2945,7 +2966,11 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         }
       }
     }
-    client.send("zoneResult", { ok: true, zoneId, message: "World saved." });
+    client.send("zoneResult", {
+      ok: true,
+      zoneId,
+      message: cost > 0 ? `World saved — spent ${cost.toLocaleString()} gold.` : "World saved.",
+    });
     this.sendMyWorlds(client, player.name);
   }
 

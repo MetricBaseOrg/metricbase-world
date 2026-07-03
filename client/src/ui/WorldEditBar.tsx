@@ -10,6 +10,7 @@ import {
   type EditTool,
 } from "../game/inputControl";
 import { networkManager } from "../game/network";
+import { zoneAssetPrice } from "@metricbase/shared";
 import { ZONE_ASSETS, type ZoneAssetCategory } from "../game/zoneAssets";
 import { useGameStore } from "../store/gameStore";
 
@@ -210,6 +211,9 @@ export function WorldEditBar() {
           >
             <img src={`/assets/${a.file}`} alt="" draggable={false} style={{ width: 40, height: 40, objectFit: "contain", pointerEvents: "none" }} />
             {a.label}
+            <span style={{ fontSize: "0.62rem", opacity: 0.85 }}>
+              {zoneAssetPrice(a.id) === 0 ? "Free" : `${zoneAssetPrice(a.id).toLocaleString()}g`}
+            </span>
           </button>
         ))}
       </div>
