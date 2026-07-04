@@ -111,8 +111,9 @@ export const STATS_PAGE_HTML = `<!doctype html>
   <section id="token">
     <div class="sec"><span class="em">🪙</span><h2>$BASE Token</h2></div>
     <div class="grid">
-      <div class="card"><h2>🔥 $BASE burned</h2><div class="big burn" id="baseBurned">—</div><div class="sub">tokens burned via in-game sinks (Black Zone, VIP)</div></div>
+      <div class="card"><h2>🔥 $BASE burned</h2><div class="big burn" id="baseBurned">—</div><div class="sub">tokens burned via in-game sinks</div></div>
       <div class="card"><h2>💎 $BASE held by players</h2><div class="big gold" id="baseHeld">—</div><div class="sub"><span id="baseHolders">—</span> bonded player wallets holding $BASE</div></div>
+      <div class="card"><h2>🕳️ Burn sinks</h2><div id="burnSinks"></div></div>
     </div>
   </section>
 
@@ -135,6 +136,10 @@ export const STATS_PAGE_HTML = `<!doctype html>
 
   <section id="activity">
     <div class="sec"><span class="em">🛠️</span><h2>Player Activity</h2></div>
+    <div class="grid" style="margin-bottom:14px">
+      <div class="card"><h2>📅 Daily quests</h2><div class="big mint" id="dqActive">—</div><div class="sub"><span id="dqClaimed">—</span> tasks claimed · <span id="dqLogins">—</span> login bonuses · <span id="dqGold">—</span>g paid out</div></div>
+      <div class="card"><h2>👣 World visits</h2><div class="big" id="wVisits">—</div><div class="sub"><span id="wExpanded">—</span> Worlds expanded · <span id="bagExp">—</span> bags expanded</div></div>
+    </div>
     <div class="card wide">
       <h2>🛠️ Activity — per day (last 14 days)</h2>
       <svg id="actChart" viewBox="0 0 720 240" role="img" aria-label="Economy activity per day"></svg>
@@ -156,6 +161,7 @@ export const STATS_PAGE_HTML = `<!doctype html>
     <div class="grid">
       <div class="card"><h2>🏛️ Treasury by source</h2><div id="treasurySrc"></div></div>
       <div class="card"><h2>🧱 Asset market</h2><div id="assetMkt"></div></div>
+      <div class="card"><h2>🌍 Worlds economy</h2><div id="worldsEco"></div></div>
       <div class="card"><h2>👑 Top gold holders</h2><div id="holders"></div></div>
     </div>
   </section>
@@ -295,6 +301,21 @@ async function load(){
     setBig("baseBurned",bt.burned," $BASE");
     setBig("baseHeld",bt.heldByPlayers," $BASE");
     set("baseHolders",fmt(bt.holders));
+    var bs=s.burnSinks||{};
+    rows(el("burnSinks"),[
+      {k:"⚫ Black Zone passes ("+fmt(bs.blackPasses||0)+")",v:kfmt(bs.blackPassBase||0)+" $BASE"},
+      {k:"🗺️ World expansions ("+fmt(bs.worldExpands||0)+")",v:kfmt(bs.worldExpandBase||0)+" $BASE"},
+      {k:"🎒 Bag expansions ("+fmt(bs.bagExpands||0)+")",v:kfmt(bs.bagExpandBase||0)+" $BASE"}
+    ],function(x){return '<div class="row"><span>'+x.k+'</span><b>'+x.v+'</b></div>';});
+    var dq=s.dailyQuests||{};
+    set("dqActive",fmt(dq.activeToday||0));
+    set("dqClaimed",fmt(dq.claimed||0));
+    set("dqLogins",fmt(dq.logins||0));
+    set("dqGold",kfmt(dq.gold||0));
+    var w=s.worlds||{};
+    setBig("wVisits",w.visits||0,"");
+    set("wExpanded",fmt(w.expanded||0));
+    set("bagExp",fmt(bs.bagExpands||0));
     var days=lastDays(14),a=s.activity||{},daily=s.daily||[];
     lineChart(el("goldChart"),days,[
       {name:"Minted",color:"#3fae74",vals:series(daily,days,"gold.minted")},
@@ -310,10 +331,19 @@ async function load(){
       ["🌾","Crops harvested",a["farm.harvest"]],["🔨","Crafted",a["craft.count"]],["💰","Sold to shop",a["sell.count"]],
       ["🛍️","Bought from shop",a["buy.count"]],["🧱","Assets placed",a["asset.placed"]],["📦","Assets bought",a["asset.bought"]],
       ["🔁","Assets traded",a["asset.sold"]],["🎟️","World passes sold",a["pass.sold"]],["🪙","Pass gold",a["pass.gold"]],
-      ["🧾","Gather tax paid",a["gathertax.gold"]],["👹","Gold from mobs",a["mob.gold"]],["✨","Gold from quests",a["quest.gold"]]];
+      ["🧾","Gather tax paid",a["gathertax.gold"]],["👹","Gold from mobs",a["mob.gold"]],["✨","Gold from quests",a["quest.gold"]],
+      ["🗺️","World expansions",a["zone.expanded"]],["🎒","Bag expansions",a["bag.expanded"]],
+      ["📅","Daily tasks claimed",a["daily.claimed"]],["🔥","Login bonuses",a["daily.login"]],["🪙","Daily gold paid",a["daily.gold"]]];
     el("totals").innerHTML=tiles.map(tileHtml).join("");
     rows(el("treasurySrc"),s.treasury.bySource,function(x){return '<div class="row"><span>'+x.source+'</span><b>'+fmt(x.gold)+'g</b></div>';});
     rows(el("assetMkt"),[{k:"Active listings",v:s.assetMarket.listings},{k:"Listed value",v:fmt(s.assetMarket.askValue)+"g"},{k:"Assets owned",v:s.assetMarket.totalOwned},{k:"$BASE trades",v:s.goldMarket.trades},{k:"Market gold vol.",v:fmt(s.goldMarket.goldVolume)+"g"}],function(x){return '<div class="row"><span>'+x.k+'</span><b>'+(typeof x.v==="number"?fmt(x.v):x.v)+'</b></div>';});
+    rows(el("worldsEco"),[
+      {k:"👣 Lifetime visits",v:fmt(w.visits||0)},
+      {k:"🎟️ Passes sold",v:fmt(w.passesSold||0)},
+      {k:"🪙 Pass gold to owners",v:fmt(w.passGold||0)+"g"},
+      {k:"🌾 Gather tax to owners",v:fmt(w.taxGold||0)+"g"},
+      {k:"🗺️ Expanded Worlds",v:fmt(w.expanded||0)+" / "+fmt(w.total||0)}
+    ],function(x){return '<div class="row"><span>'+x.k+'</span><b>'+x.v+'</b></div>';});
     rows(el("holders"),s.topHolders,function(x,i){return '<div class="row"><span><span class="rk">'+(i<3?["🥇","🥈","🥉"][i]:"#"+(i+1))+'</span>'+x.name+'</span><b>'+fmt(x.gold)+'g</b></div>';});
 
     var ad=s.ads||{daily:{}};var adDaily=ad.daily||{};
