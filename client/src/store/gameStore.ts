@@ -62,6 +62,8 @@ interface GameStore {
   dailyOpen: boolean;
   /** Player-to-player job board. */
   jobsOpen: boolean;
+  /** The mobile chat SHEET (desktop's corner chat panel never sets this). */
+  chatOpen: boolean;
   /** The ⚙️ TopBar settings dropdown. */
   settingsOpen: boolean;
   /** Active fishing catch-minigame (null when not fishing). */
@@ -133,6 +135,7 @@ interface GameStore {
   setCropMarketOpen: (market: string | null) => void;
   setDailyOpen: (open: boolean) => void;
   setJobsOpen: (open: boolean) => void;
+  setChatOpen: (open: boolean) => void;
   setSettingsOpen: (open: boolean) => void;
   setFishing: (fishing: { resourceId: string; endsAt: number } | null) => void;
   setWorldEditing: (editing: boolean) => void;
@@ -165,6 +168,7 @@ export function isAnyPanelOpen(s: GameStore): boolean {
     s.buildShopOpen ||
     s.dailyOpen ||
     s.jobsOpen ||
+    s.chatOpen ||
     s.settingsOpen ||
     s.housingOpen ||
     s.playerShopOpen ||
@@ -223,6 +227,7 @@ export const useGameStore = create<GameStore>((set) => ({
   cropMarketOpen: null,
   dailyOpen: false,
   jobsOpen: false,
+  chatOpen: false,
   settingsOpen: false,
   fishing: null,
   worldEditing: false,
@@ -325,6 +330,7 @@ export const useGameStore = create<GameStore>((set) => ({
   setCropMarketOpen: (cropMarketOpen) => set({ cropMarketOpen }),
   setDailyOpen: (dailyOpen) => set({ dailyOpen }),
   setJobsOpen: (jobsOpen) => set({ jobsOpen }),
+  setChatOpen: (chatOpen) => set({ chatOpen }),
   setSettingsOpen: (settingsOpen) => set({ settingsOpen }),
   setFishing: (fishing) => set({ fishing }),
   setWorldEditing: (worldEditing) => set({ worldEditing }),

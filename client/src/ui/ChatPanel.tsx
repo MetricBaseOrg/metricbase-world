@@ -21,6 +21,15 @@ export function ChatPanel() {
     if (!mobileLayout) setOpen(true);
   }, [mobileLayout]);
 
+  // Register the mobile chat SHEET with the central panel gate so HUD chrome
+  // (hotbar, touch pads, emote button) hides underneath it. The desktop
+  // corner chat is persistent and must NOT suppress the HUD.
+  const setChatOpen = useGameStore((s) => s.setChatOpen);
+  useEffect(() => {
+    setChatOpen(mobileLayout && open);
+    return () => setChatOpen(false);
+  }, [mobileLayout, open, setChatOpen]);
+
   useEffect(() => {
     const unsubGuild = networkManager.onGuildState((state) => setInGuild(!!state.myGuild));
     const unsubParty = networkManager.onPartyState((state) => setInParty(!!state.party));
