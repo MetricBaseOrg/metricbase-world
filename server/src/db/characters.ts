@@ -53,6 +53,8 @@ export interface CharacterRecord {
   guildCoin: number;
   /** Soft currency: premium gems. */
   gems: number;
+  /** Bag expansion steps purchased with $BASE burns (0 = base 16 slots). */
+  bagLevel: number;
 }
 
 type CharacterRow = {
@@ -82,6 +84,7 @@ type CharacterRow = {
   honor: number | null;
   guild_coin: number | null;
   gems: number | null;
+  bag_level: number | null;
 };
 
 export async function loadCharacterByName(name: string): Promise<CharacterRecord | null> {
@@ -90,7 +93,7 @@ export async function loadCharacterByName(name: string): Promise<CharacterRecord
 
   const result = await db.query<CharacterRow>(
     `SELECT name, wallet_address, zone_id, x, y, level, xp, gold, quest_progress, appearance, inventory, hp, equipment, npc_interact_at, mob_gold_claimed, knocked_out_until, skills, stamina, vip_pass_until, black_pass, pvp_rating, pvp_kills, pvp_season
-     , honor, guild_coin, gems
+     , honor, guild_coin, gems, bag_level
      FROM characters
      WHERE name = $1`,
     [name],
@@ -106,7 +109,7 @@ export async function loadCharacterByWallet(wallet: string): Promise<CharacterRe
 
   const result = await db.query<CharacterRow>(
     `SELECT name, wallet_address, zone_id, x, y, level, xp, gold, quest_progress, appearance, inventory, hp, equipment, npc_interact_at, mob_gold_claimed, knocked_out_until, skills, stamina, vip_pass_until, black_pass, pvp_rating, pvp_kills, pvp_season
-     , honor, guild_coin, gems
+     , honor, guild_coin, gems, bag_level
      FROM characters
      WHERE wallet_address = $1`,
     [wallet],
@@ -126,8 +129,8 @@ export async function saveCharacter(record: CharacterRecord): Promise<void> {
   if (!db) return;
 
   await db.query(
-    `INSERT INTO characters (name, wallet_address, zone_id, x, y, level, xp, gold, quest_progress, appearance, inventory, hp, equipment, npc_interact_at, mob_gold_claimed, knocked_out_until, skills, stamina, vip_pass_until, black_pass, pvp_rating, pvp_kills, pvp_season, honor, guild_coin, gems, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10::jsonb, $11::jsonb, $12, $13::jsonb, $14::jsonb, $15::jsonb, $16, $17::jsonb, $18, $19, $20, $21, $22, $23, $24, $25, $26, NOW())
+    `INSERT INTO characters (name, wallet_address, zone_id, x, y, level, xp, gold, quest_progress, appearance, inventory, hp, equipment, npc_interact_at, mob_gold_claimed, knocked_out_until, skills, stamina, vip_pass_until, black_pass, pvp_rating, pvp_kills, pvp_season, honor, guild_coin, gems, bag_level, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10::jsonb, $11::jsonb, $12, $13::jsonb, $14::jsonb, $15::jsonb, $16, $17::jsonb, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, NOW())
      ON CONFLICT (name)
      DO UPDATE SET
        wallet_address = COALESCE(EXCLUDED.wallet_address, characters.wallet_address),
@@ -155,6 +158,7 @@ export async function saveCharacter(record: CharacterRecord): Promise<void> {
        honor = EXCLUDED.honor,
        guild_coin = EXCLUDED.guild_coin,
        gems = EXCLUDED.gems,
+       bag_level = GREATEST(characters.bag_level, EXCLUDED.bag_level),
        updated_at = NOW()`,
     [
       record.name,
@@ -183,6 +187,7 @@ export async function saveCharacter(record: CharacterRecord): Promise<void> {
       record.honor,
       record.guildCoin,
       record.gems,
+      record.bagLevel,
     ],
   );
 }
@@ -264,6 +269,7 @@ export async function bindCharacterToWallet(
     honor: existingByWallet?.honor ?? existingByName?.honor ?? 0,
     guildCoin: existingByWallet?.guildCoin ?? existingByName?.guildCoin ?? 0,
     gems: existingByWallet?.gems ?? existingByName?.gems ?? 0,
+    bagLevel: existingByWallet?.bagLevel ?? existingByName?.bagLevel ?? 0,
   };
 
   await saveCharacter(record);
@@ -334,6 +340,7 @@ function mapRow(row: CharacterRow): CharacterRecord {
     honor: row.honor ?? 0,
     guildCoin: row.guild_coin ?? 0,
     gems: row.gems ?? 0,
+    bagLevel: row.bag_level ?? 0,
   };
 }
 

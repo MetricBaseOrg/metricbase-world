@@ -1,5 +1,6 @@
 import {
   addItemToInventory,
+  bagCapacity,
   buildInventoryPayload,
   getTokenShopProduct,
   METRICBASE_TOKEN_MINT,
@@ -15,6 +16,8 @@ import { getTreasuryWallet, verifyMetricbaseTokenTransfer } from "../solana/veri
 export interface TokenShopGrantState {
   gold: number;
   inventory: InventoryEntry[];
+  /** Bag expansion level (0 = base capacity). */
+  bagLevel?: number;
 }
 
 export async function redeemTokenShopPurchase(
@@ -63,7 +66,7 @@ export async function redeemTokenShopPurchase(
 
   if (product.grants.items) {
     for (const grant of product.grants.items) {
-      const result = addItemToInventory(inventory, grant.itemId, grant.quantity);
+      const result = addItemToInventory(inventory, grant.itemId, grant.quantity, bagCapacity(state.bagLevel ?? 0));
       inventory = result.inventory;
       if (result.added < grant.quantity) {
         return { ok: false, error: "Inventory full — make space and contact support if charged." };
@@ -83,7 +86,7 @@ export async function redeemTokenShopPurchase(
   return {
     ok: true,
     gold,
-    inventory: buildInventoryPayload(inventory),
+    inventory: buildInventoryPayload(inventory, null, bagCapacity(state.bagLevel ?? 0)),
     tokenBalance,
   };
 }

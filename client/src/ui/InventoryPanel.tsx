@@ -4,6 +4,7 @@ import {
   RARITY_COLORS,
   ENHANCEABLE_SLOTS,
   MAX_ENHANCE_LEVEL,
+  BAG_EXPANSIONS,
   enhanceCost,
   enhanceSuccessRate,
   xpProgress,
@@ -12,7 +13,8 @@ import {
 } from "@metricbase/shared";
 import { useEffect, useMemo, useState } from "react";
 import { playSfx } from "../audio/soundEffects";
-import { networkManager } from "../game/network";
+import { networkManager, type PipGoldInfoPayload } from "../game/network";
+import { burnMetricbaseToken } from "../wallet/tokenBurn";
 import { useGameStore } from "../store/gameStore";
 import { PortraitCanvas } from "./PortraitCanvas";
 import { ItemIcon } from "./ItemIcon";
@@ -190,6 +192,9 @@ export function InventoryPanel() {
   const [selectedSlot, setSelectedSlot] = useState<EquipmentSlot | null>(null);
   const [selectedItem, setSelectedItem] = useState<string | null>(null);
   const [enhanceMsg, setEnhanceMsg] = useState<string | null>(null);
+  const [pipInfo, setPipInfo] = useState<PipGoldInfoPayload | null>(null);
+  const [bagMsg, setBagMsg] = useState<string | null>(null);
+  const walletAddress = useGameStore((state) => state.walletAddress);
 
   const slotMap = useMemo(() => {
     const map = new Map<
@@ -199,6 +204,47 @@ export function InventoryPanel() {
     for (const s of equipment?.slots ?? []) map.set(s.slot, s);
     return map;
   }, [equipment]);
+
+  // Wallet payment params (mint/decimals/rpc) for the bag-expand $BASE burn.
+  useEffect(() => {
+    if (!open) return;
+    const offInfo = networkManager.onPipGoldInfo(setPipInfo);
+    networkManager.requestPipGoldInfo();
+    const offBag = networkManager.onBagExpandResult((r) => {
+      setPending(false);
+      setBagMsg(r.ok ? r.message ?? "Bag expanded!" : r.error ?? "Expansion failed.");
+      if (r.ok) playSfx("level_up");
+      window.setTimeout(() => setBagMsg(null), 4000);
+    });
+    return () => {
+      offInfo();
+      offBag();
+    };
+  }, [open]);
+
+  const expandBag = async () => {
+    const step = BAG_EXPANSIONS.find((s) => s.slots > inventory.capacity);
+    if (!step) return;
+    if (!walletAddress) return setBagMsg("Connect your wallet to burn $BASE.");
+    if (!pipInfo?.mint) return setBagMsg("Wallet services are unavailable right now.");
+    playSfx("ui_click");
+    setPending(true);
+    setBagMsg(`Burning ${step.burnCost.toLocaleString()} $BASE — confirm in your wallet…`);
+    try {
+      const signature = await burnMetricbaseToken({
+        ownerWallet: walletAddress,
+        mint: pipInfo.mint,
+        uiAmount: step.burnCost,
+        decimals: pipInfo.decimals,
+        rpcUrl: pipInfo.rpcUrl,
+      });
+      setBagMsg("Verifying your burn on-chain…");
+      networkManager.sendBagExpand(signature);
+    } catch (err) {
+      setPending(false);
+      setBagMsg(err instanceof Error ? err.message : "Burn was cancelled.");
+    }
+  };
 
   useEffect(() => {
     const off = networkManager.onEnhanceResult((p) => {
@@ -586,6 +632,22 @@ export function InventoryPanel() {
                 <span className="chibi-text-muted" style={{ fontSize: "0.72rem" }}>
                   {inventory.items.length}/{inventory.capacity}
                 </span>
+                {(() => {
+                  const step = BAG_EXPANSIONS.find((s) => s.slots > inventory.capacity);
+                  if (!step) return null;
+                  return (
+                    <button
+                      type="button"
+                      className="chibi-btn chibi-btn--gold"
+                      style={{ padding: "3px 8px", fontSize: "0.7rem" }}
+                      disabled={pending}
+                      onClick={() => void expandBag()}
+                      title={`Expand bag to ${step.slots} slots — burn ${step.burnCost.toLocaleString()} $BASE`}
+                    >
+                      🎒+
+                    </button>
+                  );
+                })()}
                 <button
                   type="button"
                   className="chibi-btn chibi-btn--secondary"
@@ -597,6 +659,12 @@ export function InventoryPanel() {
                 </button>
               </div>
             </div>
+
+            {bagMsg && (
+              <div className="chibi-card" style={{ marginBottom: 8, padding: "6px 10px", fontSize: "0.74rem" }}>
+                {bagMsg}
+              </div>
+            )}
 
             {displayItems.length === 0 ? (
               <div className="chibi-card chibi-text-muted" style={{ padding: "18px 0", textAlign: "center" }}>

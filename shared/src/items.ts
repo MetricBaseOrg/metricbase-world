@@ -32,6 +32,37 @@ export interface InventoryResultPayload {
 
 export const INVENTORY_CAPACITY = 16;
 
+/**
+ * Bag expansion: players burn $BASE (on-chain, verified) to add inventory
+ * slots in 3 steps with rising prices.
+ */
+export interface BagExpansionStep {
+  /** Total slots this step unlocks. */
+  slots: number;
+  /** $BASE (UI amount) burned to unlock the step. */
+  burnCost: number;
+}
+
+export const BAG_EXPANSIONS: BagExpansionStep[] = [
+  { slots: 24, burnCost: 10_000 },
+  { slots: 32, burnCost: 50_000 },
+  { slots: 40, burnCost: 150_000 },
+];
+
+export const MAX_BAG_LEVEL = BAG_EXPANSIONS.length;
+export const MAX_INVENTORY_CAPACITY = BAG_EXPANSIONS[BAG_EXPANSIONS.length - 1].slots;
+
+/** Inventory slots for a bag level (0 = the base 16). */
+export function bagCapacity(bagLevel: number): number {
+  if (!Number.isFinite(bagLevel) || bagLevel <= 0) return INVENTORY_CAPACITY;
+  return BAG_EXPANSIONS[Math.min(MAX_BAG_LEVEL, Math.floor(bagLevel)) - 1].slots;
+}
+
+/** The next bag expansion available at a level, or null when maxed. */
+export function nextBagExpansion(bagLevel: number): BagExpansionStep | null {
+  return bagLevel >= MAX_BAG_LEVEL ? null : BAG_EXPANSIONS[Math.max(0, Math.floor(bagLevel))];
+}
+
 export const ITEMS: Record<string, ItemDefinition> = {
   item_health_potion: {
     id: "item_health_potion",
@@ -565,7 +596,9 @@ export function normalizeInventory(raw: InventoryEntry[] | null | undefined): In
     });
   }
 
-  return items.slice(0, INVENTORY_CAPACITY);
+  // Trim only at the absolute maximum: players with expanded bags keep their
+  // extra slots across loads; per-player capacity is enforced when adding.
+  return items.slice(0, MAX_INVENTORY_CAPACITY);
 }
 
 export function getItemQuantity(inventory: InventoryEntry[], itemId: string): number {
@@ -602,6 +635,7 @@ export function addItemToInventory(
   inventory: InventoryEntry[],
   itemId: string,
   quantity = 1,
+  capacity = INVENTORY_CAPACITY,
 ): { inventory: InventoryEntry[]; added: number } {
   const definition = ITEMS[itemId];
   if (!definition || quantity <= 0) {
@@ -618,7 +652,7 @@ export function addItemToInventory(
     return { inventory: next, added };
   }
 
-  if (next.length >= INVENTORY_CAPACITY) {
+  if (next.length >= Math.max(INVENTORY_CAPACITY, Math.min(MAX_INVENTORY_CAPACITY, capacity))) {
     return { inventory: next, added: 0 };
   }
 
@@ -630,10 +664,11 @@ export function addItemToInventory(
 export function buildInventoryPayload(
   inventory: InventoryEntry[],
   equippedWeaponId: string | null = null,
+  capacity = INVENTORY_CAPACITY,
 ): InventoryStatePayload {
   return {
     items: normalizeInventory(inventory),
-    capacity: INVENTORY_CAPACITY,
+    capacity: Math.max(INVENTORY_CAPACITY, Math.min(MAX_INVENTORY_CAPACITY, capacity)),
     equippedWeaponId,
   };
 }

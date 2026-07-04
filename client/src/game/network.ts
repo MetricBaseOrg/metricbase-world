@@ -265,6 +265,7 @@ export class NetworkManager {
   private openCropMarketListeners = new Set<(payload: { market: string }) => void>();
   private cropMarketResultListeners = new Set<(payload: CropMarketResultPayload) => void>();
   private dailyStateListeners = new Set<(payload: DailyStatePayload) => void>();
+  private bagExpandResultListeners = new Set<(payload: { ok: boolean; capacity?: number; message?: string; error?: string }) => void>();
   private dailyResultListeners = new Set<(payload: DailyResultPayload) => void>();
   private mailStateListeners = new Set<(payload: MailStatePayload) => void>();
   private mailResultListeners = new Set<(payload: { ok: boolean; error?: string }) => void>();
@@ -821,6 +822,15 @@ export class NetworkManager {
 
   sendZoneExpand(zoneId: string, signature: string) {
     this.room?.send("zoneExpand", { zoneId, signature });
+  }
+
+  sendBagExpand(signature: string) {
+    this.room?.send("bagExpand", { signature });
+  }
+
+  onBagExpandResult(listener: (payload: { ok: boolean; capacity?: number; message?: string; error?: string }) => void) {
+    this.bagExpandResultListeners.add(listener);
+    return () => this.bagExpandResultListeners.delete(listener);
   }
 
   requestMailState() {
@@ -1615,6 +1625,9 @@ export class NetworkManager {
     });
     this.room.onMessage("cropMarketResult", (payload: CropMarketResultPayload) => {
       for (const listener of this.cropMarketResultListeners) listener(payload);
+    });
+    this.room.onMessage("bagExpandResult", (payload: { ok: boolean; capacity?: number; message?: string; error?: string }) => {
+      for (const listener of this.bagExpandResultListeners) listener(payload);
     });
     this.room.onMessage("dailyState", (payload: DailyStatePayload) => {
       for (const listener of this.dailyStateListeners) listener(payload);

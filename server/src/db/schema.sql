@@ -39,6 +39,8 @@ CREATE INDEX IF NOT EXISTS characters_pvp_rating_idx ON characters (pvp_rating D
 ALTER TABLE characters ADD COLUMN IF NOT EXISTS honor INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE characters ADD COLUMN IF NOT EXISTS guild_coin INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE characters ADD COLUMN IF NOT EXISTS gems INTEGER NOT NULL DEFAULT 0;
+-- Bag expansion steps purchased with $BASE burns (0 = base 16 slots).
+ALTER TABLE characters ADD COLUMN IF NOT EXISTS bag_level INTEGER NOT NULL DEFAULT 0;
 
 -- Casino: custodial per-currency balances (smallest units) + idempotent ledger.
 CREATE TABLE IF NOT EXISTS casino_balances (

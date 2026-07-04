@@ -41,9 +41,11 @@ import {
   FARM_CROPS,
   zonePropFootprint,
   DEFAULT_FARM_SEED,
+  bagCapacity,
   dailyDayKey,
   dailyTasksFor,
   loginRewardGold,
+  nextBagExpansion,
   nextZoneExpansion,
   zoneGridSize,
   type DailyStatePayload,
@@ -449,6 +451,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   private playerHonor = new Map<string, number>();
   private playerGuildCoin = new Map<string, number>();
   private playerGems = new Map<string, number>();
+  /** Bag expansion steps purchased with $BASE burns (0 = base 16 slots). */
+  private playerBagLevel = new Map<string, number>();
   /** Active blackjack hands per player name (with the last settlement, if done). */
   private blackjackHands = new Map<string, { hand: ActiveHand; settlement?: Settlement }>();
   /** Open bounties: target name -> pooled gold. */
@@ -648,6 +652,9 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     });
     this.onProtectedMessage("zoneExpand", (client, message: { zoneId?: string; signature?: string }) => {
       void this.handleZoneExpand(client, String(message.zoneId ?? ""), String(message.signature ?? ""));
+    });
+    this.onProtectedMessage("bagExpand", (client, message: { signature?: string }) => {
+      void this.handleBagExpand(client, String(message.signature ?? ""));
     });
     this.onMessage("worldsList", (client) => {
       this.handleWorldsList(client);
@@ -1189,6 +1196,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     this.playerHonor.set(player.name, saved?.honor ?? 0);
     this.playerGuildCoin.set(player.name, saved?.guildCoin ?? 0);
     this.playerGems.set(player.name, saved?.gems ?? 0);
+    this.playerBagLevel.set(player.name, saved?.bagLevel ?? 0);
 
     this.state.players.set(client.sessionId, player);
     this.activePlayerSession.set(player.name, client.sessionId);
@@ -2115,7 +2123,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     this.sendInventory(client, player.name);
     client.send("inventoryResult", {
       ok: true,
-      inventory: buildInventoryPayload(this.inventories.get(player.name) ?? [], equipment.weaponId ?? null),
+      inventory: buildInventoryPayload(this.inventories.get(player.name) ?? [], equipment.weaponId ?? null, this.bagCapOf(player.name)),
     });
     await this.persistPlayer(player);
   }
@@ -2582,7 +2590,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     let inventory = this.inventories.get(player.name) ?? [];
     const leftover: InventoryEntry[] = [];
     for (const entry of bag.items) {
-      const { inventory: nextInv, added } = addItemToInventory(inventory, entry.itemId, entry.quantity);
+      const { inventory: nextInv, added } = addItemToInventory(inventory, entry.itemId, entry.quantity, this.bagCapOf(player.name));
       inventory = nextInv;
       if (added < entry.quantity) leftover.push({ itemId: entry.itemId, quantity: entry.quantity - added });
     }
@@ -3341,6 +3349,52 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     client.send("dailyState", this.buildDailyPayload(state));
   }
 
+  /** Inventory slots for a player (base 16, more with purchased bag levels). */
+  private bagCapOf(playerName: string): number {
+    return bagCapacity(this.playerBagLevel.get(playerName) ?? 0);
+  }
+
+  /**
+   * Expand the player's bag by burning $BASE on-chain — 3 steps with rising
+   * prices (BAG_EXPANSIONS). Verified + deduped exactly like a World expand.
+   */
+  private async handleBagExpand(client: Client, signature: string) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const level = this.playerBagLevel.get(player.name) ?? 0;
+    const step = nextBagExpansion(level);
+    if (!step) {
+      return void client.send("bagExpandResult", { ok: false, error: "Your bag is already at its maximum size." });
+    }
+    const wallet = this.playerWallets.get(client.sessionId) ?? null;
+
+    if (!adService.isAdmin(wallet)) {
+      if (!wallet) return void client.send("bagExpandResult", { ok: false, error: "Link a wallet first to burn $BASE." });
+      if (!signature || signature.length < 32) {
+        return void client.send("bagExpandResult", { ok: false, error: "Missing burn transaction." });
+      }
+      if (await isPurchaseRedeemed(signature)) {
+        return void client.send("bagExpandResult", { ok: false, error: "That burn was already used." });
+      }
+      const result = await verifyTokenBurn(signature, {
+        ownerWallet: wallet,
+        mint: getBlackZoneBurnMint(),
+        minUiAmount: step.burnCost,
+      });
+      if (!result.ok) {
+        return void client.send("bagExpandResult", { ok: false, error: result.error ?? "Burn could not be verified." });
+      }
+      await recordTokenPurchase(signature, wallet, "bag_expand", step.burnCost);
+      bumpMetric("base.burned", Math.round(result.burned ?? step.burnCost));
+    }
+
+    this.playerBagLevel.set(player.name, level + 1);
+    bumpMetric("bag.expanded", 1);
+    await this.persistPlayer(player);
+    this.sendInventory(client, player.name);
+    client.send("bagExpandResult", { ok: true, capacity: step.slots, message: `Bag expanded to ${step.slots} slots!` });
+  }
+
   /**
    * Expand a World's grid by burning $BASE on-chain. Three steps with rising
    * prices (ZONE_EXPANSIONS); the burn is verified like the Black Zone pass and
@@ -3423,7 +3477,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     const inventory = this.inventories.get(player.name) ?? [];
 
     if (action === "buySeed") {
-      const { inventory: next, added } = addItemToInventory(inventory, market.seedItemId, qty);
+      const { inventory: next, added } = addItemToInventory(inventory, market.seedItemId, qty, this.bagCapOf(player.name));
       if (added <= 0) return void client.send("cropMarketResult", { ok: false, error: "Inventory full." });
       const cost = market.seedPrice * added;
       if (gold < cost) return void client.send("cropMarketResult", { ok: false, error: "Not enough gold." });
@@ -4314,7 +4368,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     }
 
     const current = this.inventories.get(player.name) ?? [];
-    const { inventory, added } = addItemToInventory(current, itemId, 1);
+    const { inventory, added } = addItemToInventory(current, itemId, 1, this.bagCapOf(player.name));
     if (added <= 0) {
       client.send("shopResult", { ok: false, error: "Inventory full." });
       return;
@@ -4344,6 +4398,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       inventory: buildInventoryPayload(
         inventory,
         this.playerEquipment.get(player.name)?.weaponId ?? null,
+        this.bagCapOf(player.name),
       ),
     });
     await this.persistPlayer(player);
@@ -4420,6 +4475,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       inventory: buildInventoryPayload(
         inventory,
         this.playerEquipment.get(player.name)?.weaponId ?? null,
+        this.bagCapOf(player.name),
       ),
       buyOffers: updated.buyOffers,
       sellOffers: updated.sellOffers,
@@ -4431,7 +4487,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   private sendInventory(client: Client, playerName: string) {
     const inventory = this.inventories.get(playerName) ?? [];
     const equipment = this.playerEquipment.get(playerName);
-    client.send("inventory", buildInventoryPayload(inventory, equipment?.weaponId ?? null));
+    client.send("inventory", buildInventoryPayload(inventory, equipment?.weaponId ?? null, this.bagCapOf(playerName)));
   }
 
   private async grantLoot(
@@ -4441,7 +4497,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     quantity: number,
   ): Promise<number> {
     const current = this.inventories.get(playerName) ?? [];
-    const { inventory, added } = addItemToInventory(current, itemId, quantity);
+    const { inventory, added } = addItemToInventory(current, itemId, quantity, this.bagCapOf(playerName));
     if (added <= 0) return 0;
 
     this.inventories.set(playerName, inventory);
@@ -4525,6 +4581,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       inventory: buildInventoryPayload(
         inventory,
         this.playerEquipment.get(player.name)?.weaponId ?? null,
+        this.bagCapOf(player.name),
       ),
       hp: nextHp,
       maxHp,
@@ -4560,7 +4617,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
           recipeId,
           gold,
           error: `Need ${input.quantity}x ${def?.name ?? input.itemId}.`,
-          inventory: buildInventoryPayload(inventory, weaponId),
+          inventory: buildInventoryPayload(inventory, weaponId, this.bagCapOf(player.name)),
         });
         return;
       }
@@ -4573,19 +4630,19 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         recipeId,
         gold,
         error: `Need ${recipe.goldCost} gold for the forge fee.`,
-        inventory: buildInventoryPayload(inventory, weaponId),
+        inventory: buildInventoryPayload(inventory, weaponId, this.bagCapOf(player.name)),
       });
       return;
     }
 
     // Make sure there is room for the output (non-stackables need a free slot).
-    const projected = addItemToInventory(inventory, recipe.output.itemId, recipe.output.quantity);
+    const projected = addItemToInventory(inventory, recipe.output.itemId, recipe.output.quantity, this.bagCapOf(player.name));
     if (projected.added <= 0) {
       client.send("craftResult", {
         ok: false,
         recipeId,
         error: "Your bag is full.",
-        inventory: buildInventoryPayload(inventory, weaponId),
+        inventory: buildInventoryPayload(inventory, weaponId, this.bagCapOf(player.name)),
       });
       return;
     }
@@ -4618,7 +4675,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       client.send("craftResult", {
         ok: false,
         error: "You don't have that item.",
-        inventory: buildInventoryPayload(inventory, weaponId),
+        inventory: buildInventoryPayload(inventory, weaponId, this.bagCapOf(player.name)),
       });
       return;
     }
@@ -4626,7 +4683,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     inventory = removeItemFromInventory(inventory, itemId, 1).inventory;
     const gained: string[] = [];
     for (const part of refund) {
-      const result = addItemToInventory(inventory, part.itemId, part.quantity);
+      const result = addItemToInventory(inventory, part.itemId, part.quantity, this.bagCapOf(player.name));
       inventory = result.inventory;
       if (result.added > 0) gained.push(`${result.added}x ${ITEMS[part.itemId]?.name ?? part.itemId}`);
     }
@@ -4643,7 +4700,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       sentAt: Date.now(),
     });
 
-    client.send("craftResult", { ok: true, inventory: buildInventoryPayload(inventory, weaponId) });
+    client.send("craftResult", { ok: true, inventory: buildInventoryPayload(inventory, weaponId, this.bagCapOf(player.name)) });
     await this.persistPlayer(player);
   }
 
@@ -4673,7 +4730,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     }
 
     const inventory = this.inventories.get(player.name) ?? [];
-    const projected = addItemToInventory(inventory, offer.itemId, offer.quantity);
+    const projected = addItemToInventory(inventory, offer.itemId, offer.quantity, this.bagCapOf(player.name));
     if (projected.added <= 0) {
       client.send("softShopResult", { ok: false, error: "Your bag is full." });
       return;
@@ -5197,7 +5254,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
           recipeId,
           gold,
           error: `Need ${input.quantity}x ${def?.name ?? input.itemId}.`,
-          inventory: buildInventoryPayload(inventory, weaponId),
+          inventory: buildInventoryPayload(inventory, weaponId, this.bagCapOf(playerName)),
         });
         return;
       }
@@ -5208,16 +5265,16 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         recipeId,
         gold,
         error: `Need ${recipe.goldCost} gold for the forge fee.`,
-        inventory: buildInventoryPayload(inventory, weaponId),
+        inventory: buildInventoryPayload(inventory, weaponId, this.bagCapOf(playerName)),
       });
       return;
     }
-    if (addItemToInventory(inventory, recipe.output.itemId, recipe.output.quantity).added <= 0) {
+    if (addItemToInventory(inventory, recipe.output.itemId, recipe.output.quantity, this.bagCapOf(playerName)).added <= 0) {
       client.send("craftResult", {
         ok: false,
         recipeId,
         error: "Your bag is full.",
-        inventory: buildInventoryPayload(inventory, weaponId),
+        inventory: buildInventoryPayload(inventory, weaponId, this.bagCapOf(playerName)),
       });
       return;
     }
@@ -5225,7 +5282,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     for (const input of recipe.inputs) {
       inventory = removeItemFromInventory(inventory, input.itemId, input.quantity).inventory;
     }
-    inventory = addItemToInventory(inventory, recipe.output.itemId, recipe.output.quantity).inventory;
+    inventory = addItemToInventory(inventory, recipe.output.itemId, recipe.output.quantity, this.bagCapOf(playerName)).inventory;
     gold -= recipe.goldCost;
     this.playerGold.set(playerName, gold);
     this.inventories.set(playerName, inventory);
@@ -5249,7 +5306,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       ok: true,
       recipeId,
       gold,
-      inventory: buildInventoryPayload(inventory, weaponId),
+      inventory: buildInventoryPayload(inventory, weaponId, this.bagCapOf(playerName)),
     });
     await this.persistPlayer(player);
   }
@@ -5317,7 +5374,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         ok: true,
         equippedWeaponId: normalized.weaponId,
         equippedToolId: normalized.toolId,
-        inventory: buildInventoryPayload(inventory, normalized.weaponId),
+        inventory: buildInventoryPayload(inventory, normalized.weaponId, this.bagCapOf(player.name)),
       });
       await this.persistPlayer(player);
       return;
@@ -5410,7 +5467,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       ok: true,
       equippedWeaponId: normalized.weaponId,
       equippedToolId: normalized.toolId,
-      inventory: buildInventoryPayload(inventory, normalized.weaponId),
+      inventory: buildInventoryPayload(inventory, normalized.weaponId, this.bagCapOf(player.name)),
     });
     await this.persistPlayer(player);
   }
@@ -5909,7 +5966,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         ok: true,
         plotId,
         action: "plant",
-        inventory: buildInventoryPayload(inventory, weaponId),
+        inventory: buildInventoryPayload(inventory, weaponId, this.bagCapOf(player.name)),
         playerName: player.name,
       });
       return;
@@ -5980,7 +6037,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       action: "harvest",
       skillXpGained: skillXp,
       farmingLevel: newLevel,
-      inventory: buildInventoryPayload(inventory, weaponId),
+      inventory: buildInventoryPayload(inventory, weaponId, this.bagCapOf(player.name)),
       playerName: player.name,
     });
     await this.persistPlayer(player);
@@ -6070,7 +6127,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     if (idx < 0) return;
     const listing = listings[idx];
     const inv = this.inventories.get(player.name) ?? [];
-    const { inventory, added } = addItemToInventory(inv, itemId, listing.quantity);
+    const { inventory, added } = addItemToInventory(inv, itemId, listing.quantity, this.bagCapOf(player.name));
     if (added <= 0) {
       client.send("playerShopResult", { ok: false, plotId, error: "Make inventory space first." });
       return;
@@ -6116,7 +6173,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       return;
     }
     const inv = this.inventories.get(player.name) ?? [];
-    const { inventory, added } = addItemToInventory(inv, itemId, affordable);
+    const { inventory, added } = addItemToInventory(inv, itemId, affordable, this.bagCapOf(player.name));
     if (added <= 0) {
       client.send("playerShopResult", { ok: false, plotId, error: "Your inventory is full." });
       return;
@@ -6718,6 +6775,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       honor: this.playerHonor.get(player.name) ?? 0,
       guildCoin: this.playerGuildCoin.get(player.name) ?? 0,
       gems: this.playerGems.get(player.name) ?? 0,
+      bagLevel: this.playerBagLevel.get(player.name) ?? 0,
     });
   }
 
