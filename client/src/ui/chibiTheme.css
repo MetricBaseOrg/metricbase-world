@@ -1866,6 +1866,176 @@ body {
   color: var(--chibi-mint-deep);
 }
 
+.chibi-itile.selected {
+  box-shadow: 0 0 0 2px var(--chibi-gold) inset;
+  transform: translateY(-2px);
+}
+
+/* ---- Character panel polish ---- */
+.chibi-inv {
+  animation: chibi-inv-pop 0.18s ease;
+}
+@keyframes chibi-inv-pop {
+  from { transform: scale(0.96); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+/* Portrait: floating avatar, soft glow, sparkles, and a passing shine. */
+.chibi-inv__portrait::before {
+  content: "";
+  position: absolute;
+  inset: auto 12% 8% 12%;
+  height: 26%;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(74, 59, 42, 0.22), transparent 70%);
+}
+.chibi-inv__portrait .chibi-portrait-canvas {
+  animation: chibi-avatar-bob 2.8s ease-in-out infinite;
+  position: relative;
+}
+@keyframes chibi-avatar-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+.chibi-inv__portrait::after {
+  content: "";
+  position: absolute;
+  top: -60%;
+  left: -60%;
+  width: 60%;
+  height: 220%;
+  transform: rotate(22deg);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+  animation: chibi-shine 4.5s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes chibi-shine {
+  0%, 70% { left: -60%; }
+  100% { left: 130%; }
+}
+.chibi-inv__spark {
+  position: absolute;
+  font-size: 0.7rem;
+  color: var(--chibi-gold);
+  animation: chibi-spark-tw 2.2s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes chibi-spark-tw {
+  0%, 100% { opacity: 0.25; transform: scale(0.85); }
+  50% { opacity: 1; transform: scale(1.1); }
+}
+.chibi-inv__lvl {
+  position: absolute;
+  bottom: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--chibi-gold);
+  border: 2px solid var(--chibi-outline);
+  border-radius: 999px;
+  font-family: var(--chibi-font-display);
+  font-size: 0.62rem;
+  font-weight: 800;
+  color: #4a3313;
+  padding: 1px 8px;
+  white-space: nowrap;
+  z-index: 2;
+}
+
+/* XP progress under the hero name. */
+.chibi-xpbar {
+  margin-top: 5px;
+  width: 100%;
+  height: 9px;
+  border-radius: 999px;
+  background: var(--chibi-cream-deep);
+  border: 1.5px solid var(--chibi-outline-light);
+  overflow: hidden;
+}
+.chibi-xpbar__fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #7ec9f5, #5a97e0);
+  transition: width 0.4s ease;
+}
+
+/* Gear-score tier chip. */
+.chibi-tier-chip {
+  display: inline-block;
+  border-radius: 999px;
+  border: 1.5px solid currentColor;
+  font-size: 0.62rem;
+  font-weight: 800;
+  padding: 0 8px;
+  margin-left: 6px;
+  vertical-align: 1px;
+}
+
+/* Item detail card under the bag grid. */
+.chibi-inv__detail {
+  margin-top: 8px;
+  padding: 10px 12px;
+  border: 2px solid var(--chibi-outline-light);
+  border-radius: 12px;
+  background: var(--chibi-cream-deep);
+  animation: chibi-inv-pop 0.15s ease;
+}
+.chibi-inv__detail-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.chibi-inv__detail-icon {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  font-size: 1.7rem;
+  border: 2px solid var(--chibi-outline-light);
+  border-radius: 10px;
+  background: var(--chibi-cream);
+  flex: 0 0 auto;
+}
+.chibi-rarity-chip {
+  display: inline-block;
+  border-radius: 999px;
+  font-size: 0.6rem;
+  font-weight: 800;
+  text-transform: capitalize;
+  padding: 0 7px;
+  border: 1.5px solid currentColor;
+  margin-left: 6px;
+  vertical-align: 1px;
+}
+.chibi-inv__cmp {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+.chibi-inv__cmp .up { color: var(--chibi-mint-deep); }
+.chibi-inv__cmp .down { color: var(--chibi-danger); }
+.chibi-inv__cmp .same { color: var(--chibi-ink-soft); }
+
+/* Bag capacity meter. */
+.chibi-capbar {
+  width: 64px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--chibi-cream-deep);
+  border: 1.5px solid var(--chibi-outline-light);
+  overflow: hidden;
+}
+.chibi-capbar__fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--chibi-mint);
+}
+.chibi-capbar__fill.full {
+  background: var(--chibi-danger);
+}
+
 /* ---- Crafting panel (tabbed) ---- */
 .chibi-craft {
   width: min(720px, 96vw);
