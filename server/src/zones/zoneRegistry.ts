@@ -110,7 +110,11 @@ export function sanitizeBuild(input: unknown, gridSize = PLAYER_ZONE_GRID): { bu
   const landPlots = (Array.isArray(v.landPlots) ? v.landPlots : []).filter((p) => p && inBounds(p.tileX, p.tileY));
   if (landPlots.length > cap(MAX_ZONE_LAND_PLOTS)) return { error: `Too many building plots (max ${cap(MAX_ZONE_LAND_PLOTS)}).` };
 
-  const farmPlots = (Array.isArray(v.farmPlots) ? v.farmPlots : []).filter((p) => p && inBounds(p.tileX, p.tileY));
+  // Soil-derived plots (id soil_x_y) re-derive from painted tiles — they must
+  // never be persisted in the build or they duplicate on every save cycle.
+  const farmPlots = (Array.isArray(v.farmPlots) ? v.farmPlots : []).filter(
+    (p) => p && inBounds(p.tileX, p.tileY) && !String(p.id ?? "").startsWith("soil_"),
+  );
   if (farmPlots.length > cap(MAX_ZONE_FARM_PLOTS)) return { error: `Too many farm plots (max ${cap(MAX_ZONE_FARM_PLOTS)}).` };
 
   const resources = (Array.isArray(v.resources) ? v.resources : []).filter((r) => r && inBounds(r.tileX, r.tileY));

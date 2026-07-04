@@ -211,6 +211,10 @@ export function playerZoneToConfig(record: PlayerZoneRecord): ZoneConfig {
   const soilPlots = (build.tiles ?? [])
     .filter((t) => t.type === "soil")
     .map((t) => ({ id: `soil_${t.x}_${t.y}`, tileX: t.x, tileY: t.y }));
+  // Derived soil plots are NOT part of the stored build — but the editor once
+  // copied them into drafts, so older saves may contain them. Strip them here
+  // (they re-derive from the painted tiles) so they can never duplicate.
+  const ownFarmPlots = build.farmPlots.filter((p) => !p.id.startsWith("soil_"));
   // LEGACY MIGRATION: early Worlds stored gather nodes (trees/rocks/ponds) as
   // plain scenery, which rendered but couldn't be gathered. Derive real
   // resource nodes from them and drop them from the scenery list; the next
@@ -245,7 +249,7 @@ export function playerZoneToConfig(record: PlayerZoneRecord): ZoneConfig {
     portals: [playerZoneExitPortal(gridSize)],
     npcs: mobs,
     resources: [...build.resources, ...legacyResources],
-    farmPlots: [...build.farmPlots, ...soilPlots],
+    farmPlots: [...ownFarmPlots, ...soilPlots],
     landPlots: build.landPlots,
     scenery,
     tiles: build.tiles,
