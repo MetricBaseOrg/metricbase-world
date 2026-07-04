@@ -1,4 +1,4 @@
-export const GAME_VERSION = "0.91.0";
+export const GAME_VERSION = "0.91.1";
 
 export const TICK_RATE = 20;
 

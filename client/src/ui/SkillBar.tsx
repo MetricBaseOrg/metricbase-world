@@ -41,6 +41,7 @@ export function SkillBar() {
   const knockedOut = useGameStore((state) => state.knockedOut);
   const panelOpen = useGameStore(isAnyPanelOpen);
   const worldEditing = useGameStore((state) => state.worldEditing);
+  const fishing = useGameStore((state) => state.fishing);
   const equippedWeaponId = useGameStore((state) => state.equippedWeaponId);
   const inventory = useGameStore((state) => state.inventory);
 
@@ -150,7 +151,9 @@ export function SkillBar() {
   }, []);
 
   if (spectator || knockedOut) return null;
-  if (panelOpen || worldEditing) return null;
+  // The fishing minigame card sits where the hotbar lives — and you can't
+  // fight mid-cast anyway.
+  if (panelOpen || worldEditing || fishing) return null;
 
   const now = Date.now();
 

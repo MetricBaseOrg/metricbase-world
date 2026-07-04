@@ -8,6 +8,7 @@ export function AdBanner() {
   const setAdsOpen = useGameStore((s) => s.setAdsOpen);
   const panelOpen = useGameStore(isAnyPanelOpen);
   const worldEditing = useGameStore((s) => s.worldEditing);
+  const fishing = useGameStore((s) => s.fishing);
   const [creative, setCreative] = useState<AdServedCreative | null>(null);
   const [dismissed, setDismissed] = useState(false);
 
@@ -25,7 +26,7 @@ export function AdBanner() {
     };
   }, []);
 
-  if (dismissed || panelOpen || worldEditing) return null;
+  if (dismissed || panelOpen || worldEditing || fishing) return null;
 
   // Empty slot → a house "advertise here" promo that opens the Ads panel.
   if (!creative) {
