@@ -2,12 +2,17 @@ import {
   buildZoneMap,
   getZoneConfig,
   isBlockingTile,
+  isGroundPaintBlocking,
   isZonePropSolid,
   PLAYER_ZONE_PREFIX,
   playerZoneToConfig,
+  TILE_GRASS,
   TILE_WALL,
+  TILE_WATER,
+  WALKWAY_ZONE_PROPS,
   worldToTile,
   zoneGridSize,
+  zoneGroundFootprint,
   zonePropFootprint,
   type LandPlotNode,
   type ZoneConfig,
@@ -18,10 +23,10 @@ import { getPlayerZone } from "../zones/zoneRegistry.js";
 const collisionCache = new Map<string, number[][]>();
 
 /** Resolve a zone's config from the static table or the player-zone registry. */
-function resolveConfig(zoneId: string): Pick<ZoneConfig, "landPlots" | "scenery"> {
+function resolveConfig(zoneId: string): Pick<ZoneConfig, "landPlots" | "scenery" | "tiles"> {
   if (zoneId.startsWith(PLAYER_ZONE_PREFIX)) {
     const record = getPlayerZone(zoneId);
-    return record ? playerZoneToConfig(record) : { landPlots: [], scenery: [] };
+    return record ? playerZoneToConfig(record) : { landPlots: [], scenery: [], tiles: [] };
   }
   return getZoneConfig(zoneId);
 }
@@ -66,6 +71,31 @@ function getCollisionGrid(zoneId: string): number[][] {
   const block = (x: number, y: number) => {
     if (x >= 0 && y >= 0 && x < mapW && y < mapH) map[y][x] = TILE_WALL;
   };
+  const unblock = (x: number, y: number) => {
+    if (x >= 0 && y >= 0 && x < mapW && y < mapH && map[y][x] === TILE_WATER) map[y][x] = TILE_GRASS;
+  };
+
+  if (playerZone) {
+    // Blocking ground paint (rivers) stamps water over its footprint…
+    for (const t of config.tiles ?? []) {
+      if (!isGroundPaintBlocking(t.type)) continue;
+      const n = zoneGroundFootprint(t.type);
+      for (let dy = 0; dy < n; dy++) {
+        for (let dx = 0; dx < n; dx++) {
+          const x = t.x + dx;
+          const y = t.y + dy;
+          if (x >= 0 && y >= 0 && x < mapW && y < mapH) map[y][x] = TILE_WATER;
+        }
+      }
+    }
+    // …and walkways (bridges) laid over it make their footprint passable again.
+    for (const node of config.scenery ?? []) {
+      if (!WALKWAY_ZONE_PROPS.has(node.prop)) continue;
+      const n = zonePropFootprint(node.prop);
+      for (let dy = 0; dy < n; dy++) for (let dx = 0; dx < n; dx++) unblock(node.tileX + dx, node.tileY + dy);
+    }
+  }
+
   for (const node of config.scenery ?? []) {
     if (playerZone) {
       // Player-zone builds: buildings block their whole N×N footprint (anchored

@@ -63,9 +63,12 @@ import type { EditTool } from "./inputControl";
 import {
   emptyPlayerZoneBuild,
   getCropMarket,
+  isGroundPaintBlocking,
   isZonePropSolid,
   makePlayerZoneResource,
   PLAYER_ZONE_GRID,
+  WALKWAY_ZONE_PROPS,
+  zoneGroundFootprint,
   zonePropFootprint,
   type PlayerZoneBuild,
 } from "@metricbase/shared";
@@ -2037,6 +2040,12 @@ export class GameScene extends Phaser.Scene {
         draft.scenery.push({ id, tileX, tileY, prop: tool.value });
       }
     } else if (tool.type === "ground") {
+      // Safety: blocking paint (river) can't cover the visitor spawn tile.
+      if (isGroundPaintBlocking(tool.value)) {
+        const n = zoneGroundFootprint(tool.value);
+        const spawn = draft.spawnTile;
+        if (spawn.x >= tileX && spawn.x < tileX + n && spawn.y >= tileY && spawn.y < tileY + n) return;
+      }
       const existing = draft.tiles.find((t) => t.x === tileX && t.y === tileY);
       if (existing) existing.type = tool.value;
       else draft.tiles.push({ x: tileX, y: tileY, type: tool.value });
@@ -2097,6 +2106,8 @@ export class GameScene extends Phaser.Scene {
     // Rebuilding the full PNG ground (24x24 sprites) is only needed when a
     // ground tile actually changed — placing props leaves the floor alone.
     if (groundChanged) this.renderGroundPaint(zoneId);
+    // Keep local collision in sync while editing (rivers/buildings block live).
+    this.rebuildCollisionGrid(zoneId);
     this.drawWalkGuide();
   }
 
@@ -2136,6 +2147,21 @@ export class GameScene extends Phaser.Scene {
       g.closePath();
       g.fillPath();
     };
+    // Walkways (bridges) open their tiles even over a river.
+    const bridged = new Set<string>();
+    for (const s of draft.scenery) {
+      if (!WALKWAY_ZONE_PROPS.has(s.prop)) continue;
+      const n = zonePropFootprint(s.prop);
+      for (let dy = 0; dy < n; dy++) for (let dx = 0; dx < n; dx++) bridged.add(`${s.tileX + dx},${s.tileY + dy}`);
+    }
+    // Blocking ground paint (rivers) is impassable unless bridged.
+    for (const t of draft.tiles) {
+      if (!isGroundPaintBlocking(t.type)) continue;
+      const n = zoneGroundFootprint(t.type);
+      for (let dy = 0; dy < n; dy++)
+        for (let dx = 0; dx < n; dx++)
+          if (!bridged.has(`${t.x + dx},${t.y + dy}`)) fillTile(t.x + dx, t.y + dy, 0x5a97e0);
+    }
     for (const s of draft.scenery) {
       if (!isZonePropSolid(s.prop)) continue;
       const n = zonePropFootprint(s.prop);

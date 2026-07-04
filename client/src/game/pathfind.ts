@@ -1,10 +1,13 @@
 import {
   buildZoneMap,
   isBlockingTile,
+  isGroundPaintBlocking,
   isZonePropSolid,
   PLAYER_SPEED,
   tileToWorld,
+  WALKWAY_ZONE_PROPS,
   worldToTile,
+  zoneGroundFootprint,
   zonePropFootprint,
 } from "@metricbase/shared";
 import { isPlayerZoneId, resolveZoneConfig } from "./playerZoneConfig";
@@ -27,6 +30,23 @@ export function buildCollisionGrid(zoneId: string, builtLandPlots: Set<string> =
   const stamp = (x: number, y: number) => {
     if (x >= 0 && y >= 0 && x < w && y < h) grid[y][x] = true;
   };
+  const clear = (x: number, y: number) => {
+    if (x >= 0 && y >= 0 && x < w && y < h) grid[y][x] = false;
+  };
+  if (player) {
+    // Blocking ground paint (rivers) is solid over its footprint; walkways
+    // (bridges) laid on top open their footprint back up. Mirrors the server.
+    for (const t of config.tiles ?? []) {
+      if (!isGroundPaintBlocking(t.type)) continue;
+      const n = zoneGroundFootprint(t.type);
+      for (let dy = 0; dy < n; dy++) for (let dx = 0; dx < n; dx++) stamp(t.x + dx, t.y + dy);
+    }
+    for (const node of config.scenery ?? []) {
+      if (!WALKWAY_ZONE_PROPS.has(node.prop)) continue;
+      const n = zonePropFootprint(node.prop);
+      for (let dy = 0; dy < n; dy++) for (let dx = 0; dx < n; dx++) clear(node.tileX + dx, node.tileY + dy);
+    }
+  }
   for (const node of config.scenery ?? []) {
     if (player) {
       if (!isZonePropSolid(node.prop)) continue;

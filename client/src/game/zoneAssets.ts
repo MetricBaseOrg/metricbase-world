@@ -67,7 +67,7 @@ const DESC: Record<string, string> = {
   empty: "Plain bare dirt — free to paint anywhere.",
   water: "Sparkling shallow water for lakes and moats.",
   water2: "Darker deep water — pairs well with Water edges.",
-  river: "Flowing river spanning 2×2 tiles — chain into streams.",
+  river: "Flowing 2×2 river — blocks walking; lay a Bridge to cross.",
   snow: "Frosty ground for winter builds.",
   lava: "Molten ground for dramatic, dangerous-looking flair.",
   "stone-path": "Paved stone walkway to guide visitors around.",
@@ -81,7 +81,7 @@ const DESC: Record<string, string> = {
   windmill: "Countryside windmill. 2×2, blocks walking.",
   fence: "Thin barrier — blocks walking. Chain into walls.",
   gate: "Ornate fence gate — solid; leave an open tile beside it.",
-  bridge: "Wooden bridge spanning 2×2 tiles — lay across rivers (walkable).",
+  bridge: "2×2 wooden bridge — makes river tiles under it walkable.",
   // resource nodes (functional)
   pine: "Evergreen pine — a real Woodcutting node visitors can chop.",
   "pine-small": "Little pine — quick Woodcutting node.",
