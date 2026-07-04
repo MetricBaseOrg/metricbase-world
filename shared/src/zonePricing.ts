@@ -10,6 +10,8 @@ export const ZONE_ASSET_PRICES: Record<string, number> = {
   empty: 0,
   grass2: 20,
   soil: 20,
+  "slime-den": 8_000,
+  "brute-den": 20_000,
   "stone-path": 25,
   snow: 30,
   sand: 30,

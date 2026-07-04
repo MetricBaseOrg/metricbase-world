@@ -163,6 +163,34 @@ export function emptyPlayerZoneBuild(): PlayerZoneBuild {
   };
 }
 
+/**
+ * Placeable mob dens: scenery props that become live combat NPCs in the zone.
+ * Dens grant XP + loot only (no direct gold) so player Worlds can't be farmed
+ * as an infinite gold faucet — slime gel/cores still sell at the shop.
+ */
+export const MOB_DENS: Record<
+  string,
+  { name: string; maxHp: number; rewardXp: number; respawnMs: number; dialogue: string }
+> = {
+  "slime-den": {
+    name: "Wild Slime",
+    maxHp: 45,
+    rewardXp: 20,
+    respawnMs: 12_000,
+    dialogue: "Gloop! A squishy slime. Easier than the dummy, but still fights back.",
+  },
+  "brute-den": {
+    name: "Slime Brute",
+    maxHp: 150,
+    rewardXp: 55,
+    respawnMs: 25_000,
+    dialogue: "GLORP! A massive slime guards this den.",
+  },
+};
+
+/** Prefix on npc ids derived from placed mob dens (also keys their rewards). */
+export const PZ_MOB_PREFIX = "pzmob_";
+
 /** Portal that always returns a visitor from a player zone back to the Hub. */
 export function playerZoneExitPortal(gridSize = PLAYER_ZONE_GRID): ZonePortal {
   return { tileX: 1, tileY: Math.floor(gridSize / 2), targetZone: "zone_hub", label: "Leave World" };
@@ -182,6 +210,20 @@ export function playerZoneToConfig(record: PlayerZoneRecord): ZoneConfig {
   const soilPlots = (build.tiles ?? [])
     .filter((t) => t.type === "soil")
     .map((t) => ({ id: `soil_${t.x}_${t.y}`, tileX: t.x, tileY: t.y }));
+  // Placed mob dens become real combat NPCs (id prefix keys their rewards).
+  const mobs = build.scenery
+    .filter((s) => MOB_DENS[s.prop])
+    .map((s) => {
+      const den = MOB_DENS[s.prop];
+      return {
+        id: `${PZ_MOB_PREFIX}${s.prop}_${s.id}`,
+        name: den.name,
+        tileX: s.tileX,
+        tileY: s.tileY,
+        dialogue: den.dialogue,
+        combat: { maxHp: den.maxHp, rewardXp: den.rewardXp, respawnMs: den.respawnMs },
+      };
+    });
   return {
     id: record.zoneId,
     roomName: PLAYER_ZONE_ROOM,
@@ -189,7 +231,7 @@ export function playerZoneToConfig(record: PlayerZoneRecord): ZoneConfig {
     dangerTier: "safe",
     spawnTile: build.spawnTile,
     portals: [playerZoneExitPortal(gridSize)],
-    npcs: [],
+    npcs: mobs,
     resources: build.resources,
     farmPlots: [...build.farmPlots, ...soilPlots],
     landPlots: build.landPlots,

@@ -32,6 +32,10 @@ export interface ZoneAsset {
   bakedTile: boolean;
   /** For resource props: which gather skill this node drives when placed. */
   resourceKind?: "tree" | "rock" | "fish";
+  /** Virtual assets have no PNG (rendered by other systems, e.g. mob dens);
+   *  the palette shows their emoji instead. */
+  virtual?: boolean;
+  emoji?: string;
 }
 
 // Per-asset anchor (0..1 of image height) = the "surface line" measured from the
@@ -98,6 +102,8 @@ const DESC: Record<string, string> = {
   "gem-studded": "Gem-studded rock — sparkly Mining node.",
   "obsidian-gem": "Obsidian gem rock — rare-looking Mining node.",
   "fish-pond": "Stocked pond — a Fishing node visitors can fish.",
+  "slime-den": "Spawns a real Wild Slime visitors can fight — XP + slime gel (no gold).",
+  "brute-den": "Spawns a Slime Brute — a tough fight for XP + a slime core (no gold).",
   "berry-bush": "Berry bush — quick gather node.",
   "crop-field": "Planted field visitors can harvest.",
   "crop-wheat": "Golden wheat patch — harvestable node.",
@@ -194,6 +200,9 @@ export const ZONE_ASSETS: ZoneAsset[] = [
   r("berry-bush", "Berry Bush", "tree", 52),
   r("crop-field", "Crop Field", "tree", 72),
   r("crop-wheat", "Wheat Crop", "tree", 64),
+  // Mob dens — virtual: they spawn real combat NPCs rather than a PNG prop.
+  { id: "slime-den", file: "", emoji: "🟢", virtual: true, label: "Slime Den", desc: desc("slime-den"), category: "resource", worldWidth: 0, anchorY: 0.5, footprint: 1, clearsGround: false, bakedTile: false },
+  { id: "brute-den", file: "", emoji: "🐸", virtual: true, label: "Brute Den", desc: desc("brute-den"), category: "resource", worldWidth: 0, anchorY: 0.5, footprint: 1, clearsGround: false, bakedTile: false },
   // Decor (1×1, ground-anchored)
   d("well", "Well", 64),
   d("lamp", "Lamp"),
@@ -230,7 +239,7 @@ export function zoneAssetTextureKey(id: string): string {
  */
 export function ensureZoneAssetLoaded(scene: Phaser.Scene, id: string, onReady?: () => void): void {
   const asset = BY_ID.get(id);
-  if (!asset) return;
+  if (!asset || !asset.file) return;
   const key = zoneAssetTextureKey(id);
   if (scene.textures.exists(key)) {
     onReady?.();

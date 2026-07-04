@@ -123,7 +123,7 @@ export function WorldEditBar() {
     if (e.pointerType !== "mouse") return;
     e.preventDefault();
     pick(asset.id, asset.category);
-    setGhost({ file: asset.file, x: e.clientX, y: e.clientY });
+    if (asset.file) setGhost({ file: asset.file, x: e.clientX, y: e.clientY });
     const move = (ev: PointerEvent) => setGhost((g) => (g ? { ...g, x: ev.clientX, y: ev.clientY } : g));
     const up = (ev: PointerEvent) => {
       window.removeEventListener("pointermove", move);
@@ -231,7 +231,11 @@ export function WorldEditBar() {
             onPointerDown={(e) => startDrag(a, e)}
             onClick={() => pick(a.id, a.category)}
           >
-            <img src={`/assets/${a.file}`} alt="" draggable={false} style={{ width: 40, height: 40, objectFit: "contain", pointerEvents: "none" }} />
+            {a.file ? (
+              <img src={`/assets/${a.file}`} alt="" draggable={false} style={{ width: 40, height: 40, objectFit: "contain", pointerEvents: "none" }} />
+            ) : (
+              <span style={{ fontSize: "1.7rem", lineHeight: "40px", pointerEvents: "none" }}>{a.emoji ?? "❓"}</span>
+            )}
             {a.label}
             <span style={{ fontSize: "0.62rem", opacity: 0.85 }}>
               {zoneAssetPrice(a.id) === 0
@@ -255,12 +259,16 @@ export function WorldEditBar() {
               className="chibi-card"
               style={{ marginTop: 8, padding: "8px 10px", display: "flex", gap: 8, alignItems: "flex-start" }}
             >
-              <img
-                src={`/assets/${a.file}`}
-                alt=""
-                draggable={false}
-                style={{ width: 34, height: 34, objectFit: "contain", flexShrink: 0 }}
-              />
+              {a.file ? (
+                <img
+                  src={`/assets/${a.file}`}
+                  alt=""
+                  draggable={false}
+                  style={{ width: 34, height: 34, objectFit: "contain", flexShrink: 0 }}
+                />
+              ) : (
+                <span style={{ fontSize: "1.6rem", flexShrink: 0 }}>{a.emoji ?? "❓"}</span>
+              )}
               <div style={{ minWidth: 0 }}>
                 <div style={{ fontWeight: 700, fontSize: "0.78rem" }}>
                   {a.label}

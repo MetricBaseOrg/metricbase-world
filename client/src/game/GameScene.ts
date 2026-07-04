@@ -1667,6 +1667,8 @@ export class GameScene extends Phaser.Scene {
       // PNG art is only used in player-owned zones; built-in zones keep their
       // procedurally-baked scenery_<prop> textures untouched.
       const asset = isPlayerZoneId(zoneId) ? getZoneAsset(node.prop) : undefined;
+      // Virtual assets (mob dens) are rendered as live NPCs, not props.
+      if (asset?.virtual) continue;
       if (asset) {
         const key = zoneAssetTextureKey(node.prop);
         const N = asset.footprint;
@@ -1703,7 +1705,7 @@ export class GameScene extends Phaser.Scene {
           ensureZoneAssetLoaded(this, node.prop, applyReady);
         }
         this.renderedScenery.push(sprite);
-        // Placed crop markets are functional: walk up + interact to trade.
+        // Placed crop markets + Shop buildings are functional: walk up + interact.
         const market = getCropMarket(node.prop);
         if (market) {
           this.interactableScenery.push({
@@ -1712,6 +1714,8 @@ export class GameScene extends Phaser.Scene {
             worldY: py,
             label: `Trade at ${market.label}`,
           });
+        } else if (node.prop === "shop-blue") {
+          this.interactableScenery.push({ id: node.id, worldX: px, worldY: py, label: "Shop with Pip" });
         }
         continue;
       }
@@ -1954,7 +1958,7 @@ export class GameScene extends Phaser.Scene {
 
   /** A translucent sprite that follows the cursor while an object is held. */
   private makeGhost(prop?: string): Phaser.GameObjects.Sprite | undefined {
-    if (!prop) return undefined;
+    if (!prop || !getZoneAsset(prop)?.file) return undefined;
     const key = zoneAssetTextureKey(prop);
     const asset = getZoneAsset(prop);
     const originY = asset?.anchorY ?? 0.9;
@@ -2661,9 +2665,9 @@ export class GameScene extends Phaser.Scene {
       const { x, y } = tileToWorld(npc.tileX, npc.tileY);
       const isCombat = Boolean(npc.combat);
       const mobTexture =
-        npc.id === SLIME_BRUTE_NPC_ID
+        npc.id === SLIME_BRUTE_NPC_ID || npc.name === "Slime Brute"
           ? "brute"
-          : npc.id === WILD_SLIME_NPC_ID || npc.id.startsWith("wild_slime")
+          : npc.id === WILD_SLIME_NPC_ID || npc.id.startsWith("wild_slime") || npc.name === "Wild Slime"
             ? "slime"
             : isCombat
               ? "dummy"

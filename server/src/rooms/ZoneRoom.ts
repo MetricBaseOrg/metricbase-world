@@ -1798,7 +1798,9 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     const npc = this.zoneConfig.npcs.find((entry) => entry.id === npcId);
     if (!npc) {
       // Interactable scenery — arcade/blackjack tables, or a placed crop market.
-      const prop = this.zoneConfig.scenery?.find((s) => s.id === npcId && (s.interact || getCropMarket(s.prop)));
+      const prop = this.zoneConfig.scenery?.find(
+        (s) => s.id === npcId && (s.interact || getCropMarket(s.prop) || s.prop === "shop-blue"),
+      );
       if (prop) {
         // Multi-tile buildings anchor at their back corner; measure from the
         // footprint centre so standing at the front counts as "close".
@@ -1813,6 +1815,17 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
           void this.sendCasinoState(client);
         } else if (market) {
           client.send("openCropMarket", { market: market.propId });
+        } else if (prop.prop === "shop-blue") {
+          // A placed Shop building is a working general store — same stock,
+          // prices, and price-pressure as Pip's in the Hub.
+          await this.openShopForNpc(client, player, {
+            id: "hub_merchant",
+            name: "Pip",
+            tileX: prop.tileX,
+            tileY: prop.tileY,
+            dialogue: "Welcome to Pip's Provisions — now serving this World!",
+            shopId: "pip_general",
+          });
         }
       }
       return;

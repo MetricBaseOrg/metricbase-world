@@ -88,7 +88,11 @@ export function BuildShopPanel() {
               const price = zoneAssetPrice(a.id);
               return (
                 <div key={a.id} className="chibi-card" title={a.desc} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 10px" }}>
-                  <img src={`/assets/${a.file}`} alt="" style={{ width: 38, height: 38, objectFit: "contain" }} />
+                  {a.file ? (
+                    <img src={`/assets/${a.file}`} alt="" style={{ width: 38, height: 38, objectFit: "contain" }} />
+                  ) : (
+                    <span style={{ fontSize: "1.7rem", width: 38, textAlign: "center" }}>{a.emoji ?? "❓"}</span>
+                  )}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontWeight: 600, fontSize: "0.82rem" }}>
                       {a.label}
