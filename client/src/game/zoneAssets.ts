@@ -63,7 +63,7 @@ const DESC: Record<string, string> = {
   // ground paint
   grass: "Classic green ground — free to paint anywhere.",
   grass2: "Lighter flowery meadow for cozy clearings.",
-  soil: "Tilled earth — great around farms and paths.",
+  soil: "Tilled farm plot — plant wheat, carrot & future seeds here, then harvest.",
   empty: "Plain bare dirt — free to paint anywhere.",
   water: "Sparkling shallow water for lakes and moats.",
   water2: "Darker deep water — pairs well with Water edges.",

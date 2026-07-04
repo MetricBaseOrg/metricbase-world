@@ -5935,6 +5935,17 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     const yieldQty = crop?.yield ?? 1;
     bumpMetric("farm.harvest", yieldQty);
     this.bumpDaily(player.name, "harvest", yieldQty);
+    // Visitor gather tax: harvesting in someone else's World pays the owner
+    // the same per-gather fee as chopping/mining/fishing there.
+    if (this.playerZone && this.playerZone.ownerName !== player.name) {
+      const tax = getZoneGatherTax(this.playerZone.zoneId);
+      const gold = this.playerGold.get(player.name) ?? STARTING_GOLD;
+      if (tax > 0 && gold >= tax) {
+        this.playerGold.set(player.name, gold - tax);
+        addZoneTax(this.playerZone.zoneId, tax);
+        bumpMetric("gathertax.gold", tax);
+      }
+    }
     await this.grantLoot(client, player.name, active.cropId, yieldQty);
     const skillXp = crop?.skillXp ?? 10;
     const { newLevel, leveledUp } = this.grantSkillXp(player.name, "farming", skillXp);

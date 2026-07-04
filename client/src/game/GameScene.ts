@@ -130,6 +130,9 @@ interface RenderedFarmPlot {
   stage: "empty" | "growing" | "ready";
   plantedAt?: number;
   readyAt?: number;
+  /** Soil-paint plots: the painted soil art IS the empty state, so the plot
+   *  sprite only shows once something is growing. */
+  hideWhenEmpty?: boolean;
 }
 
 interface RenderedLandPlot {
@@ -1834,10 +1837,12 @@ export class GameScene extends Phaser.Scene {
     this.clearGroundPaint();
     this.clearResources();
     this.clearLandPlots();
+    this.clearFarmPlots();
     this.clearPortals();
     this.renderGroundPaint(zoneId);
     this.renderResources(zoneId);
     this.renderLandPlots(zoneId);
+    this.renderFarmPlots(zoneId);
     this.renderScenery(zoneId);
     this.renderPortals(zoneId);
     this.rebuildCollisionGrid(zoneId);
@@ -2401,11 +2406,18 @@ export class GameScene extends Phaser.Scene {
   private renderFarmPlots(zoneId: string) {
     const config = resolveZoneConfig(zoneId);
     for (const plot of config.farmPlots ?? []) {
-      // Anchor at the centre of the 2x2 footprint.
-      const { x, y } = tileToWorld(plot.tileX + 0.5, plot.tileY + 0.5);
+      // Soil-paint plots (player zones) are single tiles whose painted soil art
+      // is the empty state; built-in plots use the 2×2 procedural patch.
+      const soilPlot = plot.id.startsWith("soil_");
+      const { x, y } = soilPlot
+        ? tileToWorld(plot.tileX, plot.tileY)
+        : tileToWorld(plot.tileX + 0.5, plot.tileY + 0.5);
       const sprite = this.add.sprite(x, y, "plot_empty");
       sprite.setOrigin(0.5, 0.526);
       sprite.setDepth(y);
+      if (soilPlot) {
+        sprite.setScale(0.62).setVisible(false);
+      }
       const label = this.add
         .text(x, y - 44, "Plot", {
           fontFamily: '"Fredoka", "Nunito", sans-serif',
@@ -2429,6 +2441,7 @@ export class GameScene extends Phaser.Scene {
         worldX: x,
         worldY: y,
         stage: "empty",
+        hideWhenEmpty: soilPlot,
       });
     }
     this.applyFarmState(networkManager.getFarmState());
@@ -2547,6 +2560,8 @@ export class GameScene extends Phaser.Scene {
       const texture =
         state.stage === "ready" ? "plot_ready" : state.stage === "growing" ? "plot_growing" : "plot_empty";
       plot.sprite.setTexture(texture);
+      // Soil-paint plots show the sprite only once something is planted.
+      if (plot.hideWhenEmpty) plot.sprite.setVisible(state.stage !== "empty");
       plot.label.setText(state.stage === "ready" ? "Ready!" : "Plot");
       plot.label.setVisible(state.stage === "ready");
       if (state.stage !== "growing") {
@@ -2564,6 +2579,7 @@ export class GameScene extends Phaser.Scene {
       if (now >= plot.readyAt) {
         plot.stage = "ready";
         plot.sprite.setTexture("plot_ready");
+        if (plot.hideWhenEmpty) plot.sprite.setVisible(true);
         plot.label.setText("Ready!").setVisible(true);
         plot.barBg.clear();
         plot.barFill.clear();

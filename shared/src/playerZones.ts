@@ -145,6 +145,12 @@ export function playerZoneExitPortal(gridSize = PLAYER_ZONE_GRID): ZonePortal {
 export function playerZoneToConfig(record: PlayerZoneRecord): ZoneConfig {
   const build = record.build;
   const gridSize = zoneGridSize(record.expandLevel);
+  // Every painted SOIL tile is a working farm plot: plant any seed (wheat,
+  // carrot, future crops) and harvest. Ids are derived from the tile position
+  // so farm state stays attached to the tile across saves.
+  const soilPlots = (build.tiles ?? [])
+    .filter((t) => t.type === "soil")
+    .map((t) => ({ id: `soil_${t.x}_${t.y}`, tileX: t.x, tileY: t.y }));
   return {
     id: record.zoneId,
     roomName: PLAYER_ZONE_ROOM,
@@ -154,7 +160,7 @@ export function playerZoneToConfig(record: PlayerZoneRecord): ZoneConfig {
     portals: [playerZoneExitPortal(gridSize)],
     npcs: [],
     resources: build.resources,
-    farmPlots: build.farmPlots,
+    farmPlots: [...build.farmPlots, ...soilPlots],
     landPlots: build.landPlots,
     scenery: build.scenery,
     tiles: build.tiles,
