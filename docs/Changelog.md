@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.71.0 – 0.90.4] — 2026-07-01 → 2026-07-04 (rollup)
+
+Detailed history lives in `git log` (each release is one commit with a full
+message). Highlights of this cycle:
+
+- **Player Worlds** 🌍 — buyable player zones (1M gold), full build editor
+  (drag/move/erase/spawn + walkability guide), asset inventory + Build Shop +
+  P2P asset market, rivers that block + bridges that cross, soil tiles as farm
+  plots, working Wheat/Carrot Markets, visitor passes + gather tax, discovery
+  (Popular/New/Featured) + owner analytics, and grid expansion via $BASE burns
+  (28/32/36 tiles).
+- **Economy & retention** — carrot crop, daily quests + login streak, bag
+  expansion via $BASE burns (24/32/40 slots), Pip gold desk (1:1 $BASE).
+- **$BASE plumbing** — crash-safe idempotent gold purchases, burn-sink family
+  (Black Zone / VIP / World / Bag) with signature dedup, per-sink burn stats.
+- **Transparency** — /stats redesigned (chibi dashboard: gold flow, activity,
+  markets, ads, burns, Worlds economy, daily quests) + 𝕏 share button/card.
+- **Ads** — standalone Brand Portal at /brands (wallet-only, no game account).
+- **UI/UX** — centralized panel/HUD layering (nothing overlaps anything),
+  character panel polish (XP bar, gear tiers, item compare, rarity glows),
+  1×1 player collision, click-to-move A* pathfinding.
+- **Docs** — /docs rebuilt as the complete game wiki (22 sections).
+
+
 All notable changes to **MetricBase World** are documented here.
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).

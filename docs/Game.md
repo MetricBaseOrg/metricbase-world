@@ -12,12 +12,21 @@ The long-term goal (see `PLAN.md`) is a zero-install MMO with:
 - Optional Solana token integration for in-game economy
 - Horizontally scalable infrastructure
 
-The current build is a playable multiplayer prototype with the full **everyday
-loop** — Gather (woodcutting, mining, fishing, farming), Craft, Trade, and Build
-(housing + player-run shops) — plus quests, a peer-to-peer gold market, a
-Community layer (emotes, online roster, $BASE-holder billboard), a
-leaderboard, and an **in-game ad marketplace** (brands bid CPM for ad space;
-players share 50% of the revenue).
+The current build (v0.90.x) is a full MMO: the **everyday loop** — Gather
+(woodcutting, mining, fishing, farming with wheat + carrot), Craft, Trade, and
+Build (housing + player-run shops) — plus quests, a P2P gold market, the
+complete **open-world PvP** endgame (danger tiers, guild warfare, territory,
+Castle Siege, seasons), **Player Worlds** (buy a zone for 1M gold, build it
+with a full in-game editor — rivers/bridges, soil farm plots, working crop
+markets, gatherable nodes — sell visitor passes + gather tax, expand by
+burning $BASE), **daily rewards + login streaks**, **bag expansion** ($BASE
+burn), an **ad marketplace** with a standalone no-game-needed **Brand Portal**
+(/brands), a public **transparency dashboard** (/stats, with 𝕏 sharing), and
+the player wiki at **/docs**.
+
+> The canonical, always-current player documentation is
+> `client/public/docs.html` (served at /docs) — keep IT in sync when features
+> ship; this file is the high-level overview.
 
 On top of that sits the **PvP Major Upgrade** (see the dedicated section below and
 `pvp-update.md`): a combat foundation (stats, armour, crit, weapon-driven
