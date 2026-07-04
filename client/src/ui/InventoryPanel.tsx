@@ -111,6 +111,8 @@ const ITEM_ICONS: Record<string, string> = {
   item_steel_pickaxe: "⛏️",
   item_fishing_rod: "🎣",
   item_pro_rod: "🎣",
+  item_gilded_rod: "🎣",
+  item_abyssal_rod: "🎣",
   // Mounts
   item_pony: "🐴",
   item_steed: "🐎",

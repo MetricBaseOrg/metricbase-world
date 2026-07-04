@@ -200,6 +200,63 @@ export const CRAFT_RECIPES: CraftRecipe[] = [
     goldCost: 120,
   },
   {
+    id: "craft_gilded_rod",
+    name: "Gilded Rod",
+    description: "Inlay a master rod with amber and golden line. 60% faster, bonus catches, +25% fishing XP.",
+    inputs: [
+      { itemId: "item_hardwood_plank", quantity: 2 },
+      { itemId: "item_steel_bar", quantity: 2 },
+      { itemId: "item_amber", quantity: 2 },
+    ],
+    output: { itemId: "item_gilded_rod", quantity: 1 },
+    goldCost: 250,
+  },
+  {
+    id: "craft_abyssal_rod",
+    name: "Abyssal Rod",
+    description: "Set deep-sea pearls into a gilded rod. The ultimate rod: fastest reel, +50% fishing XP, pearls surface far more often.",
+    inputs: [
+      { itemId: "item_gilded_rod", quantity: 1 },
+      { itemId: "item_pearl", quantity: 3 },
+      { itemId: "item_steel_bar", quantity: 2 },
+    ],
+    output: { itemId: "item_abyssal_rod", quantity: 1 },
+    goldCost: 500,
+  },
+  {
+    id: "craft_lucky_lure",
+    name: "Lucky Lure Pendant",
+    description: "String a pearl lure on a fine chain. Rare catches surface much more often.",
+    inputs: [
+      { itemId: "item_pearl", quantity: 2 },
+      { itemId: "item_iron_bar", quantity: 1 },
+    ],
+    output: { itemId: "item_lucky_lure", quantity: 1 },
+    goldCost: 150,
+  },
+  {
+    id: "craft_angler_ring",
+    name: "Angler's Ring",
+    description: "Set a pearl beside a gemstone in a band. +25% fishing XP while worn.",
+    inputs: [
+      { itemId: "item_pearl", quantity: 1 },
+      { itemId: "item_gemstone", quantity: 1 },
+    ],
+    output: { itemId: "item_angler_ring", quantity: 1 },
+    goldCost: 180,
+  },
+  {
+    id: "craft_angler_cap",
+    name: "Angler's Straw Cap",
+    description: "Weave a sun cap from wheat straw. +10% fishing XP and sometimes an extra catch.",
+    inputs: [
+      { itemId: "item_wheat", quantity: 10 },
+      { itemId: "item_fish", quantity: 5 },
+    ],
+    output: { itemId: "item_angler_cap", quantity: 1 },
+    goldCost: 60,
+  },
+  {
     id: "craft_lamp_oil",
     name: "Lamp Oil",
     description: "Render fish into oil for a building light's lantern.",

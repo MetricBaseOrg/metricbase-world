@@ -25,7 +25,9 @@ const BITE_WINDOW_MS = 1000;
 function zoneWidth(toolId: string | null): number {
   let w = 26;
   if (toolId === "item_fishing_rod") w += 5;
-  if (toolId === "item_pro_rod") w += 9;
+  if (toolId === "item_pro_rod" || toolId === "item_harvest_net") w += 9;
+  if (toolId === "item_gilded_rod") w += 12;
+  if (toolId === "item_abyssal_rod") w += 15;
   if (getWeather().rain > 0) w += 6;
   return w;
 }

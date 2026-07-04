@@ -164,6 +164,7 @@ import {
   type EquipmentSlot,
   type GearKindSlot,
   getToolSpeedMultiplier,
+  getGatherPerks,
   getToolYieldBonus,
   rollRareGatherDrop,
   type PlayerEquipment,
@@ -5932,8 +5933,13 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     );
 
     // Steel-tier tools roll for a bonus drop on top of the node's base yield.
-    const toolId = this.playerEquipment.get(player.name)?.toolId;
-    const toolBonus = Math.random() < getToolYieldBonus(toolId, gather.skill) ? 1 : 0;
+    const equipment = this.playerEquipment.get(player.name);
+    const toolId = equipment?.toolId;
+    // Accessory/tool perks (master rods, lures, angler gear): extra XP, extra
+    // rare-drop chance, and an extra yield roll.
+    const perks = getGatherPerks(equipment, gather.skill);
+    const toolBonus =
+      Math.random() < getToolYieldBonus(toolId, gather.skill) + perks.yieldBonus ? 1 : 0;
     // The fish bite in the rain — a bonus catch chance while it's wet.
     const rainBonus =
       gather.skill === "fishing" && Math.random() < rainFishingBonus(now) ? 1 : 0;
@@ -5941,7 +5947,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     const lootQuantity = gather.lootQuantity + bonusYield;
 
     // Luck-based rare drop (amber/gemstone/pearl), independent of the yield roll.
-    const rareItemId = rollRareGatherDrop(gather.skill, gather.nodeLevel);
+    const rareItemId = rollRareGatherDrop(gather.skill, gather.nodeLevel, perks.rareBonus);
 
     const client = this.clients.find((entry) => entry.sessionId === sessionId);
     if (client) {
@@ -5975,7 +5981,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     this.bumpDaily(player.name, "gather", lootQuantity);
     this.tickJobProgress(player.name, "gather", lootQuantity);
 
-    const skillXpGained = gather.skillXp;
+    const skillXpGained = Math.round(gather.skillXp * (1 + perks.xpBonus));
     const { newLevel, leveledUp } = this.grantSkillXp(player.name, gather.skill, skillXpGained);
     if (client) {
       this.sendSkillState(client, player.name);

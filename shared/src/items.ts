@@ -336,6 +336,48 @@ export const ITEMS: Record<string, ItemDefinition> = {
     maxStack: 1,
     kind: "tool",
   },
+  item_gilded_rod: {
+    id: "item_gilded_rod",
+    name: "Gilded Rod",
+    description:
+      "An amber-inlaid rod strung with golden line. Reels in 60% faster, often lands an extra catch, and grants +25% fishing XP.",
+    stackable: false,
+    maxStack: 1,
+    kind: "tool",
+  },
+  item_abyssal_rod: {
+    id: "item_abyssal_rod",
+    name: "Abyssal Rod",
+    description:
+      "A deep-sea rod set with pearls that hum near water. Reels in 65% faster, usually lands an extra catch, +50% fishing XP, and pearls surface far more often.",
+    stackable: false,
+    maxStack: 1,
+    kind: "tool",
+  },
+  item_lucky_lure: {
+    id: "item_lucky_lure",
+    name: "Lucky Lure Pendant",
+    description: "A pearl lure worn as a pendant. Rare catches (pearls) surface much more often.",
+    stackable: false,
+    maxStack: 1,
+    kind: "armor",
+  },
+  item_angler_ring: {
+    id: "item_angler_ring",
+    name: "Angler's Ring",
+    description: "A gem-set band favoured by master anglers. +25% fishing XP while worn.",
+    stackable: false,
+    maxStack: 1,
+    kind: "armor",
+  },
+  item_angler_cap: {
+    id: "item_angler_cap",
+    name: "Angler's Straw Cap",
+    description: "A woven straw cap that keeps the sun off. +10% fishing XP and sometimes an extra catch.",
+    stackable: false,
+    maxStack: 1,
+    kind: "armor",
+  },
   item_amber: {
     id: "item_amber",
     name: "Amber",

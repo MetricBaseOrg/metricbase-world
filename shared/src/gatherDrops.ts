@@ -22,10 +22,11 @@ export const RARE_GATHER_DROP: Partial<Record<GatherSkill, RareGatherDrop>> = {
 export function rollRareGatherDrop(
   skill: GatherSkill,
   nodeLevel: number,
+  bonusChance = 0,
   rng: () => number = Math.random,
 ): string | null {
   const drop = RARE_GATHER_DROP[skill];
   if (!drop) return null;
-  const chance = drop.baseChance + Math.max(0, nodeLevel - 1) * 0.01;
+  const chance = drop.baseChance + Math.max(0, nodeLevel - 1) * 0.01 + bonusChance;
   return rng() < chance ? drop.itemId : null;
 }

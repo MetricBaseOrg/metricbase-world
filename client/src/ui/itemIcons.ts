@@ -675,6 +675,8 @@ const ITEM_ART: Record<string, [Shape, keyof typeof MATS | "auto"]> = {
   item_steel_pickaxe: [pickaxe, "steel"],
   item_fishing_rod: [rod, "wood"],
   item_pro_rod: [rod, "hardwood"],
+  item_gilded_rod: [rod, "gold"],
+  item_abyssal_rod: [rod, "gem"],
   // armor
   item_copper_helm: [helmet, "copper"],
   item_iron_helm: [helmet, "iron"],
@@ -691,6 +693,9 @@ const ITEM_ART: Record<string, [Shape, keyof typeof MATS | "auto"]> = {
   item_gem_ring: [ring, "gold"],
   item_pearl_amulet: [amulet, "gold"],
   item_traveler_cape: [cape, "cloth"],
+  item_lucky_lure: [amulet, "white"],
+  item_angler_ring: [ring, "gem"],
+  item_angler_cap: [helmet, "gold"],
   // mounts
   item_pony: [mount, "wood"],
   item_steed: [mount, "amber"],

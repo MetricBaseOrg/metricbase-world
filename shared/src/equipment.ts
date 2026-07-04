@@ -26,6 +26,8 @@ export const ITEM_PRO_ROD = "item_pro_rod";
 export const ITEM_STEEL_AXE = "item_steel_axe";
 export const ITEM_STEEL_PICKAXE = "item_steel_pickaxe";
 export const ITEM_HARVEST_NET = "item_harvest_net";
+export const ITEM_GILDED_ROD = "item_gilded_rod";
+export const ITEM_ABYSSAL_ROD = "item_abyssal_rod";
 
 export interface ToolGatherBonus {
   /** Which gather skill this tool accelerates. */
@@ -34,6 +36,10 @@ export interface ToolGatherBonus {
   speedMultiplier: number;
   /** Chance (0–1) of yielding one bonus loot item per gather. Defaults to 0. */
   yieldBonus?: number;
+  /** Extra skill XP per gather as a fraction (0.25 = +25%). Defaults to 0. */
+  xpBonus?: number;
+  /** Additive rare-drop chance (0–1) on top of the node's base. Defaults to 0. */
+  rareBonus?: number;
 }
 
 /** Equipped tools cut gather time for their matching skill. */
@@ -48,7 +54,60 @@ export const TOOL_GATHER: Record<string, ToolGatherBonus> = {
   [ITEM_STEEL_AXE]: { skill: "woodcutting", speedMultiplier: 0.5, yieldBonus: 0.4 },
   [ITEM_STEEL_PICKAXE]: { skill: "mining", speedMultiplier: 0.5, yieldBonus: 0.4 },
   [ITEM_HARVEST_NET]: { skill: "fishing", speedMultiplier: 0.5, yieldBonus: 0.4 },
+  // Master fishing tier: faster still, bonus catches, and real skill-XP gains.
+  [ITEM_GILDED_ROD]: { skill: "fishing", speedMultiplier: 0.4, yieldBonus: 0.5, xpBonus: 0.25 },
+  [ITEM_ABYSSAL_ROD]: {
+    skill: "fishing",
+    speedMultiplier: 0.35,
+    yieldBonus: 0.6,
+    xpBonus: 0.5,
+    rareBonus: 0.04,
+  },
 };
+
+/** Gather perks granted by equipped ACCESSORIES (worn in normal gear slots). */
+export interface GatherAccessoryPerk {
+  skill: GatherSkill;
+  xpBonus?: number;
+  rareBonus?: number;
+  yieldBonus?: number;
+}
+
+export const GATHER_ACCESSORY: Record<string, GatherAccessoryPerk> = {
+  // Fishing accessories — stack with the equipped rod.
+  item_lucky_lure: { skill: "fishing", rareBonus: 0.05 },
+  item_angler_ring: { skill: "fishing", xpBonus: 0.25 },
+  item_angler_cap: { skill: "fishing", xpBonus: 0.1, yieldBonus: 0.1 },
+};
+
+export interface GatherPerks {
+  xpBonus: number;
+  rareBonus: number;
+  yieldBonus: number;
+}
+
+/**
+ * Total gather perks for a skill from the equipped tool + every equipped
+ * accessory. Tool speed stays separate (getToolSpeedMultiplier).
+ */
+export function getGatherPerks(eq: PlayerEquipment | null | undefined, skill: GatherSkill): GatherPerks {
+  const perks: GatherPerks = { xpBonus: 0, rareBonus: 0, yieldBonus: 0 };
+  if (!eq) return perks;
+  const tool = eq.toolId ? TOOL_GATHER[eq.toolId] : undefined;
+  if (tool && tool.skill === skill) {
+    perks.xpBonus += tool.xpBonus ?? 0;
+    perks.rareBonus += tool.rareBonus ?? 0;
+  }
+  for (const field of ARMOR_FIELDS) {
+    const itemId = eq[field] as string | null;
+    const perk = itemId ? GATHER_ACCESSORY[itemId] : undefined;
+    if (!perk || perk.skill !== skill) continue;
+    perks.xpBonus += perk.xpBonus ?? 0;
+    perks.rareBonus += perk.rareBonus ?? 0;
+    perks.yieldBonus += perk.yieldBonus ?? 0;
+  }
+  return perks;
+}
 
 /**
  * Speed multiplier the equipped tool grants for a given gather skill.
@@ -199,6 +258,10 @@ export const GEAR_STATS: Record<string, GearStat> = {
     maxDurability: Infinity,
   },
   item_traveler_cape: { slot: "cape", rarity: "common", armor: 8, maxDurability: 100 },
+  // Fishing accessories (gather perks live in GATHER_ACCESSORY).
+  item_lucky_lure: { slot: "necklace", rarity: "rare", armor: 4, maxDurability: Infinity },
+  item_angler_ring: { slot: "ring", rarity: "rare", maxDurability: Infinity },
+  item_angler_cap: { slot: "helmet", rarity: "uncommon", armor: 10, maxDurability: 120 },
 };
 
 /** Max durability for wearable weapons (jewelry/none excluded). */

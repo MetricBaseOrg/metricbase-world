@@ -442,8 +442,13 @@ function drawFishArms(
   const rodTipY = shoulderY - 9 + bob;
   const isNet = toolId === "item_harvest_net";
 
-  // rod or net handle
-  ctx.strokeStyle = toolId === "item_pro_rod" ? "#d35400" : "#6d4c41"; // pro rod is bright orange
+  // rod or net handle (each rod tier has its own colour)
+  const ROD_COLORS: Record<string, string> = {
+    item_pro_rod: "#d35400", // bright orange
+    item_gilded_rod: "#f1c40f", // gold
+    item_abyssal_rod: "#7d5fff", // deep-sea violet
+  };
+  ctx.strokeStyle = (toolId && ROD_COLORS[toolId]) || "#6d4c41";
   ctx.lineCap = "round";
   ctx.lineWidth = 2.4;
   ctx.beginPath();
