@@ -34,6 +34,7 @@ import { ArcadeModal } from "./ui/ArcadeModal";
 import { BlackZoneModal } from "./ui/BlackZoneModal";
 import { CropMarketPanel } from "./ui/CropMarketPanel";
 import { DailyPanel } from "./ui/DailyPanel";
+import { FishingMinigame } from "./ui/FishingMinigame";
 import { DuelControls } from "./ui/DuelControls";
 import { PvpFlagButton } from "./ui/PvpFlagButton";
 import { VipLodgeModal } from "./ui/VipLodgeModal";
@@ -364,6 +365,7 @@ export function App() {
       {joined && <VipLodgeModal />}
       {joined && <CropMarketPanel />}
       {joined && <DailyPanel />}
+      {joined && <FishingMinigame />}
       {joined && !worldEditing && !panelOpen && <PvpFlagButton />}
       {joined && !worldEditing && !panelOpen && <DuelControls />}
       {joined && <SiegeBanner />}

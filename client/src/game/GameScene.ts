@@ -667,6 +667,9 @@ export class GameScene extends Phaser.Scene {
       playSfx(kind === "rock" ? "mine_hit" : kind === "fish" ? "fish_cast" : "chop_swing");
       if (payload.playerName === useGameStore.getState().playerName) {
         this.startLocalChopHits(payload.endsAt, kind);
+        if (kind === "fish") {
+          useGameStore.getState().setFishing({ resourceId: payload.resourceId, endsAt: payload.endsAt });
+        }
       }
     });
 
@@ -683,6 +686,7 @@ export class GameScene extends Phaser.Scene {
       if (payload.playerName === useGameStore.getState().playerName) {
         this.localChoppingUntil = 0;
         this.stopLocalChopHits();
+        useGameStore.getState().setFishing(null);
         const local = this.findLocalPlayer();
         if (local) {
           local.actionUntil = 0;
@@ -710,6 +714,7 @@ export class GameScene extends Phaser.Scene {
       if (isLocalChopper) {
         this.localChoppingUntil = 0;
         this.stopLocalChopHits();
+        useGameStore.getState().setFishing(null);
         playSfx(
           payload.skill === "mining"
             ? "ore_gather"
@@ -3784,7 +3789,8 @@ export class GameScene extends Phaser.Scene {
     }
 
     if (nearest) {
-      networkManager.sendChop(nearest.id);
+      // Fishing runs the catch minigame (server keeps a timed fallback).
+      networkManager.sendChop(nearest.id, nearest.kind === "fish");
     }
   }
 
@@ -3813,7 +3819,8 @@ export class GameScene extends Phaser.Scene {
     }
 
     if (nearest) {
-      networkManager.sendChop(nearest.id);
+      // Fishing runs the catch minigame (server keeps a timed fallback).
+      networkManager.sendChop(nearest.id, nearest.kind === "fish");
     }
   }
 

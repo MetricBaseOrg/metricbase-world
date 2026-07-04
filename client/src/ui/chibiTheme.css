@@ -2036,6 +2036,13 @@ body {
   background: var(--chibi-danger);
 }
 
+/* Fishing minigame: the ❗ bite alert rattles for urgency. */
+@keyframes chibi-bite-shake {
+  0% { transform: translate(0, 0) rotate(-6deg); }
+  50% { transform: translate(1px, -2px) rotate(6deg); }
+  100% { transform: translate(-1px, 1px) rotate(-6deg); }
+}
+
 /* ---- Crafting panel (tabbed) ---- */
 .chibi-craft {
   width: min(720px, 96vw);

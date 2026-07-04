@@ -62,6 +62,8 @@ interface GameStore {
   dailyOpen: boolean;
   /** The ⚙️ TopBar settings dropdown. */
   settingsOpen: boolean;
+  /** Active fishing catch-minigame (null when not fishing). */
+  fishing: { resourceId: string; endsAt: number } | null;
   /** True while the player is actively editing a World (hides gameplay HUD). */
   worldEditing: boolean;
   housingOpen: boolean;
@@ -129,6 +131,7 @@ interface GameStore {
   setCropMarketOpen: (market: string | null) => void;
   setDailyOpen: (open: boolean) => void;
   setSettingsOpen: (open: boolean) => void;
+  setFishing: (fishing: { resourceId: string; endsAt: number } | null) => void;
   setWorldEditing: (editing: boolean) => void;
   openHousing: (plotId: string) => void;
   setHousingOpen: (open: boolean) => void;
@@ -216,6 +219,7 @@ export const useGameStore = create<GameStore>((set) => ({
   cropMarketOpen: null,
   dailyOpen: false,
   settingsOpen: false,
+  fishing: null,
   worldEditing: false,
   housingOpen: false,
   housingPlotId: null,
@@ -316,6 +320,7 @@ export const useGameStore = create<GameStore>((set) => ({
   setCropMarketOpen: (cropMarketOpen) => set({ cropMarketOpen }),
   setDailyOpen: (dailyOpen) => set({ dailyOpen }),
   setSettingsOpen: (settingsOpen) => set({ settingsOpen }),
+  setFishing: (fishing) => set({ fishing }),
   setWorldEditing: (worldEditing) => set({ worldEditing }),
   openHousing: (housingPlotId) =>
     set({ housingPlotId, housingOpen: true, inventoryOpen: false, craftOpen: false }),

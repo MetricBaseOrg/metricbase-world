@@ -607,8 +607,12 @@ export class NetworkManager {
     this.room?.send("toggleLamp", { on });
   }
 
-  sendChop(resourceId: string) {
-    this.room?.send("chop", { resourceId });
+  sendFishingResolve(resourceId: string, success: boolean) {
+    this.room?.send("fishingResolve", { resourceId, success });
+  }
+
+  sendChop(resourceId: string, minigame = false) {
+    this.room?.send("chop", { resourceId, minigame });
   }
 
   sendShopBuy(shopId: string, itemId: string) {

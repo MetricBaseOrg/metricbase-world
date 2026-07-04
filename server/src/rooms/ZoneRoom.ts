@@ -418,7 +418,15 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   private resourceChopper = new Map<string, string>();
   private activeChopSessions = new Map<
     string,
-    { resourceId: string; playerName: string; startedAt: number; endsAt: number; durationMs: number }
+    {
+      resourceId: string;
+      playerName: string;
+      startedAt: number;
+      endsAt: number;
+      durationMs: number;
+      /** Fishing catch minigame: the client resolves success/fail; endsAt is a timeout. */
+      minigame?: boolean;
+    }
   >();
   private playerSkills = new Map<string, ReturnType<typeof normalizeSkills>>();
   private inventories = new Map<string, InventoryEntry[]>();
@@ -686,8 +694,11 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       void this.handleAssetMarketBuy(client, message.id ?? "");
     });
 
-    this.onProtectedMessage("chop", (client, message: { resourceId?: string }) => {
-      void this.handleChop(client, message.resourceId ?? "");
+    this.onProtectedMessage("chop", (client, message: { resourceId?: string; minigame?: boolean }) => {
+      void this.handleChop(client, message.resourceId ?? "", Boolean(message.minigame));
+    });
+    this.onProtectedMessage("fishingResolve", (client, message: { resourceId?: string; success?: boolean }) => {
+      void this.handleFishingResolve(client, String(message.resourceId ?? ""), Boolean(message.success));
     });
 
     this.onProtectedMessage("shopBuy", (client, message: { shopId?: string; itemId?: string }) => {
@@ -5481,7 +5492,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     await this.persistPlayer(player);
   }
 
-  private async handleChop(client: Client, resourceId: string) {
+  private async handleChop(client: Client, resourceId: string, minigame = false) {
     const player = this.state.players.get(client.sessionId);
     if (!player || !resourceId) return;
 
@@ -5561,9 +5572,14 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     if (darkPenalty > 1.01) this.notifyDark(client, player.name);
 
     const toolId = this.playerEquipment.get(player.name)?.toolId ?? null;
-    const durationMs = Math.round(
-      gather.durationMs(skillLevel) * getToolSpeedMultiplier(toolId, gather.skill) * darkPenalty,
-    );
+    // Fishing (new clients) is a catch minigame: the client resolves success or
+    // escape via fishingResolve; endsAt becomes a generous timeout that CANCELS
+    // rather than auto-completes. Older clients omit the flag and keep the
+    // classic timed gather.
+    const isFishingMinigame = minigame && gather.skill === "fishing";
+    const durationMs = isFishingMinigame
+      ? 25_000
+      : Math.round(gather.durationMs(skillLevel) * getToolSpeedMultiplier(toolId, gather.skill) * darkPenalty);
     const startedAt = now;
     const endsAt = now + durationMs;
 
@@ -5573,6 +5589,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       startedAt,
       endsAt,
       durationMs,
+      minigame: isFishingMinigame,
     });
     this.resourceChopper.set(resourceId, client.sessionId);
     this.inputs.set(client.sessionId, { dx: 0, dy: 0 });
@@ -5624,9 +5641,39 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       }
 
       if (now >= session.endsAt) {
-        void this.completeChopSession(sessionId, session, resource, player, now);
+        if (session.minigame) this.cancelChopSession(sessionId, "escaped");
+        else void this.completeChopSession(sessionId, session, resource, player, now);
       }
     }
+  }
+
+  /**
+   * Fishing minigame outcome from the client. Success completes the gather
+   * (loot/XP/tax exactly like a timed catch); failure lets the fish escape.
+   * Server-side sanity: session must be ours, a fishing minigame, on the same
+   * resource, and at least 2s old (no instant catches).
+   */
+  private async handleFishingResolve(client: Client, resourceId: string, success: boolean) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const session = this.activeChopSessions.get(client.sessionId);
+    if (!session || !session.minigame || session.resourceId !== resourceId) return;
+    const now = Date.now();
+    if (success && now - session.startedAt < 2000) {
+      // Too fast to be a real catch — treat as an escape.
+      this.cancelChopSession(client.sessionId, "escaped");
+      return;
+    }
+    if (!success) {
+      this.cancelChopSession(client.sessionId, "escaped");
+      return;
+    }
+    const resource = (this.zoneConfig.resources ?? []).find((entry) => entry.id === resourceId);
+    if (!resource) {
+      this.cancelChopSession(client.sessionId, "invalid");
+      return;
+    }
+    await this.completeChopSession(client.sessionId, session, resource, player, now);
   }
 
   private cancelChopSession(sessionId: string, reason: string) {
