@@ -3210,6 +3210,23 @@ export class GameScene extends Phaser.Scene {
     if (nearest) {
       playSfx("interact");
       networkManager.sendInteract(nearest.id);
+      return;
+    }
+
+    // Nothing to talk to — gather instead. Makes ✨ the universal mobile
+    // action: fishing spots, trees, and rocks all respond to interact.
+    if (Date.now() >= this.localChoppingUntil) {
+      let node: RenderedResource | null = null;
+      let nodeDistance = CHOP_RANGE;
+      for (const resource of this.renderedResources) {
+        if (!resource.available || resource.chopperName) continue;
+        const distance = Math.hypot(local.predicted.x - resource.worldX, local.predicted.y - resource.worldY);
+        if (distance <= nodeDistance) {
+          node = resource;
+          nodeDistance = distance;
+        }
+      }
+      if (node) networkManager.sendChop(node.id, node.kind === "fish");
     }
   }
 

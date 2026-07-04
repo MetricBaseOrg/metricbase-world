@@ -66,3 +66,29 @@ export function zoneGroundFootprint(type: string): number {
 
 /** Walkable structures that clear blocking ground beneath their footprint. */
 export const WALKWAY_ZONE_PROPS = new Set<string>(["bridge"]);
+
+// ---- Resource props --------------------------------------------------------
+// Which placeable props are gather nodes, and what they yield. Used to derive
+// real resource nodes from LEGACY builds that stored them as scenery (early
+// Worlds placed everything into scenery before nodes became functional).
+
+export const RESOURCE_PROPS: Record<string, { kind: "tree" | "rock" | "fish"; label: string }> = {
+  pine: { kind: "tree", label: "Pine" },
+  "pine-small": { kind: "tree", label: "Small Pine" },
+  sapling: { kind: "tree", label: "Sapling" },
+  "young-oak": { kind: "tree", label: "Young Oak" },
+  "wild-oak": { kind: "tree", label: "Wild Oak" },
+  ironwood: { kind: "tree", label: "Ironwood" },
+  hardwood: { kind: "tree", label: "Hardwood" },
+  "ancient-hardwood": { kind: "tree", label: "Ancient Hardwood" },
+  "cavern-hardwood": { kind: "tree", label: "Cavern Hardwood" },
+  "berry-bush": { kind: "tree", label: "Berry Bush" },
+  "crop-field": { kind: "tree", label: "Crop Field" },
+  "crop-wheat": { kind: "tree", label: "Wheat Crop" },
+  "copper-rock": { kind: "rock", label: "Copper Rock" },
+  "iron-deposit": { kind: "rock", label: "Iron Deposit" },
+  "iron-vein": { kind: "rock", label: "Iron Vein" },
+  "gem-studded": { kind: "rock", label: "Gem Rock" },
+  "obsidian-gem": { kind: "rock", label: "Obsidian Gem" },
+  "fish-pond": { kind: "fish", label: "Fishing Spot" },
+};

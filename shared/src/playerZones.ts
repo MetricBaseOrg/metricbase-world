@@ -1,10 +1,11 @@
 import type { FarmPlotNode } from "./farming.js";
 import type { LandPlotNode } from "./housing.js";
-import type { ZoneResourceNode } from "./resources.js";
+import { makePlayerZoneResource, type ZoneResourceNode } from "./resources.js";
 import type { SceneryNode, ZoneConfig, ZonePortal } from "./zones.js";
 import {
   isGroundPaintBlocking,
   isZonePropSolid,
+  RESOURCE_PROPS,
   WALKWAY_ZONE_PROPS,
   zoneGroundFootprint,
   zonePropFootprint,
@@ -210,6 +211,17 @@ export function playerZoneToConfig(record: PlayerZoneRecord): ZoneConfig {
   const soilPlots = (build.tiles ?? [])
     .filter((t) => t.type === "soil")
     .map((t) => ({ id: `soil_${t.x}_${t.y}`, tileX: t.x, tileY: t.y }));
+  // LEGACY MIGRATION: early Worlds stored gather nodes (trees/rocks/ponds) as
+  // plain scenery, which rendered but couldn't be gathered. Derive real
+  // resource nodes from them and drop them from the scenery list; the next
+  // build save persists them properly.
+  const legacyResources = build.scenery
+    .filter((s) => RESOURCE_PROPS[s.prop])
+    .map((s) => {
+      const def = RESOURCE_PROPS[s.prop];
+      return makePlayerZoneResource(`sres_${s.id}`, s.prop, def.kind, def.label, s.tileX, s.tileY);
+    });
+  const scenery = build.scenery.filter((s) => !RESOURCE_PROPS[s.prop]);
   // Placed mob dens become real combat NPCs (id prefix keys their rewards).
   const mobs = build.scenery
     .filter((s) => MOB_DENS[s.prop])
@@ -232,10 +244,10 @@ export function playerZoneToConfig(record: PlayerZoneRecord): ZoneConfig {
     spawnTile: build.spawnTile,
     portals: [playerZoneExitPortal(gridSize)],
     npcs: mobs,
-    resources: build.resources,
+    resources: [...build.resources, ...legacyResources],
     farmPlots: [...build.farmPlots, ...soilPlots],
     landPlots: build.landPlots,
-    scenery: build.scenery,
+    scenery,
     tiles: build.tiles,
     gridSize,
   };
