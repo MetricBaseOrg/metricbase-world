@@ -7,6 +7,19 @@ export const STATS_PAGE_HTML = `<!doctype html>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>MetricBase World — Economy</title>
+<meta name="description" content="MetricBase World 🌎 in numbers — live, fully transparent economy dashboard: players, gold flow, $BASE burned, player Worlds, markets and ads." />
+<link rel="canonical" href="https://world.metricbase.org/stats" />
+<!-- Share card (𝕏 / OpenGraph) -->
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="MetricBase World" />
+<meta property="og:title" content="MetricBase World 🌎 in numbers" />
+<meta property="og:description" content="Live, fully transparent economy dashboard — players, gold flow, $BASE burned, player-built Worlds, markets & ads. Updated every 20s." />
+<meta property="og:url" content="https://world.metricbase.org/stats" />
+<meta property="og:image" content="https://world.metricbase.org/metricbase-world.png" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="MetricBase World 🌎 in numbers" />
+<meta name="twitter:description" content="Live, fully transparent economy dashboard — players, gold flow, $BASE burned, player-built Worlds, markets & ads." />
+<meta name="twitter:image" content="https://world.metricbase.org/metricbase-world.png" />
 <style>
   :root{
     --bg:#fdf3df; --panel:#fffdf6; --line:#e6d3aa; --ink:#4a3b2a; --mut:#9c8a6d;
@@ -30,6 +43,11 @@ export const STATS_PAGE_HTML = `<!doctype html>
   .live .dotp{width:8px;height:8px;border-radius:50%;background:var(--mint);animation:pulse 1.8s ease-out infinite;}
   @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(63,174,116,.5)}70%{box-shadow:0 0 0 7px rgba(63,174,116,0)}100%{box-shadow:0 0 0 0 rgba(63,174,116,0)}}
 
+  .share-x{margin-top:12px;cursor:pointer;font-family:inherit;font-weight:800;font-size:.78rem;
+    color:#fff7ea;background:#1a1a1a;border:2px solid #000;border-radius:999px;padding:7px 16px;
+    box-shadow:0 3px 0 var(--shadow);transition:transform .12s,box-shadow .12s;}
+  .share-x:hover{transform:translateY(-2px);box-shadow:0 5px 0 var(--shadow);}
+  .share-x:active{transform:translateY(1px);box-shadow:0 2px 0 var(--shadow);}
   nav{position:sticky;top:0;z-index:10;display:flex;gap:8px;justify-content:flex-start;overflow-x:auto;
     padding:10px 14px;margin-top:14px;background:rgba(253,243,223,.92);backdrop-filter:blur(6px);
     border-bottom:2px solid var(--line);scrollbar-width:none;}
@@ -86,6 +104,7 @@ export const STATS_PAGE_HTML = `<!doctype html>
 <header>
   <h1><span class="spark">✦</span> <span class="globe">🌍</span> MetricBase World — Economy <span class="spark r">✦</span></h1>
   <p><span class="live"><span class="dotp"></span><span id="onlineTop">—</span> playing now</span> · <span class="pill" id="ver">…</span> · <span id="updated">loading…</span></p>
+  <button type="button" class="share-x" id="shareX" title="Share these numbers on 𝕏">𝕏 Share the numbers</button>
 </header>
 
 <nav>
@@ -279,14 +298,31 @@ function lineChart(svg,days,seriesArr){
 function tileHtml(t){var v=t[2]||0;
   return '<div class="tile'+(v?'':' zero')+'" title="'+fmt(v)+'"><div class="n">'+kfmt(v)+'</div><div class="l"><span class="e">'+t[0]+'</span>'+t[1]+'</div></div>';}
 
-var lastLoad=0;
+var lastLoad=0,lastStats=null;
 setInterval(function(){if(!lastLoad)return;var s=Math.round((Date.now()-lastLoad)/1000);
   set("updated","updated "+(s<3?"just now":s+"s ago"));},1000);
+
+// 𝕏 share: compose a "World in numbers" post from the freshest stats.
+el("shareX").onclick=function(){
+  var s=lastStats;
+  var lines=["MetricBase World 🌎 in numbers",""];
+  if(s){
+    lines.push("👥 "+fmt(s.players.registered)+" adventurers · 🟢 "+fmt(s.players.online)+" online now");
+    lines.push("🪙 "+kfmt(s.players.circulatingGold)+" gold in circulation");
+    lines.push("🔥 "+kfmt((s.baseToken||{}).burned||0)+" $BASE burned");
+    var w=s.worlds||{};
+    lines.push("🌍 "+fmt(w.total||0)+" player-built Worlds · 👣 "+fmt(w.visits||0)+" visits");
+    var ad=s.ads||{};
+    if(ad.totalRevenue>0)lines.push("📣 "+kfmt(ad.totalRevenue)+" $BASE ad revenue — "+fmt(ad.sharePct||50)+"% paid to players");
+  }
+  lines.push("","Live transparent dashboard 👇","https://world.metricbase.org/stats");
+  window.open("https://x.com/intent/post?text="+encodeURIComponent(lines.join("\\n")),"_blank","noopener");
+};
 
 async function load(){
   try{
     var s=await (await fetch("/api/stats",{cache:"no-store"})).json();
-    lastLoad=Date.now();
+    lastLoad=Date.now();lastStats=s;
     set("ver","v"+s.version);
     set("registered",fmt(s.players.registered));
     set("online",fmt(s.players.online));
