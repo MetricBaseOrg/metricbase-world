@@ -4,6 +4,7 @@ import {
   isGroundPaintBlocking,
   isZonePropSolid,
   PLAYER_SPEED,
+  TILE_WATER,
   tileToWorld,
   WALKWAY_ZONE_PROPS,
   worldToTile,
@@ -30,8 +31,12 @@ export function buildCollisionGrid(zoneId: string, builtLandPlots: Set<string> =
   const stamp = (x: number, y: number) => {
     if (x >= 0 && y >= 0 && x < w && y < h) grid[y][x] = true;
   };
+  // Walkways may only re-open water (painted river or base-map water) — never
+  // border walls. Mirrors the server's unblock, which flips TILE_WATER only.
+  const riverTiles = new Set<string>();
   const clear = (x: number, y: number) => {
-    if (x >= 0 && y >= 0 && x < w && y < h) grid[y][x] = false;
+    if (x < 0 || y < 0 || x >= w || y >= h) return;
+    if (riverTiles.has(`${x},${y}`) || ground[y][x] === TILE_WATER) grid[y][x] = false;
   };
   if (player) {
     // Blocking ground paint (rivers) is solid over its footprint; walkways
@@ -39,7 +44,12 @@ export function buildCollisionGrid(zoneId: string, builtLandPlots: Set<string> =
     for (const t of config.tiles ?? []) {
       if (!isGroundPaintBlocking(t.type)) continue;
       const n = zoneGroundFootprint(t.type);
-      for (let dy = 0; dy < n; dy++) for (let dx = 0; dx < n; dx++) stamp(t.x + dx, t.y + dy);
+      for (let dy = 0; dy < n; dy++) {
+        for (let dx = 0; dx < n; dx++) {
+          stamp(t.x + dx, t.y + dy);
+          riverTiles.add(`${t.x + dx},${t.y + dy}`);
+        }
+      }
     }
     for (const node of config.scenery ?? []) {
       if (!WALKWAY_ZONE_PROPS.has(node.prop)) continue;

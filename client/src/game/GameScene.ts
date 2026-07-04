@@ -63,6 +63,7 @@ import type { EditTool } from "./inputControl";
 import {
   emptyPlayerZoneBuild,
   getCropMarket,
+  isBuildTileBlocked,
   isGroundPaintBlocking,
   isZonePropSolid,
   makePlayerZoneResource,
@@ -1877,6 +1878,11 @@ export class GameScene extends Phaser.Scene {
     this.editHeld?.ghost?.destroy();
     this.editHeld = null;
     this.editPickupTile = null;
+    // Re-render from the latest saved config: content derived server-side
+    // (soil farm plots, moved exit portal after an expand) appears immediately
+    // instead of waiting for a zone re-enter — config pushes are skipped while
+    // editing, so this catches the scene up.
+    if (this.currentZoneId) this.refreshZoneContent(this.currentZoneId);
   }
 
   /** Show where visitors will spawn while editing (a pin the owner can move). */
@@ -2029,6 +2035,9 @@ export class GameScene extends Phaser.Scene {
 
     let groundChanged = false;
     if (tool.type === "spawn") {
+      // Visitors arrive here — refuse tiles inside a building footprint or an
+      // unbridged river (the server rejects such saves too).
+      if (isBuildTileBlocked(draft, tileX, tileY)) return;
       draft.spawnTile = { x: tileX, y: tileY };
       this.drawSpawnMarker(tileX, tileY);
       this.drawWalkGuide();

@@ -43,6 +43,7 @@ import {
   DEFAULT_FARM_SEED,
   bagCapacity,
   dailyDayKey,
+  isBuildTileBlocked,
   dailyTasksFor,
   loginRewardGold,
   nextBagExpansion,
@@ -3086,6 +3087,14 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     }
     const { build, error } = sanitizeBuild(rawBuild, zoneGridSize(zone.expandLevel));
     if (!build) return void client.send("zoneResult", { ok: false, error: error ?? "Invalid build." });
+    // Visitors arrive at the spawn tile — refuse a build that traps them in a
+    // building footprint or an unbridged river.
+    if (isBuildTileBlocked(build, build.spawnTile.x, build.spawnTile.y)) {
+      return void client.send("zoneResult", {
+        ok: false,
+        error: "The visitor spawn (📍) is on a blocked tile — move it somewhere walkable first.",
+      });
+    }
 
     // Reconcile placed assets against the owner's inventory. Newly-placed assets
     // are taken from inventory first (free); any shortfall is bought inline at

@@ -2,6 +2,13 @@ import type { FarmPlotNode } from "./farming.js";
 import type { LandPlotNode } from "./housing.js";
 import type { ZoneResourceNode } from "./resources.js";
 import type { SceneryNode, ZoneConfig, ZonePortal } from "./zones.js";
+import {
+  isGroundPaintBlocking,
+  isZonePropSolid,
+  WALKWAY_ZONE_PROPS,
+  zoneGroundFootprint,
+  zonePropFootprint,
+} from "./zoneProps.js";
 
 /** Gold cost to buy a blank player-owned zone slot. Paid to the treasury. */
 export const ZONE_SLOT_COST = 1_000_000;
@@ -117,6 +124,30 @@ export const MAX_GATHER_TAX = 1000;
 /** A full player-zone record: metadata plus its build. */
 export interface PlayerZoneRecord extends PlayerZoneMeta {
   build: PlayerZoneBuild;
+}
+
+/**
+ * True when a tile is unwalkable within a build: covered by a solid prop's
+ * footprint, or by blocking ground paint (river) with no walkway (bridge) over
+ * it. Used to keep the visitor spawn tile walkable on both client and server.
+ */
+export function isBuildTileBlocked(build: PlayerZoneBuild, x: number, y: number): boolean {
+  const covers = (tileX: number, tileY: number, n: number) => x >= tileX && x < tileX + n && y >= tileY && y < tileY + n;
+  for (const s of build.scenery) {
+    if (isZonePropSolid(s.prop) && covers(s.tileX, s.tileY, zonePropFootprint(s.prop))) return true;
+  }
+  let inRiver = false;
+  for (const t of build.tiles) {
+    if (isGroundPaintBlocking(t.type) && covers(t.x, t.y, zoneGroundFootprint(t.type))) {
+      inRiver = true;
+      break;
+    }
+  }
+  if (!inRiver) return false;
+  for (const s of build.scenery) {
+    if (WALKWAY_ZONE_PROPS.has(s.prop) && covers(s.tileX, s.tileY, zonePropFootprint(s.prop))) return false;
+  }
+  return true;
 }
 
 /** A fresh, empty build centred on a default spawn. */
