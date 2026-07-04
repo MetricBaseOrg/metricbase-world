@@ -1,11 +1,13 @@
 import { type AdServedCreative } from "@metricbase/shared";
 import { useEffect, useState } from "react";
 import { networkManager } from "../game/network";
-import { useGameStore } from "../store/gameStore";
+import { isAnyPanelOpen, useGameStore } from "../store/gameStore";
 
 /** The persistent global ad banner (the "global_banner" slot creative). */
 export function AdBanner() {
   const setAdsOpen = useGameStore((s) => s.setAdsOpen);
+  const panelOpen = useGameStore(isAnyPanelOpen);
+  const worldEditing = useGameStore((s) => s.worldEditing);
   const [creative, setCreative] = useState<AdServedCreative | null>(null);
   const [dismissed, setDismissed] = useState(false);
 
@@ -23,7 +25,7 @@ export function AdBanner() {
     };
   }, []);
 
-  if (dismissed) return null;
+  if (dismissed || panelOpen || worldEditing) return null;
 
   // Empty slot → a house "advertise here" promo that opens the Ads panel.
   if (!creative) {

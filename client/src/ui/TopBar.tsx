@@ -26,7 +26,8 @@ interface TopBarProps {
 /** Compact desktop top bar: glanceable stats up top, settings tucked behind ⚙️. */
 export function TopBar({ onLeave }: TopBarProps) {
   const mobileLayout = useMobileLayout();
-  const [menuOpen, setMenuOpen] = useState(false);
+  const menuOpen = useGameStore((s) => s.settingsOpen);
+  const setMenuOpen = useGameStore((s) => s.setSettingsOpen);
   const [soundOn, setSoundOn] = useState(isSoundEnabled);
   const [musicOn, setMusicOn] = useState(isMusicEnabled);
   const [minimized, setMinimized] = useState(() => {
@@ -144,7 +145,7 @@ export function TopBar({ onLeave }: TopBarProps) {
           <button
             type="button"
             className={`chibi-btn chibi-btn--ghost chibi-topbar__gear${menuOpen ? " active" : ""}`}
-            onClick={() => { playSfx(menuOpen ? "ui_close" : "ui_open"); setMenuOpen((v) => !v); }}
+            onClick={() => { playSfx(menuOpen ? "ui_close" : "ui_open"); setMenuOpen(!menuOpen); }}
             aria-label="Settings"
             title="Settings"
           >

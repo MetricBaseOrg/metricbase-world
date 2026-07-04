@@ -3166,7 +3166,7 @@ a.chibi-btn {
    so drop the centered zone chip + PvP toggle below it instead of over it. */
 @media (max-width: 768px) {
   .chibi-zone-chip {
-    top: calc(var(--chibi-rail-top) + 170px);
+    top: calc(var(--chibi-rail-top) + 214px);
   }
   /* Left-anchored under the card so it's always visible in PvP zones, clear of
      the centered zone chip, the top-right rail, and the entry banner. */

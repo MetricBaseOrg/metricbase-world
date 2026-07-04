@@ -60,6 +60,8 @@ interface GameStore {
   /** Crop-market prop id ("market-wheat"/"market-carrot") while trading, else null. */
   cropMarketOpen: string | null;
   dailyOpen: boolean;
+  /** The ⚙️ TopBar settings dropdown. */
+  settingsOpen: boolean;
   /** True while the player is actively editing a World (hides gameplay HUD). */
   worldEditing: boolean;
   housingOpen: boolean;
@@ -126,6 +128,7 @@ interface GameStore {
   setBuildShopOpen: (open: boolean) => void;
   setCropMarketOpen: (market: string | null) => void;
   setDailyOpen: (open: boolean) => void;
+  setSettingsOpen: (open: boolean) => void;
   setWorldEditing: (editing: boolean) => void;
   openHousing: (plotId: string) => void;
   setHousingOpen: (open: boolean) => void;
@@ -155,6 +158,7 @@ export function isAnyPanelOpen(s: GameStore): boolean {
     s.worldsOpen ||
     s.buildShopOpen ||
     s.dailyOpen ||
+    s.settingsOpen ||
     s.housingOpen ||
     s.playerShopOpen ||
     s.shopOpen ||
@@ -211,6 +215,7 @@ export const useGameStore = create<GameStore>((set) => ({
   buildShopOpen: false,
   cropMarketOpen: null,
   dailyOpen: false,
+  settingsOpen: false,
   worldEditing: false,
   housingOpen: false,
   housingPlotId: null,
@@ -310,6 +315,7 @@ export const useGameStore = create<GameStore>((set) => ({
   setBuildShopOpen: (buildShopOpen) => set({ buildShopOpen }),
   setCropMarketOpen: (cropMarketOpen) => set({ cropMarketOpen }),
   setDailyOpen: (dailyOpen) => set({ dailyOpen }),
+  setSettingsOpen: (settingsOpen) => set({ settingsOpen }),
   setWorldEditing: (worldEditing) => set({ worldEditing }),
   openHousing: (housingPlotId) =>
     set({ housingPlotId, housingOpen: true, inventoryOpen: false, craftOpen: false }),
