@@ -44,6 +44,8 @@ import {
   dailyDayKey,
   dailyTasksFor,
   loginRewardGold,
+  nextZoneExpansion,
+  zoneGridSize,
   type DailyStatePayload,
   PLOT_PRICE,
   LIGHT_OIL_ITEM,
@@ -317,6 +319,7 @@ import {
   getPublishedZones,
   getZoneGatherTax,
   getZonesOwnedBy,
+  expandZone,
   grantZonePass,
   isPlayerZoneId,
   recordZoneVisit,
@@ -326,7 +329,7 @@ import {
 } from "../zones/zoneRegistry.js";
 import { creditTreasuryGold } from "../economy/treasury.js";
 import { bumpMetric, burnGold, mintGold } from "../economy/metrics.js";
-import { creditGoldForPurchase, isPurchaseRedeemed } from "../db/tokenPurchases.js";
+import { creditGoldForPurchase, isPurchaseRedeemed, recordTokenPurchase } from "../db/tokenPurchases.js";
 import { emptyDailyRow, loadDailyState, saveDailyState, type DailyRow } from "../db/daily.js";
 import { adjustAsset, getAssetInventory, getAssetQty } from "../zones/assetInventory.js";
 import {
@@ -642,6 +645,9 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     });
     this.onProtectedMessage("dailyClaimLogin", (client) => {
       void this.handleDailyClaimLogin(client);
+    });
+    this.onProtectedMessage("zoneExpand", (client, message: { zoneId?: string; signature?: string }) => {
+      void this.handleZoneExpand(client, String(message.zoneId ?? ""), String(message.signature ?? ""));
     });
     this.onMessage("worldsList", (client) => {
       this.handleWorldsList(client);
@@ -3070,7 +3076,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     if (!zone || zone.ownerName !== player.name) {
       return void client.send("zoneResult", { ok: false, error: "You don't own that World." });
     }
-    const { build, error } = sanitizeBuild(rawBuild);
+    const { build, error } = sanitizeBuild(rawBuild, zoneGridSize(zone.expandLevel));
     if (!build) return void client.send("zoneResult", { ok: false, error: error ?? "Invalid build." });
 
     // Reconcile placed assets against the owner's inventory. Newly-placed assets
@@ -3335,6 +3341,68 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     client.send("dailyState", this.buildDailyPayload(state));
   }
 
+  /**
+   * Expand a World's grid by burning $BASE on-chain. Three steps with rising
+   * prices (ZONE_EXPANSIONS); the burn is verified like the Black Zone pass and
+   * deduped by signature so a retry can never double-expand.
+   */
+  private async handleZoneExpand(client: Client, zoneId: string, signature: string) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const zone = getPlayerZone(zoneId);
+    if (!zone || zone.ownerName !== player.name) {
+      return void client.send("zoneResult", { ok: false, error: "You don't own that World." });
+    }
+    const step = nextZoneExpansion(zone.expandLevel);
+    if (!step) {
+      return void client.send("zoneResult", { ok: false, error: "Your World is already at its maximum size." });
+    }
+    const wallet = this.playerWallets.get(client.sessionId) ?? null;
+
+    // Admins expand free (testing); everyone else proves a $BASE burn.
+    if (!adService.isAdmin(wallet)) {
+      if (!wallet) return void client.send("zoneResult", { ok: false, error: "Link a wallet first to burn $BASE." });
+      if (!signature || signature.length < 32) {
+        return void client.send("zoneResult", { ok: false, error: "Missing burn transaction." });
+      }
+      if (await isPurchaseRedeemed(signature)) {
+        return void client.send("zoneResult", { ok: false, error: "That burn was already used." });
+      }
+      const result = await verifyTokenBurn(signature, {
+        ownerWallet: wallet,
+        mint: getBlackZoneBurnMint(),
+        minUiAmount: step.burnCost,
+      });
+      if (!result.ok) {
+        return void client.send("zoneResult", { ok: false, error: result.error ?? "Burn could not be verified." });
+      }
+      await recordTokenPurchase(signature, wallet, "zone_expand", step.burnCost);
+      bumpMetric("base.burned", Math.round(result.burned ?? step.burnCost));
+    }
+
+    const newLevel = expandZone(zoneId);
+    bumpMetric("zone.expanded", 1);
+    clearCollisionCache(zoneId);
+    // Push the resized config to everyone currently inside so the ground,
+    // borders, and collision all grow live.
+    const record = getPlayerZone(zoneId);
+    if (record) {
+      for (const room of ZoneRoom.activeRooms) {
+        if (room.zoneConfig.id === zoneId) {
+          const cfg = playerZoneToConfig(record);
+          room.zoneConfig = cfg;
+          room.broadcast("playerZoneConfig", cfg);
+        }
+      }
+    }
+    const size = zoneGridSize(newLevel);
+    this.broadcastChat(
+      this.systemChat("Worlds", `${player.name} expanded ${zone.displayName} to ${size}×${size} tiles!`),
+    );
+    client.send("zoneResult", { ok: true, zoneId, message: `World expanded to ${size}×${size}!` });
+    this.sendMyWorlds(client, player.name);
+  }
+
   /** Trade at a placed crop-market building: buy its seeds or sell its crop. */
   private async handleCropMarketTrade(client: Client, marketId: string, action: string, rawQty: number) {
     const player = this.state.players.get(client.sessionId);
@@ -3453,6 +3521,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         taxGold: z.taxGold,
         lifetimeEarnings: z.lifetimeEarnings,
         online: ZoneRoom.zoneOnlineCount(z.zoneId),
+        expandLevel: z.expandLevel,
+        gridSize: zoneGridSize(z.expandLevel),
         build: z.build,
       })),
     });

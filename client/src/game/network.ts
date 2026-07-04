@@ -112,6 +112,9 @@ export interface MyWorldEntry {
   taxGold: number;
   lifetimeEarnings: number;
   online: number;
+  /** Expansion steps purchased (0 = base) and the resulting grid size. */
+  expandLevel: number;
+  gridSize: number;
   build: PlayerZoneBuild;
 }
 export interface CropMarketResultPayload {
@@ -814,6 +817,10 @@ export class NetworkManager {
 
   sendDailyClaimLogin() {
     this.room?.send("dailyClaimLogin", {});
+  }
+
+  sendZoneExpand(zoneId: string, signature: string) {
+    this.room?.send("zoneExpand", { zoneId, signature });
   }
 
   requestMailState() {

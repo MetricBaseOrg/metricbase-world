@@ -1,4 +1,4 @@
-import { MAX_ZONE_PASS_PRICE, ZONE_SLOT_COST } from "@metricbase/shared";
+import { MAX_ZONE_PASS_PRICE, nextZoneExpansion, ZONE_EXPANSIONS, ZONE_SLOT_COST } from "@metricbase/shared";
 import { useEffect, useState } from "react";
 import { playSfx } from "../audio/soundEffects";
 import {
@@ -8,6 +8,7 @@ import {
   type WorldDirectoryEntry,
 } from "../game/network";
 import { sendMetricbaseTokenPayment } from "../wallet/tokenPayment";
+import { burnMetricbaseToken } from "../wallet/tokenBurn";
 import { useGameStore } from "../store/gameStore";
 
 type Tab = "directory" | "mine";
@@ -173,6 +174,31 @@ export function WorldsPanel() {
     playSfx("ui_click");
     setPending(true);
     networkManager.sendZoneEarningsCollect(zoneId);
+  };
+
+  /** Expand a World one step by burning $BASE on-chain, then proving the burn. */
+  const expand = async (w: MyWorldEntry) => {
+    const step = nextZoneExpansion(w.expandLevel ?? 0);
+    if (!step) return;
+    if (!walletAddress) return setNotice("Connect your wallet first.");
+    if (!pipInfo?.mint) return setNotice("Wallet services are unavailable right now.");
+    playSfx("ui_click");
+    setPending(true);
+    setNotice(`Burning ${step.burnCost.toLocaleString()} $BASE — confirm in your wallet…`);
+    try {
+      const signature = await burnMetricbaseToken({
+        ownerWallet: walletAddress,
+        mint: pipInfo.mint,
+        uiAmount: step.burnCost,
+        decimals: pipInfo.decimals,
+        rpcUrl: pipInfo.rpcUrl,
+      });
+      setNotice("Verifying your burn on-chain…");
+      networkManager.sendZoneExpand(w.zoneId, signature);
+    } catch (err) {
+      setPending(false);
+      setNotice(err instanceof Error ? err.message : "Burn was cancelled.");
+    }
   };
 
   const buyGoldFromPip = async () => {
@@ -452,6 +478,48 @@ export function WorldsPanel() {
                     </div>
                   ))}
                 </div>
+                {/* World expansion: burn $BASE to grow the grid (3 steps). */}
+                {(() => {
+                  const level = w.expandLevel ?? 0;
+                  const size = w.gridSize ?? 24;
+                  const step = nextZoneExpansion(level);
+                  return (
+                    <div
+                      className="chibi-card"
+                      style={{ marginTop: 8, padding: "8px 10px", background: "#fff8ea" }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                        <div style={{ flex: 1, minWidth: 140 }}>
+                          <div style={{ fontWeight: 700, fontSize: "0.78rem" }}>
+                            🗺️ World size: {size}×{size}
+                            <span style={{ marginLeft: 6, letterSpacing: 2 }}>
+                              {ZONE_EXPANSIONS.map((s, i) => (
+                                <span key={s.size} style={{ opacity: i < level ? 1 : 0.3 }}>⬛</span>
+                              ))}
+                            </span>
+                          </div>
+                          <div className="chibi-text-muted" style={{ fontSize: "0.66rem", marginTop: 2, lineHeight: 1.4 }}>
+                            {step
+                              ? `Next: ${step.size}×${step.size} for a ${step.burnCost.toLocaleString()} $BASE burn 🔥`
+                              : "Fully expanded — the biggest World there is!"}
+                          </div>
+                        </div>
+                        {step && (
+                          <button
+                            type="button"
+                            className="chibi-btn chibi-btn--gold"
+                            style={{ padding: "8px 12px", fontSize: "0.74rem" }}
+                            disabled={pending || !walletAddress}
+                            onClick={() => void expand(w)}
+                          >
+                            🔥 Expand
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
+
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
                   <button
                     type="button"

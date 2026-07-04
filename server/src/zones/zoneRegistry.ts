@@ -76,6 +76,7 @@ export function createPlayerZone(ownerName: string, ownerWallet: string | null):
     taxGold: 0,
     lifetimeEarnings: 0,
     createdAt: Date.now(),
+    expandLevel: 0,
     build: emptyPlayerZoneBuild(),
   };
   zones.set(zoneId, record);
@@ -83,37 +84,51 @@ export function createPlayerZone(ownerName: string, ownerWallet: string | null):
   return record;
 }
 
-const inBounds = (x: number, y: number) =>
-  Number.isInteger(x) && Number.isInteger(y) && x >= 0 && x < PLAYER_ZONE_GRID && y >= 0 && y < PLAYER_ZONE_GRID;
-
 /**
  * Validate + clamp an owner-submitted build. Returns a sanitized build, or an
  * error string if it violates a hard cap. Never trusts client-supplied ids.
+ * Bounds and caps follow the zone's (possibly expanded) grid size — caps scale
+ * with area so a bigger World can hold proportionally more.
  */
-export function sanitizeBuild(input: unknown): { build?: PlayerZoneBuild; error?: string } {
+export function sanitizeBuild(input: unknown, gridSize = PLAYER_ZONE_GRID): { build?: PlayerZoneBuild; error?: string } {
   const base = emptyPlayerZoneBuild();
   if (!input || typeof input !== "object") return { error: "Invalid build." };
   const v = input as Partial<PlayerZoneBuild>;
+
+  const size = Math.max(PLAYER_ZONE_GRID, Math.floor(gridSize));
+  const inBounds = (x: number, y: number) =>
+    Number.isInteger(x) && Number.isInteger(y) && x >= 0 && x < size && y >= 0 && y < size;
+  const capScale = (size * size) / (PLAYER_ZONE_GRID * PLAYER_ZONE_GRID);
+  const cap = (n: number) => Math.floor(n * capScale);
 
   const spawn =
     v.spawnTile && inBounds(v.spawnTile.x, v.spawnTile.y) ? { x: v.spawnTile.x, y: v.spawnTile.y } : base.spawnTile;
 
   const scenery = (Array.isArray(v.scenery) ? v.scenery : []).filter((s) => s && inBounds(s.tileX, s.tileY));
-  if (scenery.length > MAX_ZONE_SCENERY) return { error: `Too many props (max ${MAX_ZONE_SCENERY}).` };
+  if (scenery.length > cap(MAX_ZONE_SCENERY)) return { error: `Too many props (max ${cap(MAX_ZONE_SCENERY)}).` };
 
   const landPlots = (Array.isArray(v.landPlots) ? v.landPlots : []).filter((p) => p && inBounds(p.tileX, p.tileY));
-  if (landPlots.length > MAX_ZONE_LAND_PLOTS) return { error: `Too many building plots (max ${MAX_ZONE_LAND_PLOTS}).` };
+  if (landPlots.length > cap(MAX_ZONE_LAND_PLOTS)) return { error: `Too many building plots (max ${cap(MAX_ZONE_LAND_PLOTS)}).` };
 
   const farmPlots = (Array.isArray(v.farmPlots) ? v.farmPlots : []).filter((p) => p && inBounds(p.tileX, p.tileY));
-  if (farmPlots.length > MAX_ZONE_FARM_PLOTS) return { error: `Too many farm plots (max ${MAX_ZONE_FARM_PLOTS}).` };
+  if (farmPlots.length > cap(MAX_ZONE_FARM_PLOTS)) return { error: `Too many farm plots (max ${cap(MAX_ZONE_FARM_PLOTS)}).` };
 
   const resources = (Array.isArray(v.resources) ? v.resources : []).filter((r) => r && inBounds(r.tileX, r.tileY));
-  if (resources.length > MAX_ZONE_RESOURCES) return { error: `Too many resource nodes (max ${MAX_ZONE_RESOURCES}).` };
+  if (resources.length > cap(MAX_ZONE_RESOURCES)) return { error: `Too many resource nodes (max ${cap(MAX_ZONE_RESOURCES)}).` };
 
   const tiles = (Array.isArray(v.tiles) ? v.tiles : []).filter((t) => t && inBounds(t.x, t.y));
-  if (tiles.length > MAX_ZONE_PAINTED_TILES) return { error: "Too many painted tiles." };
+  if (tiles.length > size * size) return { error: "Too many painted tiles." };
 
   return { build: { spawnTile: spawn, scenery, landPlots, farmPlots, resources, tiles } };
+}
+
+/** Bump a zone's expansion level (caller has verified the burn). */
+export function expandZone(zoneId: string): number {
+  const zone = zones.get(zoneId);
+  if (!zone) return 0;
+  zone.expandLevel = Math.min(zone.expandLevel + 1, 99);
+  void savePlayerZone(zone);
+  return zone.expandLevel;
 }
 
 /** Replace a zone's build (owner-only; caller checks ownership). */

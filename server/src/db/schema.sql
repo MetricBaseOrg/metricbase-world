@@ -255,6 +255,8 @@ CREATE TABLE IF NOT EXISTS player_zones (
 );
 -- Gold a visitor pays the owner per gather (added later).
 ALTER TABLE player_zones ADD COLUMN IF NOT EXISTS gather_tax INTEGER NOT NULL DEFAULT 0;
+-- Expansion steps purchased with $BASE burns (0 = base 24x24 grid).
+ALTER TABLE player_zones ADD COLUMN IF NOT EXISTS expand_level INTEGER NOT NULL DEFAULT 0;
 -- Owner analytics counters (added later): lifetime totals, never reset.
 ALTER TABLE player_zones ADD COLUMN IF NOT EXISTS passes_sold INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE player_zones ADD COLUMN IF NOT EXISTS pass_gold BIGINT NOT NULL DEFAULT 0;

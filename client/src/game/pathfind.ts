@@ -2,8 +2,6 @@ import {
   buildZoneMap,
   isBlockingTile,
   isZonePropSolid,
-  MAP_HEIGHT,
-  MAP_WIDTH,
   PLAYER_SPEED,
   tileToWorld,
   worldToTile,
@@ -19,12 +17,15 @@ export type CollisionGrid = boolean[][]; // grid[y][x] === true means solid
  * barriers; for built-in zones, solid scenery and built land plots.
  */
 export function buildCollisionGrid(zoneId: string, builtLandPlots: Set<string> = new Set()): CollisionGrid {
-  const ground = buildZoneMap(zoneId);
-  const grid: CollisionGrid = ground.map((row) => row.map((t) => isBlockingTile(t)));
   const config = resolveZoneConfig(zoneId);
   const player = isPlayerZoneId(zoneId);
+  // Expanded player zones have a larger square map than the built-in 24×24.
+  const ground = buildZoneMap(zoneId, player ? config.gridSize : undefined);
+  const grid: CollisionGrid = ground.map((row) => row.map((t) => isBlockingTile(t)));
+  const h = grid.length;
+  const w = grid[0]?.length ?? 0;
   const stamp = (x: number, y: number) => {
-    if (x >= 0 && y >= 0 && x < MAP_WIDTH && y < MAP_HEIGHT) grid[y][x] = true;
+    if (x >= 0 && y >= 0 && x < w && y < h) grid[y][x] = true;
   };
   for (const node of config.scenery ?? []) {
     if (player) {
@@ -45,7 +46,7 @@ export function buildCollisionGrid(zoneId: string, builtLandPlots: Set<string> =
 }
 
 function tileSolid(grid: CollisionGrid, x: number, y: number): boolean {
-  if (x < 0 || y < 0 || x >= MAP_WIDTH || y >= MAP_HEIGHT) return true;
+  if (x < 0 || y < 0 || y >= grid.length || x >= (grid[0]?.length ?? 0)) return true;
   return grid[y]?.[x] ?? true;
 }
 
@@ -78,7 +79,7 @@ export function collisionStep(
 
 /** A tile the player can stand on (centre passes the footprint collision test). */
 function canStand(grid: CollisionGrid, tx: number, ty: number): boolean {
-  if (tx < 0 || ty < 0 || tx >= MAP_WIDTH || ty >= MAP_HEIGHT) return false;
+  if (tx < 0 || ty < 0 || ty >= grid.length || tx >= (grid[0]?.length ?? 0)) return false;
   const w = tileToWorld(tx, ty);
   return isWorldWalkable(grid, w.x, w.y);
 }

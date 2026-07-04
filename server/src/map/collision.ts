@@ -2,13 +2,12 @@ import {
   buildZoneMap,
   getZoneConfig,
   isBlockingTile,
-  MAP_HEIGHT,
-  MAP_WIDTH,
   isZonePropSolid,
   PLAYER_ZONE_PREFIX,
   playerZoneToConfig,
   TILE_WALL,
   worldToTile,
+  zoneGridSize,
   zonePropFootprint,
   type LandPlotNode,
   type ZoneConfig,
@@ -33,11 +32,13 @@ export function clearCollisionCache(zoneId: string): void {
 }
 
 function stampPlot(grid: number[][], plot: LandPlotNode) {
+  const h = grid.length;
+  const w = grid[0]?.length ?? 0;
   for (let dy = -1; dy <= 1; dy++) {
     for (let dx = -1; dx <= 1; dx++) {
       const x = plot.tileX + dx;
       const y = plot.tileY + dy;
-      if (x >= 0 && y >= 0 && x < MAP_WIDTH && y < MAP_HEIGHT) {
+      if (x >= 0 && y >= 0 && x < w && y < h) {
         grid[y][x] = TILE_WALL;
       }
     }
@@ -48,8 +49,12 @@ function getCollisionGrid(zoneId: string): number[][] {
   const cached = collisionCache.get(zoneId);
   if (cached) return cached;
 
-  const map = buildZoneMap(zoneId);
   const playerZone = zoneId.startsWith(PLAYER_ZONE_PREFIX);
+  // Expanded player zones have a larger square map.
+  const gridSize = playerZone ? zoneGridSize(getPlayerZone(zoneId)?.expandLevel ?? 0) : undefined;
+  const map = buildZoneMap(zoneId, gridSize);
+  const mapH = map.length;
+  const mapW = map[0]?.length ?? 0;
 
   // Only *built* structures block movement — an empty "for sale" plot is open
   // ground players can walk and farm on. Owned plots are solid (3x3 footprint).
@@ -59,7 +64,7 @@ function getCollisionGrid(zoneId: string): number[][] {
   }
 
   const block = (x: number, y: number) => {
-    if (x >= 0 && y >= 0 && x < MAP_WIDTH && y < MAP_HEIGHT) map[y][x] = TILE_WALL;
+    if (x >= 0 && y >= 0 && x < mapW && y < mapH) map[y][x] = TILE_WALL;
   };
   for (const node of config.scenery ?? []) {
     if (playerZone) {
@@ -89,8 +94,8 @@ export function isWalkable(zoneId: string, worldX: number, worldY: number): bool
   const { tileX, tileY } = worldToTile(worldX, worldY);
 
   // The player occupies a single tile: only the tile under their feet has to be
-  // clear. (Previously a 2×2 footprint was tested, which made characters bump
-  // back a whole tile away from buildings.)
-  if (tileX < 0 || tileY < 0 || tileX >= MAP_WIDTH || tileY >= MAP_HEIGHT) return false;
+  // clear. Bounds come from the grid itself (expanded player zones are bigger
+  // than the built-in MAP_WIDTH×MAP_HEIGHT).
+  if (tileX < 0 || tileY < 0 || tileY >= grid.length || tileX >= (grid[0]?.length ?? 0)) return false;
   return !isBlockingTile(grid[tileY][tileX]);
 }

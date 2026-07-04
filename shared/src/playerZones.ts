@@ -6,8 +6,38 @@ import type { SceneryNode, ZoneConfig, ZonePortal } from "./zones.js";
 /** Gold cost to buy a blank player-owned zone slot. Paid to the treasury. */
 export const ZONE_SLOT_COST = 1_000_000;
 
-/** Player zones use the same square tile grid as the built-in zones. */
+/** Base square tile grid for a fresh player zone (same as built-in zones). */
 export const PLAYER_ZONE_GRID = 24;
+
+/**
+ * World expansion: owners burn $BASE (on-chain, verified) to grow their zone's
+ * grid in 3 steps. Each step is pricier than the last; sizes are square.
+ */
+export interface ZoneExpansionStep {
+  /** Grid size (tiles per side) this step unlocks. */
+  size: number;
+  /** $BASE (UI amount) burned to unlock the step. */
+  burnCost: number;
+}
+
+export const ZONE_EXPANSIONS: ZoneExpansionStep[] = [
+  { size: 28, burnCost: 100_000 },
+  { size: 32, burnCost: 250_000 },
+  { size: 36, burnCost: 500_000 },
+];
+
+export const MAX_ZONE_EXPAND_LEVEL = ZONE_EXPANSIONS.length;
+
+/** Grid size (tiles per side) for an expansion level (0 = base 24). */
+export function zoneGridSize(expandLevel: number): number {
+  if (!Number.isFinite(expandLevel) || expandLevel <= 0) return PLAYER_ZONE_GRID;
+  return ZONE_EXPANSIONS[Math.min(MAX_ZONE_EXPAND_LEVEL, Math.floor(expandLevel)) - 1].size;
+}
+
+/** The next expansion step available at a level, or null when maxed. */
+export function nextZoneExpansion(expandLevel: number): ZoneExpansionStep | null {
+  return expandLevel >= MAX_ZONE_EXPAND_LEVEL ? null : ZONE_EXPANSIONS[Math.max(0, Math.floor(expandLevel))];
+}
 
 /** Prefix for generated player-zone ids (also the DB primary key). */
 export const PLAYER_ZONE_PREFIX = "pz_";
@@ -77,6 +107,8 @@ export interface PlayerZoneMeta {
   lifetimeEarnings: number;
   /** Founding time (epoch ms), for "New" sorting in the directory. */
   createdAt: number;
+  /** Expansion steps purchased (0 = base 24×24; see ZONE_EXPANSIONS). */
+  expandLevel: number;
 }
 
 /** Bound on the per-gather visitor tax an owner can charge. */
@@ -101,8 +133,8 @@ export function emptyPlayerZoneBuild(): PlayerZoneBuild {
 }
 
 /** Portal that always returns a visitor from a player zone back to the Hub. */
-export function playerZoneExitPortal(): ZonePortal {
-  return { tileX: 1, tileY: PLAYER_ZONE_GRID / 2, targetZone: "zone_hub", label: "Leave World" };
+export function playerZoneExitPortal(gridSize = PLAYER_ZONE_GRID): ZonePortal {
+  return { tileX: 1, tileY: Math.floor(gridSize / 2), targetZone: "zone_hub", label: "Leave World" };
 }
 
 /**
@@ -112,18 +144,20 @@ export function playerZoneExitPortal(): ZonePortal {
  */
 export function playerZoneToConfig(record: PlayerZoneRecord): ZoneConfig {
   const build = record.build;
+  const gridSize = zoneGridSize(record.expandLevel);
   return {
     id: record.zoneId,
     roomName: PLAYER_ZONE_ROOM,
     displayName: record.displayName,
     dangerTier: "safe",
     spawnTile: build.spawnTile,
-    portals: [playerZoneExitPortal()],
+    portals: [playerZoneExitPortal(gridSize)],
     npcs: [],
     resources: build.resources,
     farmPlots: build.farmPlots,
     landPlots: build.landPlots,
     scenery: build.scenery,
     tiles: build.tiles,
+    gridSize,
   };
 }

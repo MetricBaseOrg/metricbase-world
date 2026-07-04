@@ -8,8 +8,8 @@ export const TILE_PORTAL = 4;
 
 export type GroundLayer = number[][];
 
-function createEmptyLayer(): GroundLayer {
-  return Array.from({ length: MAP_HEIGHT }, () => Array.from({ length: MAP_WIDTH }, () => TILE_GRASS));
+function createEmptyLayer(width = MAP_WIDTH, height = MAP_HEIGHT): GroundLayer {
+  return Array.from({ length: height }, () => Array.from({ length: width }, () => TILE_GRASS));
 }
 
 function inBounds(x: number, y: number): boolean {
@@ -29,9 +29,11 @@ function fillRect(layer: GroundLayer, x1: number, y1: number, x2: number, y2: nu
 }
 
 function stampBorder(layer: GroundLayer) {
-  for (let y = 0; y < MAP_HEIGHT; y++) {
-    for (let x = 0; x < MAP_WIDTH; x++) {
-      if (x === 0 || y === 0 || x === MAP_WIDTH - 1 || y === MAP_HEIGHT - 1) {
+  const height = layer.length;
+  const width = layer[0]?.length ?? 0;
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      if (x === 0 || y === 0 || x === width - 1 || y === height - 1) {
         layer[y][x] = TILE_WALL;
       }
     }
@@ -193,19 +195,21 @@ export const ZONE_MAP_BUILDERS: Record<string, () => GroundLayer> = {
  * border and a single exit portal on the west edge. Owner-placed structures and
  * ground paint are layered on top separately (client render + server collision).
  */
-export function buildPlayerZoneMap(): GroundLayer {
-  const layer = createEmptyLayer();
+export function buildPlayerZoneMap(gridSize = MAP_WIDTH): GroundLayer {
+  const size = Math.max(MAP_WIDTH, Math.floor(gridSize));
+  const layer = createEmptyLayer(size, size);
   stampBorder(layer);
-  stampPortal(layer, 1, Math.floor(MAP_HEIGHT / 2));
+  stampPortal(layer, 1, Math.floor(size / 2));
   return layer;
 }
 
-export function buildZoneMap(zoneId: string): GroundLayer {
+export function buildZoneMap(zoneId: string, playerZoneGridSize?: number): GroundLayer {
   const builder = ZONE_MAP_BUILDERS[zoneId];
   if (builder) return builder();
   // Player-owned zones aren't in the static builder table — they all share the
-  // same open base map (id prefix mirrors PLAYER_ZONE_PREFIX in playerZones.ts).
-  if (zoneId.startsWith("pz_")) return buildPlayerZoneMap();
+  // same open base map (id prefix mirrors PLAYER_ZONE_PREFIX in playerZones.ts),
+  // sized by the zone's expansion level.
+  if (zoneId.startsWith("pz_")) return buildPlayerZoneMap(playerZoneGridSize);
   throw new Error(`Unknown zone map: ${zoneId}`);
 }
 

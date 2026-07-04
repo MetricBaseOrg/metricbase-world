@@ -41,6 +41,7 @@ function placeholderConfig(zoneId: string): ZoneConfig {
     farmPlots: [],
     landPlots: [],
     scenery: [],
+    gridSize: PLAYER_ZONE_GRID,
   };
 }
 

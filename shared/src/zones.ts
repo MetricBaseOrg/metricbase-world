@@ -101,6 +101,8 @@ export interface ZoneConfig {
   capturePoints?: CapturePoint[];
   /** Ground-paint overrides (player zones only): sparse per-tile palette types. */
   tiles?: { x: number; y: number; type: string }[];
+  /** Square grid size for player zones (24 base, larger when expanded). */
+  gridSize?: number;
 }
 
 export const ZONE_CONFIGS: Record<string, ZoneConfig> = {

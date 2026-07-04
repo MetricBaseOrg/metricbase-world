@@ -1778,8 +1778,9 @@ export class GameScene extends Phaser.Scene {
         multi.push({ x, y, type });
         for (let dy = 0; dy < n; dy++) for (let dx = 0; dx < n; dx++) covered.add(`${x + dx},${y + dy}`);
       }
-      for (let y = 0; y < PLAYER_ZONE_GRID; y++) {
-        for (let x = 0; x < PLAYER_ZONE_GRID; x++) {
+      const gridSize = config.gridSize ?? PLAYER_ZONE_GRID;
+      for (let y = 0; y < gridSize; y++) {
+        for (let x = 0; x < gridSize; x++) {
           if (covered.has(`${x},${y}`)) continue;
           this.placeGroundTile(x, y, painted.get(`${x},${y}`) ?? "grass");
         }
@@ -1954,7 +1955,8 @@ export class GameScene extends Phaser.Scene {
   private canDropHeldAt(tileX: number, tileY: number): boolean {
     if (!this.editHeld) return false;
     const n = this.editHeld.kind === "scenery" ? zonePropFootprint(this.editHeld.node.prop ?? "") : 1;
-    if (tileX < 0 || tileY < 0 || tileX + n > PLAYER_ZONE_GRID || tileY + n > PLAYER_ZONE_GRID) return false;
+    const gridSize = this.editGridSize();
+    if (tileX < 0 || tileY < 0 || tileX + n > gridSize || tileY + n > gridSize) return false;
     // Keep the visitor spawn tile walkable: a solid prop can't cover it.
     const prop = this.editHeld.node.prop;
     const spawn = this.worldEditDraft?.spawnTile;
@@ -2009,11 +2011,12 @@ export class GameScene extends Phaser.Scene {
     const tool = this.worldEditTool;
     const zoneId = this.worldEditZoneId;
     if (!draft || !tool || !zoneId) return;
-    if (tileX < 0 || tileY < 0 || tileX >= PLAYER_ZONE_GRID || tileY >= PLAYER_ZONE_GRID) return;
+    const gridSize = this.editGridSize();
+    if (tileX < 0 || tileY < 0 || tileX >= gridSize || tileY >= gridSize) return;
     // Multi-tile assets (2×2 river/bridge, 3×3 homes) must fit inside the grid.
     if (tool.type === "prop" || tool.type === "ground") {
       const fp = getZoneAsset(tool.value)?.footprint ?? 1;
-      if (tileX + fp > PLAYER_ZONE_GRID || tileY + fp > PLAYER_ZONE_GRID) return;
+      if (tileX + fp > gridSize || tileY + fp > gridSize) return;
     }
 
     let groundChanged = false;
@@ -2144,17 +2147,24 @@ export class GameScene extends Phaser.Scene {
   /** A subtle iso grid so the owner can see where taps land while editing. */
   private drawEditGrid() {
     this.editGrid?.destroy();
+    const size = this.editGridSize();
     const g = this.add.graphics().setDepth(118).setAlpha(0.35);
     g.lineStyle(1, 0xffffff, 0.5);
-    for (let i = 0; i <= PLAYER_ZONE_GRID; i++) {
+    for (let i = 0; i <= size; i++) {
       const a = tileToWorld(i, 0);
-      const b = tileToWorld(i, PLAYER_ZONE_GRID);
+      const b = tileToWorld(i, size);
       g.lineBetween(a.x, a.y, b.x, b.y);
       const c = tileToWorld(0, i);
-      const d = tileToWorld(PLAYER_ZONE_GRID, i);
+      const d = tileToWorld(size, i);
       g.lineBetween(c.x, c.y, d.x, d.y);
     }
     this.editGrid = g;
+  }
+
+  /** Grid size of the zone being edited (expanded Worlds are bigger than 24). */
+  private editGridSize(): number {
+    const zoneId = this.worldEditZoneId ?? this.currentZoneId ?? "";
+    return resolveZoneConfig(zoneId)?.gridSize ?? PLAYER_ZONE_GRID;
   }
 
   /**
