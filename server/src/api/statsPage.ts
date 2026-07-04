@@ -114,6 +114,7 @@ export const STATS_PAGE_HTML = `<!doctype html>
   <a href="#activity">🛠️ Activity</a>
   <a href="#markets">⚖️ Markets</a>
   <a href="#ads">📣 Ads</a>
+  <a href="https://world.metricbase.org/brands" style="background:#1a1a1a;color:#fff7ea;border-color:#000">🏢 Advertise</a>
 </nav>
 
 <div class="wrap">
@@ -191,7 +192,7 @@ export const STATS_PAGE_HTML = `<!doctype html>
       <div class="card"><h2>💵 Ad revenue</h2><div class="big sky" id="adRevenue">—</div><div class="sub">brand $BASE spent on impressions</div></div>
       <div class="card"><h2>🤝 Paid to players</h2><div class="big mint" id="adPaid">—</div><div class="sub"><span id="adShare">—</span>% revenue share</div></div>
       <div class="card"><h2>👁️ Ad impressions</h2><div class="big" id="adImpr">—</div><div class="sub">creatives served</div></div>
-      <div class="card"><h2>🎯 Active campaigns</h2><div class="big" id="adActive">—</div><div class="sub"><span id="adBrands">—</span> brands · <span id="adPending">—</span> pending</div></div>
+      <div class="card"><h2>🎯 Active campaigns</h2><div class="big" id="adActive">—</div><div class="sub"><span id="adBrands">—</span> brands · <span id="adPending">—</span> pending · <a href="https://world.metricbase.org/brands" style="color:#5a97e0;font-weight:800">advertise →</a></div></div>
     </div>
     <div class="card wide" style="margin-top:14px">
       <h2>📣 Ad revenue vs player payouts (last 14 days)</h2>

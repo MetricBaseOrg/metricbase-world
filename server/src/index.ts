@@ -34,6 +34,7 @@ import { adService } from "./ads/adService.js";
 import { getBaseHolderCount } from "./solana/holderCount.js";
 import { ZoneRoom } from "./rooms/ZoneRoom.js";
 import { statsRouter } from "./api/stats.js";
+import { brandsRouter } from "./api/brands.js";
 import { STATS_PAGE_HTML } from "./api/statsPage.js";
 
 const PORT = Number(process.env.PORT ?? 2567);
@@ -61,6 +62,7 @@ app.use("/api", characterRouter);
 app.use("/api", tokenShopRouter);
 app.use("/api", invitationsRouter);
 app.use("/api", statsRouter);
+app.use("/api", brandsRouter);
 app.get("/stats", (_req, res) => res.type("html").send(STATS_PAGE_HTML));
 
 const httpServer = createServer(app);
