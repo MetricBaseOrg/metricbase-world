@@ -4,6 +4,7 @@ import {
   type AdCampaign,
   type BrandDashboardPayload,
 } from "@metricbase/shared";
+import bs58 from "bs58";
 import { useEffect, useState } from "react";
 import { getHttpServerUrl } from "../game/serverUrl";
 import { pickWalletConnector } from "../wallet/solanaProvider";
@@ -59,6 +60,26 @@ export function BrandPortal() {
   const [clickUrl, setClickUrl] = useState("");
   const [cpm, setCpm] = useState("5");
 
+  // The game shell locks page scrolling (html/body/#root are height:100% +
+  // overflow:hidden for the canvas). The portal is an ordinary web page, so
+  // undo that here — otherwise mobile visitors can't scroll at all.
+  useEffect(() => {
+    const root = document.getElementById("root");
+    const targets = [document.documentElement, document.body, root].filter(Boolean) as HTMLElement[];
+    const prev = targets.map((el) => ({ el, height: el.style.height, overflow: el.style.overflow }));
+    for (const el of targets) {
+      el.style.height = "auto";
+      el.style.overflow = "visible";
+    }
+    document.body.style.overflowY = "auto";
+    return () => {
+      for (const p of prev) {
+        p.el.style.height = p.height;
+        p.el.style.overflow = p.overflow;
+      }
+    };
+  }, []);
+
   useEffect(() => {
     void fetch(api("/brand/info")).then(async (r) => setInfo(await r.json())).catch(() => setNotice("Couldn't reach the ad service."));
     void fetch(api("/stats"))
@@ -99,7 +120,7 @@ export function BrandPortal() {
           body: JSON.stringify({
             wallet: address,
             message: challenge.message,
-            signature: btoa(String.fromCharCode(...signature)),
+            signature: bs58.encode(signature),
           }),
         })
       ).json();
@@ -302,7 +323,7 @@ export function BrandPortal() {
                   inputMode="numeric"
                   placeholder={`Amount (min ${info?.minDeposit ?? 100})`}
                   onChange={(e) => setDepositAmt(e.target.value.replace(/[^0-9]/g, ""))}
-                  style={{ border: "2px solid #e6d3aa", borderRadius: 10, padding: "8px 10px", fontFamily: "inherit", width: 170 }}
+                  style={{ border: "2px solid #e6d3aa", borderRadius: 10, padding: "8px 10px", fontFamily: "inherit", fontSize: "1rem", width: 170 }}
                 />
                 <button
                   type="button"
@@ -331,7 +352,7 @@ export function BrandPortal() {
                       value={value as string}
                       placeholder={ph as string}
                       onChange={(e) => (setter as (v: string) => void)(e.target.value)}
-                      style={{ width: "100%", boxSizing: "border-box", border: "2px solid #e6d3aa", borderRadius: 10, padding: "8px 10px", fontFamily: "inherit" }}
+                      style={{ width: "100%", boxSizing: "border-box", border: "2px solid #e6d3aa", borderRadius: 10, padding: "8px 10px", fontFamily: "inherit", fontSize: "1rem" }}
                     />
                   </div>
                 ))}
@@ -343,7 +364,7 @@ export function BrandPortal() {
                     value={cpm}
                     inputMode="numeric"
                     onChange={(e) => setCpm(e.target.value.replace(/[^0-9.]/g, ""))}
-                    style={{ width: 120, border: "2px solid #e6d3aa", borderRadius: 10, padding: "8px 10px", fontFamily: "inherit" }}
+                    style={{ width: 120, border: "2px solid #e6d3aa", borderRadius: 10, padding: "8px 10px", fontFamily: "inherit", fontSize: "1rem" }}
                   />
                 </div>
                 <button
