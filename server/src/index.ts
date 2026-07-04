@@ -25,6 +25,7 @@ import { initLandRegistry } from "./housing/landRegistry.js";
 import { initZoneRegistry } from "./zones/zoneRegistry.js";
 import { initAssetInventory } from "./zones/assetInventory.js";
 import { initAssetMarket } from "./zones/assetMarket.js";
+import { initJobs } from "./jobs/jobRegistry.js";
 import { ensureMetricFloor, initMetrics } from "./economy/metrics.js";
 import { initFarmRegistry } from "./farming/farmRegistry.js";
 import { initGuildRegistry } from "./guild/guildRegistry.js";
@@ -118,6 +119,7 @@ await initLandRegistry();
 await initZoneRegistry();
 await initAssetInventory();
 await initAssetMarket();
+await initJobs();
 await initMetrics();
 // Backfill lifetime metrics that predate the tracking system from durable
 // character state, so /stats reflects history rather than starting at zero.

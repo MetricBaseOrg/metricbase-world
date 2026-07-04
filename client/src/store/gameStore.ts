@@ -60,6 +60,8 @@ interface GameStore {
   /** Crop-market prop id ("market-wheat"/"market-carrot") while trading, else null. */
   cropMarketOpen: string | null;
   dailyOpen: boolean;
+  /** Player-to-player job board. */
+  jobsOpen: boolean;
   /** The ⚙️ TopBar settings dropdown. */
   settingsOpen: boolean;
   /** Active fishing catch-minigame (null when not fishing). */
@@ -130,6 +132,7 @@ interface GameStore {
   setBuildShopOpen: (open: boolean) => void;
   setCropMarketOpen: (market: string | null) => void;
   setDailyOpen: (open: boolean) => void;
+  setJobsOpen: (open: boolean) => void;
   setSettingsOpen: (open: boolean) => void;
   setFishing: (fishing: { resourceId: string; endsAt: number } | null) => void;
   setWorldEditing: (editing: boolean) => void;
@@ -161,6 +164,7 @@ export function isAnyPanelOpen(s: GameStore): boolean {
     s.worldsOpen ||
     s.buildShopOpen ||
     s.dailyOpen ||
+    s.jobsOpen ||
     s.settingsOpen ||
     s.housingOpen ||
     s.playerShopOpen ||
@@ -218,6 +222,7 @@ export const useGameStore = create<GameStore>((set) => ({
   buildShopOpen: false,
   cropMarketOpen: null,
   dailyOpen: false,
+  jobsOpen: false,
   settingsOpen: false,
   fishing: null,
   worldEditing: false,
@@ -319,6 +324,7 @@ export const useGameStore = create<GameStore>((set) => ({
   setBuildShopOpen: (buildShopOpen) => set({ buildShopOpen }),
   setCropMarketOpen: (cropMarketOpen) => set({ cropMarketOpen }),
   setDailyOpen: (dailyOpen) => set({ dailyOpen }),
+  setJobsOpen: (jobsOpen) => set({ jobsOpen }),
   setSettingsOpen: (settingsOpen) => set({ settingsOpen }),
   setFishing: (fishing) => set({ fishing }),
   setWorldEditing: (worldEditing) => set({ worldEditing }),

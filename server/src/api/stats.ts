@@ -5,6 +5,7 @@ import { ZoneRoom } from "../rooms/ZoneRoom.js";
 import { getDailySeries, getMetricTotals } from "../economy/metrics.js";
 import { getPlayerHeldBase } from "../solana/playerHeldBase.js";
 import { adService, type AdPublicStats } from "../ads/adService.js";
+import { countOpenJobs } from "../jobs/jobRegistry.js";
 
 export const statsRouter = Router();
 
@@ -49,6 +50,8 @@ interface EconomyStats {
   };
   /** Daily-quest engagement. */
   dailyQuests: { activeToday: number; claimed: number; gold: number; logins: number };
+  /** Player-to-player jobs (hire & be hired). */
+  jobs: { openNow: number; posted: number; completed: number; goldPaid: number; escrowGold: number };
   ads: AdPublicStats;
   topHolders: { name: string; gold: number }[];
   activity: Record<string, number>;
@@ -163,6 +166,13 @@ export async function buildStats(): Promise<EconomyStats> {
       claimed: activity["daily.claimed"] ?? 0,
       gold: activity["daily.gold"] ?? 0,
       logins: activity["daily.login"] ?? 0,
+    },
+    jobs: {
+      openNow: countOpenJobs(),
+      posted: activity["jobs.posted"] ?? 0,
+      completed: activity["jobs.completed"] ?? 0,
+      goldPaid: activity["jobs.goldPaid"] ?? 0,
+      escrowGold: activity["jobs.escrowGold"] ?? 0,
     },
     ads,
     topHolders,

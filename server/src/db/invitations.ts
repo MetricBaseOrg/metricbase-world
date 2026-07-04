@@ -3,6 +3,10 @@ import { getPool } from "./pool.js";
 import { getGrantedCodesCount } from "@metricbase/shared";
 
 export function isInvitationSystemActive(): boolean {
+  // Local test servers (like TOKEN_GATE_DISABLED) skip the invite gate.
+  if (process.env.INVITATION_SYSTEM_DISABLED === "true") {
+    return false;
+  }
   if (process.env.FORCE_INVITATION_SYSTEM === "true") {
     return true;
   }

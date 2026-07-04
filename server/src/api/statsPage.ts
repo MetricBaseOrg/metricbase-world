@@ -159,6 +159,7 @@ export const STATS_PAGE_HTML = `<!doctype html>
     <div class="grid" style="margin-bottom:14px">
       <div class="card"><h2>📅 Daily quests</h2><div class="big mint" id="dqActive">—</div><div class="sub"><span id="dqClaimed">—</span> tasks claimed · <span id="dqLogins">—</span> login bonuses · <span id="dqGold">—</span>g paid out</div></div>
       <div class="card"><h2>👣 World visits</h2><div class="big" id="wVisits">—</div><div class="sub"><span id="wExpanded">—</span> Worlds expanded · <span id="bagExp">—</span> bags expanded</div></div>
+      <div class="card"><h2>🧑‍🌾 Player jobs</h2><div class="big gold" id="jobsOpen">—</div><div class="sub">open on the board · <span id="jobsCompleted">—</span> completed · <span id="jobsGold">—</span>g paid to workers</div></div>
     </div>
     <div class="card wide">
       <h2>🛠️ Activity — per day (last 14 days)</h2>
@@ -349,6 +350,10 @@ async function load(){
     set("dqClaimed",fmt(dq.claimed||0));
     set("dqLogins",fmt(dq.logins||0));
     set("dqGold",kfmt(dq.gold||0));
+    var jb=s.jobs||{};
+    set("jobsOpen",fmt(jb.openNow||0));
+    set("jobsCompleted",fmt(jb.completed||0));
+    set("jobsGold",kfmt(jb.goldPaid||0));
     var w=s.worlds||{};
     setBig("wVisits",w.visits||0,"");
     set("wExpanded",fmt(w.expanded||0));
@@ -370,7 +375,8 @@ async function load(){
       ["🔁","Assets traded",a["asset.sold"]],["🎟️","World passes sold",a["pass.sold"]],["🪙","Pass gold",a["pass.gold"]],
       ["🧾","Gather tax paid",a["gathertax.gold"]],["👹","Gold from mobs",a["mob.gold"]],["✨","Gold from quests",a["quest.gold"]],
       ["🗺️","World expansions",a["zone.expanded"]],["🎒","Bag expansions",a["bag.expanded"]],
-      ["📅","Daily tasks claimed",a["daily.claimed"]],["🔥","Login bonuses",a["daily.login"]],["🪙","Daily gold paid",a["daily.gold"]]];
+      ["📅","Daily tasks claimed",a["daily.claimed"]],["🔥","Login bonuses",a["daily.login"]],["🪙","Daily gold paid",a["daily.gold"]],
+      ["🧑‍🌾","Jobs posted",a["jobs.posted"]],["🤝","Jobs completed",a["jobs.completed"]],["💵","Job wages paid",a["jobs.goldPaid"]]];
     el("totals").innerHTML=tiles.map(tileHtml).join("");
     rows(el("treasurySrc"),s.treasury.bySource,function(x){return '<div class="row"><span>'+x.source+'</span><b>'+fmt(x.gold)+'g</b></div>';});
     rows(el("assetMkt"),[{k:"Active listings",v:s.assetMarket.listings},{k:"Listed value",v:fmt(s.assetMarket.askValue)+"g"},{k:"Assets owned",v:s.assetMarket.totalOwned},{k:"$BASE trades",v:s.goldMarket.trades},{k:"Market gold vol.",v:fmt(s.goldMarket.goldVolume)+"g"}],function(x){return '<div class="row"><span>'+x.k+'</span><b>'+(typeof x.v==="number"?fmt(x.v):x.v)+'</b></div>';});

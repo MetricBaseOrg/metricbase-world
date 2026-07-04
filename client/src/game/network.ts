@@ -32,6 +32,8 @@ import {
   type AdTransparencyPayload,
   CraftResultPayload,
   type DailyStatePayload,
+  type JobsStatePayload,
+  type JobResultPayload,
   type DailyResultPayload,
   FarmStatePayload,
   FarmResultPayload,
@@ -265,6 +267,9 @@ export class NetworkManager {
   private openCropMarketListeners = new Set<(payload: { market: string }) => void>();
   private cropMarketResultListeners = new Set<(payload: CropMarketResultPayload) => void>();
   private dailyStateListeners = new Set<(payload: DailyStatePayload) => void>();
+  private jobsStateListeners = new Set<(payload: JobsStatePayload) => void>();
+  private jobResultListeners = new Set<(payload: JobResultPayload) => void>();
+  private jobsChangedListeners = new Set<() => void>();
   private bagExpandResultListeners = new Set<(payload: { ok: boolean; capacity?: number; message?: string; error?: string }) => void>();
   private dailyResultListeners = new Set<(payload: DailyResultPayload) => void>();
   private mailStateListeners = new Set<(payload: MailStatePayload) => void>();
@@ -822,6 +827,33 @@ export class NetworkManager {
 
   sendDailyClaimLogin() {
     this.room?.send("dailyClaimLogin", {});
+  }
+
+  onJobsState(listener: (payload: JobsStatePayload) => void) {
+    this.jobsStateListeners.add(listener);
+    return () => this.jobsStateListeners.delete(listener);
+  }
+
+  onJobResult(listener: (payload: JobResultPayload) => void) {
+    this.jobResultListeners.add(listener);
+    return () => this.jobResultListeners.delete(listener);
+  }
+
+  onJobsChanged(listener: () => void) {
+    this.jobsChangedListeners.add(listener);
+    return () => this.jobsChangedListeners.delete(listener);
+  }
+
+  requestJobs() {
+    this.room?.send("requestJobs", {});
+  }
+
+  sendJobPost(kind: string, itemId: string | null, qty: number, rewardGold: number) {
+    this.room?.send("jobPost", { kind, itemId, qty, rewardGold });
+  }
+
+  sendJobAction(action: "jobCancel" | "jobAccept" | "jobAbandon" | "jobDeliver" | "jobCollect" | "jobDismiss", id: string) {
+    this.room?.send(action, { id });
   }
 
   sendZoneExpand(zoneId: string, signature: string) {
@@ -1638,6 +1670,15 @@ export class NetworkManager {
     });
     this.room.onMessage("dailyResult", (payload: DailyResultPayload) => {
       for (const listener of this.dailyResultListeners) listener(payload);
+    });
+    this.room.onMessage("jobsState", (payload: JobsStatePayload) => {
+      for (const listener of this.jobsStateListeners) listener(payload);
+    });
+    this.room.onMessage("jobResult", (payload: JobResultPayload) => {
+      for (const listener of this.jobResultListeners) listener(payload);
+    });
+    this.room.onMessage("jobsChanged", () => {
+      for (const listener of this.jobsChangedListeners) listener();
     });
     this.room.onMessage("mailState", (payload: MailStatePayload) => {
       for (const listener of this.mailStateListeners) listener(payload);

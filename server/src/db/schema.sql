@@ -298,6 +298,24 @@ CREATE TABLE IF NOT EXISTS daily_state (
   last_login_day VARCHAR(10)
 );
 
+-- Player-to-player jobs: employer escrows the reward at posting; the worker
+-- is paid on verified completion. delivered items await employer pickup.
+CREATE TABLE IF NOT EXISTS jobs (
+  id VARCHAR(64) PRIMARY KEY,
+  employer_name VARCHAR(16) NOT NULL,
+  kind VARCHAR(16) NOT NULL,
+  item_id VARCHAR(48),
+  qty INTEGER NOT NULL,
+  progress INTEGER NOT NULL DEFAULT 0,
+  reward_gold INTEGER NOT NULL,
+  status VARCHAR(12) NOT NULL DEFAULT 'open',
+  worker_name VARCHAR(16),
+  zone_id VARCHAR(64),
+  items_to_collect INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS jobs_status_idx ON jobs (status);
+
 CREATE TABLE IF NOT EXISTS pending_gold (
   player_name VARCHAR(16) PRIMARY KEY,
   amount INTEGER NOT NULL DEFAULT 0

@@ -77,6 +77,8 @@ import {
   PORTAL_TRIGGER_RANGE,
   levelFromXp,
   type InventoryEntry,
+  JOB_KINDS,
+  type JobView,
   MAX_PLAYERS_PER_ZONE,
   NPC_INTERACT_COOLDOWN_MS,
   NPC_INTERACT_RANGE,
@@ -344,6 +346,18 @@ import {
   getListing,
   takePendingGold,
 } from "../zones/assetMarket.js";
+import {
+  acceptJob,
+  abandonJob,
+  applyDelivery,
+  bumpJobProgress,
+  cancelJob,
+  collectDelivered,
+  dismissJob,
+  getJob,
+  getJobsState,
+  postJob,
+} from "../jobs/jobRegistry.js";
 import { getTerritoryOwner, setTerritoryOwner } from "../territory/territoryRegistry.js";
 import { getSovereign, setSovereign } from "../siege/siegeRegistry.js";
 import { clearOnline, isOnline, sendToPlayer, sendToPlayers, setOnline } from "../social/presence.js";
@@ -1023,6 +1037,43 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
     this.onProtectedMessage("requestRespawn", (client, message: { payGold?: boolean }) => {
       void this.handleRequestRespawn(client, Boolean(message.payGold));
+    });
+
+    this.onMessage("requestJobs", (client) => {
+      this.sendJobsState(client);
+    });
+    this.onProtectedMessage(
+      "jobPost",
+      (client, message: { kind?: string; itemId?: string; qty?: number; rewardGold?: number }) => {
+        void this.handleJobPost(
+          client,
+          message.kind ?? "",
+          message.itemId ?? null,
+          Math.floor(Number(message.qty) || 0),
+          Math.floor(Number(message.rewardGold) || 0),
+        );
+      },
+    );
+    this.onProtectedMessage("jobCancel", (client, message: { id?: string }) => {
+      void this.handleJobCancel(client, message.id ?? "");
+    });
+    this.onProtectedMessage("jobAccept", (client, message: { id?: string }) => {
+      this.handleJobAccept(client, message.id ?? "");
+    });
+    this.onProtectedMessage("jobAbandon", (client, message: { id?: string }) => {
+      this.handleJobAbandon(client, message.id ?? "");
+    });
+    this.onProtectedMessage("jobDeliver", (client, message: { id?: string }) => {
+      void this.handleJobDeliver(client, message.id ?? "");
+    });
+    this.onProtectedMessage("jobCollect", (client, message: { id?: string }) => {
+      void this.handleJobCollect(client, message.id ?? "");
+    });
+    this.onProtectedMessage("jobDismiss", (client, message: { id?: string }) => {
+      const player = this.state.players.get(client.sessionId);
+      if (!player) return;
+      dismissJob(player.name, message.id ?? "");
+      this.sendJobsState(client);
     });
   }
 
@@ -1959,6 +2010,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     if (defeated) {
       bumpMetric("mob.kills", 1);
       this.bumpDaily(player.name, "mobs");
+      this.tickJobProgress(player.name, "mobs");
       this.mobRespawnAt.set(npcId, now + npc.combat.respawnMs);
 
       // Party play: nearby party members fighting in this zone share the spoils.
@@ -3715,6 +3767,160 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     this.sendAssetInventory(client, player.name);
     this.broadcastAssetMarket();
     client.send("zoneResult", { ok: true, message: `Bought ${listing.qty}× for ${listing.price.toLocaleString()}g.` });
+  }
+
+  // ===== Player-to-player jobs (hire & be hired) =====
+
+  private sendJobsState(client: Client) {
+    const player = this.state.players.get(client.sessionId);
+    if (player) client.send("jobsState", getJobsState(player.name));
+  }
+
+  /** Nudge every online client to refresh an open Jobs panel. */
+  private broadcastJobsChanged() {
+    for (const room of ZoneRoom.activeRooms) room.broadcast("jobsChanged", {});
+  }
+
+  private async handleJobPost(
+    client: Client,
+    kind: string,
+    itemId: string | null,
+    qty: number,
+    rewardGold: number,
+  ) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const gold = this.playerGold.get(player.name) ?? STARTING_GOLD;
+    if (gold < rewardGold) {
+      return void client.send("jobResult", {
+        ok: false,
+        error: `Need ${rewardGold.toLocaleString()} gold to escrow the reward (you have ${gold.toLocaleString()}).`,
+      });
+    }
+    const result = postJob(player.name, kind, itemId, qty, rewardGold, this.zoneConfig.id);
+    if (!result.ok) return void client.send("jobResult", { ok: false, error: result.error });
+    // Escrow the reward now; it's refunded on cancel, paid to the worker on completion.
+    this.playerGold.set(player.name, gold - rewardGold);
+    bumpMetric("jobs.posted");
+    bumpMetric("jobs.escrowGold", rewardGold);
+    this.sendProfile(client, player);
+    await this.persistPlayer(player);
+    this.sendJobsState(client);
+    this.broadcastJobsChanged();
+    client.send("jobResult", { ok: true, message: "Job posted to the board!" });
+  }
+
+  private async handleJobCancel(client: Client, id: string) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const result = cancelJob(player.name, id);
+    if (!result.ok) return void client.send("jobResult", { ok: false, error: result.error });
+    this.playerGold.set(player.name, (this.playerGold.get(player.name) ?? STARTING_GOLD) + result.refund);
+    bumpMetric("jobs.cancelled");
+    this.sendProfile(client, player);
+    await this.persistPlayer(player);
+    this.sendJobsState(client);
+    this.broadcastJobsChanged();
+    client.send("jobResult", { ok: true, message: `Job cancelled — ${result.refund.toLocaleString()}g refunded.` });
+  }
+
+  private handleJobAccept(client: Client, id: string) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const result = acceptJob(player.name, id);
+    if (!result.ok) return void client.send("jobResult", { ok: false, error: result.error });
+    this.sendJobsState(client);
+    this.broadcastJobsChanged();
+    client.send("jobResult", { ok: true, message: "Job accepted — get to work!" });
+  }
+
+  private handleJobAbandon(client: Client, id: string) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const result = abandonJob(player.name, id);
+    if (!result.ok) return void client.send("jobResult", { ok: false, error: result.error });
+    this.sendJobsState(client);
+    this.broadcastJobsChanged();
+    client.send("jobResult", { ok: true, message: "Job abandoned — it's back on the board." });
+  }
+
+  /** Worker hands over supply items from their bag (partial deliveries OK). */
+  private async handleJobDeliver(client: Client, id: string) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const job = getJob(id);
+    if (!job || job.status !== "taken" || job.workerName !== player.name || job.kind !== "supply" || !job.itemId) {
+      return void client.send("jobResult", { ok: false, error: "Nothing to deliver for that job." });
+    }
+    const remaining = job.qty - job.progress;
+    const current = this.inventories.get(player.name) ?? [];
+    const { inventory, removed } = removeItemFromInventory(current, job.itemId, remaining);
+    if (removed <= 0) {
+      const itemName = getItemDefinition(job.itemId).name;
+      return void client.send("jobResult", { ok: false, error: `You have no ${itemName} to deliver.` });
+    }
+    this.inventories.set(player.name, inventory);
+    this.sendInventory(client, player.name);
+    const applied = applyDelivery(id, removed);
+    if (!applied) return;
+    if (applied.completed) {
+      await this.completeJob(applied.job);
+      client.send("jobResult", { ok: true, message: `Delivery complete! ${job.rewardGold.toLocaleString()}g earned.` });
+    } else {
+      client.send("jobResult", {
+        ok: true,
+        message: `Delivered ${removed} — ${applied.job.qty - applied.job.progress} to go.`,
+      });
+    }
+    this.sendJobsState(client);
+    this.broadcastJobsChanged();
+    await this.persistPlayer(player);
+  }
+
+  /** Employer picks up items a worker delivered on a finished supply job. */
+  private async handleJobCollect(client: Client, id: string) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const job = getJob(id);
+    if (!job || job.employerName !== player.name || !job.itemId || job.itemsToCollect <= 0) {
+      return void client.send("jobResult", { ok: false, error: "Nothing to collect." });
+    }
+    const added = await this.grantLoot(client, player.name, job.itemId, job.itemsToCollect);
+    if (added <= 0) {
+      return void client.send("jobResult", { ok: false, error: "Your bag is full — make room first." });
+    }
+    collectDelivered(player.name, id, added);
+    this.sendJobsState(client);
+    client.send("jobResult", { ok: true, message: `Collected ${added}× ${getItemDefinition(job.itemId).name}.` });
+    await this.persistPlayer(player);
+  }
+
+  /** Pay the worker the escrowed reward and let the employer know by mail. */
+  private async completeJob(job: JobView) {
+    if (!job.workerName) return;
+    this.creditPlayerByName(job.workerName, job.rewardGold);
+    bumpMetric("jobs.completed");
+    bumpMetric("jobs.goldPaid", job.rewardGold);
+    this.bumpDaily(job.workerName, "jobs");
+    const def = JOB_KINDS[job.kind];
+    const desc = def.describe(job.qty, job.itemId ? getItemDefinition(job.itemId).name : undefined);
+    void insertMail(
+      "Job Board",
+      job.employerName,
+      `${def.emoji} Job completed by ${job.workerName}`,
+      `Your job "${desc}" was completed by ${job.workerName}. ` +
+        (job.kind === "supply"
+          ? "Open the Jobs panel to collect your delivered items."
+          : "The escrowed reward has been paid out."),
+      0,
+    );
+    this.broadcastJobsChanged();
+  }
+
+  /** Activity-contract hook: mirrors bumpDaily at gather/harvest/mob sites. */
+  private tickJobProgress(playerName: string, kind: "gather" | "harvest" | "mobs", n = 1) {
+    const completed = bumpJobProgress(playerName, kind, n);
+    if (completed) void this.completeJob(completed);
   }
 
   private async checkTalkObjectives(client: Client, playerName: string, npcId: string) {
@@ -5767,6 +5973,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     bumpMetric("gather.count", lootQuantity);
     bumpMetric(`gather.${gather.skill}`, lootQuantity);
     this.bumpDaily(player.name, "gather", lootQuantity);
+    this.tickJobProgress(player.name, "gather", lootQuantity);
 
     const skillXpGained = gather.skillXp;
     const { newLevel, leveledUp } = this.grantSkillXp(player.name, gather.skill, skillXpGained);
@@ -6061,6 +6268,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     const yieldQty = crop?.yield ?? 1;
     bumpMetric("farm.harvest", yieldQty);
     this.bumpDaily(player.name, "harvest", yieldQty);
+    this.tickJobProgress(player.name, "harvest", yieldQty);
     // Visitor gather tax: harvesting in someone else's World pays the owner
     // the same per-gather fee as chopping/mining/fishing there.
     if (this.playerZone && this.playerZone.ownerName !== player.name) {
