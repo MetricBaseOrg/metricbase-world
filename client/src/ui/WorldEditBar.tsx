@@ -12,7 +12,7 @@ import {
 import { networkManager } from "../game/network";
 import { zoneAssetPrice } from "@metricbase/shared";
 import { ZONE_ASSETS, type ZoneAssetCategory } from "../game/zoneAssets";
-import { useGameStore } from "../store/gameStore";
+import { isAnyPanelOpen, useGameStore } from "../store/gameStore";
 
 const CATEGORIES: { id: ZoneAssetCategory; label: string }[] = [
   { id: "ground", label: "Ground" },
@@ -25,6 +25,8 @@ export function WorldEditBar() {
   const zoneId = useGameStore((state) => state.zoneId);
   const setWorldEditing = useGameStore((state) => state.setWorldEditing);
   const setBuildShopOpen = useGameStore((state) => state.setBuildShopOpen);
+  const buildShopOpen = useGameStore((state) => state.buildShopOpen);
+  const panelOpen = useGameStore(isAnyPanelOpen);
   const [owned, setOwned] = useState<Record<string, number>>({});
   const [ownedIds, setOwnedIds] = useState<Set<string>>(new Set());
   const [editing, setEditing] = useState(false);
@@ -74,6 +76,9 @@ export function WorldEditBar() {
   );
 
   if (!ownedIds.has(zoneId)) return null;
+  // The Build Shop is opened FROM this panel — hide the editor while the shop
+  // is up so they never stack (closing the shop brings Build Mode right back).
+  if (editing && buildShopOpen) return null;
 
   const startEdit = () => {
     playSfx("ui_open");
@@ -150,6 +155,8 @@ export function WorldEditBar() {
   };
 
   if (!editing) {
+    // The floating Build button also clears out of the way of any open panel.
+    if (panelOpen) return null;
     return (
       <div style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", zIndex: 18, pointerEvents: "auto" }}>
         <button
