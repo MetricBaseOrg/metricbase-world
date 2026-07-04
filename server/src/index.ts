@@ -33,7 +33,7 @@ import { initSiegeRegistry } from "./siege/siegeRegistry.js";
 import { adService } from "./ads/adService.js";
 import { getBaseHolderCount } from "./solana/holderCount.js";
 import { ZoneRoom } from "./rooms/ZoneRoom.js";
-import { statsRouter } from "./api/stats.js";
+import { buildStats, statsRouter } from "./api/stats.js";
 import { brandsRouter } from "./api/brands.js";
 import { STATS_PAGE_HTML } from "./api/statsPage.js";
 
@@ -63,7 +63,38 @@ app.use("/api", tokenShopRouter);
 app.use("/api", invitationsRouter);
 app.use("/api", statsRouter);
 app.use("/api", brandsRouter);
-app.get("/stats", (_req, res) => res.type("html").send(STATS_PAGE_HTML));
+// /stats is server-rendered with the live headline numbers baked into the
+// initial HTML (JS then keeps them fresh). Crawlers and game-discovery agents
+// (e.g. solgames.buzz) see real player counts instead of "—" placeholders.
+let statsHtmlCache: { html: string; at: number } = { html: "", at: 0 };
+app.get("/stats", async (_req, res) => {
+  try {
+    if (Date.now() - statsHtmlCache.at > 20_000) {
+      const s = await buildStats();
+      const fill = (html: string, id: string, value: string) =>
+        html.replace(new RegExp(`(id="${id}"[^>]*>)[^<]*(<)`), `$1${value}$2`);
+      const n = (v: number) => Math.round(v).toLocaleString("en-US");
+      let html = STATS_PAGE_HTML;
+      html = fill(html, "onlineTop", n(s.players.online));
+      html = fill(html, "ver", `v${s.version}`);
+      html = fill(html, "registered", n(s.players.registered));
+      html = fill(html, "online", n(s.players.online));
+      html = fill(html, "circulating", `${n(s.players.circulatingGold)}g`);
+      html = fill(html, "worlds", n(s.worlds.total));
+      html = fill(html, "treasury", `${n(s.treasury.total)}g`);
+      html = fill(html, "baseBurned", `${n(s.baseToken.burned)} $BASE`);
+      html = fill(html, "baseHeld", `${n(s.baseToken.heldByPlayers)} $BASE`);
+      html = fill(html, "adRevenue", `${n(s.ads.totalRevenue)} $BASE`);
+      html = fill(html, "adImpr", n(s.ads.totalImpressions));
+      html = fill(html, "dqActive", n(s.dailyQuests.activeToday));
+      html = fill(html, "wVisits", n(s.worlds.visits));
+      statsHtmlCache = { html, at: Date.now() };
+    }
+    res.type("html").send(statsHtmlCache.html);
+  } catch {
+    res.type("html").send(STATS_PAGE_HTML);
+  }
+});
 
 const httpServer = createServer(app);
 

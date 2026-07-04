@@ -55,7 +55,7 @@ interface EconomyStats {
   daily: { day: string; metric: string; value: number }[];
 }
 
-async function buildStats(): Promise<EconomyStats> {
+export async function buildStats(): Promise<EconomyStats> {
   const pool = getPool();
   const [registered, circulatingGold, avgLevel, maxLevel, worldsTotal, worldsPub, gmTrades, gmVol, alCount, alValue, aiOwned] =
     await Promise.all([
