@@ -5,7 +5,7 @@ import {
   resetMobileInput,
   setMobileAxis,
 } from "../game/inputControl";
-import { useGameStore } from "../store/gameStore";
+import { isAnyPanelOpen, useGameStore } from "../store/gameStore";
 import { useMobileLayout } from "./useMobileLayout";
 
 type Direction = "up" | "down" | "left" | "right";
@@ -22,16 +22,8 @@ function axisFromDirections(active: Set<Direction>): { dx: number; dy: number } 
 
 export function TouchControls() {
   const mobileLayout = useMobileLayout();
-  const shopOpen = useGameStore((state) => state.shopOpen);
-  const inventoryOpen = useGameStore((state) => state.inventoryOpen);
-  const craftOpen = useGameStore((state) => state.craftOpen);
-  const blackjackOpen = useGameStore((state) => state.blackjackOpen);
-  const honorShopOpen = useGameStore((state) => state.honorShopOpen);
-  const mapOpen = useGameStore((state) => state.mapOpen);
-  const mailOpen = useGameStore((state) => state.mailOpen);
+  const panelOpen = useGameStore(isAnyPanelOpen);
   const knockedOut = useGameStore((state) => state.knockedOut);
-  const worldsOpen = useGameStore((state) => state.worldsOpen);
-  const buildShopOpen = useGameStore((state) => state.buildShopOpen);
   const worldEditing = useGameStore((state) => state.worldEditing);
   const toggleInventoryOpen = useGameStore((state) => state.toggleInventoryOpen);
   const toggleCraftOpen = useGameStore((state) => state.toggleCraftOpen);
@@ -78,20 +70,7 @@ export function TouchControls() {
     };
   }, [releaseAll]);
 
-  if (
-    !mobileLayout ||
-    shopOpen ||
-    inventoryOpen ||
-    craftOpen ||
-    blackjackOpen ||
-    honorShopOpen ||
-    mapOpen ||
-    mailOpen ||
-    knockedOut ||
-    worldsOpen ||
-    buildShopOpen
-  )
-    return null;
+  if (!mobileLayout || knockedOut || panelOpen) return null;
 
   const bindDirection = (direction: Direction) => ({
     onPointerDown: (event: React.PointerEvent<HTMLButtonElement>) => {
@@ -108,11 +87,7 @@ export function TouchControls() {
   });
 
   return (
-    <div
-      className="chibi-touch-layer"
-      aria-hidden={inventoryOpen}
-      style={{ opacity: inventoryOpen ? 0.35 : 1 }}
-    >
+    <div className="chibi-touch-layer">
       <div className="chibi-dpad" aria-label="Movement controls">
         <button type="button" className="chibi-dpad__btn chibi-dpad__btn--up" aria-label="Move up" {...bindDirection("up")}>
           ▲

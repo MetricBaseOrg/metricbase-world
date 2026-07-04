@@ -58,7 +58,7 @@ export function DailyPanel() {
   return (
     <div
       className="chibi-panel chibi-panel--floating chibi-anchor chibi-anchor--center"
-      style={{ pointerEvents: "auto", maxWidth: 400, width: "92vw" }}
+      style={{ pointerEvents: "auto", maxWidth: 400, width: "92vw", maxHeight: "82vh", overflowY: "auto" }}
     >
       <div className="chibi-close-row">
         <div className="chibi-title chibi-title--sm chibi-sparkle-title">📅 Daily Rewards</div>

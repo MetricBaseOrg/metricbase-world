@@ -138,6 +138,31 @@ interface GameStore {
 
 const MAX_CHAT_MESSAGES = 100;
 
+/**
+ * True while any modal/panel overlay is open. HUD chrome (zone pill, combat
+ * hotbar, touch pads, emote bar) consults THIS instead of maintaining its own
+ * flag list, so new panels can never be covered by stale HUD again.
+ */
+export function isAnyPanelOpen(s: GameStore): boolean {
+  return (
+    s.inventoryOpen ||
+    s.craftOpen ||
+    s.honorShopOpen ||
+    s.blackjackOpen ||
+    s.mapOpen ||
+    s.mailOpen ||
+    s.adsOpen ||
+    s.worldsOpen ||
+    s.buildShopOpen ||
+    s.dailyOpen ||
+    s.housingOpen ||
+    s.playerShopOpen ||
+    s.shopOpen ||
+    s.invitationsOpen ||
+    s.cropMarketOpen !== null
+  );
+}
+
 export const useGameStore = create<GameStore>((set) => ({
   playerName: "Traveler",
   characterAppearance: null,

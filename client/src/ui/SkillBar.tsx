@@ -7,7 +7,7 @@ import {
   triggerPrimaryAttack,
 } from "../game/inputControl";
 import { networkManager } from "../game/network";
-import { useGameStore } from "../store/gameStore";
+import { isAnyPanelOpen, useGameStore } from "../store/gameStore";
 import { useMobileLayout } from "./useMobileLayout";
 
 /** Emoji per heal consumable for the quick-slot. */
@@ -39,17 +39,7 @@ export function SkillBar() {
   const mobile = useMobileLayout();
   const spectator = useGameStore((state) => state.spectator);
   const knockedOut = useGameStore((state) => state.knockedOut);
-  const shopOpen = useGameStore((state) => state.shopOpen);
-  const craftOpen = useGameStore((state) => state.craftOpen);
-  const honorShopOpen = useGameStore((state) => state.honorShopOpen);
-  const blackjackOpen = useGameStore((state) => state.blackjackOpen);
-  const mapOpen = useGameStore((state) => state.mapOpen);
-  const mailOpen = useGameStore((state) => state.mailOpen);
-  const adsOpen = useGameStore((state) => state.adsOpen);
-  const housingOpen = useGameStore((state) => state.housingOpen);
-  const playerShopOpen = useGameStore((state) => state.playerShopOpen);
-  const worldsOpen = useGameStore((state) => state.worldsOpen);
-  const buildShopOpen = useGameStore((state) => state.buildShopOpen);
+  const panelOpen = useGameStore(isAnyPanelOpen);
   const worldEditing = useGameStore((state) => state.worldEditing);
   const equippedWeaponId = useGameStore((state) => state.equippedWeaponId);
   const inventory = useGameStore((state) => state.inventory);
@@ -160,8 +150,7 @@ export function SkillBar() {
   }, []);
 
   if (spectator || knockedOut) return null;
-  if (shopOpen || craftOpen || honorShopOpen || blackjackOpen || mapOpen || mailOpen || adsOpen || housingOpen || playerShopOpen) return null;
-  if (worldsOpen || buildShopOpen || worldEditing) return null;
+  if (panelOpen || worldEditing) return null;
 
   const now = Date.now();
 

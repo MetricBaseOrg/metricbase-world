@@ -8,7 +8,7 @@ import { waitForGameSceneReady } from "./game/gameSceneReady";
 import { PhaserGame } from "./game/PhaserGame";
 import { networkManager } from "./game/network";
 import { clearStoredAccessToken, getValidWalletSession } from "./wallet/tokenGate";
-import { useGameStore } from "./store/gameStore";
+import { isAnyPanelOpen, useGameStore } from "./store/gameStore";
 import { ChatPanel } from "./ui/ChatPanel";
 import { CraftPanel } from "./ui/CraftPanel";
 import { EmoteBar } from "./ui/EmoteBar";
@@ -70,6 +70,7 @@ export function App() {
     setInvitationsOpen,
     worldEditing,
   } = useGameStore();
+  const panelOpen = useGameStore(isAnyPanelOpen);
 
   const previousLevelRef = useRef(1);
   const previousWoodcuttingLevelRef = useRef(1);
@@ -363,11 +364,11 @@ export function App() {
       {joined && <VipLodgeModal />}
       {joined && <CropMarketPanel />}
       {joined && <DailyPanel />}
-      {joined && !worldEditing && <PvpFlagButton />}
-      {joined && !worldEditing && <DuelControls />}
+      {joined && !worldEditing && !panelOpen && <PvpFlagButton />}
+      {joined && !worldEditing && !panelOpen && <DuelControls />}
       {joined && <SiegeBanner />}
       {joined && !worldEditing && <SkillBar />}
-      {joined && !worldEditing && <EmoteBar />}
+      {joined && !worldEditing && !panelOpen && <EmoteBar />}
       {joined && <TouchControls />}
       {joined && <DeathOverlay />}
       {joined && invitationsOpen && <InvitationsModal onClose={() => setInvitationsOpen(false)} />}

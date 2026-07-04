@@ -59,7 +59,7 @@ export function CropMarketPanel() {
   return (
     <div
       className="chibi-panel chibi-panel--floating chibi-anchor chibi-anchor--center"
-      style={{ pointerEvents: "auto", maxWidth: 380, width: "92vw" }}
+      style={{ pointerEvents: "auto", maxWidth: 380, width: "92vw", maxHeight: "82vh", overflowY: "auto" }}
     >
       <div className="chibi-close-row">
         <div className="chibi-title chibi-title--sm chibi-sparkle-title">

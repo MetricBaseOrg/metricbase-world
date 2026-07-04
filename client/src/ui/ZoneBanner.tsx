@@ -1,6 +1,6 @@
 import { getDangerTierMeta } from "@metricbase/shared";
 import { useEffect, useRef, useState } from "react";
-import { useGameStore } from "../store/gameStore";
+import { isAnyPanelOpen, useGameStore } from "../store/gameStore";
 
 /**
  * Shows the current zone's PvP danger tier: a brief full banner on entry plus a
@@ -11,8 +11,7 @@ export function ZoneBanner() {
   const zoneId = useGameStore((state) => state.zoneId);
   const zoneName = useGameStore((state) => state.zoneName);
   const worldEditing = useGameStore((state) => state.worldEditing);
-  const buildShopOpen = useGameStore((state) => state.buildShopOpen);
-  const worldsOpen = useGameStore((state) => state.worldsOpen);
+  const panelOpen = useGameStore(isAnyPanelOpen);
   const [showBanner, setShowBanner] = useState(false);
   const lastZone = useRef<string | null>(null);
 
@@ -26,8 +25,8 @@ export function ZoneBanner() {
     return () => window.clearTimeout(timer);
   }, [zoneId]);
 
-  // Keep the corner chip / banner out of the way while building or managing worlds.
-  if (worldEditing || buildShopOpen || worldsOpen) return null;
+  // Keep the corner chip / banner out of the way while building or in any panel.
+  if (worldEditing || panelOpen) return null;
 
   return (
     <>
