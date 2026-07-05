@@ -170,6 +170,8 @@ import {
   rollRareGatherDrop,
   rollFishSpecies,
   FISHING_CAST_GOLD,
+  getItemBaseValue,
+  gatherTaxGold,
   fishWatersForLoot,
   type FishSpecies,
   type PlayerEquipment,
@@ -6015,9 +6017,12 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     }
 
     const client = this.clients.find((entry) => entry.sessionId === sessionId);
+    let haulValue = 0; // Pip value of what was actually banked (drives gather tax)
     if (client) {
-      await this.grantLoot(client, player.name, lootItemId, lootQuantity);
+      const grantedQty = await this.grantLoot(client, player.name, lootItemId, lootQuantity);
+      haulValue += getItemBaseValue(lootItemId) * grantedQty;
       if (rareItemId && (await this.grantLoot(client, player.name, rareItemId, 1)) > 0) {
+        haulValue += getItemBaseValue(rareItemId);
         this.broadcastChat({
           id: crypto.randomUUID(),
           channel: "system",
@@ -6030,11 +6035,13 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     }
 
     // Visitor gather tax: in a player-owned World, a non-owner pays the owner a
-    // per-gather fee (the owner's revenue for stocking their World with nodes).
+    // PERCENT of the haul's value (what they actually banked, at Pip prices) —
+    // charged up to what they carry, never below zero.
     if (client && this.playerZone && this.playerZone.ownerName !== player.name) {
-      const tax = getZoneGatherTax(this.playerZone.zoneId);
+      const taxPct = getZoneGatherTax(this.playerZone.zoneId);
       const gold = this.playerGold.get(player.name) ?? STARTING_GOLD;
-      if (tax > 0 && gold >= tax) {
+      const tax = Math.min(gatherTaxGold(taxPct, haulValue), gold);
+      if (tax > 0) {
         this.playerGold.set(player.name, gold - tax);
         addZoneTax(this.playerZone.zoneId, tax);
         bumpMetric("gathertax.gold", tax);
@@ -6367,18 +6374,20 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     bumpMetric("farm.harvest", yieldQty);
     this.bumpDaily(player.name, "harvest", yieldQty);
     this.tickJobProgress(player.name, "harvest", yieldQty);
-    // Visitor gather tax: harvesting in someone else's World pays the owner
-    // the same per-gather fee as chopping/mining/fishing there.
+    const grantedCrop = await this.grantLoot(client, player.name, active.cropId, yieldQty);
+    // Visitor gather tax: harvesting in someone else's World pays the owner a
+    // percent of the crop's value, same rule as chopping/mining/fishing there.
     if (this.playerZone && this.playerZone.ownerName !== player.name) {
-      const tax = getZoneGatherTax(this.playerZone.zoneId);
+      const taxPct = getZoneGatherTax(this.playerZone.zoneId);
       const gold = this.playerGold.get(player.name) ?? STARTING_GOLD;
-      if (tax > 0 && gold >= tax) {
+      const tax = Math.min(gatherTaxGold(taxPct, getItemBaseValue(active.cropId) * grantedCrop), gold);
+      if (tax > 0) {
         this.playerGold.set(player.name, gold - tax);
         addZoneTax(this.playerZone.zoneId, tax);
         bumpMetric("gathertax.gold", tax);
+        this.sendProfile(client, player);
       }
     }
-    await this.grantLoot(client, player.name, active.cropId, yieldQty);
     const skillXp = crop?.skillXp ?? 10;
     const { newLevel, leveledUp } = this.grantSkillXp(player.name, "farming", skillXp);
     this.sendSkillState(client, player.name);

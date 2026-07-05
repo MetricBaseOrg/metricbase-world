@@ -1,4 +1,4 @@
-import { MAX_ZONE_PASS_PRICE, nextZoneExpansion, ZONE_EXPANSIONS, ZONE_SLOT_COST } from "@metricbase/shared";
+import { MAX_GATHER_TAX, MAX_ZONE_PASS_PRICE, nextZoneExpansion, ZONE_EXPANSIONS, ZONE_SLOT_COST } from "@metricbase/shared";
 import { useEffect, useState } from "react";
 import { playSfx } from "../audio/soundEffects";
 import {
@@ -337,7 +337,7 @@ export function WorldsPanel() {
                   by {w.ownerName} · 👣 {w.visits.toLocaleString()} visits · 🧱 {w.props ?? 0} builds
                   <br />
                   {w.passPrice > 0 ? `🎟️ ${w.passPrice.toLocaleString()}g pass` : "🆓 Free entry"}
-                  {(w.gatherTax ?? 0) > 0 ? ` · 🌾 ${w.gatherTax}g gather tax` : ""}
+                  {(w.gatherTax ?? 0) > 0 ? ` · 🌾 ${w.gatherTax}% gather tax` : ""}
                 </div>
                 <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
                   <button type="button" className="chibi-btn chibi-btn--mint" style={{ flex: 1 }} onClick={() => enter(w.zoneId)}>
@@ -426,7 +426,7 @@ export function WorldsPanel() {
                     setDrafts((p) => ({ ...p, [w.zoneId]: { ...draft, passPrice: e.target.value.replace(/[^0-9]/g, "") } }))
                   }
                 />
-                <div className="chibi-label" style={{ margin: "8px 0 4px" }}>Gather tax (gold per harvest, 0 = free)</div>
+                <div className="chibi-label" style={{ margin: "8px 0 4px" }}>Gather tax (% of what visitors earn, 0 = free)</div>
                 <input
                   className="chibi-input"
                   inputMode="numeric"
@@ -436,7 +436,8 @@ export function WorldsPanel() {
                   }
                 />
                 <div className="chibi-text-muted" style={{ fontSize: "0.7rem", marginTop: 2 }}>
-                  Max {MAX_ZONE_PASS_PRICE.toLocaleString()}g pass. Visitors pay the tax to you per node they harvest.
+                  Max {MAX_ZONE_PASS_PRICE.toLocaleString()}g pass · tax up to {MAX_GATHER_TAX}%. Each
+                  harvest pays you that share of the haul's shop value, straight from the visitor's gold.
                 </div>
 
                 {/* Owner analytics: lifetime performance of this World. */}

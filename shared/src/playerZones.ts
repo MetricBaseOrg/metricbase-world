@@ -103,7 +103,7 @@ export interface PlayerZoneMeta {
   earnings: number;
   /** Lifetime visitor entries (unique per visitor per day), for the directory. */
   visits: number;
-  /** Gold a visitor pays the owner each time they gather a node here (0 = free). */
+  /** Percent of a visitor's haul value (Pip prices) paid to the owner per gather (0 = free). */
   gatherTax: number;
   /** Lifetime passes purchased. */
   passesSold: number;
@@ -119,8 +119,18 @@ export interface PlayerZoneMeta {
   expandLevel: number;
 }
 
-/** Bound on the per-gather visitor tax an owner can charge. */
-export const MAX_GATHER_TAX = 1000;
+/**
+ * Bound on the gather tax an owner can charge, as a PERCENT of the value the
+ * visitor earned (the haul's Pip sell value). Legacy zones stored a flat gold
+ * fee up to 1,000 — those are clamped to this cap at load.
+ */
+export const MAX_GATHER_TAX = 25;
+
+/** Gold owed for one gather: `taxPct`% of the haul's shop value, rounded. */
+export function gatherTaxGold(taxPct: number, haulValueGold: number): number {
+  if (!Number.isFinite(taxPct) || taxPct <= 0 || haulValueGold <= 0) return 0;
+  return Math.round((Math.min(MAX_GATHER_TAX, taxPct) / 100) * haulValueGold);
+}
 
 /** A full player-zone record: metadata plus its build. */
 export interface PlayerZoneRecord extends PlayerZoneMeta {

@@ -5,6 +5,7 @@ import {
   type InventoryStatePayload,
 } from "./items.js";
 import type { MarketStatePayload } from "./market.js";
+import { CROP_MARKETS } from "./farming.js";
 
 export const STARTING_GOLD = 25;
 
@@ -88,6 +89,24 @@ export const SHOPS: Record<string, ShopDefinition> = {
     },
   },
 };
+
+/** Pip's base sell price for an item (0 when Pip doesn't buy it). */
+export function getPipSellPrice(itemId: string): number {
+  return SHOPS.pip_general.sellPrices[itemId] ?? 0;
+}
+
+/**
+ * Base gold value of an item: Pip's buyback, falling back to a crop market's
+ * price for crops Pip doesn't stock (carrots). Used for gather-tax valuation.
+ */
+export function getItemBaseValue(itemId: string): number {
+  const pip = SHOPS.pip_general.sellPrices[itemId];
+  if (pip) return pip;
+  for (const market of Object.values(CROP_MARKETS)) {
+    if (market.cropItemId === itemId) return market.cropSellPrice;
+  }
+  return 0;
+}
 
 export function getShopByNpcId(npcId: string): ShopDefinition | null {
   return Object.values(SHOPS).find((shop) => shop.npcId === npcId) ?? null;

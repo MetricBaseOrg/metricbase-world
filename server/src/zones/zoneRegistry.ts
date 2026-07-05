@@ -31,7 +31,12 @@ const passes = new Map<string, StoredZonePass>(); // key: `${zoneId}|${holderNam
 const passKey = (zoneId: string, holderName: string) => `${zoneId}|${holderName}`;
 
 export async function initZoneRegistry(): Promise<void> {
-  for (const zone of await loadPlayerZones()) zones.set(zone.zoneId, zone);
+  for (const zone of await loadPlayerZones()) {
+    // gatherTax became a PERCENT (was a flat gold fee up to 1,000): clamp
+    // legacy values so an old 40g fee reads as the 25% cap, not 40%.
+    zone.gatherTax = Math.max(0, Math.min(MAX_GATHER_TAX, Math.floor(zone.gatherTax)));
+    zones.set(zone.zoneId, zone);
+  }
   for (const pass of await loadZonePasses()) passes.set(passKey(pass.zoneId, pass.holderName), pass);
 }
 
