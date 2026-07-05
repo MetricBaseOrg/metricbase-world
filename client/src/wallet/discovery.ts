@@ -75,9 +75,15 @@ export function discoverWallets(): WalletConnector[] {
   }
 
   for (const connector of discoverLegacyWallets()) {
-    if (!found.has(connector.id)) {
-      found.set(connector.id, connector);
-    }
+    if (found.has(connector.id)) continue;
+    // A wallet usually registers via BOTH wallet-standard and its legacy
+    // window global (Phantom does). Same name = same wallet — keep the
+    // standard entry, or a lone Phantom install reads as two wallets and
+    // pickWalletConnector() refuses to auto-pick.
+    const sameName = Array.from(found.values()).some(
+      (existing) => existing.name.toLowerCase() === connector.name.toLowerCase(),
+    );
+    if (!sameName) found.set(connector.id, connector);
   }
 
   return Array.from(found.values()).sort((left, right) => left.name.localeCompare(right.name));

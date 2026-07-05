@@ -7,7 +7,8 @@ import {
 import bs58 from "bs58";
 import { useEffect, useState } from "react";
 import { getHttpServerUrl } from "../game/serverUrl";
-import { pickWalletConnector } from "../wallet/solanaProvider";
+import { discoverWallets, pickWalletConnector, type WalletConnector } from "../wallet/solanaProvider";
+import { setSelectedWalletId } from "../wallet/discovery";
 import { sendMetricbaseTokenPayment } from "../wallet/tokenPayment";
 
 /**
@@ -52,6 +53,8 @@ export function BrandPortal() {
   const [dash, setDash] = useState<BrandDashboardPayload | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  // Multiple wallet extensions installed: let the advertiser choose one.
+  const [walletChoices, setWalletChoices] = useState<WalletConnector[] | null>(null);
   const [depositAmt, setDepositAmt] = useState("");
   // Campaign form.
   const [name, setName] = useState("");
@@ -102,12 +105,23 @@ export function BrandPortal() {
   };
 
   /** Connect a wallet and sign the challenge — no token holdings required. */
-  const signIn = async () => {
+  const signIn = async (chosen?: WalletConnector) => {
     setPending(true);
     setNotice(null);
     try {
-      const connector = pickWalletConnector();
-      if (!connector) throw new Error("No Solana wallet found — install Phantom or Solflare.");
+      const connector = chosen ?? pickWalletConnector();
+      if (!connector) {
+        // More than one wallet extension (or none): show the picker / a
+        // truthful error instead of claiming no wallet exists.
+        const available = discoverWallets();
+        if (available.length === 0) {
+          throw new Error("No Solana wallet found — install Phantom or Solflare.");
+        }
+        setWalletChoices(available);
+        return;
+      }
+      setSelectedWalletId(connector.id);
+      setWalletChoices(null);
       const address = await connector.connect();
       const challenge = (await (await fetch(api(`/auth/challenge?wallet=${encodeURIComponent(address)}`))).json()) as {
         message: string;
@@ -297,6 +311,41 @@ export function BrandPortal() {
             >
               👛 Connect wallet to get started
             </button>
+            {walletChoices && (
+              <div style={{ marginTop: 14 }}>
+                <div style={{ fontWeight: 800, fontSize: "0.85rem", marginBottom: 8 }}>
+                  Several wallets found — pick one:
+                </div>
+                <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
+                  {walletChoices.map((w) => (
+                    <button
+                      key={w.id}
+                      type="button"
+                      disabled={pending}
+                      onClick={() => void signIn(w)}
+                      style={{
+                        cursor: "pointer",
+                        fontFamily: "inherit",
+                        fontWeight: 800,
+                        fontSize: "0.85rem",
+                        color: "#4a3b2a",
+                        background: "#fffdf6",
+                        border: "2px solid #4a3b2a",
+                        borderRadius: 12,
+                        padding: "9px 16px",
+                        boxShadow: "0 3px 0 #e4cf9f",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 7,
+                      }}
+                    >
+                      {w.icon && <img src={w.icon} alt="" style={{ width: 18, height: 18, borderRadius: 4 }} />}
+                      {w.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             <div style={{ color: "#9c8a6d", fontSize: "0.76rem", marginTop: 10 }}>
               You'll sign a message to prove wallet ownership — free, no transaction.
               {!info?.enabled && " (Deposits are temporarily disabled.)"}
