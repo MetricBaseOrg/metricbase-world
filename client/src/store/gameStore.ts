@@ -68,6 +68,8 @@ interface GameStore {
   settingsOpen: boolean;
   /** Active fishing catch-minigame (null when not fishing). */
   fishing: { resourceId: string; endsAt: number } | null;
+  /** Last landed fish (drives the catch celebration overlay). */
+  lastCatch: { itemId: string; rarity: string; quantity: number; at: number } | null;
   /** True while the player is actively editing a World (hides gameplay HUD). */
   worldEditing: boolean;
   housingOpen: boolean;
@@ -138,6 +140,7 @@ interface GameStore {
   setChatOpen: (open: boolean) => void;
   setSettingsOpen: (open: boolean) => void;
   setFishing: (fishing: { resourceId: string; endsAt: number } | null) => void;
+  setLastCatch: (c: { itemId: string; rarity: string; quantity: number; at: number } | null) => void;
   setWorldEditing: (editing: boolean) => void;
   openHousing: (plotId: string) => void;
   setHousingOpen: (open: boolean) => void;
@@ -230,6 +233,7 @@ export const useGameStore = create<GameStore>((set) => ({
   chatOpen: false,
   settingsOpen: false,
   fishing: null,
+  lastCatch: null,
   worldEditing: false,
   housingOpen: false,
   housingPlotId: null,
@@ -333,6 +337,7 @@ export const useGameStore = create<GameStore>((set) => ({
   setChatOpen: (chatOpen) => set({ chatOpen }),
   setSettingsOpen: (settingsOpen) => set({ settingsOpen }),
   setFishing: (fishing) => set({ fishing }),
+  setLastCatch: (lastCatch) => set({ lastCatch }),
   setWorldEditing: (worldEditing) => set({ worldEditing }),
   openHousing: (housingPlotId) =>
     set({ housingPlotId, housingOpen: true, inventoryOpen: false, craftOpen: false }),

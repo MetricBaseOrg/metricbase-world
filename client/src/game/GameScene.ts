@@ -715,6 +715,16 @@ export class GameScene extends Phaser.Scene {
         this.localChoppingUntil = 0;
         this.stopLocalChopHits();
         useGameStore.getState().setFishing(null);
+        // Fishing: the server tells us WHICH fish it was — trigger the catch
+        // celebration overlay (species art + rarity burst).
+        if (payload.skill === "fishing" && payload.caughtItemId) {
+          useGameStore.getState().setLastCatch({
+            itemId: payload.caughtItemId,
+            rarity: payload.caughtRarity ?? "common",
+            quantity: payload.caughtQuantity ?? 1,
+            at: Date.now(),
+          });
+        }
         playSfx(
           payload.skill === "mining"
             ? "ore_gather"

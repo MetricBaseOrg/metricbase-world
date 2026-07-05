@@ -168,6 +168,9 @@ import {
   getGatherPerks,
   getToolYieldBonus,
   rollRareGatherDrop,
+  rollFishSpecies,
+  fishWatersForLoot,
+  type FishSpecies,
   type PlayerEquipment,
   PLAYER_SPEED,
   POTION_HEAL_AMOUNT,
@@ -5960,9 +5963,22 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     // Luck-based rare drop (amber/gemstone/pearl), independent of the yield roll.
     const rareItemId = rollRareGatherDrop(gather.skill, gather.nodeLevel, perks.rareBonus);
 
+    // Fishing: roll WHICH species this catch was. Common rolls keep the node's
+    // base loot (River Fish / Salmon), rarer rolls upgrade the whole catch.
+    let lootItemId = gather.lootItemId;
+    let caughtSpecies: FishSpecies | null = null;
+    if (gather.skill === "fishing") {
+      const waters = fishWatersForLoot(gather.lootItemId);
+      if (waters) {
+        const luck = perks.rareBonus + getWeather(now).rain * 0.1;
+        caughtSpecies = rollFishSpecies(waters, luck);
+        lootItemId = caughtSpecies.itemId;
+      }
+    }
+
     const client = this.clients.find((entry) => entry.sessionId === sessionId);
     if (client) {
-      await this.grantLoot(client, player.name, gather.lootItemId, lootQuantity);
+      await this.grantLoot(client, player.name, lootItemId, lootQuantity);
       if (rareItemId && (await this.grantLoot(client, player.name, rareItemId, 1)) > 0) {
         this.broadcastChat({
           id: crypto.randomUUID(),
@@ -6033,14 +6049,32 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       }
     }
 
-    this.broadcastChat({
-      id: crypto.randomUUID(),
-      channel: "system",
-      senderId: "system",
-      senderName: gather.label,
-      body: `${player.name} ${gather.verb} ${resource.name} (+${skillXpGained} ${gather.label} XP)${bonusYield > 0 ? " — bonus haul!" : ""}.`,
-      sentAt: now,
-    });
+    // Rare+ catches get a zone-wide shout; every catch names the species.
+    if (caughtSpecies && caughtSpecies.rarity !== "common") {
+      const shout: Record<string, string> = {
+        uncommon: "🎣",
+        rare: "✨ RARE!",
+        epic: "🌟 EPIC!",
+        legendary: "🏆 LEGENDARY!",
+      };
+      this.broadcastChat({
+        id: crypto.randomUUID(),
+        channel: "system",
+        senderId: "system",
+        senderName: gather.label,
+        body: `${shout[caughtSpecies.rarity]} ${player.name} reeled in a ${caughtSpecies.name}! (+${skillXpGained} ${gather.label} XP)`,
+        sentAt: now,
+      });
+    } else {
+      this.broadcastChat({
+        id: crypto.randomUUID(),
+        channel: "system",
+        senderId: "system",
+        senderName: gather.label,
+        body: `${player.name} ${gather.verb} ${caughtSpecies ? caughtSpecies.name : resource.name} (+${skillXpGained} ${gather.label} XP)${bonusYield > 0 ? " — bonus haul!" : ""}.`,
+        sentAt: now,
+      });
+    }
 
     this.broadcast("chopResult", {
       resourceId: session.resourceId,
@@ -6052,6 +6086,13 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       skillLevel: newLevel,
       playerName: session.playerName,
       ok: true,
+      ...(caughtSpecies
+        ? {
+            caughtItemId: caughtSpecies.itemId,
+            caughtRarity: caughtSpecies.rarity,
+            caughtQuantity: lootQuantity,
+          }
+        : {}),
     });
     this.broadcastResourceHealth(session.resourceId);
 

@@ -1,4 +1,4 @@
-export const GAME_VERSION = "0.95.2";
+export const GAME_VERSION = "0.96.0";
 
 export const TICK_RATE = 20;
 
@@ -55,6 +55,7 @@ export * from "./market.js";
 export * from "./skills.js";
 export * from "./resources.js";
 export * from "./gatherDrops.js";
+export * from "./fishSpecies.js";
 export * from "./currencies.js";
 export * from "./softCurrencies.js";
 export * from "./softShop.js";

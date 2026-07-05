@@ -2043,6 +2043,50 @@ body {
   100% { transform: translate(-1px, 1px) rotate(-6deg); }
 }
 
+/* ---- Catch celebration (fish leaps out with splash + rarity burst) ---- */
+/* The fish arcs out of the water, overshoots, wiggles, and settles. */
+@keyframes chibi-catch-leap {
+  0% { transform: translateY(110px) scale(0.4) rotate(-24deg); opacity: 0; }
+  35% { transform: translateY(-26px) scale(1.12) rotate(10deg); opacity: 1; }
+  52% { transform: translateY(6px) scale(0.96) rotate(-6deg); }
+  68% { transform: translateY(-6px) scale(1.04) rotate(4deg); }
+  82% { transform: translateY(2px) scale(1) rotate(-2deg); }
+  100% { transform: translateY(0) scale(1) rotate(0deg); opacity: 1; }
+}
+/* Water splash ring expanding under the leap. */
+@keyframes chibi-catch-splash {
+  0% { transform: translateX(-50%) scale(0.3); opacity: 0.9; }
+  100% { transform: translateX(-50%) scale(2.4); opacity: 0; }
+}
+/* Splash droplets popping up then falling. */
+@keyframes chibi-catch-droplet {
+  0% { transform: translate(0, 0) scale(1); opacity: 1; }
+  60% { transform: translate(var(--dx), var(--dy)) scale(1.1); opacity: 1; }
+  100% { transform: translate(var(--dx), calc(var(--dy) * -0.2 + 46px)) scale(0.6); opacity: 0; }
+}
+/* Rarity sparkle burst: particles fly outward on --angle/--dist and fade. */
+@keyframes chibi-catch-sparkle {
+  0% { transform: rotate(var(--angle)) translateX(6px) scale(0.4); opacity: 0; }
+  25% { opacity: 1; }
+  100% { transform: rotate(var(--angle)) translateX(var(--dist)) scale(1); opacity: 0; }
+}
+/* Epic/legendary glow rays spin slowly behind the fish. */
+@keyframes chibi-catch-rays {
+  from { transform: translate(-50%, -50%) rotate(0deg); }
+  to { transform: translate(-50%, -50%) rotate(360deg); }
+}
+/* Banner pop: rarity pill + name slam in with a bounce. */
+@keyframes chibi-catch-banner {
+  0% { transform: scale(0.2) translateY(18px); opacity: 0; }
+  55% { transform: scale(1.14) translateY(-3px); opacity: 1; }
+  100% { transform: scale(1) translateY(0); opacity: 1; }
+}
+/* Whole overlay fades away at the end (matches JS dismiss timing). */
+@keyframes chibi-catch-fadeout {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
 /* ---- Crafting panel (tabbed) ---- */
 .chibi-craft {
   width: min(720px, 96vw);

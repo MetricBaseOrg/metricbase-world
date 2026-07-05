@@ -101,4 +101,10 @@ export interface ChopResultPayload {
   playerName?: string;
   ok?: boolean;
   error?: string;
+  /** Fishing only: which species was caught (see fishSpecies.ts). */
+  caughtItemId?: string;
+  /** Fishing only: rarity tier of the catch, for the celebration UI. */
+  caughtRarity?: string;
+  /** Fishing only: how many of the species were landed (incl. bonus catches). */
+  caughtQuantity?: number;
 }

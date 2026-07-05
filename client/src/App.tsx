@@ -35,6 +35,7 @@ import { BlackZoneModal } from "./ui/BlackZoneModal";
 import { CropMarketPanel } from "./ui/CropMarketPanel";
 import { DailyPanel } from "./ui/DailyPanel";
 import { JobsPanel } from "./ui/JobsPanel";
+import { CatchCelebration } from "./ui/CatchCelebration";
 import { FishingMinigame } from "./ui/FishingMinigame";
 import { DuelControls } from "./ui/DuelControls";
 import { PvpFlagButton } from "./ui/PvpFlagButton";
@@ -368,6 +369,7 @@ export function App() {
       {joined && <DailyPanel />}
       {joined && <JobsPanel />}
       {joined && <FishingMinigame />}
+      {joined && <CatchCelebration />}
       {joined && !worldEditing && !panelOpen && <PvpFlagButton />}
       {joined && !worldEditing && !panelOpen && <DuelControls />}
       {joined && <SiegeBanner />}
