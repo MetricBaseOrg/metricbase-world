@@ -16,3 +16,8 @@ terminals/
 server/.env
 .vercel
 .vercel
+
+# scratch downloads (agent debugging)
+/*.html
+!client/**/*.html
+/hunts.json
