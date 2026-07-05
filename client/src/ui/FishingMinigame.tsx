@@ -1,4 +1,4 @@
-import { getWeather } from "@metricbase/shared";
+import { FISH_SPECIES, getWeather } from "@metricbase/shared";
 import { useEffect, useRef, useState } from "react";
 import { playSfx } from "../audio/soundEffects";
 import { isUiTypingActive } from "../game/inputControl";
@@ -16,6 +16,18 @@ import { useGameStore } from "../store/gameStore";
  */
 
 type Phase = "wait" | "bite" | "reel" | "caught" | "escaped";
+
+// Warm the species art cache on the first cast so the catch celebration's
+// image is already loaded when the fish lands (~380KB total, once).
+let fishArtPreloaded = false;
+function preloadFishArt() {
+  if (fishArtPreloaded) return;
+  fishArtPreloaded = true;
+  for (const s of FISH_SPECIES) {
+    const img = new Image();
+    img.src = `/assets/fish/${s.art}`;
+  }
+}
 
 const HITS_NEEDED = 3;
 const STRIKES_ALLOWED = 2;
@@ -162,6 +174,7 @@ export function FishingMinigame() {
       return;
     }
     resourceIdRef.current = fishing.resourceId;
+    preloadFishArt();
     hitsRef.current = 0;
     strikesRef.current = 0;
     setHits(0);
