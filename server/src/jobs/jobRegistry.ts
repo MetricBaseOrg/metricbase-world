@@ -85,6 +85,11 @@ export function cancelJob(employer: string, id: string): { ok: boolean; error?: 
   const job = jobs.get(id);
   if (!job || job.employerName !== employer) return { ok: false, error: "Job not found.", refund: 0 };
   if (job.status !== "open") return { ok: false, error: "Only open jobs can be cancelled.", refund: 0 };
+  // A previous worker may have partially delivered before abandoning — those
+  // items belong to the employer; deleting the job would destroy them.
+  if (job.itemsToCollect > 0) {
+    return { ok: false, error: "Collect the delivered items first, then cancel.", refund: 0 };
+  }
   jobs.delete(id);
   void deleteJobRow(id);
   return { ok: true, refund: job.rewardGold };

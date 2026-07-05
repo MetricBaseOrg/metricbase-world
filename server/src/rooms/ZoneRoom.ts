@@ -489,8 +489,13 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   private captureProgress = new Map<string, { guildId: string; progressMs: number }>();
   private contestedPoints = new Set<string>();
   private lastTerritoryIncomeAt = Date.now();
-  /** Castle Siege (Black zone only): King Crystal HP + last broadcast window state. */
-  private crystalHp = KING_CRYSTAL_MAX_HP;
+  /**
+   * Castle Siege (Black zone only): King Crystal HP + last broadcast window
+   * state. HP is STATIC so every Black Zone room instance (Colyseus spawns a
+   * second room when one fills) fights the same crystal — otherwise each room
+   * would have its own crystal and the prize could be won twice per window.
+   */
+  private static crystalHp = KING_CRYSTAL_MAX_HP;
   private siegeWasActive = false;
   private lastSiegeBroadcastAt = 0;
   /** Wallets with LIFETIME Black-zone access (one-time $BASE burn). DB-backed. */
@@ -2803,7 +2808,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     const window = getSiegeWindow(Date.now());
     return {
       active: window.active,
-      hp: this.crystalHp,
+      hp: ZoneRoom.crystalHp,
       maxHp: KING_CRYSTAL_MAX_HP,
       sovereignTag: guildTagById(getSovereign()),
       nextChangeAt: window.nextChangeAt,
@@ -2820,7 +2825,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     const player = this.state.players.get(client.sessionId);
     if (!player || player.spectator || this.isKnockedOut(player.name)) return;
     if (!getSiegeWindow(Date.now()).active) return;
-    if (this.crystalHp <= 0) return;
+    if (ZoneRoom.crystalHp <= 0) return;
 
     const guild = getGuildForMember(player.name);
     if (!guild) {
@@ -2847,10 +2852,10 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       critMult: stats.critMult,
       targetArmor: KING_CRYSTAL_ARMOR,
     });
-    this.crystalHp = Math.max(0, this.crystalHp - hit.damage);
+    ZoneRoom.crystalHp = Math.max(0, ZoneRoom.crystalHp - hit.damage);
     this.wearGear(client, player, ["weapon"]);
 
-    if (this.crystalHp <= 0) {
+    if (ZoneRoom.crystalHp <= 0) {
       // Crown the victor: prize into the guild bank + a world-wide announcement.
       setSovereign(guild.id);
       depositToBankById(guild.id, SIEGE_PRIZE);
@@ -2874,10 +2879,10 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       this.siegeWasActive = active;
       if (active) {
         // Fresh crystal at the start of every siege window.
-        this.crystalHp = KING_CRYSTAL_MAX_HP;
+        ZoneRoom.crystalHp = KING_CRYSTAL_MAX_HP;
         this.broadcastChat(this.systemChat("Castle Siege", "⚔️ The siege has begun — strike the King Crystal in the Obsidian Reach!"));
       } else {
-        this.crystalHp = KING_CRYSTAL_MAX_HP;
+        ZoneRoom.crystalHp = KING_CRYSTAL_MAX_HP;
         this.broadcastChat(this.systemChat("Castle Siege", "🛡️ The siege window has closed. The crystal is sealed again."));
       }
       this.broadcastSiegeState();

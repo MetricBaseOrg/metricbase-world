@@ -3,7 +3,7 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 import { playSfx } from "../audio/soundEffects";
 import { setUiTypingActive } from "../game/inputControl";
 import { networkManager } from "../game/network";
-import { useGameStore } from "../store/gameStore";
+import { isAnyPanelOpen, useGameStore } from "../store/gameStore";
 import { useMobileLayout } from "./useMobileLayout";
 import { renderMarkdown } from "./markdown";
 
@@ -125,6 +125,10 @@ export function ChatPanel() {
         {channelLabel}
       </button>
     ) : null;
+
+  // Hide the chat FAB while any panel is open so it never floats on top.
+  const panelOpen = useGameStore(isAnyPanelOpen);
+  if (mobileLayout && !open && panelOpen) return null;
 
   if (mobileLayout && !open) {
     return (
