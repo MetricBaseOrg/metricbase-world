@@ -194,6 +194,17 @@ export const STATS_PAGE_HTML = `<!doctype html>
       </div>
     </div>
     <div class="card wide" style="margin-top:14px">
+      <h2>🎣 Fish catches by rarity — per day (last 14 days)</h2>
+      <svg id="fishChart" viewBox="0 0 720 240" role="img" aria-label="Fish caught per day, split by rarity tier"></svg>
+      <div class="legend">
+        <span><span class="dot" style="background:#b1491c"></span>Common</span>
+        <span><span class="dot" style="background:#2f9e5e"></span>Uncommon</span>
+        <span><span class="dot" style="background:#2f74c0"></span>Rare</span>
+        <span><span class="dot" style="background:#b03a9e"></span>Epic</span>
+        <span><span class="dot" style="background:#b8860b"></span>Legendary</span>
+      </div>
+    </div>
+    <div class="card wide" style="margin-top:14px">
       <h2>📦 Lifetime activity totals</h2>
       <div class="tiles" id="totals"></div>
     </div>
@@ -390,6 +401,12 @@ async function load(){
       {name:"Sold",color:"#5a97e0",vals:series(daily,days,"sell.count")},
       {name:"Bought",color:"#d85f97",vals:series(daily,days,"buy.count")}]);
     lineChart(el("mktChart"),days,[{name:"Gold volume",color:"#5a97e0",vals:series(daily,days,"market.gold")}]);
+    lineChart(el("fishChart"),days,[
+      {name:"Common",color:"#b1491c",vals:series(daily,days,"fish.common")},
+      {name:"Uncommon",color:"#2f9e5e",vals:series(daily,days,"fish.uncommon")},
+      {name:"Rare",color:"#2f74c0",vals:series(daily,days,"fish.rare")},
+      {name:"Epic",color:"#b03a9e",vals:series(daily,days,"fish.epic")},
+      {name:"Legendary",color:"#b8860b",vals:series(daily,days,"fish.legendary")}]);
     lineChart(el("burnChart"),days,[{name:"$BASE burned",color:"#d85f97",vals:series(daily,days,"base.burned")}]);
     // Circulating gold trend: walk back from today's live supply using each
     // day's net flow (minted - burned) — honest reconstruction, no fabrication.
@@ -402,6 +419,8 @@ async function load(){
     })();
     var tiles=[["⚔️","Mobs defeated",a["mob.kills"]],["📜","Quests done",a["quest.completed"]],["🏆","PvP kills",a["pvp.kills"]],
       ["🧺","Gathered",a["gather.count"]],["🪵","Wood",a["gather.woodcutting"]],["⛏️","Ore",a["gather.mining"]],["🐟","Fish",a["gather.fishing"]],
+      ["🎣","Uncommon+ fish",(a["fish.uncommon"]||0)+(a["fish.rare"]||0)+(a["fish.epic"]||0)+(a["fish.legendary"]||0)],
+      ["✨","Rare fish",a["fish.rare"]],["💎","Epic fish",a["fish.epic"]],["🏆","Legendary fish",a["fish.legendary"]],
       ["🌾","Crops harvested",a["farm.harvest"]],["🔨","Crafted",a["craft.count"]],["💰","Sold to shop",a["sell.count"]],
       ["🛍️","Bought from shop",a["buy.count"]],["🧱","Assets placed",a["asset.placed"]],["📦","Assets bought",a["asset.bought"]],
       ["🔁","Assets traded",a["asset.sold"]],["🎟️","World passes sold",a["pass.sold"]],["🪙","Pass gold",a["pass.gold"]],

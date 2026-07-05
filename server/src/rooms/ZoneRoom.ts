@@ -6005,6 +6005,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
     bumpMetric("gather.count", lootQuantity);
     bumpMetric(`gather.${gather.skill}`, lootQuantity);
+    // Catch-by-rarity counters for the /stats fishing chart.
+    if (caughtSpecies) bumpMetric(`fish.${caughtSpecies.rarity}`, lootQuantity);
     this.bumpDaily(player.name, "gather", lootQuantity);
     this.tickJobProgress(player.name, "gather", lootQuantity);
 
