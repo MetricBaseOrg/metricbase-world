@@ -6,7 +6,14 @@
  */
 
 /** King Crystal total HP — guild-scale so a siege takes a coordinated push. */
-export const KING_CRYSTAL_MAX_HP = 5000;
+export const KING_CRYSTAL_MAX_HP = 75_000;
+
+/**
+ * Crystal armor (same diminishing-returns curve as players). At ARMOR_K=100
+ * this shaves ~37% off every hit, so gear quality genuinely matters and a
+ * lone endgame player can no longer finish inside a siege window.
+ */
+export const KING_CRYSTAL_ARMOR = 60;
 
 /** Gold prize paid into the victor guild's bank when the crystal falls. */
 export const SIEGE_PRIZE = 50_000;
@@ -19,8 +26,8 @@ export const SIEGE_ATTACK_RANGE = 96;
 
 // Siege schedule: the crystal is vulnerable for SIEGE_DURATION_MS at the start
 // of every SIEGE_PERIOD_MS window (epoch-aligned, so all rooms agree). Tunable.
-export const SIEGE_PERIOD_MS = 30 * 60 * 1000; // every 30 min
-export const SIEGE_DURATION_MS = 10 * 60 * 1000; // open for 10 min
+export const SIEGE_PERIOD_MS = 4 * 60 * 60 * 1000; // every 4 hours
+export const SIEGE_DURATION_MS = 15 * 60 * 1000; // open for 15 min
 
 export interface SiegeWindow {
   active: boolean;

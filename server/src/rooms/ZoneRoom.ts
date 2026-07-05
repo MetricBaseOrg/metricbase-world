@@ -114,6 +114,7 @@ import {
   TERRITORY_INCOME_INTERVAL_MS,
   type TerritoryStatePayload,
   type TerritoryPointState,
+  KING_CRYSTAL_ARMOR,
   KING_CRYSTAL_MAX_HP,
   SIEGE_PRIZE,
   KING_CRYSTAL_TILE,
@@ -2840,7 +2841,12 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     this.playerLastCombatAt.set(player.name, now);
 
     const stats = getEquipmentStats(normalizeEquipment(this.playerEquipment.get(player.name)));
-    const hit = rollHit({ attack: stats.attack, critChance: stats.critChance, critMult: stats.critMult, targetArmor: 0 });
+    const hit = rollHit({
+      attack: stats.attack,
+      critChance: stats.critChance,
+      critMult: stats.critMult,
+      targetArmor: KING_CRYSTAL_ARMOR,
+    });
     this.crystalHp = Math.max(0, this.crystalHp - hit.damage);
     this.wearGear(client, player, ["weapon"]);
 
