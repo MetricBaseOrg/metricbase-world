@@ -1,6 +1,8 @@
 import {
   getItemDefinition,
   getGearStat,
+  getFishSpecies,
+  FISH_RARITY_COLORS,
   RARITY_COLORS,
   ENHANCEABLE_SLOTS,
   MAX_ENHANCE_LEVEL,
@@ -687,7 +689,13 @@ export function InventoryPanel() {
                 {displayItems.map((entry) => {
                   const item = getItemDefinition(entry.itemId);
                   const gear = getGearStat(entry.itemId);
-                  const color = gear ? RARITY_COLORS[gear.rarity] : "var(--chibi-outline-light)";
+                  // Fish species tint their tile by catch rarity (commons stay plain).
+                  const fishSp = getFishSpecies(entry.itemId);
+                  const fishColor =
+                    fishSp && fishSp.rarity !== "common" ? FISH_RARITY_COLORS[fishSp.rarity] : undefined;
+                  const color = gear
+                    ? RARITY_COLORS[gear.rarity]
+                    : (fishColor ?? "var(--chibi-outline-light)");
                   const isEquipped = equippedItemIds.has(entry.itemId);
                   return (
                     <button
@@ -696,10 +704,10 @@ export function InventoryPanel() {
                       className={`chibi-itile${isEquipped ? " equipped" : ""}${selectedItem === entry.itemId ? " selected" : ""}`}
                       style={{
                         borderColor: color,
-                        // Rarity glow: gear pieces softly radiate their rarity colour.
-                        boxShadow: gear ? `0 0 8px ${color}66` : undefined,
+                        // Rarity glow: gear and uncommon+ fish softly radiate their rarity colour.
+                        boxShadow: gear || fishColor ? `0 0 8px ${color}66` : undefined,
                       }}
-                      title={`${item.name}${gear ? ` (${gear.rarity})` : ""} — double-click to ${item.kind === "consumable" ? "use" : "equip"}`}
+                      title={`${item.name}${gear ? ` (${gear.rarity})` : fishSp ? ` (${fishSp.rarity})` : ""} — double-click to ${item.kind === "consumable" ? "use" : "equip"}`}
                       disabled={pending}
                       onClick={() => onTileClick(entry.itemId)}
                       onDoubleClick={() => quickAct(entry.itemId)}
@@ -727,7 +735,12 @@ export function InventoryPanel() {
                 if (!entry) return null;
                 const item = getItemDefinition(entry.itemId);
                 const gear = getGearStat(entry.itemId);
-                const rarityColor = gear ? RARITY_COLORS[gear.rarity] : undefined;
+                const fishSp = getFishSpecies(entry.itemId);
+                const rarityColor = gear
+                  ? RARITY_COLORS[gear.rarity]
+                  : fishSp && fishSp.rarity !== "common"
+                    ? FISH_RARITY_COLORS[fishSp.rarity]
+                    : undefined;
                 const isEquipped = equippedItemIds.has(entry.itemId);
                 const cmp = compareRows(entry.itemId);
                 const equippedSlot = (equipment?.slots ?? []).find((s) => s.itemId === entry.itemId)?.slot;
@@ -748,6 +761,11 @@ export function InventoryPanel() {
                           {gear && (
                             <span className="chibi-rarity-chip" style={{ color: rarityColor }}>
                               {gear.rarity}
+                            </span>
+                          )}
+                          {!gear && fishSp && fishSp.rarity !== "common" && (
+                            <span className="chibi-rarity-chip" style={{ color: rarityColor }}>
+                              {fishSp.rarity}
                             </span>
                           )}
                         </div>
