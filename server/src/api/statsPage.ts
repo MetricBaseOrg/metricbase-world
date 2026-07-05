@@ -147,6 +147,11 @@ export const STATS_PAGE_HTML = `<!doctype html>
       <div class="card"><h2>💎 $BASE held by players</h2><div class="big gold" id="baseHeld">—</div><div class="sub"><span id="baseHolders">—</span> bonded player wallets holding $BASE</div></div>
       <div class="card"><h2>🕳️ Burn sinks</h2><div id="burnSinks"></div></div>
     </div>
+    <div class="card wide" style="margin-top:14px">
+      <h2>🔥 $BASE burned per day (last 14 days)</h2>
+      <svg id="burnChart" viewBox="0 0 720 220" role="img" aria-label="$BASE tokens burned per day"></svg>
+      <div class="legend"><span><span class="dot" style="background:var(--burn)"></span>$BASE burned by in-game sinks (passes, World &amp; bag expansions)</span></div>
+    </div>
   </section>
 
   <section id="economy">
@@ -158,6 +163,11 @@ export const STATS_PAGE_HTML = `<!doctype html>
         <span><span class="dot" style="background:var(--mint)"></span>Minted (gathered→sold, mobs, quests)</span>
         <span><span class="dot" style="background:var(--burn)"></span>Burned (shop, forge, Worlds, treasury)</span>
       </div>
+    </div>
+    <div class="card wide" style="margin-top:14px">
+      <h2>🪙 Circulating gold supply (last 14 days)</h2>
+      <svg id="supplyChart" viewBox="0 0 720 220" role="img" aria-label="Circulating gold supply per day"></svg>
+      <div class="legend"><span><span class="dot" style="background:var(--gold)"></span>Total gold held by players (reconstructed from daily mint/burn flow)</span></div>
     </div>
     <div class="card wide" style="margin-top:14px">
       <h2>💹 $BASE gold-market volume (last 14 days)</h2>
@@ -380,6 +390,16 @@ async function load(){
       {name:"Sold",color:"#5a97e0",vals:series(daily,days,"sell.count")},
       {name:"Bought",color:"#d85f97",vals:series(daily,days,"buy.count")}]);
     lineChart(el("mktChart"),days,[{name:"Gold volume",color:"#5a97e0",vals:series(daily,days,"market.gold")}]);
+    lineChart(el("burnChart"),days,[{name:"$BASE burned",color:"#d85f97",vals:series(daily,days,"base.burned")}]);
+    // Circulating gold trend: walk back from today's live supply using each
+    // day's net flow (minted - burned) — honest reconstruction, no fabrication.
+    (function(){
+      var minted=series(daily,days,"gold.minted"),burned=series(daily,days,"gold.burned");
+      var supply=new Array(days.length);
+      supply[days.length-1]=s.players.circulatingGold||0;
+      for(var i=days.length-1;i>0;i--){supply[i-1]=Math.max(0,supply[i]-((minted[i]||0)-(burned[i]||0)));}
+      lineChart(el("supplyChart"),days,[{name:"Circulating gold",color:"#e0a92e",vals:supply}]);
+    })();
     var tiles=[["⚔️","Mobs defeated",a["mob.kills"]],["📜","Quests done",a["quest.completed"]],["🏆","PvP kills",a["pvp.kills"]],
       ["🧺","Gathered",a["gather.count"]],["🪵","Wood",a["gather.woodcutting"]],["⛏️","Ore",a["gather.mining"]],["🐟","Fish",a["gather.fishing"]],
       ["🌾","Crops harvested",a["farm.harvest"]],["🔨","Crafted",a["craft.count"]],["💰","Sold to shop",a["sell.count"]],
