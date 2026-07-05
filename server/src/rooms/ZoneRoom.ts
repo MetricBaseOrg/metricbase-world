@@ -169,6 +169,7 @@ import {
   getToolYieldBonus,
   rollRareGatherDrop,
   rollFishSpecies,
+  FISHING_CAST_GOLD,
   fishWatersForLoot,
   type FishSpecies,
   type PlayerEquipment,
@@ -5801,6 +5802,29 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       return;
     }
 
+    // Bait money: every cast burns a little gold, win or lose (FISHING_CAST_GOLD).
+    if (gather.skill === "fishing" && FISHING_CAST_GOLD > 0) {
+      const gold = this.playerGold.get(player.name) ?? STARTING_GOLD;
+      if (gold < FISHING_CAST_GOLD) {
+        client.send("chopResult", {
+          resourceId,
+          available: true,
+          depleted: false,
+          skillXpGained: 0,
+          woodcuttingLevel: skillLevel,
+          skill: gather.skill,
+          skillLevel,
+          ok: false,
+          error: `You need ${FISHING_CAST_GOLD}g of bait to cast. Sell a catch or two to Pip first.`,
+        });
+        return;
+      }
+      this.playerGold.set(player.name, gold - FISHING_CAST_GOLD);
+      burnGold(FISHING_CAST_GOLD);
+      bumpMetric("fishing.bait.gold", FISHING_CAST_GOLD);
+      this.sendProfile(client, player);
+    }
+
     // Working in the dark is slow — unless you carry a lamp.
     const darkPenalty = gatherDurationMultiplier(now, player.lampOn);
     if (darkPenalty > 1.01) this.notifyDark(client, player.name);
@@ -5917,6 +5941,20 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     this.activeChopSessions.delete(sessionId);
     if (this.resourceChopper.get(session.resourceId) === sessionId) {
       this.resourceChopper.delete(session.resourceId);
+    }
+
+    // An escaped fish still cost the cast: the energy is spent either way
+    // (movement/zone cancels stay free — only a played-out escape drains).
+    if (reason === "escaped") {
+      const player = this.state.players.get(sessionId);
+      if (player) {
+        this.playerStamina.set(
+          player.name,
+          clampStamina((this.playerStamina.get(player.name) ?? STARTING_STAMINA) - STAMINA_COST_GATHER),
+        );
+        const client = this.clients.find((entry) => entry.sessionId === sessionId);
+        if (client) this.sendProfile(client, player);
+      }
     }
 
     this.broadcast("chopCancel", {

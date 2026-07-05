@@ -28,6 +28,11 @@ export type SfxType =
   | "fish_cast"
   | "fish_splash"
   | "fish_catch"
+  | "fish_bite"
+  | "fish_reel_hit"
+  | "fish_line_strain"
+  | "fish_escape"
+  | "fish_fanfare"
   | "hover"
   | "respawn"
   | "notify"
@@ -224,6 +229,36 @@ export function playSfx(type: SfxType): void {
       playTone(ctx, masterGain, now, 660, "sine", 0.06, 0.18);
       playTone(ctx, masterGain, now + 0.08, 880, "sine", 0.06, 0.18);
       playTone(ctx, masterGain, now + 0.16, 1108, "triangle", 0.12, 0.2);
+      break;
+    case "fish_bite":
+      // Urgent double ping — the ❗ moment.
+      playTone(ctx, masterGain, now, 880, "square", 0.05, 0.14);
+      playTone(ctx, masterGain, now + 0.08, 1175, "square", 0.07, 0.16);
+      playNoiseBurst(ctx, masterGain, now, 0.06, 0.05);
+      break;
+    case "fish_reel_hit":
+      // Cheerful plink + droplet for a tap inside the green zone.
+      playTone(ctx, masterGain, now, 740, "triangle", 0.05, 0.16);
+      playTone(ctx, masterGain, now + 0.05, 988, "sine", 0.08, 0.14);
+      playNoiseBurst(ctx, masterGain, now + 0.01, 0.05, 0.05);
+      break;
+    case "fish_line_strain":
+      // Tense creak when a tap misses and the line takes strain.
+      playSweep(ctx, masterGain, now, 300, 140, 0.16, "sawtooth", 0.09);
+      playNoiseBurst(ctx, masterGain, now + 0.02, 0.08, 0.06);
+      break;
+    case "fish_escape":
+      // Sad slide + splash as the fish flees.
+      playSweep(ctx, masterGain, now, 520, 170, 0.3, "sine", 0.12);
+      playNoiseBurst(ctx, masterGain, now + 0.1, 0.16, 0.09);
+      break;
+    case "fish_fanfare":
+      // Rare-and-better celebration arpeggio.
+      playTone(ctx, masterGain, now, 523, "triangle", 0.09, 0.16);
+      playTone(ctx, masterGain, now + 0.1, 659, "triangle", 0.09, 0.16);
+      playTone(ctx, masterGain, now + 0.2, 784, "triangle", 0.09, 0.18);
+      playTone(ctx, masterGain, now + 0.3, 1047, "sine", 0.22, 0.2);
+      playTone(ctx, masterGain, now + 0.42, 1319, "sine", 0.16, 0.12);
       break;
     case "hover":
       playTone(ctx, masterGain, now, 1200, "triangle", 0.02, 0.05);

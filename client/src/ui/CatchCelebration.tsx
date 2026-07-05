@@ -1,5 +1,6 @@
 import { FISH_RARITY_COLORS, getFishSpecies, type FishRarity } from "@metricbase/shared";
 import { useEffect, useState } from "react";
+import { playSfx } from "../audio/soundEffects";
 import { useGameStore } from "../store/gameStore";
 
 /**
@@ -48,6 +49,7 @@ export function CatchCelebration() {
     setArtFailed(false);
     const species = getFishSpecies(lastCatch.itemId);
     const rarity = (species?.rarity ?? "common") as FishRarity;
+    if (rarity === "rare" || rarity === "epic" || rarity === "legendary") playSfx("fish_fanfare");
     const t = window.setTimeout(
       () => useGameStore.getState().setLastCatch(null),
       LINGER_MS[rarity],

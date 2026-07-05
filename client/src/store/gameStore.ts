@@ -70,6 +70,8 @@ interface GameStore {
   fishing: { resourceId: string; endsAt: number } | null;
   /** Last landed fish (drives the catch celebration overlay). */
   lastCatch: { itemId: string; rarity: string; quantity: number; at: number } | null;
+  /** One-shot fishing moments the game scene animates (bite ❗, splashes…). */
+  fishingFx: { type: "bite" | "hit" | "catch" | "escape"; at: number } | null;
   /** True while the player is actively editing a World (hides gameplay HUD). */
   worldEditing: boolean;
   housingOpen: boolean;
@@ -141,6 +143,7 @@ interface GameStore {
   setSettingsOpen: (open: boolean) => void;
   setFishing: (fishing: { resourceId: string; endsAt: number } | null) => void;
   setLastCatch: (c: { itemId: string; rarity: string; quantity: number; at: number } | null) => void;
+  setFishingFx: (fx: { type: "bite" | "hit" | "catch" | "escape"; at: number } | null) => void;
   setWorldEditing: (editing: boolean) => void;
   openHousing: (plotId: string) => void;
   setHousingOpen: (open: boolean) => void;
@@ -234,6 +237,7 @@ export const useGameStore = create<GameStore>((set) => ({
   settingsOpen: false,
   fishing: null,
   lastCatch: null,
+  fishingFx: null,
   worldEditing: false,
   housingOpen: false,
   housingPlotId: null,
@@ -338,6 +342,7 @@ export const useGameStore = create<GameStore>((set) => ({
   setSettingsOpen: (settingsOpen) => set({ settingsOpen }),
   setFishing: (fishing) => set({ fishing }),
   setLastCatch: (lastCatch) => set({ lastCatch }),
+  setFishingFx: (fishingFx) => set({ fishingFx }),
   setWorldEditing: (worldEditing) => set({ worldEditing }),
   openHousing: (housingPlotId) =>
     set({ housingPlotId, housingOpen: true, inventoryOpen: false, craftOpen: false }),

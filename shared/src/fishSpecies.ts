@@ -20,6 +20,13 @@ export interface FishSpecies {
   art: string;
 }
 
+/**
+ * Bait money: every cast costs this much gold, charged when the line goes in
+ * (landed or escaped — the bait is spent either way). A small gold sink that
+ * balances the rare-fish jackpots. Tune here.
+ */
+export const FISHING_CAST_GOLD = 2;
+
 /** Base roll weights per rarity (relative, sum needn't be 100). */
 export const FISH_RARITY_WEIGHTS: Record<FishRarity, number> = {
   common: 66,

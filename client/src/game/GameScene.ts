@@ -634,6 +634,16 @@ export class GameScene extends Phaser.Scene {
       if (emote) this.showEmote(payload.playerName, emote.emoji);
     });
 
+    // Fishing minigame moments (from the React card): ❗ bubble on the bite,
+    // splash ripples at the spot on reel hits, a big splash + 🎉 on the catch.
+    let lastFishingFxAt = 0;
+    const unsubscribeFishingFx = useGameStore.subscribe((state) => {
+      const fx = state.fishingFx;
+      if (!fx || fx.at === lastFishingFxAt) return;
+      lastFishingFxAt = fx.at;
+      this.playFishingFx(fx.type);
+    });
+
     const unsubscribeWorldStats = networkManager.onWorldStats((payload) => {
       this.applyWorldStats(payload);
     });
@@ -759,6 +769,7 @@ export class GameScene extends Phaser.Scene {
       unsubscribeFarmResult();
       unsubscribeHousingState();
       unsubscribeEmote();
+      unsubscribeFishingFx();
       unsubscribeWorldStats();
       unsubscribeLootBags();
       unsubscribeAdServing();
@@ -2993,6 +3004,51 @@ export class GameScene extends Phaser.Scene {
       if (rendered.name === playerName) return rendered;
     }
     return null;
+  }
+
+  /** Animate a fishing-minigame moment for the local player. */
+  private playFishingFx(type: "bite" | "hit" | "catch" | "escape") {
+    const store = useGameStore.getState();
+    const localName = store.playerName;
+    if (!localName) return;
+    if (type === "bite") this.showEmote(localName, "❗");
+    if (type === "catch") this.showEmote(localName, "🎉");
+    if (type === "escape") this.showEmote(localName, "💨");
+    const resourceId = store.fishing?.resourceId;
+    const spot = resourceId ? this.renderedResources.find((entry) => entry.id === resourceId) : undefined;
+    if (spot) this.splashAt(spot.worldX, spot.worldY, type === "catch" ? "big" : type === "escape" ? "big" : "small");
+  }
+
+  /** Water splash at a fishing spot: an expanding ripple ring + droplets. */
+  private splashAt(x: number, y: number, size: "small" | "big") {
+    const big = size === "big";
+    const ring = this.add
+      .circle(x, y, big ? 8 : 5)
+      .setStrokeStyle(2, 0x9bd4f5, 0.9)
+      .setFillStyle(0x9bd4f5, 0.12)
+      .setDepth(y + 12);
+    this.tweens.add({
+      targets: ring,
+      scale: big ? 3.2 : 2.1,
+      alpha: 0,
+      duration: big ? 520 : 380,
+      ease: "Cubic.easeOut",
+      onComplete: () => ring.destroy(),
+    });
+    const drops = big ? 8 : 4;
+    for (let i = 0; i < drops; i++) {
+      const drop = this.add.circle(x, y - 2, big ? 3 : 2.2, 0x9bd4f5, 0.95).setDepth(y + 12);
+      this.tweens.add({
+        targets: drop,
+        x: x + (Math.random() * 44 - 22),
+        y: y - 16 - Math.random() * (big ? 30 : 18),
+        alpha: 0,
+        scale: 0.5,
+        duration: 340 + Math.random() * 200,
+        ease: "Cubic.easeOut",
+        onComplete: () => drop.destroy(),
+      });
+    }
   }
 
   private showEmote(playerName: string, emoji: string) {

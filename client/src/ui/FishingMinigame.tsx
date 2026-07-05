@@ -33,6 +33,11 @@ const HITS_NEEDED = 3;
 const STRIKES_ALLOWED = 2;
 const BITE_WINDOW_MS = 1000;
 
+/** Tell the game scene to animate a fishing moment (❗ bubble, splashes). */
+function emitFishingFx(type: "bite" | "hit" | "catch" | "escape") {
+  useGameStore.getState().setFishingFx({ type, at: Date.now() });
+}
+
 /** Green-zone width (% of the bar) from gear + weather. */
 function zoneWidth(toolId: string | null): number {
   let w = 26;
@@ -83,8 +88,9 @@ export function FishingMinigame() {
     const id = resourceIdRef.current;
     clearTimers();
     setPhaseBoth(success ? "caught" : "escaped");
+    emitFishingFx(success ? "catch" : "escape");
     if (id) networkManager.sendFishingResolve(id, success);
-    playSfx(success ? "harvest" : "shop_fail");
+    playSfx(success ? "harvest" : "fish_escape");
     // The server's chopResult/chopCancel clears store.fishing; this is a local
     // fallback so the card never lingers.
     window.setTimeout(() => useGameStore.getState().setFishing(null), 1400);
@@ -95,7 +101,8 @@ export function FishingMinigame() {
     if (timer.current !== null) window.clearTimeout(timer.current);
     timer.current = window.setTimeout(() => {
       setPhaseBoth("bite");
-      playSfx("fish_splash");
+      playSfx("fish_bite");
+      emitFishingFx("bite");
       timer.current = window.setTimeout(() => resolve(false), BITE_WINDOW_MS);
     }, 900 + Math.random() * 1700);
   };
@@ -143,7 +150,8 @@ export function FishingMinigame() {
         const nextHits = hitsRef.current + 1;
         hitsRef.current = nextHits;
         setHits(nextHits);
-        playSfx("fish_splash");
+        playSfx("fish_reel_hit");
+        emitFishingFx("hit");
         if (nextHits >= HITS_NEEDED) {
           resolve(true);
           return;
@@ -159,7 +167,7 @@ export function FishingMinigame() {
         const nextStrikes = strikesRef.current + 1;
         strikesRef.current = nextStrikes;
         setStrikes(nextStrikes);
-        playSfx("shop_fail");
+        playSfx("fish_line_strain");
         setFlash("💢 Line strains!");
         window.setTimeout(() => setFlash(null), 600);
         if (nextStrikes >= STRIKES_ALLOWED) resolve(false);
