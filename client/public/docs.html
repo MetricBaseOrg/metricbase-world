@@ -159,6 +159,15 @@
       td { color: var(--ink-soft); }
       tr:last-child td { border-bottom: none; }
 
+      /* Fish species gallery + dish art (uses the in-game PNGs) */
+      .fishgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(146px, 1fr)); gap: 12px; margin: 14px 0; }
+      .fishcard { background: var(--card); border: 2px solid var(--line); border-radius: 14px; padding: 12px 10px 10px; text-align: center; }
+      .fishcard img { width: 72px; height: 72px; object-fit: contain; display: block; margin: 0 auto 6px; }
+      .fishcard .fname { font-weight: 800; font-size: 0.86rem; line-height: 1.3; color: var(--ink); }
+      .fishcard .fmeta { font-size: 0.74rem; color: var(--ink-soft); margin-top: 2px; }
+      .raritychip { display: inline-block; font-size: 0.64rem; font-weight: 800; letter-spacing: 0.4px; text-transform: uppercase; color: #fff; border-radius: 999px; padding: 1px 8px; margin-top: 6px; }
+      td img.dishart { width: 42px; height: 42px; object-fit: contain; vertical-align: middle; margin-right: 8px; }
+
       .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-top: 12px; }
       .mini {
         background: #f6fbfe;
@@ -348,7 +357,7 @@
           <tr><th>Skill</th><th>Node</th><th>Key</th><th>Yields</th></tr>
           <tr><td>Woodcutting</td><td>Trees</td><td><span class="kbd">F</span></td><td>Wood, Hardwood</td></tr>
           <tr><td>Mining</td><td>Rocks &amp; deposits</td><td><span class="kbd">F</span></td><td>Copper Ore, Iron Ore</td></tr>
-          <tr><td>Fishing</td><td>Fishing spots (on water)</td><td><span class="kbd">G</span></td><td>River Fish, Prized Salmon</td></tr>
+          <tr><td>Fishing</td><td>Fishing spots (on water)</td><td><span class="kbd">G</span></td><td>12 fish species across 5 rarities</td></tr>
         </table>
         <h3>Tiers &amp; requirements</h3>
         <p>Higher-tier nodes need a higher skill level — e.g. <strong>Iron Deposits</strong> and
@@ -375,22 +384,46 @@
         <h3>🐠 Fish rarity</h3>
         <p>Every landed fish rolls <strong>which species</strong> it is. Most catches are the
         common River Fish or Prized Salmon, but rarer species surface too — and they sell to Pip
-        for far more:</p>
+        for far more. A <strong>Lucky Lure</strong> and <strong>rain</strong> both tilt the odds
+        toward rarer species, and rare-and-better catches are announced to the whole zone.</p>
+        <h4 style="margin:14px 0 0">🏞️ River &amp; lake waters</h4>
+        <div class="fishgrid">
+          <div class="fishcard"><img src="/assets/fish/river-fish.png" alt="River Fish" loading="lazy" /><div class="fname">River Fish</div><div class="fmeta">sells 8g</div><span class="raritychip" style="background:#7b8894">Common</span></div>
+          <div class="fishcard"><img src="/assets/fish/bluegill.png" alt="Bluegill" loading="lazy" /><div class="fname">Bluegill</div><div class="fmeta">sells 9g</div><span class="raritychip" style="background:#7b8894">Common</span></div>
+          <div class="fishcard"><img src="/assets/fish/carp.png" alt="Striped Carp" loading="lazy" /><div class="fname">Striped Carp</div><div class="fmeta">sells 22g</div><span class="raritychip" style="background:#2f9e5e">Uncommon</span></div>
+          <div class="fishcard"><img src="/assets/fish/catfish.png" alt="Whiskered Catfish" loading="lazy" /><div class="fname">Whiskered Catfish</div><div class="fmeta">sells 26g</div><span class="raritychip" style="background:#2f9e5e">Uncommon</span></div>
+          <div class="fishcard"><img src="/assets/fish/golden-trout.png" alt="Golden Trout" loading="lazy" /><div class="fname">Golden Trout</div><div class="fmeta">sells 85g</div><span class="raritychip" style="background:#2f74c0">Rare</span></div>
+          <div class="fishcard"><img src="/assets/fish/crystal-koi.png" alt="Crystal Koi" loading="lazy" /><div class="fname">Crystal Koi</div><div class="fmeta">sells 280g</div><span class="raritychip" style="background:#8a44c8">Epic</span></div>
+          <div class="fishcard"><img src="/assets/fish/ancient-sturgeon.png" alt="Ancient Sturgeon" loading="lazy" /><div class="fname">Ancient Sturgeon</div><div class="fmeta">sells 1,400g</div><span class="raritychip" style="background:#b8860b">Legendary</span></div>
+        </div>
+        <h4 style="margin:14px 0 0">🌊 Deep waters (Wilderness &amp; Grotto)</h4>
+        <div class="fishgrid">
+          <div class="fishcard"><img src="/assets/fish/salmon.png" alt="Prized Salmon" loading="lazy" /><div class="fname">Prized Salmon</div><div class="fmeta">sells 16g</div><span class="raritychip" style="background:#7b8894">Common</span></div>
+          <div class="fishcard"><img src="/assets/fish/silver-pike.png" alt="Silver Pike" loading="lazy" /><div class="fname">Silver Pike</div><div class="fmeta">sells 40g</div><span class="raritychip" style="background:#2f9e5e">Uncommon</span></div>
+          <div class="fishcard"><img src="/assets/fish/ghostfin-eel.png" alt="Ghostfin Eel" loading="lazy" /><div class="fname">Ghostfin Eel</div><div class="fmeta">sells 130g</div><span class="raritychip" style="background:#2f74c0">Rare</span></div>
+          <div class="fishcard"><img src="/assets/fish/stormray.png" alt="Stormray" loading="lazy" /><div class="fname">Stormray</div><div class="fmeta">sells 420g</div><span class="raritychip" style="background:#8a44c8">Epic</span></div>
+          <div class="fishcard"><img src="/assets/fish/abyssal-leviathan.png" alt="Abyssal Leviathan" loading="lazy" /><div class="fname">Abyssal Leviathan</div><div class="fmeta">sells 2,000g</div><span class="raritychip" style="background:#b8860b">Legendary</span></div>
+        </div>
+        <h3>🍳 Every species cooks</h3>
+        <p>Take your catch to a workbench: each fish grills into its <strong>own dish</strong>, and
+        the rarer the fish, the mightier the meal. Epic-and-better dishes fully restore your
+        energy — so decide: sell the trophy to Pip, or eat like a legend before a long Wilderness
+        run.</p>
         <table>
-          <tr><th>Rarity</th><th>River &amp; lake waters</th><th>Deep waters (Wilderness/Grotto)</th></tr>
-          <tr><td>Common</td><td>River Fish (8g) · Bluegill (9g)</td><td>Prized Salmon (16g)</td></tr>
-          <tr><td style="color:#4bc07f"><strong>Uncommon</strong></td><td>Striped Carp (22g) · Whiskered Catfish (26g)</td><td>Silver Pike (40g)</td></tr>
-          <tr><td style="color:#4a9de8"><strong>Rare</strong></td><td>Golden Trout (85g)</td><td>Ghostfin Eel (130g)</td></tr>
-          <tr><td style="color:#a55ce8"><strong>Epic</strong></td><td>Crystal Koi (280g)</td><td>Stormray (420g)</td></tr>
-          <tr><td style="color:#f3b53a"><strong>Legendary</strong></td><td>Ancient Sturgeon (1,400g)</td><td>Abyssal Leviathan (2,000g)</td></tr>
+          <tr><th>Dish</th><th>Restores</th><th>Cooked from</th></tr>
+          <tr><td><img class="dishart" src="/assets/fish/dish-river-fish.png" alt="" loading="lazy" />Cooked Fish</td><td>+40 HP · +35 ⚡</td><td>River Fish</td></tr>
+          <tr><td><img class="dishart" src="/assets/fish/dish-bluegill.png" alt="" loading="lazy" />Pan-Seared Bluegill</td><td>+45 HP · +40 ⚡</td><td>Bluegill</td></tr>
+          <tr><td><img class="dishart" src="/assets/fish/dish-salmon.png" alt="" loading="lazy" />Grilled Salmon</td><td>+60 HP · +55 ⚡</td><td>Prized Salmon</td></tr>
+          <tr><td><img class="dishart" src="/assets/fish/dish-carp.png" alt="" loading="lazy" />Hearty Carp Stew</td><td>+60 HP · +55 ⚡</td><td>Striped Carp</td></tr>
+          <tr><td><img class="dishart" src="/assets/fish/dish-catfish.png" alt="" loading="lazy" />Crispy Catfish Fry</td><td>+70 HP · +60 ⚡</td><td>Whiskered Catfish</td></tr>
+          <tr><td><img class="dishart" src="/assets/fish/dish-silver-pike.png" alt="" loading="lazy" />Grilled Pike Skewer</td><td>+85 HP · +65 ⚡</td><td>Silver Pike</td></tr>
+          <tr><td><img class="dishart" src="/assets/fish/dish-golden-trout.png" alt="" loading="lazy" />Golden Trout Fillet</td><td>+110 HP · +80 ⚡</td><td>Golden Trout</td></tr>
+          <tr><td><img class="dishart" src="/assets/fish/dish-ghostfin-eel.png" alt="" loading="lazy" />Smoked Ghostfin Eel</td><td>+130 HP · +90 ⚡</td><td>Ghostfin Eel</td></tr>
+          <tr><td><img class="dishart" src="/assets/fish/dish-crystal-koi.png" alt="" loading="lazy" />Crystal Koi Sashimi</td><td>+150 HP · full ⚡</td><td>Crystal Koi</td></tr>
+          <tr><td><img class="dishart" src="/assets/fish/dish-stormray.png" alt="" loading="lazy" />Charged Stormray Steak</td><td>+170 HP · full ⚡</td><td>Stormray</td></tr>
+          <tr><td><img class="dishart" src="/assets/fish/dish-ancient-sturgeon.png" alt="" loading="lazy" />Ancient Sturgeon Roast</td><td>+220 HP · full ⚡</td><td>Ancient Sturgeon</td></tr>
+          <tr><td><img class="dishart" src="/assets/fish/dish-abyssal-leviathan.png" alt="" loading="lazy" />Leviathan Feast</td><td>+260 HP · full ⚡</td><td>Abyssal Leviathan</td></tr>
         </table>
-        <p>A <strong>Lucky Lure</strong> and <strong>rain</strong> both tilt the odds toward rarer
-        species. Rare-and-better catches are announced to the whole zone — make them jealous.</p>
-        <p><strong>🍳 Every species cooks.</strong> Take your catch to a workbench: each fish grills
-        into its own dish, and the rarer the fish, the mightier the meal — from a Pan-Seared
-        Bluegill (+45 HP, +40 energy) up to the <strong>Leviathan Feast</strong> (+260 HP, full
-        energy). Epic-and-better dishes fully restore your energy, so decide: sell the trophy to
-        Pip, or eat like a legend before a long Wilderness run.</p>
         <div class="callout">🍗 <strong>Mind your Energy!</strong> Gathering, fighting, and farming
         all burn energy (the 🍗 gauge on your HUD). Run out and you'll be <em>too hungry to work</em>
         until you eat. Keep cooked food on hand — see <a href="#food">Energy &amp; Food</a>.</div>
@@ -439,8 +472,9 @@
         <table>
           <tr><th>Food</th><th>Restores</th><th>Get it by</th></tr>
           <tr><td>Bread</td><td>+30 HP, +25 energy</td><td>Baking wheat, or buying from Pip (8g)</td></tr>
-          <tr><td>Cooked Fish</td><td>+40 HP, +35 energy</td><td>Cooking River Fish</td></tr>
-          <tr><td>Grilled Salmon</td><td>+60 HP, +55 energy</td><td>Grilling Prized Salmon</td></tr>
+          <tr><td><img class="dishart" src="/assets/fish/dish-river-fish.png" alt="" loading="lazy" />Cooked Fish</td><td>+40 HP, +35 energy</td><td>Cooking River Fish</td></tr>
+          <tr><td><img class="dishart" src="/assets/fish/dish-salmon.png" alt="" loading="lazy" />Grilled Salmon</td><td>+60 HP, +55 energy</td><td>Grilling Prized Salmon</td></tr>
+          <tr><td><img class="dishart" src="/assets/fish/dish-abyssal-leviathan.png" alt="" loading="lazy" />Fish dishes ×10</td><td>up to +260 HP, full energy</td><td>Cooking rarer species — see <a href="#gather">Fishing</a></td></tr>
         </table>
         <div class="callout leaf">A slow trickle of energy returns over time, so you'll never be
         permanently stuck — but food is far faster, so a well-fed adventurer always out-works a
