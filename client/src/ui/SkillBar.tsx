@@ -16,6 +16,16 @@ const CONSUMABLE_ICONS: Record<string, string> = {
   item_bread: "🍞",
   item_cooked_fish: "🐟",
   item_grilled_salmon: "🍣",
+  item_seared_bluegill: "🍳",
+  item_carp_stew: "🍲",
+  item_catfish_fry: "🍤",
+  item_golden_fillet: "🥮",
+  item_koi_sashimi: "🍣",
+  item_sturgeon_roast: "🍖",
+  item_pike_skewer: "🍢",
+  item_smoked_eel: "🍱",
+  item_stormray_steak: "🥩",
+  item_leviathan_feast: "🍽️",
 };
 
 /**

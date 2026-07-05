@@ -638,6 +638,17 @@ const ITEM_ART: Record<string, [Shape, keyof typeof MATS | "auto"]> = {
   item_bread: [bread, "amber"],
   item_cooked_fish: [fishCooked, "blue"],
   item_grilled_salmon: [fishCooked, "pink"],
+  // fish dishes (canvas fallback until dish art is dropped)
+  item_seared_bluegill: [fishCooked, "steel"],
+  item_carp_stew: [fishCooked, "amber"],
+  item_catfish_fry: [fishCooked, "cloth"],
+  item_golden_fillet: [fishCooked, "gold"],
+  item_koi_sashimi: [fishCooked, "gem"],
+  item_sturgeon_roast: [fishCooked, "purple"],
+  item_pike_skewer: [fishCooked, "iron"],
+  item_smoked_eel: [fishCooked, "white"],
+  item_stormray_steak: [fishCooked, "purple"],
+  item_leviathan_feast: [fishCooked, "red"],
   item_lamp_oil: [bottle, "amber"],
   // raw resources
   item_wood: [log, "wood"],

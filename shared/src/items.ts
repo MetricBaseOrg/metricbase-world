@@ -1,3 +1,5 @@
+import { FISH_DISHES } from "./fishSpecies.js";
+
 export type ItemKind = "material" | "consumable" | "weapon" | "tool" | "armor" | "mount" | "pet";
 
 export interface ItemDefinition {
@@ -682,6 +684,20 @@ export const CONSUMABLE_HEAL: Record<string, number> = {
   item_bread: 30,
   item_grilled_salmon: 60,
 };
+
+// Fish dishes: items + heal values generated from the FISH_DISHES table
+// (fishSpecies.ts) so cooking stays tunable in one place.
+for (const dish of FISH_DISHES) {
+  ITEMS[dish.itemId] = {
+    id: dish.itemId,
+    name: dish.name,
+    description: `${dish.description} Restores ${dish.hp} HP and ${dish.stamina} energy.`,
+    stackable: true,
+    maxStack: 99,
+    kind: "consumable",
+  };
+  CONSUMABLE_HEAL[dish.itemId] = dish.hp;
+}
 
 export function getConsumableHeal(itemId: string): number {
   return CONSUMABLE_HEAL[itemId] ?? 0;

@@ -20,3 +20,25 @@ so missing art never breaks anything. Exact filenames:
 | `abyssal-leviathan.png` | Abyssal Leviathan | Legendary | Deep |
 
 Species/rarity table lives in `shared/src/fishSpecies.ts`.
+
+## Dish art (cooked meals)
+
+Same rules (transparent PNG ~256×256, plated dish / bowl / skewer look).
+Canvas-drawn fallback shows until each file lands:
+
+| File | Dish | From |
+|---|---|---|
+| `dish-river-fish.png` | Cooked Fish | River Fish |
+| `dish-bluegill.png` | Pan-Seared Bluegill | Bluegill |
+| `dish-carp.png` | Hearty Carp Stew | Striped Carp |
+| `dish-catfish.png` | Crispy Catfish Fry | Whiskered Catfish |
+| `dish-golden-trout.png` | Golden Trout Fillet | Golden Trout |
+| `dish-crystal-koi.png` | Crystal Koi Sashimi | Crystal Koi |
+| `dish-ancient-sturgeon.png` | Ancient Sturgeon Roast | Ancient Sturgeon |
+| `dish-salmon.png` | Grilled Salmon | Prized Salmon |
+| `dish-silver-pike.png` | Grilled Pike Skewer | Silver Pike |
+| `dish-ghostfin-eel.png` | Smoked Ghostfin Eel | Ghostfin Eel |
+| `dish-stormray.png` | Charged Stormray Steak | Stormray |
+| `dish-abyssal-leviathan.png` | Leviathan Feast | Abyssal Leviathan |
+
+Dish stats/recipes live in `FISH_DISHES` in `shared/src/fishSpecies.ts`.

@@ -1,4 +1,4 @@
-import { getFishSpecies } from "@metricbase/shared";
+import { getFishDishArt, getFishSpecies } from "@metricbase/shared";
 import { useEffect, useRef, useState } from "react";
 import { drawItemIcon } from "./itemIcons";
 
@@ -10,8 +10,8 @@ import { drawItemIcon } from "./itemIcons";
 export function ItemIcon({ itemId, size = 32 }: { itemId: string; size?: number }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const [artFailed, setArtFailed] = useState(false);
-  const species = getFishSpecies(itemId);
-  const useArt = species !== null && !artFailed;
+  const artFile = getFishSpecies(itemId)?.art ?? getFishDishArt(itemId);
+  const useArt = artFile !== null && artFile !== undefined && !artFailed;
 
   useEffect(() => {
     setArtFailed(false);
@@ -34,7 +34,7 @@ export function ItemIcon({ itemId, size = 32 }: { itemId: string; size?: number 
   if (useArt) {
     return (
       <img
-        src={`/assets/fish/${species.art}`}
+        src={`/assets/fish/${artFile}`}
         alt=""
         onError={() => setArtFailed(true)}
         style={{ width: size, height: size, display: "block", objectFit: "contain" }}

@@ -66,6 +66,63 @@ export const FISH_SPECIES: FishSpecies[] = [
   { itemId: "item_abyssal_leviathan", name: "Abyssal Leviathan", rarity: "legendary", waters: "deep", emoji: "🐙", art: "abyssal-leviathan.png" },
 ];
 
+/**
+ * Fish cooking: every species grills into a dish at the workbench.
+ * ONE tunable table — items, craft recipes, HP heals, and stamina restores are
+ * all generated from these rows (items.ts / crafting.ts / stamina.ts).
+ * `art` files drop into client/public/assets/fish/ like the species art.
+ */
+export interface FishDish {
+  /** Dish item id (generated into ITEMS as a stackable consumable). */
+  itemId: string;
+  name: string;
+  description: string;
+  /** The raw fish consumed by the recipe. */
+  sourceItemId: string;
+  /** HP restored when eaten. */
+  hp: number;
+  /** Stamina (energy) restored when eaten (cap 100). */
+  stamina: number;
+  /** Workbench gold fee (small gold sink, scales with rarity). */
+  fee: number;
+  emoji: string;
+  art: string;
+}
+
+export const FISH_DISHES: FishDish[] = [
+  // River species
+  { itemId: "item_seared_bluegill", name: "Pan-Seared Bluegill", description: "A crisp little fillet, seared skin-on.", sourceItemId: "item_bluegill", hp: 45, stamina: 40, fee: 1, emoji: "🍳", art: "dish-bluegill.png" },
+  { itemId: "item_carp_stew", name: "Hearty Carp Stew", description: "A rich stew simmered from striped carp.", sourceItemId: "item_carp", hp: 60, stamina: 55, fee: 2, emoji: "🍲", art: "dish-carp.png" },
+  { itemId: "item_catfish_fry", name: "Crispy Catfish Fry", description: "Golden-battered catfish, fried whiskers and all.", sourceItemId: "item_catfish", hp: 70, stamina: 60, fee: 2, emoji: "🍤", art: "dish-catfish.png" },
+  { itemId: "item_golden_fillet", name: "Golden Trout Fillet", description: "A gleaming fillet that melts on the tongue.", sourceItemId: "item_golden_trout", hp: 110, stamina: 80, fee: 5, emoji: "🥮", art: "dish-golden-trout.png" },
+  { itemId: "item_koi_sashimi", name: "Crystal Koi Sashimi", description: "Translucent slices of epic koi. Fully restores energy.", sourceItemId: "item_crystal_koi", hp: 150, stamina: 100, fee: 8, emoji: "🍣", art: "dish-crystal-koi.png" },
+  { itemId: "item_sturgeon_roast", name: "Ancient Sturgeon Roast", description: "A legendary roast fit for a whole guild hall.", sourceItemId: "item_ancient_sturgeon", hp: 220, stamina: 100, fee: 15, emoji: "🍖", art: "dish-ancient-sturgeon.png" },
+  // Deep species
+  { itemId: "item_pike_skewer", name: "Grilled Pike Skewer", description: "Deep-water pike char-grilled on a skewer.", sourceItemId: "item_pike", hp: 85, stamina: 65, fee: 3, emoji: "🍢", art: "dish-silver-pike.png" },
+  { itemId: "item_smoked_eel", name: "Smoked Ghostfin Eel", description: "Pale eel smoked until it barely glows.", sourceItemId: "item_ghostfin_eel", hp: 130, stamina: 90, fee: 6, emoji: "🍱", art: "dish-ghostfin-eel.png" },
+  { itemId: "item_stormray_steak", name: "Charged Stormray Steak", description: "A steak that still crackles faintly. Fully restores energy.", sourceItemId: "item_stormray", hp: 170, stamina: 100, fee: 10, emoji: "🥩", art: "dish-stormray.png" },
+  { itemId: "item_leviathan_feast", name: "Leviathan Feast", description: "A legendary spread carved from the abyss itself.", sourceItemId: "item_abyssal_leviathan", hp: 260, stamina: 100, fee: 20, emoji: "🍽️", art: "dish-abyssal-leviathan.png" },
+];
+
+const DISH_BY_ITEM = new Map(FISH_DISHES.map((d) => [d.itemId, d]));
+
+/**
+ * Dish art lookup for icons. Includes the two legacy dishes so the whole
+ * kitchen can share the dropped-art look (emoji/canvas fallback until then).
+ */
+const LEGACY_DISH_ART: Record<string, string> = {
+  item_cooked_fish: "dish-river-fish.png",
+  item_grilled_salmon: "dish-salmon.png",
+};
+
+export function getFishDishArt(itemId: string): string | null {
+  return DISH_BY_ITEM.get(itemId)?.art ?? LEGACY_DISH_ART[itemId] ?? null;
+}
+
+export function getFishDish(itemId: string): FishDish | null {
+  return DISH_BY_ITEM.get(itemId) ?? null;
+}
+
 const SPECIES_BY_ITEM = new Map(FISH_SPECIES.map((s) => [s.itemId, s]));
 
 export function getFishSpecies(itemId: string): FishSpecies | null {

@@ -1,3 +1,5 @@
+import { FISH_DISHES } from "./fishSpecies.js";
+
 export interface RecipeIngredient {
   itemId: string;
   quantity: number;
@@ -451,6 +453,19 @@ export const CRAFT_RECIPES: CraftRecipe[] = [
     goldCost: 600,
   },
 ];
+
+// Fish-dish recipes generated from the FISH_DISHES table (fishSpecies.ts):
+// 1 raw fish → 1 dish, with a rarity-scaled workbench fee.
+for (const dish of FISH_DISHES) {
+  CRAFT_RECIPES.push({
+    id: `craft_${dish.itemId.slice("item_".length)}`,
+    name: dish.name,
+    description: `${dish.description} (+${dish.hp} HP, +${dish.stamina} energy)`,
+    inputs: [{ itemId: dish.sourceItemId, quantity: 1 }],
+    output: { itemId: dish.itemId, quantity: 1 },
+    goldCost: dish.fee,
+  });
+}
 
 export function getRecipe(recipeId: string): CraftRecipe | undefined {
   return CRAFT_RECIPES.find((recipe) => recipe.id === recipeId);

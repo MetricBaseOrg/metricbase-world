@@ -4,6 +4,8 @@
 // way to restore it; a slow passive trickle keeps players from ever hard-locking
 // with no food and no gold.
 
+import { FISH_DISHES } from "./fishSpecies.js";
+
 export const MAX_STAMINA = 100;
 export const STARTING_STAMINA = 100;
 
@@ -24,6 +26,11 @@ export const CONSUMABLE_STAMINA: Record<string, number> = {
   // A health potion is medicine, not a meal — it heals HP but not hunger.
   item_health_potion: 0,
 };
+
+// Fish dishes restore stamina per the FISH_DISHES table (fishSpecies.ts).
+for (const dish of FISH_DISHES) {
+  CONSUMABLE_STAMINA[dish.itemId] = dish.stamina;
+}
 
 export function getConsumableStamina(itemId: string): number {
   return CONSUMABLE_STAMINA[itemId] ?? 0;
