@@ -66,6 +66,22 @@ body {
   -webkit-overflow-scrolling: touch;
 }
 
+/* Login screen: the marketing key art fills the backdrop so the first page
+   IS the banner (game directories screenshot it). A soft veil keeps the
+   form readable without hiding the art. */
+.chibi-overlay--login {
+  background:
+    linear-gradient(180deg, rgba(20, 60, 110, 0.18), rgba(20, 60, 110, 0.3)),
+    url("/login-hero.jpg") center / cover no-repeat,
+    linear-gradient(180deg, #1e78c8, #0e4e92);
+  backdrop-filter: none;
+}
+.chibi-panel--login {
+  width: min(720px, 100%);
+  background: rgba(255, 253, 246, 0.94);
+  box-shadow: 0 6px 0 rgba(43, 33, 18, 0.35), 0 24px 60px rgba(10, 40, 80, 0.45);
+}
+
 .chibi-panel {
   background: var(--chibi-panel);
   border: 3px solid var(--chibi-outline);

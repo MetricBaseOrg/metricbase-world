@@ -153,6 +153,9 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
   const [inviteCode, setInviteCode] = useState("");
   const [invitationsActive, setInvitationsActive] = useState(false);
   const [leaderboardOpen, setLeaderboardOpen] = useState(false);
+  // Appearance tools collapsed by default — keeps the login card compact over
+  // the key-art backdrop (and returning players rarely re-style anyway).
+  const [customizeOpen, setCustomizeOpen] = useState(false);
   const [detectedWallets, setDetectedWallets] = useState<WalletConnector[]>([]);
   const walletConnectResolver = useRef<{
     resolve: (value: Awaited<ReturnType<typeof connectAndVerifyWallet>>) => void;
@@ -429,8 +432,8 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
         : "Enter Zone";
 
   return (
-    <div className="chibi-overlay">
-      <form onSubmit={handleSubmit} className="chibi-panel chibi-panel--modal">
+    <div className="chibi-overlay chibi-overlay--login">
+      <form onSubmit={handleSubmit} className="chibi-panel chibi-panel--modal chibi-panel--login">
         <div style={{ marginBottom: 24 }}>
           <h1 className="chibi-title chibi-sparkle-title">Create Your Chibi Hero</h1>
           <p className="chibi-subtitle" style={{ maxWidth: 560 }}>
@@ -522,6 +525,21 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
               </div>
             )}
 
+            {/* Appearance tools fold away so the login stays a compact card
+                over the key art (game directories screenshot this page). */}
+            <button
+              type="button"
+              className="chibi-btn chibi-btn--secondary"
+              style={{ padding: "10px 14px", fontSize: "0.85rem" }}
+              onClick={() => {
+                playSfx("ui_click");
+                setCustomizeOpen((open) => !open);
+              }}
+            >
+              {customizeOpen ? "🎨 Hide appearance options" : "🎨 Customize appearance"}
+            </button>
+
+            {customizeOpen && (<>
             <div>
               <div className="chibi-label" style={{ textTransform: "none", letterSpacing: 0 }}>Gender</div>
               <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
@@ -590,6 +608,7 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
                 onSelect={(outfitStyle) => updateAppearance({ outfitStyle })}
               />
             </div>
+            </>)}
 
             <div className="chibi-card chibi-card--info" style={{ padding: "14px 16px" }}>
                 <div className="chibi-label">Wallet</div>
