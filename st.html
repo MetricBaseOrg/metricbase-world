@@ -1,25 +1,10 @@
-// Public, no-login economy dashboard served at GET /stats. Self-contained
-// (no external assets) chibi-cozy themed page that fetches /api/stats and renders
-// live metrics + hand-drawn SVG charts. Refreshes every 20s.
-export const STATS_PAGE_HTML = `<!doctype html>
+<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>MetricBase World — Solana MMO Economy</title>
-<meta name="description" content="MetricBase World 🌎 in numbers — live, fully transparent economy dashboard for the Solana MMO powered by the $BASE token (mint DN2PNrZ8Jn65ioJw4QBwXv49j5JiBBL3wPLUDZcrpump): players, gold flow, $BASE burned, player Worlds, markets and ads." />
-<script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "Dataset",
-  "name": "MetricBase World live economy stats",
-  "description": "Live transparency dashboard for MetricBase World, a browser-based Solana MMO powered by the $BASE token (mint DN2PNrZ8Jn65ioJw4QBwXv49j5JiBBL3wPLUDZcrpump). Players online, gold supply, $BASE burned, player-built Worlds, markets, jobs and ad revenue.",
-  "url": "https://world.metricbase.org/stats",
-  "isBasedOn": "https://world.metricbase.org",
-  "creator": { "@type": "Organization", "name": "MetricBase", "url": "https://world.metricbase.org" },
-  "distribution": [{ "@type": "DataDownload", "encodingFormat": "application/json", "contentUrl": "https://metricbaseserver-production.up.railway.app/api/stats" }]
-}
-</script>
+<title>MetricBase World — Economy</title>
+<meta name="description" content="MetricBase World 🌎 in numbers — live, fully transparent economy dashboard: players, gold flow, $BASE burned, player Worlds, markets and ads." />
 <link rel="canonical" href="https://world.metricbase.org/stats" />
 <!-- Share card (𝕏 / OpenGraph) -->
 <meta property="og:type" content="website" />
@@ -115,7 +100,7 @@ export const STATS_PAGE_HTML = `<!doctype html>
 <body>
 <header>
   <h1><span class="spark">✦</span> <span class="globe">🌍</span> MetricBase World — Economy <span class="spark r">✦</span></h1>
-  <p><span class="live"><span class="dotp"></span><span id="onlineTop">—</span> playing now</span> · <span class="pill" id="ver">…</span> · <span id="updated">loading…</span></p>
+  <p><span class="live"><span class="dotp"></span><span id="onlineTop">1</span> playing now</span> · <span class="pill" id="ver">v0.94.0</span> · <span id="updated">loading…</span></p>
   <button type="button" class="share-x" id="shareX" title="Share these numbers on 𝕏">𝕏 Share the numbers</button>
 </header>
 
@@ -133,18 +118,18 @@ export const STATS_PAGE_HTML = `<!doctype html>
   <section id="overview">
     <div class="sec"><span class="em">🏠</span><h2>Overview</h2></div>
     <div class="grid">
-      <div class="card"><h2>👥 Players</h2><div class="big" id="registered">—</div><div class="sub"><span id="online">—</span> online · avg Lv <span id="avgLevel">—</span> · top Lv <span id="maxLevel">—</span></div></div>
-      <div class="card"><h2>🪙 Circulating gold</h2><div class="big gold" id="circulating">—</div><div class="sub">held by all players</div></div>
-      <div class="card"><h2>🌍 Player Worlds</h2><div class="big mint" id="worlds">—</div><div class="sub"><span id="worldsPub">—</span> published</div></div>
-      <div class="card"><h2>🏛️ Treasury (burned)</h2><div class="big burn" id="treasury">—</div><div class="sub">gold removed from circulation</div></div>
+      <div class="card"><h2>👥 Players</h2><div class="big" id="registered">42</div><div class="sub"><span id="online">1</span> online · avg Lv <span id="avgLevel">—</span> · top Lv <span id="maxLevel">—</span></div></div>
+      <div class="card"><h2>🪙 Circulating gold</h2><div class="big gold" id="circulating">31,004g</div><div class="sub">held by all players</div></div>
+      <div class="card"><h2>🌍 Player Worlds</h2><div class="big mint" id="worlds">2</div><div class="sub"><span id="worldsPub">—</span> published</div></div>
+      <div class="card"><h2>🏛️ Treasury (burned)</h2><div class="big burn" id="treasury">1,162,150g</div><div class="sub">gold removed from circulation</div></div>
     </div>
   </section>
 
   <section id="token">
     <div class="sec"><span class="em">🪙</span><h2>$BASE Token</h2></div>
     <div class="grid">
-      <div class="card"><h2>🔥 $BASE burned</h2><div class="big burn" id="baseBurned">—</div><div class="sub">tokens burned via in-game sinks</div></div>
-      <div class="card"><h2>💎 $BASE held by players</h2><div class="big gold" id="baseHeld">—</div><div class="sub"><span id="baseHolders">—</span> bonded player wallets holding $BASE</div></div>
+      <div class="card"><h2>🔥 $BASE burned</h2><div class="big burn" id="baseBurned">2,020,000 $BASE</div><div class="sub">tokens burned via in-game sinks</div></div>
+      <div class="card"><h2>💎 $BASE held by players</h2><div class="big gold" id="baseHeld">58,173,871 $BASE</div><div class="sub"><span id="baseHolders">—</span> bonded player wallets holding $BASE</div></div>
       <div class="card"><h2>🕳️ Burn sinks</h2><div id="burnSinks"></div></div>
     </div>
   </section>
@@ -169,8 +154,8 @@ export const STATS_PAGE_HTML = `<!doctype html>
   <section id="activity">
     <div class="sec"><span class="em">🛠️</span><h2>Player Activity</h2></div>
     <div class="grid" style="margin-bottom:14px">
-      <div class="card"><h2>📅 Daily quests</h2><div class="big mint" id="dqActive">—</div><div class="sub"><span id="dqClaimed">—</span> tasks claimed · <span id="dqLogins">—</span> login bonuses · <span id="dqGold">—</span>g paid out</div></div>
-      <div class="card"><h2>👣 World visits</h2><div class="big" id="wVisits">—</div><div class="sub"><span id="wExpanded">—</span> Worlds expanded · <span id="bagExp">—</span> bags expanded</div></div>
+      <div class="card"><h2>📅 Daily quests</h2><div class="big mint" id="dqActive">3</div><div class="sub"><span id="dqClaimed">—</span> tasks claimed · <span id="dqLogins">—</span> login bonuses · <span id="dqGold">—</span>g paid out</div></div>
+      <div class="card"><h2>👣 World visits</h2><div class="big" id="wVisits">3</div><div class="sub"><span id="wExpanded">—</span> Worlds expanded · <span id="bagExp">—</span> bags expanded</div></div>
       <div class="card"><h2>🧑‍🌾 Player jobs</h2><div class="big gold" id="jobsOpen">—</div><div class="sub">open on the board · <span id="jobsCompleted">—</span> completed · <span id="jobsGold">—</span>g paid to workers</div></div>
     </div>
     <div class="card wide">
@@ -202,9 +187,9 @@ export const STATS_PAGE_HTML = `<!doctype html>
   <section id="ads">
     <div class="sec"><span class="em">📣</span><h2>Ads Marketplace</h2></div>
     <div class="grid">
-      <div class="card"><h2>💵 Ad revenue</h2><div class="big sky" id="adRevenue">—</div><div class="sub">brand $BASE spent on impressions</div></div>
+      <div class="card"><h2>💵 Ad revenue</h2><div class="big sky" id="adRevenue">108,287 $BASE</div><div class="sub">brand $BASE spent on impressions</div></div>
       <div class="card"><h2>🤝 Paid to players</h2><div class="big mint" id="adPaid">—</div><div class="sub"><span id="adShare">—</span>% revenue share</div></div>
-      <div class="card"><h2>👁️ Ad impressions</h2><div class="big" id="adImpr">—</div><div class="sub">creatives served</div></div>
+      <div class="card"><h2>👁️ Ad impressions</h2><div class="big" id="adImpr">4,773</div><div class="sub">creatives served</div></div>
       <div class="card"><h2>🎯 Active campaigns</h2><div class="big" id="adActive">—</div><div class="sub"><span id="adBrands">—</span> brands · <span id="adPending">—</span> pending · <a href="https://world.metricbase.org/brands" style="color:#5a97e0;font-weight:800">advertise →</a></div></div>
     </div>
     <div class="card wide" style="margin-top:14px">
@@ -228,9 +213,9 @@ Gold is <b>minted</b> by gameplay (selling gathered goods, mob &amp; quest rewar
 var fmt=function(n){return (Math.round(n)||0).toLocaleString();};
 // Compact display for big numbers (2.5M, 58.4k); full value stays in tooltips.
 function kfmt(n){n=Math.round(n)||0;var a=Math.abs(n);
-  if(a>=1e9)return (n/1e9).toFixed(a>=1e10?0:1).replace(/\\.0$/,"")+"B";
-  if(a>=1e6)return (n/1e6).toFixed(a>=1e7?0:1).replace(/\\.0$/,"")+"M";
-  if(a>=1e4)return (n/1e3).toFixed(a>=1e5?0:1).replace(/\\.0$/,"")+"k";
+  if(a>=1e9)return (n/1e9).toFixed(a>=1e10?0:1).replace(/\.0$/,"")+"B";
+  if(a>=1e6)return (n/1e6).toFixed(a>=1e7?0:1).replace(/\.0$/,"")+"M";
+  if(a>=1e4)return (n/1e3).toFixed(a>=1e5?0:1).replace(/\.0$/,"")+"k";
   return n.toLocaleString();}
 function el(id){return document.getElementById(id);}
 // Set text; play a soft "bump" when the value actually changed.
@@ -330,7 +315,7 @@ el("shareX").onclick=function(){
     if(ad.totalRevenue>0)lines.push("📣 "+kfmt(ad.totalRevenue)+" $BASE ad revenue — "+fmt(ad.sharePct||50)+"% paid to players");
   }
   lines.push("","Live transparent dashboard 👇","https://world.metricbase.org/stats");
-  window.open("https://x.com/intent/post?text="+encodeURIComponent(lines.join("\\n")),"_blank","noopener");
+  window.open("https://x.com/intent/post?text="+encodeURIComponent(lines.join("\n")),"_blank","noopener");
 };
 
 async function load(){
@@ -422,4 +407,4 @@ async function load(){
 load();setInterval(load,20000);
 </script>
 </body>
-</html>`;
+</html>
