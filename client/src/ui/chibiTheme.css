@@ -71,9 +71,9 @@ body {
    form readable without hiding the art. */
 .chibi-overlay--login {
   background:
-    linear-gradient(180deg, rgba(20, 60, 110, 0.18), rgba(20, 60, 110, 0.3)),
-    url("/login-hero.jpg") center / cover no-repeat,
-    linear-gradient(180deg, #1e78c8, #0e4e92);
+    radial-gradient(1100px 600px at 50% -12%, #d9f3ff, transparent 60%),
+    radial-gradient(circle at 82% 18%, rgba(255, 214, 232, 0.5), transparent 34%),
+    linear-gradient(180deg, #bfe9fb 0%, #dff4ff 55%, #d5f0c6 100%);
   backdrop-filter: none;
 }
 .chibi-panel--login {
