@@ -4,16 +4,21 @@ Spec for ALL files: **transparent PNG, 1024×1024** (Claude downscales + wires o
 fish set). Style: chibi-cozy, matching the existing props + fish art. World objects sit on an iso
 tile (front view, slight top-down tilt). Drop a batch → say so → it ships same day.
 
-**Marks:** ✅ = art file is in this folder · 🎨 = MISSING — draw this · (opt) = optional, covered
+**Marks:** ✅ = art file is in its folder · 🎨 = MISSING — draw this · (opt) = optional, covered
 by an existing file.
+
+**Folder layout:** source art lives in category subfolders — `tiles/`, `buildings/`, `nodes/`
+(the 52 done files), plus empty drop folders `mobs/`, `npcs/`, `items/`, `world/` for the new
+batches. Drop each new file into the folder named in its section header.
 
 ## 👉 START HERE
 
-Everything in the original list below is done except **3 files**: `sand.png`, `rock.png`,
-`deep-pool.png`. After those, the highest-impact batch is **Mobs (6) + NPCs (5)** — they're what
-players stare at all day and currently share 4 procedural blobs. Then item icons.
+Everything in the original list below is done except **3 files**: `sand.png` (→ `tiles/`),
+`rock.png` and `deep-pool.png` (→ `nodes/`). After those, the highest-impact batch is
+**Mobs (6) + NPCs (5)** — they're what players stare at all day and currently share 4 procedural
+blobs. Then item icons.
 
-## Tiles (1x1 tile) and Decor props (1x1 tile, ground-anchored)
+## Tiles (1x1 tile) and Decor props — `assets/tiles/`
 
 - grass.png ✅
 - grass2.png ✅
@@ -37,7 +42,7 @@ players stare at all day and currently share 4 procedural blobs. Then item icons
 - hedge.png ✅
 - torch.png ✅
 
-## Buildings (3x3 tiles)
+## Buildings (3x3 tiles) — `assets/buildings/`
 
 - market-wheat.png ✅
 - market-carrot.png ✅
@@ -52,7 +57,7 @@ players stare at all day and currently share 4 procedural blobs. Then item icons
 - gate.png ✅
 - bridge.png ✅
 
-## Resource nodes (1x1 tile)
+## Resource nodes (1x1 tile) — `assets/nodes/`
 
 - well.png ✅
 - pine.png ✅
