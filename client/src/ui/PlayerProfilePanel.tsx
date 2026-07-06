@@ -44,7 +44,9 @@ export function PlayerProfilePanel() {
     : [];
 
   return (
-    <div className="chibi-overlay" onPointerDown={close}>
+    // z-index above the mobile social rail / HUD chrome so nothing pokes
+    // through the card.
+    <div className="chibi-overlay" style={{ zIndex: 45 }} onPointerDown={close}>
       <div
         className="chibi-panel chibi-panel--modal"
         style={{ width: "min(360px, 94vw)", padding: 18 }}
@@ -68,8 +70,21 @@ export function PlayerProfilePanel() {
         {profile?.ok && (
           <>
             <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
-              <div style={{ borderRadius: 14, border: "2.5px solid var(--chibi-outline)", background: "#eaf4fd", padding: 4 }}>
-                <PortraitCanvas appearance={profile.appearance ?? null} size={72} />
+              {/* .chibi-portrait-canvas is absolutely positioned — the frame
+                  must be a sized, positioned box or the canvas escapes it. */}
+              <div
+                style={{
+                  position: "relative",
+                  width: 80,
+                  height: 80,
+                  flex: "0 0 auto",
+                  overflow: "hidden",
+                  borderRadius: 14,
+                  border: "2.5px solid var(--chibi-outline)",
+                  background: "#eaf4fd",
+                }}
+              >
+                <PortraitCanvas appearance={profile.appearance ?? null} size={75} />
               </div>
               <div style={{ minWidth: 0 }}>
                 <div style={{ fontWeight: 900, fontSize: "1.05rem", overflowWrap: "anywhere" }}>
