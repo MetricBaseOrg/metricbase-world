@@ -84,6 +84,17 @@ export interface RemotePlayer {
   criminal: boolean;
   speedMult: number;
   petId: string;
+  /** Public vitals synced by the server (0/0 until the first tick lands). */
+  hp: number;
+  maxHp: number;
+  stamina: number;
+}
+
+export interface ItemUsedPayload {
+  playerName: string;
+  itemId: string;
+  healed: number;
+  energyRestored: number;
 }
 
 export interface WorldDirectoryEntry {
@@ -199,6 +210,7 @@ type FarmResultListener = (payload: FarmResultPayload) => void;
 type HousingStateListener = (payload: HousingStatePayload) => void;
 type HousingResultListener = (payload: HousingResultPayload) => void;
 type EmoteListener = (payload: EmotePayload) => void;
+type ItemUsedListener = (payload: ItemUsedPayload) => void;
 type WorldStatsListener = (payload: WorldStatsPayload) => void;
 type PlayerShopResultListener = (payload: PlayerShopResultPayload) => void;
 type LeaderboardListener = (payload: LeaderboardPayload) => void;
@@ -301,6 +313,7 @@ export class NetworkManager {
   private latestAssetMarket: AssetListingView[] = [];
   private latestHousingState: HousingStatePayload = { plots: [] };
   private emoteListeners = new Set<EmoteListener>();
+  private itemUsedListeners = new Set<ItemUsedListener>();
   private worldStatsListeners = new Set<WorldStatsListener>();
   private latestWorldStats: WorldStatsPayload = { baseHolders: null, online: 0 };
   private playerShopResultListeners = new Set<PlayerShopResultListener>();
@@ -1362,6 +1375,11 @@ export class NetworkManager {
     return () => this.emoteListeners.delete(listener);
   }
 
+  onItemUsed(listener: ItemUsedListener) {
+    this.itemUsedListeners.add(listener);
+    return () => this.itemUsedListeners.delete(listener);
+  }
+
   onWorldStats(listener: WorldStatsListener) {
     this.worldStatsListeners.add(listener);
     return () => this.worldStatsListeners.delete(listener);
@@ -1762,6 +1780,11 @@ export class NetworkManager {
         listener(payload);
       }
     });
+    this.room.onMessage("itemUsed", (payload: ItemUsedPayload) => {
+      for (const listener of this.itemUsedListeners) {
+        listener(payload);
+      }
+    });
     this.room.onMessage("worldStats", (payload: WorldStatsPayload) => {
       this.latestWorldStats = payload;
       for (const listener of this.worldStatsListeners) {
@@ -2034,6 +2057,9 @@ export class NetworkManager {
       criminal: Boolean((player as any).criminal),
       speedMult: Number((player as any).speedMult) || 1,
       petId: String((player as any).petId ?? ""),
+      hp: Number((player as any).hp) || 0,
+      maxHp: Number((player as any).maxHp) || 0,
+      stamina: Number((player as any).stamina) || 0,
       appearance: normalizeCharacterAppearance({
         bodyColor: player.bodyColor,
         hairColor: player.hairColor,

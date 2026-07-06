@@ -56,6 +56,7 @@ import {
 } from "./inputControl";
 import { playSfx } from "../audio/soundEffects";
 import { useGameStore } from "../store/gameStore";
+import { ITEM_ICONS } from "../ui/InventoryPanel";
 import { networkManager, RemotePlayer } from "./network";
 import { isPlayerZoneId, resolveZoneConfig, setPlayerZoneConfig } from "./playerZoneConfig";
 import { ensureZoneAssetLoaded, getZoneAsset, zoneAssetScale, zoneAssetTextureKey } from "./zoneAssets";
@@ -96,6 +97,10 @@ interface RenderedPlayer {
   poseStartedAt: number;
   lastTextureKey: string;
   remoteMoving: boolean;
+  /** Overhead HP bar (shown for hurt or PvP-flagged remote players). */
+  hpBar: Phaser.GameObjects.Graphics;
+  /** Last drawn "hp/max/flag" key — redraw only when it changes. */
+  hpBarKey: string;
   prevSpriteX: number;
   prevSpriteY: number;
   lampOn: boolean;
@@ -483,6 +488,7 @@ export class GameScene extends Phaser.Scene {
         entry.sprite.destroy();
         entry.label.destroy();
         entry.glow?.destroy();
+        entry.hpBar.destroy();
       });
       this.renderedPlayers.clear();
       // The server resets each player's lamp to off on (re)join, so mirror that.
@@ -619,6 +625,25 @@ export class GameScene extends Phaser.Scene {
       if (payload.attackerName === localName && payload.knockedOut) {
         this.cameras.main.shake(140, 0.005);
       }
+      // Track my current opponent for the PvP target frame (duels manage
+      // their own frame lifetime; hits keep it alive ~8s past the last blow).
+      if (payload.attackerName === localName || payload.victimName === localName) {
+        const opponentName = payload.attackerName === localName ? payload.victimName : payload.attackerName;
+        const store = useGameStore.getState();
+        if (!store.pvpOpponent?.duel || store.pvpOpponent.name === opponentName) {
+          store.setPvpOpponent({
+            name: opponentName,
+            until: Date.now() + 8000,
+            duel: store.pvpOpponent?.duel ?? false,
+          });
+        }
+      }
+    });
+
+    // Item consumption is public: a bubble over whoever ate/drank, so PvP
+    // opponents can see mid-fight potions and food.
+    const unsubscribeItemUsed = networkManager.onItemUsed((payload) => {
+      this.showEmote(payload.playerName, ITEM_ICONS[payload.itemId] ?? "🧪");
     });
 
     const unsubscribeFarmState = networkManager.onFarmState((payload) => {
@@ -774,6 +799,7 @@ export class GameScene extends Phaser.Scene {
       unsubscribeLootBags();
       unsubscribeAdServing();
       unsubscribePvpHit();
+      unsubscribeItemUsed();
       unsubscribeTerritory();
       unsubscribeSiege();
       this.stopLocalChopHits();
@@ -792,6 +818,7 @@ export class GameScene extends Phaser.Scene {
       this.renderedPlayers.forEach((entry) => {
         entry.sprite.destroy();
         entry.label.destroy();
+        entry.hpBar.destroy();
       });
       this.renderedPlayers.clear();
     });
@@ -1330,6 +1357,9 @@ export class GameScene extends Phaser.Scene {
     this.upsertLocalPlayer({
       sessionId,
       name: playerName,
+      hp: 0,
+      maxHp: 0,
+      stamina: 0,
       x: spawn.x,
       y: spawn.y,
       level: useGameStore.getState().playerLevel,
@@ -1379,7 +1409,30 @@ export class GameScene extends Phaser.Scene {
     rendered.glow?.destroy();
     rendered.shadow.destroy();
     rendered.pet?.destroy();
+    rendered.hpBar.destroy();
     this.renderedPlayers.delete(sessionId);
+  }
+
+  /**
+   * Overhead HP bar for remote players: visible while they're hurt or
+   * PvP-flagged so opponents can read the fight. Local player uses the HUD.
+   */
+  private updatePlayerHpBar(entry: RenderedPlayer, player: RemotePlayer, isLocal: boolean) {
+    const show =
+      !isLocal && !player.spectator && player.maxHp > 0 && (player.hp < player.maxHp || player.pvpFlagged);
+    const key = show ? `${player.hp}/${player.maxHp}/${player.pvpFlagged ? 1 : 0}` : "hidden";
+    if (key === entry.hpBarKey) return;
+    entry.hpBarKey = key;
+    entry.hpBar.clear();
+    entry.hpBar.setVisible(show);
+    if (!show) return;
+    const w = 34;
+    const h = 4.5;
+    const pct = Math.max(0, Math.min(1, player.hp / player.maxHp));
+    const color = pct > 0.5 ? 0x4bc07f : pct > 0.25 ? 0xe0a92e : 0xd85f4f;
+    entry.hpBar.fillStyle(0x2a1d12, 0.85).fillRoundedRect(-w / 2 - 1, -1, w + 2, h + 2, 3);
+    entry.hpBar.fillStyle(0x554433, 0.9).fillRoundedRect(-w / 2, 0, w, h, 2);
+    if (pct > 0) entry.hpBar.fillStyle(color, 1).fillRoundedRect(-w / 2, 0, Math.max(2.5, w * pct), h, 2);
   }
 
   private destroyAllLocalPlayerEntries() {
@@ -1452,6 +1505,8 @@ export class GameScene extends Phaser.Scene {
       .setOrigin(0.5, 1)
       .setDepth(1001);
 
+    const hpBar = this.add.graphics().setDepth(1001).setVisible(false);
+
     let lastTextureKey = "player";
     try {
       lastTextureKey = setAvatarPose(this, sprite, player.appearance, "front", "idle", 0);
@@ -1485,6 +1540,8 @@ export class GameScene extends Phaser.Scene {
       poseStartedAt: Date.now(),
       lastTextureKey,
       remoteMoving: false,
+      hpBar,
+      hpBarKey: "",
       prevSpriteX: player.x,
       prevSpriteY: player.y,
       lampOn: player.lampOn,
@@ -4124,6 +4181,7 @@ export class GameScene extends Phaser.Scene {
         const entry = this.createRenderedPlayerEntry(player, false);
         this.applyNameplateStatus(entry, player);
         this.applyPet(entry, player.petId);
+        this.updatePlayerHpBar(entry, player, false);
         this.renderedPlayers.set(player.sessionId, entry);
       } else {
         existing.sprite.setDisplaySize(AVATAR_LOGICAL_WIDTH, AVATAR_LOGICAL_HEIGHT);
@@ -4136,6 +4194,7 @@ export class GameScene extends Phaser.Scene {
         existing.label.setText(nameplateText(player));
         this.applyNameplateStatus(existing, player);
         this.applyPet(existing, player.petId);
+        this.updatePlayerHpBar(existing, player, false);
       }
     }
 
@@ -4208,6 +4267,8 @@ export class GameScene extends Phaser.Scene {
       const y = Math.round(Phaser.Math.Linear(rendered.baseY, rendered.targetY, alpha));
       rendered.baseY = y;
       rendered.sprite.setPosition(x, y);
+      rendered.hpBar.setPosition(x, y - 40);
+      rendered.hpBar.setDepth(y + 1);
       rendered.sprite.setDepth(y + this.playerDepthLift());
       rendered.label.setPosition(x, y - 42);
       rendered.label.setDepth(y + 1);

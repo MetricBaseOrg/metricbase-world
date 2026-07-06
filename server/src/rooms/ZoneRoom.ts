@@ -1296,6 +1296,10 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     player.toolId = eq.toolId ?? "";
     player.speedMult = getMountSpeed(eq.mountId);
     player.petId = eq.petId ?? "";
+    // Seed the public vitals immediately (the tick loop keeps them fresh).
+    player.maxHp = getPlayerMaxHp(player.level);
+    player.hp = this.playerHp.get(player.name) ?? player.maxHp;
+    player.stamina = this.playerStamina.get(player.name) ?? STARTING_STAMINA;
     this.npcInteractAt.set(player.name, saved?.npcInteractAt ?? {});
     this.mobGoldClaimed.set(player.name, saved?.mobGoldClaimed ?? {});
     this.playerSkills.set(player.name, normalizeSkills(saved?.skills));
@@ -1540,6 +1544,18 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
     this.processChopSessions(now);
     this.processFarmGrowth(now);
+
+    // Mirror server-side vitals into the synced schema so everyone can read
+    // opponent HP/energy (overhead bars + the PvP target frame). Assign only
+    // on change to keep the patch stream small.
+    for (const [, player] of this.state.players) {
+      const maxHp = getPlayerMaxHp(player.level);
+      const hp = this.playerHp.get(player.name) ?? maxHp;
+      const stamina = this.playerStamina.get(player.name) ?? STARTING_STAMINA;
+      if (player.maxHp !== maxHp) player.maxHp = maxHp;
+      if (player.hp !== hp) player.hp = hp;
+      if (player.stamina !== stamina) player.stamina = stamina;
+    }
 
     for (const client of this.clients) {
       const player = this.state.players.get(client.sessionId);
@@ -4817,6 +4833,15 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     this.inventories.set(player.name, inventory);
     this.sendProfile(client, player);
     this.sendInventory(client, player.name);
+
+    // Everyone nearby sees the consumption (bubble over the player + the PvP
+    // target frame's "recent items" row) — mid-fight potions are public info.
+    this.broadcast("itemUsed", {
+      playerName: player.name,
+      itemId,
+      healed,
+      energyRestored,
+    });
 
     const gains: string[] = [];
     if (healed > 0) gains.push(`+${healed} HP`);

@@ -70,7 +70,7 @@ const DOLL_SLOTS: EquipmentSlot[] = [
   "pet",
 ];
 
-const ITEM_ICONS: Record<string, string> = {
+export const ITEM_ICONS: Record<string, string> = {
   // Consumables / food
   item_health_potion: "🧪",
   item_bread: "🍞",

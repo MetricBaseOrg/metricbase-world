@@ -25,6 +25,10 @@ export const PlayerSchema = schema({
   speedMult: "number",
   /** Equipped cosmetic pet item id ("" when none) — shown as a companion. */
   petId: "string",
+  /** Public vitals — opponents can read HP/energy in PvP (synced each tick). */
+  hp: "number",
+  maxHp: "number",
+  stamina: "number",
 });
 
 export type Player = InstanceType<typeof PlayerSchema>;

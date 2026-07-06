@@ -72,6 +72,8 @@ interface GameStore {
   lastCatch: { itemId: string; rarity: string; quantity: number; at: number } | null;
   /** One-shot fishing moments the game scene animates (bite ❗, splashes…). */
   fishingFx: { type: "bite" | "hit" | "catch" | "escape"; at: number } | null;
+  /** Current PvP opponent (duel or recent hits) — drives the target frame. */
+  pvpOpponent: { name: string; until: number; duel: boolean } | null;
   /** True while the player is actively editing a World (hides gameplay HUD). */
   worldEditing: boolean;
   housingOpen: boolean;
@@ -144,6 +146,7 @@ interface GameStore {
   setFishing: (fishing: { resourceId: string; endsAt: number } | null) => void;
   setLastCatch: (c: { itemId: string; rarity: string; quantity: number; at: number } | null) => void;
   setFishingFx: (fx: { type: "bite" | "hit" | "catch" | "escape"; at: number } | null) => void;
+  setPvpOpponent: (o: { name: string; until: number; duel: boolean } | null) => void;
   setWorldEditing: (editing: boolean) => void;
   openHousing: (plotId: string) => void;
   setHousingOpen: (open: boolean) => void;
@@ -238,6 +241,7 @@ export const useGameStore = create<GameStore>((set) => ({
   fishing: null,
   lastCatch: null,
   fishingFx: null,
+  pvpOpponent: null,
   worldEditing: false,
   housingOpen: false,
   housingPlotId: null,
@@ -343,6 +347,7 @@ export const useGameStore = create<GameStore>((set) => ({
   setFishing: (fishing) => set({ fishing }),
   setLastCatch: (lastCatch) => set({ lastCatch }),
   setFishingFx: (fishingFx) => set({ fishingFx }),
+  setPvpOpponent: (pvpOpponent) => set({ pvpOpponent }),
   setWorldEditing: (worldEditing) => set({ worldEditing }),
   openHousing: (housingPlotId) =>
     set({ housingPlotId, housingOpen: true, inventoryOpen: false, craftOpen: false }),
