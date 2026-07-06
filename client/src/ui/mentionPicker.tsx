@@ -17,6 +17,9 @@ export function getMentionCandidates(): string[] {
   for (const m of useGameStore.getState().chatMessages) {
     if (m.channel !== "system" && m.senderName) names.add(m.senderName);
   }
+  // Guild + party rosters — taggable even when offline / in another zone.
+  for (const member of networkManager.getGuildState().myGuild?.members ?? []) names.add(member);
+  for (const member of networkManager.getPartyState().party?.members ?? []) names.add(member);
   if (me) names.delete(me);
   return [...names].sort((a, b) => a.localeCompare(b));
 }
@@ -57,7 +60,9 @@ export function useMentionAutocomplete(value: string, setValue: (next: string) =
   const [token, setToken] = useState<MentionToken | null>(null);
   const [idx, setIdx] = useState(0);
   const suggestions = token ? filterMentionNames(token.query) : [];
-  const open = token !== null && suggestions.length > 0;
+  // Open whenever an @token is being typed — with no matches the dropdown
+  // shows a "no players" hint instead of silently not appearing.
+  const open = token !== null;
 
   const update = (el: HTMLTextAreaElement | HTMLInputElement) => {
     const caret = el.selectionStart ?? el.value.length;
@@ -73,7 +78,7 @@ export function useMentionAutocomplete(value: string, setValue: (next: string) =
   };
 
   const onKeyDown = (event: React.KeyboardEvent): boolean => {
-    if (!open) return false;
+    if (!open || suggestions.length === 0) return false;
     if (event.key === "ArrowDown") {
       setIdx((i) => (i + 1) % suggestions.length);
     } else if (event.key === "ArrowUp") {
@@ -111,6 +116,11 @@ export function MentionDropdown({
       className="chibi-mention-dd"
       style={placement === "above" ? { bottom: "100%", marginBottom: 4 } : { top: "100%", marginTop: 4 }}
     >
+      {suggestions.length === 0 && (
+        <div className="chibi-text-muted" style={{ padding: "7px 10px", fontSize: "0.74rem" }}>
+          No players found yet — names appear as people play or chat nearby.
+        </div>
+      )}
       {suggestions.map((name, i) => (
         <button
           key={name}

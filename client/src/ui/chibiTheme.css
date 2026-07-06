@@ -2081,7 +2081,7 @@ body {
   z-index: 40;
   min-width: 180px;
   max-width: 260px;
-  background: var(--chibi-panel);
+  background: var(--chibi-panel-solid, var(--chibi-panel));
   border: 2.5px solid var(--chibi-outline);
   border-radius: 12px;
   box-shadow: 0 5px 0 var(--chibi-shadow);
