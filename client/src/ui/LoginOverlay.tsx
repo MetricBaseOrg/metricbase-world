@@ -1,6 +1,7 @@
 import {
   DEFAULT_APPEARANCE_BY_GENDER,
   DEFAULT_CHARACTER_APPEARANCE,
+  defaultAppearanceForGender,
   METRICBASE_TOKEN_MINT,
   normalizeCharacterAppearance,
   type CharacterAppearance,
@@ -110,7 +111,9 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
       const saved = await lookupBondedCharacter(accessToken);
       if (saved.found && saved.bonded && saved.name) {
         setName(saved.name);
-        setAppearance(normalizeCharacterAppearance(saved.appearance));
+        // Everyone now uses their gender's default hero — collapse any legacy
+        // custom look (stats/progress are unaffected, server-side).
+        setAppearance(defaultAppearanceForGender(saved.appearance));
         setNameBonded(true);
         return;
       }

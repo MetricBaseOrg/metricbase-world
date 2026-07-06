@@ -56,6 +56,20 @@ export const DEFAULT_APPEARANCE_BY_GENDER: Record<"male" | "female", CharacterAp
   },
 };
 
+/**
+ * Collapse any saved appearance to the default look for its gender. The game
+ * now ships two hand-drawn heroes (one per gender), so every character renders
+ * as one of them — this maps legacy custom appearances (old colour/hair/outfit
+ * combos) onto the matching default while preserving gender. Purely cosmetic:
+ * never touches stats, level, xp, gold, or inventory.
+ */
+export function defaultAppearanceForGender(
+  raw: Partial<CharacterAppearance> | null | undefined,
+): CharacterAppearance {
+  const gender = raw?.gender === "female" ? "female" : "male";
+  return { ...DEFAULT_APPEARANCE_BY_GENDER[gender] };
+}
+
 export function normalizeCharacterAppearance(
   raw: Partial<CharacterAppearance> | null | undefined,
 ): CharacterAppearance {

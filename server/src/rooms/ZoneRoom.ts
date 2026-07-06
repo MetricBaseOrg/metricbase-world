@@ -30,6 +30,7 @@ import {
   STARTING_GOLD,
   JoinOptions,
   normalizeCharacterAppearance,
+  defaultAppearanceForGender,
   type PlayerProfilePayload,
   normalizeInventory,
   normalizeSkills,
@@ -1203,7 +1204,27 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       }
     }
 
-    const appearance = saved?.appearance ?? normalizeCharacterAppearance(options?.appearance);
+    // Two default heroes only: everyone renders as their gender's default
+    // look (legacy custom appearances are collapsed here). Cosmetic-only —
+    // stats/level/xp/gold/inventory are all read from `saved` untouched.
+    const appearance = defaultAppearanceForGender(
+      saved?.appearance ?? normalizeCharacterAppearance(options?.appearance),
+    );
+    // Persist the reset once so the DB no longer holds the legacy look.
+    if (saved) {
+      const prev = saved.appearance;
+      const changed =
+        !prev ||
+        prev.bodyColor !== appearance.bodyColor ||
+        prev.hairColor !== appearance.hairColor ||
+        prev.outfitColor !== appearance.outfitColor ||
+        prev.hairStyle !== appearance.hairStyle ||
+        prev.outfitStyle !== appearance.outfitStyle;
+      if (changed) {
+        saved = { ...saved, appearance };
+        await saveCharacter(saved);
+      }
+    }
 
     const player = new PlayerSchema();
     player.sessionId = client.sessionId;
@@ -5996,7 +6017,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       level: live?.level ?? record.level,
       guildName: guild?.name,
       guildTag: guild?.tag,
-      appearance: normalizeCharacterAppearance(record.appearance),
+      appearance: defaultAppearanceForGender(record.appearance),
       skills: {
         woodcutting: skills.woodcutting.level,
         mining: skills.mining?.level ?? 1,
