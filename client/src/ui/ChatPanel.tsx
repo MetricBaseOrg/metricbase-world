@@ -6,6 +6,7 @@ import { networkManager } from "../game/network";
 import { isAnyPanelOpen, useGameStore } from "../store/gameStore";
 import { useMobileLayout } from "./useMobileLayout";
 import { mentionsLocalPlayer, renderMarkdown } from "./markdown";
+import { MentionDropdown, useMentionAutocomplete } from "./mentionPicker";
 
 export function ChatPanel() {
   const [draft, setDraft] = useState("");
@@ -117,8 +118,13 @@ export function ChatPanel() {
     );
   };
 
+  // "@" autocomplete: pick a player name from the dropdown while typing.
+  const mention = useMentionAutocomplete(draft, (next) => setDraft(next.slice(0, CHAT_MAX_LENGTH)));
+
   // Enter sends; Shift+Enter inserts a newline (long-form, markdown-friendly).
+  // While the @ dropdown is open, keys navigate/pick instead.
   const onInputKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (mention.onKeyDown(event)) return;
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
       handleSubmit(event);
@@ -199,24 +205,31 @@ export function ChatPanel() {
 
           <form onSubmit={handleSubmit} className="chibi-chat-sheet__form">
             {channelToggle}
-            <textarea
-              className="chibi-input chibi-chat-input"
-              value={draft}
-              rows={1}
-              onChange={(event) => {
-                setDraft(event.target.value.slice(0, CHAT_MAX_LENGTH));
-                event.target.style.height = "auto";
-                event.target.style.height = `${Math.min(event.target.scrollHeight, 120)}px`;
-              }}
-              onKeyDown={onInputKeyDown}
-              onFocus={() => {
-                setUiTypingActive(true);
-                networkManager.sendInput(0, 0);
-              }}
-              onBlur={() => setUiTypingActive(false)}
-              placeholder={channel === "zone" ? "Type a message… (Markdown ok, Shift+Enter = newline)" : `Message your ${channelLabel.toLowerCase()}…`}
-              style={{ flex: 1 }}
-            />
+            <div style={{ position: "relative", flex: 1 }}>
+              <MentionDropdown {...mention} />
+              <textarea
+                className="chibi-input chibi-chat-input"
+                value={draft}
+                rows={1}
+                onChange={(event) => {
+                  setDraft(event.target.value.slice(0, CHAT_MAX_LENGTH));
+                  mention.update(event.target);
+                  event.target.style.height = "auto";
+                  event.target.style.height = `${Math.min(event.target.scrollHeight, 120)}px`;
+                }}
+                onKeyDown={onInputKeyDown}
+                onFocus={() => {
+                  setUiTypingActive(true);
+                  networkManager.sendInput(0, 0);
+                }}
+                onBlur={() => {
+                  setUiTypingActive(false);
+                  mention.close();
+                }}
+                placeholder={channel === "zone" ? "Type a message… (Markdown ok, Shift+Enter = newline)" : `Message your ${channelLabel.toLowerCase()}…`}
+                style={{ width: "100%" }}
+              />
+            </div>
             <button
               type="submit"
               className="chibi-btn chibi-btn--mint"
@@ -250,24 +263,31 @@ export function ChatPanel() {
 
       <form onSubmit={handleSubmit} style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
         {channelToggle}
-        <textarea
-          className="chibi-input chibi-chat-input"
-          value={draft}
-          rows={1}
-          onChange={(event) => {
-            setDraft(event.target.value.slice(0, CHAT_MAX_LENGTH));
-            event.target.style.height = "auto";
-            event.target.style.height = `${Math.min(event.target.scrollHeight, 120)}px`;
-          }}
-          onKeyDown={onInputKeyDown}
-          onFocus={() => {
-            setUiTypingActive(true);
-            networkManager.sendInput(0, 0);
-          }}
-          onBlur={() => setUiTypingActive(false)}
-          placeholder={channel === "zone" ? "Enter to send · Shift+Enter newline · **markdown**" : `${channelLabel} chat — Enter to send…`}
-          style={{ flex: 1 }}
-        />
+        <div style={{ position: "relative", flex: 1 }}>
+          <MentionDropdown {...mention} />
+          <textarea
+            className="chibi-input chibi-chat-input"
+            value={draft}
+            rows={1}
+            onChange={(event) => {
+              setDraft(event.target.value.slice(0, CHAT_MAX_LENGTH));
+              mention.update(event.target);
+              event.target.style.height = "auto";
+              event.target.style.height = `${Math.min(event.target.scrollHeight, 120)}px`;
+            }}
+            onKeyDown={onInputKeyDown}
+            onFocus={() => {
+              setUiTypingActive(true);
+              networkManager.sendInput(0, 0);
+            }}
+            onBlur={() => {
+              setUiTypingActive(false);
+              mention.close();
+            }}
+            placeholder={channel === "zone" ? "Enter to send · Shift+Enter newline · **markdown**" : `${channelLabel} chat — Enter to send…`}
+            style={{ width: "100%" }}
+          />
+        </div>
         <button
           type="submit"
           className="chibi-btn chibi-btn--mint"

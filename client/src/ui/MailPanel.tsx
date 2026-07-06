@@ -9,6 +9,7 @@ import { playSfx } from "../audio/soundEffects";
 import { networkManager } from "../game/network";
 import { useGameStore } from "../store/gameStore";
 import { renderMarkdown } from "./markdown";
+import { filterMentionNames, MentionDropdown, useMentionAutocomplete } from "./mentionPicker";
 
 type Tab = "inbox" | "compose";
 
@@ -20,12 +21,22 @@ export function MailPanel() {
   const [messages, setMessages] = useState<MailMessage[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [to, setTo] = useState("");
+  const [toFocused, setToFocused] = useState(false);
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [gold, setGold] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+
+  // Recipient picker: suggest known player names while the field is focused.
+  const toQuery = to.trim();
+  const toSuggestions =
+    toFocused && toQuery.length > 0
+      ? filterMentionNames(toQuery, 5).filter((n) => n.toLowerCase() !== toQuery.toLowerCase())
+      : [];
+  // "@" autocomplete inside the letter body.
+  const bodyMention = useMentionAutocomplete(body, (next) => setBody(next.slice(0, MAIL_MAX_BODY)));
 
   useEffect(() => {
     const offState = networkManager.onMailState((s) => setMessages(s.messages));
@@ -191,13 +202,36 @@ export function MailPanel() {
           </div>
         ) : (
           <div className="chibi-mail__compose">
-            <input
-              className="chibi-input"
-              placeholder="Recipient name"
-              value={to}
-              maxLength={64}
-              onChange={(e) => setTo(e.target.value)}
-            />
+            <div style={{ position: "relative" }}>
+              <input
+                className="chibi-input"
+                placeholder="Recipient name"
+                value={to}
+                maxLength={64}
+                style={{ width: "100%" }}
+                onChange={(e) => setTo(e.target.value)}
+                onFocus={() => setToFocused(true)}
+                onBlur={() => setToFocused(false)}
+              />
+              {toSuggestions.length > 0 && (
+                <div className="chibi-mention-dd" style={{ top: "100%", marginTop: 4 }}>
+                  {toSuggestions.map((name) => (
+                    <button
+                      key={name}
+                      type="button"
+                      className="chibi-mention-dd__item"
+                      onPointerDown={(e) => {
+                        e.preventDefault();
+                        setTo(name);
+                        setToFocused(false);
+                      }}
+                    >
+                      {name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
             <input
               className="chibi-input"
               placeholder="Subject"
@@ -205,14 +239,25 @@ export function MailPanel() {
               maxLength={MAIL_MAX_SUBJECT}
               onChange={(e) => setSubject(e.target.value)}
             />
-            <textarea
-              className="chibi-input"
-              placeholder="Message (optional)"
-              value={body}
-              maxLength={MAIL_MAX_BODY}
-              rows={4}
-              onChange={(e) => setBody(e.target.value)}
-            />
+            <div style={{ position: "relative" }}>
+              <MentionDropdown {...bodyMention} placement="below" />
+              <textarea
+                className="chibi-input"
+                placeholder="Message (optional) — @Name to tag someone"
+                value={body}
+                maxLength={MAIL_MAX_BODY}
+                rows={4}
+                style={{ width: "100%" }}
+                onChange={(e) => {
+                  setBody(e.target.value);
+                  bodyMention.update(e.target);
+                }}
+                onKeyDown={(e) => {
+                  bodyMention.onKeyDown(e);
+                }}
+                onBlur={() => bodyMention.close()}
+              />
+            </div>
             <input
               className="chibi-input"
               inputMode="numeric"
