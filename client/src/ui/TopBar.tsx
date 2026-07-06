@@ -24,6 +24,15 @@ interface TopBarProps {
 }
 
 /** Compact desktop top bar: glanceable stats up top, settings tucked behind ⚙️. */
+/** Compact relative timestamp for the notification list. */
+function timeAgo(at: number): string {
+  const s = Math.max(0, Math.round((Date.now() - at) / 1000));
+  if (s < 60) return "now";
+  if (s < 3600) return `${Math.floor(s / 60)}m`;
+  if (s < 86400) return `${Math.floor(s / 3600)}h`;
+  return `${Math.floor(s / 86400)}d`;
+}
+
 export function TopBar({ onLeave }: TopBarProps) {
   const mobileLayout = useMobileLayout();
   const menuOpen = useGameStore((s) => s.settingsOpen);
@@ -38,6 +47,10 @@ export function TopBar({ onLeave }: TopBarProps) {
     }
   });
   const menuRef = useRef<HTMLDivElement | null>(null);
+  // Notification centre (🔔) dropdown.
+  const [bellOpen, setBellOpen] = useState(false);
+  const notifications = useGameStore((s) => s.notifications);
+  const notifUnread = notifications.filter((n) => !n.read).length;
 
   const toggleMinimized = () => {
     setMinimized((v) => {
@@ -196,7 +209,66 @@ export function TopBar({ onLeave }: TopBarProps) {
           >
             📬{mailUnread > 0 && <span className="chibi-mail-badge">{mailUnread}</span>}
           </button>
+          <button
+            type="button"
+            className="chibi-currency-chip chibi-currency-chip--btn chibi-mail-chip"
+            title="Notifications"
+            onClick={() => {
+              playSfx(bellOpen ? "ui_close" : "ui_open");
+              setBellOpen((open) => {
+                if (!open) useGameStore.getState().markNotificationsRead();
+                return !open;
+              });
+            }}
+          >
+            🔔{notifUnread > 0 && <span className="chibi-mail-badge">{notifUnread}</span>}
+          </button>
           <DayNightClock className="chibi-currency-chip" />
+        </div>
+      )}
+
+      {bellOpen && (
+        <div className="chibi-topbar__menu" style={{ maxHeight: "min(60vh, 420px)", overflowY: "auto" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+            <span style={{ fontWeight: 800, fontSize: "0.85rem" }}>🔔 Notifications</span>
+            <button
+              type="button"
+              className="chibi-btn chibi-btn--ghost"
+              style={{ padding: "2px 10px", fontSize: "0.75rem" }}
+              onClick={() => {
+                playSfx("ui_close");
+                setBellOpen(false);
+              }}
+            >
+              ×
+            </button>
+          </div>
+          {notifications.length === 0 ? (
+            <div className="chibi-text-muted" style={{ fontSize: "0.78rem", padding: "10px 0" }}>
+              Nothing yet — mentions, mail, and duel challenges land here.
+            </div>
+          ) : (
+            notifications.map((n) => (
+              <div
+                key={n.id}
+                style={{
+                  display: "flex",
+                  gap: 8,
+                  alignItems: "baseline",
+                  padding: "6px 4px",
+                  borderTop: "1.5px dashed var(--chibi-outline-light)",
+                  fontSize: "0.8rem",
+                  opacity: n.read ? 0.75 : 1,
+                }}
+              >
+                <span>{n.icon}</span>
+                <span style={{ flex: 1, lineHeight: 1.35 }}>{n.text}</span>
+                <span className="chibi-text-muted" style={{ fontSize: "0.66rem", whiteSpace: "nowrap" }}>
+                  {timeAgo(n.at)}
+                </span>
+              </div>
+            ))
+          )}
         </div>
       )}
 

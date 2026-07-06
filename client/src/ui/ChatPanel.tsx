@@ -5,7 +5,7 @@ import { setUiTypingActive } from "../game/inputControl";
 import { networkManager } from "../game/network";
 import { isAnyPanelOpen, useGameStore } from "../store/gameStore";
 import { useMobileLayout } from "./useMobileLayout";
-import { renderMarkdown } from "./markdown";
+import { mentionsLocalPlayer, renderMarkdown } from "./markdown";
 
 export function ChatPanel() {
   const [draft, setDraft] = useState("");
@@ -75,6 +75,12 @@ export function ChatPanel() {
     setDraft("");
   };
 
+  // Tapping a sender's name drops an @mention of them into the draft.
+  const tagPlayer = (senderName: string) => {
+    playSfx("ui_click");
+    setDraft((d) => `${d}${d && !d.endsWith(" ") ? " " : ""}@${senderName} `.slice(0, CHAT_MAX_LENGTH));
+  };
+
   const renderMessage = (message: (typeof messages)[number]) => {
     const body = <span className="chibi-md">{renderMarkdown(message.body)}</span>;
     if (message.channel === "system") {
@@ -83,7 +89,9 @@ export function ChatPanel() {
     if (message.channel === "guild") {
       return (
         <>
-          <span className="chibi-chat-guild">[Guild] {message.senderName}: </span>
+          <span className="chibi-chat-guild chibi-chat-name-btn" onClick={() => tagPlayer(message.senderName)}>
+            [Guild] {message.senderName}:{" "}
+          </span>
           {body}
         </>
       );
@@ -91,7 +99,9 @@ export function ChatPanel() {
     if (message.channel === "party") {
       return (
         <>
-          <span className="chibi-chat-party">[Party] {message.senderName}: </span>
+          <span className="chibi-chat-party chibi-chat-name-btn" onClick={() => tagPlayer(message.senderName)}>
+            [Party] {message.senderName}:{" "}
+          </span>
           {body}
         </>
       );
@@ -99,7 +109,9 @@ export function ChatPanel() {
     return (
       <>
         <span className="chibi-chat-global">[Global] </span>
-        <span className="chibi-chat-name">{message.senderName}: </span>
+        <span className="chibi-chat-name chibi-chat-name-btn" onClick={() => tagPlayer(message.senderName)}>
+          {message.senderName}:{" "}
+        </span>
         {body}
       </>
     );
@@ -174,7 +186,11 @@ export function ChatPanel() {
               <div className="chibi-text-muted">💬 Global chat is live. Say hello!</div>
             ) : (
               messages.map((message) => (
-                <div key={message.id} style={{ marginBottom: 6, fontSize: "0.84rem", lineHeight: 1.45 }}>
+                <div
+                  key={message.id}
+                  className={message.channel !== "system" && mentionsLocalPlayer(message.body) ? "chibi-chat-row--mention" : undefined}
+                  style={{ marginBottom: 6, fontSize: "0.84rem", lineHeight: 1.45 }}
+                >
                   {renderMessage(message)}
                 </div>
               ))
@@ -221,7 +237,11 @@ export function ChatPanel() {
           <div className="chibi-text-muted">💬 Global chat is live. Say hello!</div>
         ) : (
           messages.map((message) => (
-            <div key={message.id} style={{ marginBottom: 6, fontSize: "0.84rem", lineHeight: 1.45 }}>
+            <div
+              key={message.id}
+              className={message.channel !== "system" && mentionsLocalPlayer(message.body) ? "chibi-chat-row--mention" : undefined}
+              style={{ marginBottom: 6, fontSize: "0.84rem", lineHeight: 1.45 }}
+            >
               {renderMessage(message)}
             </div>
           ))

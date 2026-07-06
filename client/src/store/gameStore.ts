@@ -74,6 +74,8 @@ interface GameStore {
   fishingFx: { type: "bite" | "hit" | "catch" | "escape"; at: number } | null;
   /** Current PvP opponent (duel or recent hits) — drives the target frame. */
   pvpOpponent: { name: string; until: number; duel: boolean } | null;
+  /** Notification centre (🔔): mentions, mail, invites. Newest first. */
+  notifications: { id: string; icon: string; text: string; at: number; read: boolean }[];
   /** True while the player is actively editing a World (hides gameplay HUD). */
   worldEditing: boolean;
   housingOpen: boolean;
@@ -147,6 +149,8 @@ interface GameStore {
   setLastCatch: (c: { itemId: string; rarity: string; quantity: number; at: number } | null) => void;
   setFishingFx: (fx: { type: "bite" | "hit" | "catch" | "escape"; at: number } | null) => void;
   setPvpOpponent: (o: { name: string; until: number; duel: boolean } | null) => void;
+  addNotification: (icon: string, text: string) => void;
+  markNotificationsRead: () => void;
   setWorldEditing: (editing: boolean) => void;
   openHousing: (plotId: string) => void;
   setHousingOpen: (open: boolean) => void;
@@ -242,6 +246,7 @@ export const useGameStore = create<GameStore>((set) => ({
   lastCatch: null,
   fishingFx: null,
   pvpOpponent: null,
+  notifications: [],
   worldEditing: false,
   housingOpen: false,
   housingPlotId: null,
@@ -348,6 +353,15 @@ export const useGameStore = create<GameStore>((set) => ({
   setLastCatch: (lastCatch) => set({ lastCatch }),
   setFishingFx: (fishingFx) => set({ fishingFx }),
   setPvpOpponent: (pvpOpponent) => set({ pvpOpponent }),
+  addNotification: (icon, text) =>
+    set((state) => ({
+      notifications: [
+        { id: crypto.randomUUID(), icon, text, at: Date.now(), read: false },
+        ...state.notifications,
+      ].slice(0, 30),
+    })),
+  markNotificationsRead: () =>
+    set((state) => ({ notifications: state.notifications.map((n) => ({ ...n, read: true })) })),
   setWorldEditing: (worldEditing) => set({ worldEditing }),
   openHousing: (housingPlotId) =>
     set({ housingPlotId, housingOpen: true, inventoryOpen: false, craftOpen: false }),

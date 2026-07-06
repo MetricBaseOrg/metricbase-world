@@ -8,6 +8,7 @@ import { useEffect, useState } from "react";
 import { playSfx } from "../audio/soundEffects";
 import { networkManager } from "../game/network";
 import { useGameStore } from "../store/gameStore";
+import { renderMarkdown } from "./markdown";
 
 type Tab = "inbox" | "compose";
 
@@ -136,7 +137,9 @@ export function MailPanel() {
                 <div className="chibi-text-muted" style={{ fontSize: "0.72rem" }}>
                   From <strong>{selected.sender}</strong> · {new Date(selected.sentAt).toLocaleDateString()}
                 </div>
-                <div className="chibi-mail__text">{selected.body || <em>(no message)</em>}</div>
+                <div className="chibi-mail__text">
+                  {selected.body ? renderMarkdown(selected.body) : <em>(no message)</em>}
+                </div>
                 {selected.gold > 0 && (
                   <button
                     type="button"

@@ -192,6 +192,21 @@ export async function saveCharacter(record: CharacterRecord): Promise<void> {
   );
 }
 
+/**
+ * Case-insensitive name probe — blocks visually-identical names ("pip" vs
+ * "Pip") that would confuse mail, jobs, and pay-by-name flows. Returns the
+ * existing exact spelling, or null.
+ */
+async function findExistingNameCI(name: string): Promise<string | null> {
+  const db = getPool();
+  if (!db) return null;
+  const result = await db.query<{ name: string }>(
+    "SELECT name FROM characters WHERE LOWER(name) = LOWER($1) LIMIT 1",
+    [name],
+  );
+  return result.rowCount ? result.rows[0].name : null;
+}
+
 export class CharacterBindingError extends Error {
   constructor(
     message: string,
@@ -227,6 +242,17 @@ export async function bindCharacterToWallet(
       "This character name is already bonded to another wallet.",
       "name_taken",
     );
+  }
+
+  // No exact match: also reject names that only differ by letter case.
+  if (!existingByName) {
+    const similar = await findExistingNameCI(name);
+    if (similar && similar !== name) {
+      throw new CharacterBindingError(
+        `That name is already taken (as "${similar}"). Pick another.`,
+        "name_taken",
+      );
+    }
   }
 
   const record: CharacterRecord = {
@@ -306,10 +332,36 @@ export async function resolveCharacterForJoin(
       return byName;
     }
 
+    // Brand-new name: reject case-only lookalikes of existing characters.
+    const similar = await findExistingNameCI(name);
+    if (similar && similar !== name) {
+      throw new CharacterBindingError(
+        `That name is already taken (as "${similar}"). Pick another.`,
+        "name_taken",
+      );
+    }
     return null;
   }
 
-  return loadCharacterByName(name);
+  // No wallet on the join (token gate off / spectators): never hand out a
+  // character that belongs to a bonded wallet, and never let a new walletless
+  // player squat an existing name.
+  const byName = await loadCharacterByName(name);
+  if (byName?.walletAddress) {
+    throw new CharacterBindingError(
+      "That name belongs to a bonded character — connect its wallet to play it.",
+      "name_taken",
+    );
+  }
+  if (byName) return byName;
+  const similar = await findExistingNameCI(name);
+  if (similar) {
+    throw new CharacterBindingError(
+      `That name is already taken (as "${similar}"). Pick another.`,
+      "name_taken",
+    );
+  }
+  return null;
 }
 
 function mapRow(row: CharacterRow): CharacterRecord {

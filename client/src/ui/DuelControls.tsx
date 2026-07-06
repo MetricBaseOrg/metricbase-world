@@ -24,6 +24,7 @@ export function DuelControls() {
     const offInvite = networkManager.onDuelInvite((p) => {
       playSfx("notify");
       setInvite(p.fromName);
+      useGameStore.getState().addNotification("🤺", `${p.fromName} challenged you to a duel`);
     });
     const offStart = networkManager.onDuelStart((p) => {
       playSfx("level_up");

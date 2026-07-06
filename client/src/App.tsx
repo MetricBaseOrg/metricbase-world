@@ -30,6 +30,7 @@ import { BuildShopPanel } from "./ui/BuildShopPanel";
 import { AdBanner } from "./ui/AdBanner";
 import { QuestPanel } from "./ui/QuestPanel";
 import { ErrorBoundary } from "./ui/ErrorBoundary";
+import { mentionsLocalPlayer } from "./ui/markdown";
 import { ArcadeModal } from "./ui/ArcadeModal";
 import { BlackZoneModal } from "./ui/BlackZoneModal";
 import { CropMarketPanel } from "./ui/CropMarketPanel";
@@ -98,6 +99,17 @@ export function App() {
 
     const unsubscribeChat = networkManager.onChatMessage((message) => {
       addChatMessage(message);
+      // @mention of me → bell notification + chime (not for my own messages).
+      const me = useGameStore.getState().playerName;
+      if (
+        message.channel !== "system" &&
+        me &&
+        message.senderName !== me &&
+        mentionsLocalPlayer(message.body)
+      ) {
+        useGameStore.getState().addNotification("💬", `${message.senderName} mentioned you in chat`);
+        playSfx("notify");
+      }
     });
 
     const unsubscribeZone = networkManager.onZoneChange((zoneId, zoneName) => {
@@ -171,8 +183,19 @@ export function App() {
       useGameStore.getState().setBlackjackOpen(true);
     });
 
+    let lastMailUnread: number | null = null;
     const unsubscribeMail = networkManager.onMailState((mailState) => {
       useGameStore.getState().setMailUnread(mailState.unread);
+      // Bell: unread mail on login, and every new arrival after that.
+      if (lastMailUnread === null) {
+        if (mailState.unread > 0) {
+          useGameStore.getState().addNotification("📬", `${mailState.unread} unread mail in your inbox`);
+        }
+      } else if (mailState.unread > lastMailUnread) {
+        useGameStore.getState().addNotification("📬", "New mail arrived");
+        playSfx("notify");
+      }
+      lastMailUnread = mailState.unread;
     });
     networkManager.requestMailState();
 

@@ -1,10 +1,18 @@
 import { type ReactNode } from "react";
+import { useGameStore } from "../store/gameStore";
 
 // A tiny, safe Markdown renderer for chat. It returns React nodes (never raw
 // HTML), so user text can't inject markup. Supports: **bold**, *italic*,
-// `inline code`, [links](https url), and line breaks.
+// `inline code`, [links](https url), @mentions, and line breaks.
 
-const INLINE = /(`[^`]+`)|(\*\*[^*]+\*\*)|(\*[^*]+\*)|(\[[^\]]+\]\([^)\s]+\))/g;
+const INLINE = /(`[^`]+`)|(\*\*[^*]+\*\*)|(\*[^*]+\*)|(\[[^\]]+\]\([^)\s]+\))|(@[^\s@`*[\]]{2,16})/g;
+
+/** True when `body` @mentions the local player (case-insensitive). */
+export function mentionsLocalPlayer(body: string): boolean {
+  const me = useGameStore.getState().playerName;
+  if (!me) return false;
+  return body.toLowerCase().includes(`@${me.toLowerCase()}`);
+}
 
 function renderInline(text: string, keyBase: string): ReactNode[] {
   const nodes: ReactNode[] = [];
@@ -20,6 +28,15 @@ function renderInline(text: string, keyBase: string): ReactNode[] {
         <code key={`${keyBase}-${key++}`} className="chibi-md-code">
           {token.slice(1, -1)}
         </code>,
+      );
+    } else if (token.startsWith("@")) {
+      // Player tag: a chip, glowing when it's YOU being mentioned.
+      const me = useGameStore.getState().playerName;
+      const self = !!me && token.slice(1).toLowerCase() === me.toLowerCase();
+      nodes.push(
+        <span key={`${keyBase}-${key++}`} className={`chibi-mention${self ? " chibi-mention--self" : ""}`}>
+          {token}
+        </span>,
       );
     } else if (token.startsWith("**")) {
       nodes.push(<strong key={`${keyBase}-${key++}`}>{token.slice(2, -2)}</strong>);

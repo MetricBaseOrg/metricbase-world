@@ -2052,6 +2052,36 @@ body {
   background: var(--chibi-danger);
 }
 
+/* @mention chips in chat + mail; --self glows when YOU are tagged. */
+.chibi-mention {
+  display: inline-block;
+  background: #e8f1fb;
+  color: #2f74c0;
+  font-weight: 800;
+  border-radius: 6px;
+  padding: 0 4px;
+}
+.chibi-mention--self {
+  background: #fff1c9;
+  color: #a06a00;
+  box-shadow: 0 0 0 1.5px #e8c76a;
+}
+/* A chat row that mentions the local player gets a soft highlight. */
+.chibi-chat-row--mention {
+  background: #fff7dd;
+  border-radius: 8px;
+  padding: 2px 6px;
+  margin-left: -6px;
+  margin-right: -2px;
+}
+/* Sender names are tappable (inserts an @mention). */
+.chibi-chat-name-btn {
+  cursor: pointer;
+}
+.chibi-chat-name-btn:hover {
+  text-decoration: underline;
+}
+
 /* Fishing minigame: the ❗ bite alert rattles for urgency. */
 @keyframes chibi-bite-shake {
   0% { transform: translate(0, 0) rotate(-6deg); }
