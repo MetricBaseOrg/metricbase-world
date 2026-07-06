@@ -30,11 +30,18 @@ function renderInline(text: string, keyBase: string): ReactNode[] {
         </code>,
       );
     } else if (token.startsWith("@")) {
-      // Player tag: a chip, glowing when it's YOU being mentioned.
+      // Player tag: a chip, glowing when it's YOU. Click opens their profile.
       const me = useGameStore.getState().playerName;
-      const self = !!me && token.slice(1).toLowerCase() === me.toLowerCase();
+      const tagged = token.slice(1);
+      const self = !!me && tagged.toLowerCase() === me.toLowerCase();
       nodes.push(
-        <span key={`${keyBase}-${key++}`} className={`chibi-mention${self ? " chibi-mention--self" : ""}`}>
+        <span
+          key={`${keyBase}-${key++}`}
+          className={`chibi-mention${self ? " chibi-mention--self" : ""}`}
+          role="button"
+          style={{ cursor: "pointer" }}
+          onClick={() => useGameStore.getState().setProfileFor(tagged)}
+        >
           {token}
         </span>,
       );

@@ -29,6 +29,15 @@ export function MailPanel() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
+  // One-shot compose preload from the profile card's "Send mail" button.
+  const mailComposeTo = useGameStore((s) => s.mailComposeTo);
+  useEffect(() => {
+    if (!mailComposeTo) return;
+    setTab("compose");
+    setTo(mailComposeTo.name);
+    useGameStore.getState().setMailComposeTo(null);
+  }, [mailComposeTo]);
+
   // Recipient picker: suggest known player names while the field is focused.
   const toQuery = to.trim();
   const toSuggestions =
@@ -146,7 +155,15 @@ export function MailPanel() {
                 </button>
                 <div className="chibi-mail__subject">{selected.subject}</div>
                 <div className="chibi-text-muted" style={{ fontSize: "0.72rem" }}>
-                  From <strong>{selected.sender}</strong> · {new Date(selected.sentAt).toLocaleDateString()}
+                  From{" "}
+                  <strong
+                    className="chibi-chat-name-btn"
+                    style={{ color: "#2f74c0", cursor: "pointer" }}
+                    onClick={() => useGameStore.getState().setProfileFor(selected.sender)}
+                  >
+                    {selected.sender}
+                  </strong>{" "}
+                  · {new Date(selected.sentAt).toLocaleDateString()}
                 </div>
                 <div className="chibi-mail__text">
                   {selected.body ? renderMarkdown(selected.body) : <em>(no message)</em>}

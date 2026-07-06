@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { playSfx } from "../audio/soundEffects";
 import { networkManager } from "../game/network";
+import { useGameStore } from "../store/gameStore";
 import { useMobileLayout } from "./useMobileLayout";
 
 interface RosterEntry {
@@ -55,7 +56,11 @@ export function WhoPanel() {
           <div className="chibi-who-title">Adventurers here</div>
           {players.map((p) => (
             <div key={p.name} className="chibi-who-row">
-              <span className="chibi-who-name">
+              <span
+                className={`chibi-who-name${p.you ? "" : " chibi-chat-name-btn"}`}
+                style={p.you ? undefined : { cursor: "pointer" }}
+                onClick={p.you ? undefined : () => useGameStore.getState().setProfileFor(p.name)}
+              >
                 {p.name}
                 {p.you ? " (you)" : ""}
               </span>

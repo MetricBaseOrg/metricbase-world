@@ -41,6 +41,7 @@ import { FishingMinigame } from "./ui/FishingMinigame";
 import { DuelControls } from "./ui/DuelControls";
 import { PvpFlagButton } from "./ui/PvpFlagButton";
 import { PvpOpponentFrame } from "./ui/PvpOpponentFrame";
+import { PlayerProfilePanel } from "./ui/PlayerProfilePanel";
 import { VipLodgeModal } from "./ui/VipLodgeModal";
 import { ShopPanel } from "./ui/ShopPanel";
 import { SiegeBanner } from "./ui/SiegeBanner";
@@ -397,6 +398,7 @@ export function App() {
       {joined && !worldEditing && !panelOpen && <PvpFlagButton />}
       {joined && !worldEditing && !panelOpen && <DuelControls />}
       {joined && <PvpOpponentFrame />}
+      {joined && <PlayerProfilePanel />}
       {joined && <SiegeBanner />}
       {joined && !worldEditing && <SkillBar />}
       {joined && !worldEditing && !panelOpen && <EmoteBar />}

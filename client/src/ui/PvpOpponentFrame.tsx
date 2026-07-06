@@ -99,7 +99,18 @@ export function PvpOpponentFrame() {
       <div className="chibi-panel" style={{ padding: "8px 12px" }}>
         <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
           <span style={{ fontSize: "0.8rem" }}>{opponent.duel ? "🤺" : "⚔️"}</span>
-          <span style={{ fontWeight: 800, fontSize: "0.85rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <span
+            style={{
+              fontWeight: 800,
+              fontSize: "0.85rem",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+              pointerEvents: "auto",
+              cursor: "pointer",
+            }}
+            onClick={() => useGameStore.getState().setProfileFor(opponent.name)}
+          >
             {opponent.name}
           </span>
           {vitals?.online ? (

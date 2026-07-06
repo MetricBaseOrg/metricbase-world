@@ -30,6 +30,7 @@ import {
   STARTING_GOLD,
   JoinOptions,
   normalizeCharacterAppearance,
+  type PlayerProfilePayload,
   normalizeInventory,
   normalizeSkills,
   woodcuttingLevelFromXp,
@@ -227,6 +228,7 @@ import { verifyAccessToken } from "../auth/accessToken.js";
 import { isTokenGateEnabled } from "../auth/tokenGate.js";
 import {
   CharacterBindingError,
+  loadCharacterByName,
   loadCharacterByWallet,
   resolveCharacterForJoin,
   saveCharacter,
@@ -724,6 +726,11 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     this.onProtectedMessage("chop", (client, message: { resourceId?: string; minigame?: boolean }) => {
       void this.handleChop(client, message.resourceId ?? "", Boolean(message.minigame));
     });
+    // Public profile card: anyone can look up a player by exact name.
+    this.onProtectedMessage("playerProfile", (client, message: { name?: string }) => {
+      void this.handlePlayerProfile(client, String(message?.name ?? "").trim());
+    });
+
     this.onProtectedMessage("fishingResolve", (client, message: { resourceId?: string; success?: boolean }) => {
       void this.handleFishingResolve(client, String(message.resourceId ?? ""), Boolean(message.success));
     });
@@ -5959,6 +5966,47 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       return;
     }
     await this.completeChopSession(client.sessionId, session, resource, player, now);
+  }
+
+  /**
+   * Public profile card for a clicked name tag. Only surfaces what's already
+   * visible in-game (level, guild, skills, PvP record) — never gold,
+   * inventory, or location.
+   */
+  private async handlePlayerProfile(client: Client, name: string) {
+    const fail = (error: string) =>
+      client.send("playerProfileResult", { ok: false, error } satisfies PlayerProfilePayload);
+    if (!name || name.length > 16) {
+      fail("Player not found.");
+      return;
+    }
+    const record = await loadCharacterByName(name);
+    if (!record) {
+      fail("Player not found.");
+      return;
+    }
+    const guild = getGuildForMember(record.name);
+    const skills = buildSkillStatePayload(normalizeSkills(record.skills));
+    // Prefer live values for online players (level-ups since last persist).
+    const live = [...this.state.players.values()].find((p) => p.name === record.name);
+    client.send("playerProfileResult", {
+      ok: true,
+      name: record.name,
+      online: isOnline(record.name),
+      level: live?.level ?? record.level,
+      guildName: guild?.name,
+      guildTag: guild?.tag,
+      appearance: normalizeCharacterAppearance(record.appearance),
+      skills: {
+        woodcutting: skills.woodcutting.level,
+        mining: skills.mining?.level ?? 1,
+        fishing: skills.fishing?.level ?? 1,
+        farming: skills.farming?.level ?? 1,
+      },
+      pvpRating: record.pvpRating,
+      pvpKills: record.pvpKills,
+      honor: record.honor,
+    } satisfies PlayerProfilePayload);
   }
 
   private cancelChopSession(sessionId: string, reason: string) {

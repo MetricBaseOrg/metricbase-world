@@ -1,4 +1,4 @@
-export const GAME_VERSION = "0.101.2";
+export const GAME_VERSION = "0.102.0";
 
 export const TICK_RATE = 20;
 
@@ -80,6 +80,7 @@ export * from "./environment.js";
 export * from "./emotes.js";
 export * from "./stats.js";
 export * from "./leaderboard.js";
+export * from "./profile.js";
 export * from "./schema/PlayerSchema.js";
 export * from "./schema/ZoneState.js";
 

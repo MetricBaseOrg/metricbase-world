@@ -76,6 +76,12 @@ interface GameStore {
   pvpOpponent: { name: string; until: number; duel: boolean } | null;
   /** Notification centre (🔔): mentions, mail, invites. Newest first. */
   notifications: { id: string; icon: string; text: string; at: number; read: boolean }[];
+  /** Player whose profile card is open (clicked name tag), or null. */
+  profileFor: string | null;
+  /** One-shot: text ChatPanel should append to its draft (profile "@ Tag"). */
+  chatInsert: { text: string; at: number } | null;
+  /** One-shot: recipient MailPanel should preload compose with. */
+  mailComposeTo: { name: string; at: number } | null;
   /** True while the player is actively editing a World (hides gameplay HUD). */
   worldEditing: boolean;
   housingOpen: boolean;
@@ -151,6 +157,9 @@ interface GameStore {
   setPvpOpponent: (o: { name: string; until: number; duel: boolean } | null) => void;
   addNotification: (icon: string, text: string) => void;
   markNotificationsRead: () => void;
+  setProfileFor: (name: string | null) => void;
+  setChatInsert: (v: { text: string; at: number } | null) => void;
+  setMailComposeTo: (v: { name: string; at: number } | null) => void;
   setWorldEditing: (editing: boolean) => void;
   openHousing: (plotId: string) => void;
   setHousingOpen: (open: boolean) => void;
@@ -187,7 +196,8 @@ export function isAnyPanelOpen(s: GameStore): boolean {
     s.playerShopOpen ||
     s.shopOpen ||
     s.invitationsOpen ||
-    s.cropMarketOpen !== null
+    s.cropMarketOpen !== null ||
+    s.profileFor !== null
   );
 }
 
@@ -247,6 +257,9 @@ export const useGameStore = create<GameStore>((set) => ({
   fishingFx: null,
   pvpOpponent: null,
   notifications: [],
+  profileFor: null,
+  chatInsert: null,
+  mailComposeTo: null,
   worldEditing: false,
   housingOpen: false,
   housingPlotId: null,
@@ -362,6 +375,9 @@ export const useGameStore = create<GameStore>((set) => ({
     })),
   markNotificationsRead: () =>
     set((state) => ({ notifications: state.notifications.map((n) => ({ ...n, read: true })) })),
+  setProfileFor: (profileFor) => set({ profileFor }),
+  setChatInsert: (chatInsert) => set({ chatInsert }),
+  setMailComposeTo: (mailComposeTo) => set({ mailComposeTo }),
   setWorldEditing: (worldEditing) => set({ worldEditing }),
   openHousing: (housingPlotId) =>
     set({ housingPlotId, housingOpen: true, inventoryOpen: false, craftOpen: false }),

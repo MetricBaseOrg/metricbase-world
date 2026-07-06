@@ -76,11 +76,20 @@ export function ChatPanel() {
     setDraft("");
   };
 
-  // Tapping a sender's name drops an @mention of them into the draft.
+  // Tapping a sender's name opens their profile card (tag/mail from there).
   const tagPlayer = (senderName: string) => {
-    playSfx("ui_click");
-    setDraft((d) => `${d}${d && !d.endsWith(" ") ? " " : ""}@${senderName} `.slice(0, CHAT_MAX_LENGTH));
+    playSfx("ui_open");
+    useGameStore.getState().setProfileFor(senderName);
   };
+
+  // One-shot insert from the profile card's "Tag in chat" button.
+  const chatInsert = useGameStore((s) => s.chatInsert);
+  useEffect(() => {
+    if (!chatInsert) return;
+    setDraft((d) => `${d}${d && !d.endsWith(" ") ? " " : ""}${chatInsert.text}`.slice(0, CHAT_MAX_LENGTH));
+    useGameStore.getState().setChatInsert(null);
+    if (mobileLayout) setOpen(true);
+  }, [chatInsert]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const renderMessage = (message: (typeof messages)[number]) => {
     const body = <span className="chibi-md">{renderMarkdown(message.body)}</span>;

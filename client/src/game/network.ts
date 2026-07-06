@@ -64,6 +64,7 @@ import {
   ZoneTransferPayload,
   type CharacterAppearance,
   type Player,
+  type PlayerProfilePayload,
 } from "@metricbase/shared";
 import { getValidWalletSession } from "../wallet/tokenGate";
 import { getHttpServerUrl, getWebSocketUrl } from "./serverUrl";
@@ -211,6 +212,7 @@ type HousingStateListener = (payload: HousingStatePayload) => void;
 type HousingResultListener = (payload: HousingResultPayload) => void;
 type EmoteListener = (payload: EmotePayload) => void;
 type ItemUsedListener = (payload: ItemUsedPayload) => void;
+type PlayerProfileListener = (payload: PlayerProfilePayload) => void;
 type WorldStatsListener = (payload: WorldStatsPayload) => void;
 type PlayerShopResultListener = (payload: PlayerShopResultPayload) => void;
 type LeaderboardListener = (payload: LeaderboardPayload) => void;
@@ -314,6 +316,7 @@ export class NetworkManager {
   private latestHousingState: HousingStatePayload = { plots: [] };
   private emoteListeners = new Set<EmoteListener>();
   private itemUsedListeners = new Set<ItemUsedListener>();
+  private playerProfileListeners = new Set<PlayerProfileListener>();
   private worldStatsListeners = new Set<WorldStatsListener>();
   private latestWorldStats: WorldStatsPayload = { baseHolders: null, online: 0 };
   private playerShopResultListeners = new Set<PlayerShopResultListener>();
@@ -627,6 +630,10 @@ export class NetworkManager {
 
   sendFishingResolve(resourceId: string, success: boolean) {
     this.room?.send("fishingResolve", { resourceId, success });
+  }
+
+  requestPlayerProfile(name: string) {
+    this.room?.send("playerProfile", { name });
   }
 
   sendChop(resourceId: string, minigame = false) {
@@ -1380,6 +1387,11 @@ export class NetworkManager {
     return () => this.itemUsedListeners.delete(listener);
   }
 
+  onPlayerProfile(listener: PlayerProfileListener) {
+    this.playerProfileListeners.add(listener);
+    return () => this.playerProfileListeners.delete(listener);
+  }
+
   onWorldStats(listener: WorldStatsListener) {
     this.worldStatsListeners.add(listener);
     return () => this.worldStatsListeners.delete(listener);
@@ -1782,6 +1794,11 @@ export class NetworkManager {
     });
     this.room.onMessage("itemUsed", (payload: ItemUsedPayload) => {
       for (const listener of this.itemUsedListeners) {
+        listener(payload);
+      }
+    });
+    this.room.onMessage("playerProfileResult", (payload: PlayerProfilePayload) => {
+      for (const listener of this.playerProfileListeners) {
         listener(payload);
       }
     });
