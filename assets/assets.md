@@ -165,12 +165,43 @@ Square icon look (like the fish art), must read at 34px. Filename = as listed
 - Ground details (5 tiny sprinkles): flowers, mushroom, pebbles, grass tuft, leaf.
 - Weather/fx (rain, splashes, sparkles) are code-drawn and fine as-is.
 
-## The BIG one — player characters (discuss before drawing)
+## Player characters — DECIDED: 2 hand-drawn defaults — drop in `assets/characters/`
 
-Avatars are 100% procedural paper-doll (2 genders × 5 hair × 5 outfits × any colors,
-4 directions × 5 actions with frames). Hand-drawn = a layered sprite-sheet project of its own.
-Options: (a) procedural bodies + hand-drawn heads/hair, (b) full sheets for fixed looks,
-(c) leave as-is. Pick one together before any drawing starts.
+New flow: connect wallet → name → **gender only** (appearance pickers removed). One default
+look per gender; cosmetics come later via a $BASE-burn lucky wheel (separate art list then —
+draw the bases with clean silhouettes so hats/capes/auras can layer on top).
+
+**Frame spec (CRITICAL — consistency is what makes animation work):**
+- One PNG per frame, transparent, **768×768 canvas for every frame**
+- Character centred horizontally, **feet on a fixed baseline at 87% height (y≈668)** in EVERY
+  frame — if the baseline wobbles between frames the character will jitter in-game
+- Same proportions/scale across all frames and both characters (they stand ~600px tall)
+- Directions to draw (engine mirrors the rest): `front` (faces camera), `back`,
+  `right` (side profile), `tqright` (¾ view facing lower-right)
+- Naming: `<char>-<direction>-<action>-<frame>.png`, frames 0-indexed
+  e.g. `boy-front-walk-0.png`, `girl-tqright-fish-1.png`
+
+### Starter set (ships the feature) — 48 frames per character, 96 total
+
+| Action | Frames | × 4 directions | Notes |
+|---|---|---|---|
+| idle | 2 | 8 | breathe/bob between the two |
+| walk | 4 | 16 | contact → up → contact → up |
+| chop | 2 | 8 | wind-up → swing (axe in hand) |
+| fish | 2 | 8 | cast/hold → tug (rod in hand) |
+| attack | 2 | 8 | wind-up → strike (sword in hand) |
+
+Plus per character: `boy-portrait.png`, `girl-portrait.png` (bust, 768×768 — HUD, login,
+profile card). **Total: 98 files.**
+
+### Full set (later polish, optional) — matches current engine frame counts
+
+idle 4 · walk 8 · chop 3 · fish 4 · attack 3 = 88 frames per character. Drop extra frames with
+the same naming (`…-walk-4.png` etc.) any time — the engine's per-action frame counts are
+tunable in `shared/src/avatar.ts`.
+
+Batch tip: start with ONE direction (`front`) of the boy across all actions (12 frames) and
+drop it — I'll wire it in-game so you can check the look/scale before drawing the other 86.
 
 ## Priority order
 
