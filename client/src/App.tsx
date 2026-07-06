@@ -31,6 +31,7 @@ import { AdBanner } from "./ui/AdBanner";
 import { QuestPanel } from "./ui/QuestPanel";
 import { ErrorBoundary } from "./ui/ErrorBoundary";
 import { mentionsLocalPlayer } from "./ui/markdown";
+import { initHandDrawnAvatars } from "./character/handDrawnAvatar";
 import { ArcadeModal } from "./ui/ArcadeModal";
 import { BlackZoneModal } from "./ui/BlackZoneModal";
 import { CropMarketPanel } from "./ui/CropMarketPanel";
@@ -87,6 +88,9 @@ export function App() {
 
   useEffect(() => bindUiTypingFocusGuard(), []);
   useEffect(() => initSoundEffects(), []);
+  // Fetch the hand-drawn character manifest early so avatars/portraits know
+  // whether PNG frames exist (procedural renderer covers the gap either way).
+  useEffect(() => initHandDrawnAvatars(), []);
 
   useEffect(() => {
     const unsubscribeConnection = networkManager.onConnectionChange((connected, count) => {

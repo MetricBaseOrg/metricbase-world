@@ -1,8 +1,9 @@
 import { type CharacterAppearance } from "@metricbase/shared";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { drawCharacter } from "../character/characterArt";
+import { hdCharacterFor, hdPortraitUrl } from "../character/handDrawnAvatar";
 
-/** A small framed avatar portrait drawn from the player's appearance. */
+/** A small framed avatar portrait: hand-drawn art when it exists, else drawn. */
 export function PortraitCanvas({
   appearance,
   size = 60,
@@ -11,8 +12,11 @@ export function PortraitCanvas({
   size?: number;
 }) {
   const ref = useRef<HTMLCanvasElement>(null);
+  const [artFailed, setArtFailed] = useState(false);
+  const artUrl = appearance && !artFailed ? hdPortraitUrl(hdCharacterFor(appearance)) : null;
 
   useEffect(() => {
+    if (artUrl) return;
     const canvas = ref.current;
     if (!canvas || !appearance) return;
     const ctx = canvas.getContext("2d");
@@ -21,7 +25,20 @@ export function PortraitCanvas({
     // Draw the character a bit larger than the frame and nudged up so the
     // head/torso fill the portrait nicely.
     drawCharacter(ctx, appearance, size, size * 1.7);
-  }, [appearance, size]);
+  }, [appearance, size, artUrl]);
+
+  if (artUrl) {
+    return (
+      <img
+        src={artUrl}
+        alt=""
+        onError={() => setArtFailed(true)}
+        className="chibi-portrait-canvas"
+        style={{ width: size, height: size, objectFit: "contain" }}
+        aria-hidden="true"
+      />
+    );
+  }
 
   return (
     <canvas

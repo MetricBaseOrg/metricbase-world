@@ -39,6 +39,23 @@ export const DEFAULT_CHARACTER_APPEARANCE: CharacterAppearance = {
   gender: "male",
 };
 
+/**
+ * The two default heroes (new-player flow: wallet → name → gender). These
+ * are what the hand-drawn character art depicts; existing players keep
+ * whatever appearance they already saved.
+ */
+export const DEFAULT_APPEARANCE_BY_GENDER: Record<"male" | "female", CharacterAppearance> = {
+  male: { ...DEFAULT_CHARACTER_APPEARANCE },
+  female: {
+    bodyColor: 0xffe0bd,
+    hairColor: 0x6d4c41,
+    outfitColor: 0xe84393,
+    hairStyle: "long",
+    outfitStyle: "casual",
+    gender: "female",
+  },
+};
+
 export function normalizeCharacterAppearance(
   raw: Partial<CharacterAppearance> | null | undefined,
 ): CharacterAppearance {

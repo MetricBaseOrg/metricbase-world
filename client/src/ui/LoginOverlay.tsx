@@ -1,15 +1,9 @@
 import {
+  DEFAULT_APPEARANCE_BY_GENDER,
   DEFAULT_CHARACTER_APPEARANCE,
-  HAIR_COLORS,
-  HAIR_STYLES,
   METRICBASE_TOKEN_MINT,
   normalizeCharacterAppearance,
-  OUTFIT_COLORS,
-  OUTFIT_STYLES,
-  SKIN_TONES,
   type CharacterAppearance,
-  type HairStyle,
-  type OutfitStyle,
 } from "@metricbase/shared";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { lookupBondedCharacter, saveCharacterAppearance } from "../character/characterApi";
@@ -40,97 +34,6 @@ interface LoginOverlayProps {
   ) => Promise<void>;
 }
 
-function ColorSwatches({
-  colors,
-  selected,
-  onSelect,
-}: {
-  colors: number[];
-  selected: number;
-  onSelect: (color: number) => void;
-}) {
-  const customActive = !colors.includes(selected);
-  const customHex = `#${selected.toString(16).padStart(6, "0")}`;
-  return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-      {colors.map((color) => {
-        const active = color === selected;
-        return (
-          <button
-            key={color}
-            type="button"
-            className={`chibi-swatch${active ? " active" : ""}`}
-            onClick={() => onSelect(color)}
-            style={{ background: `#${color.toString(16).padStart(6, "0")}` }}
-            aria-label={`Color ${color}`}
-          />
-        );
-      })}
-      {/* Free-form dye picker — any colour outside the presets. */}
-      <label
-        className={`chibi-swatch chibi-swatch--custom${customActive ? " active" : ""}`}
-        title="Custom dye"
-        style={customActive ? { background: customHex } : undefined}
-      >
-        {!customActive && <span aria-hidden="true">🎨</span>}
-        <input
-          type="color"
-          value={customHex}
-          onChange={(event) => onSelect(parseInt(event.target.value.slice(1), 16))}
-          aria-label="Custom dye color"
-        />
-      </label>
-    </div>
-  );
-}
-
-function StylePicker<T extends string>({
-  options,
-  selected,
-  labels,
-  onSelect,
-}: {
-  options: readonly T[];
-  selected: T;
-  labels: Record<T, string>;
-  onSelect: (value: T) => void;
-}) {
-  return (
-    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-      {options.map((option) => {
-        const active = option === selected;
-        return (
-          <button
-            key={option}
-            type="button"
-            className={`chibi-chip${active ? " active" : ""}`}
-            onClick={() => onSelect(option)}
-          >
-            {labels[option]}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-const HAIR_LABELS: Record<HairStyle, string> = {
-  short: "Short",
-  long: "Long",
-  spiky: "Spiky",
-  bald: "Bald",
-  mohawk: "Mohawk",
-  ponytail: "Ponytail",
-};
-
-const OUTFIT_LABELS: Record<OutfitStyle, string> = {
-  robe: "Robe",
-  armor: "Armor",
-  casual: "Casual",
-  tunic: "Tunic",
-  explorer: "Explorer",
-};
-
 export function LoginOverlay({ onJoin }: LoginOverlayProps) {
   const playerName = useGameStore((state) => state.playerName);
   const setWalletAddress = useGameStore((state) => state.setWalletAddress);
@@ -153,9 +56,6 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
   const [inviteCode, setInviteCode] = useState("");
   const [invitationsActive, setInvitationsActive] = useState(false);
   const [leaderboardOpen, setLeaderboardOpen] = useState(false);
-  // Appearance tools collapsed by default — keeps the login card compact over
-  // the key-art backdrop (and returning players rarely re-style anyway).
-  const [customizeOpen, setCustomizeOpen] = useState(false);
   const [detectedWallets, setDetectedWallets] = useState<WalletConnector[]>([]);
   const walletConnectResolver = useRef<{
     resolve: (value: Awaited<ReturnType<typeof connectAndVerifyWallet>>) => void;
@@ -220,10 +120,6 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
     } finally {
       setLoadingCharacter(false);
     }
-  };
-
-  const updateAppearance = (patch: Partial<CharacterAppearance>) => {
-    setAppearance((current) => ({ ...current, ...patch }));
   };
 
   const connectSelectedWallet = async (wallet: WalletConnector) => {
@@ -525,90 +421,33 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
               </div>
             )}
 
-            {/* Appearance tools fold away so the login stays a compact card
-                over the key art (game directories screenshot this page). */}
-            <button
-              type="button"
-              className="chibi-btn chibi-btn--secondary"
-              style={{ padding: "10px 14px", fontSize: "0.85rem" }}
-              onClick={() => {
-                playSfx("ui_click");
-                setCustomizeOpen((open) => !open);
-              }}
-            >
-              {customizeOpen ? "🎨 Hide appearance options" : "🎨 Customize appearance"}
-            </button>
-
-            {customizeOpen && (<>
-            <div>
-              <div className="chibi-label" style={{ textTransform: "none", letterSpacing: 0 }}>Gender</div>
-              <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-                <button
-                  type="button"
-                  className={`chibi-chip${appearance.gender === "male" ? " active" : ""}`}
-                  style={{ flex: 1, padding: "10px 14px", fontSize: "0.85rem", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
-                  onClick={() => updateAppearance({ gender: "male" })}
-                >
-                  ♂️ Boy
-                </button>
-                <button
-                  type="button"
-                  className={`chibi-chip${appearance.gender === "female" ? " active" : ""}`}
-                  style={{ flex: 1, padding: "10px 14px", fontSize: "0.85rem", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
-                  onClick={() => updateAppearance({ gender: "female" })}
-                >
-                  ♀️ Girl
-                </button>
+            {/* Choose your hero — one hand-drawn default per gender. Bonded
+                characters keep their saved look; cosmetics arrive later via
+                the $BASE lucky wheel. */}
+            {!nameBonded && (
+              <div>
+                <div className="chibi-label">Choose your hero</div>
+                <div style={{ display: "flex", gap: 12 }}>
+                  {(["male", "female"] as const).map((g) => {
+                    const active = (appearance.gender ?? "male") === g;
+                    return (
+                      <button
+                        key={g}
+                        type="button"
+                        className={`chibi-hero-card${active ? " active" : ""}`}
+                        onClick={() => {
+                          playSfx("ui_click");
+                          setAppearance({ ...DEFAULT_APPEARANCE_BY_GENDER[g] });
+                        }}
+                      >
+                        <CharacterPreview appearance={DEFAULT_APPEARANCE_BY_GENDER[g]} width={92} height={110} />
+                        <span className="chibi-hero-card__name">{g === "male" ? "♂ Boy" : "♀ Girl"}</span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-
-            <div>
-              <div className="chibi-label" style={{ textTransform: "none", letterSpacing: 0 }}>Skin tone</div>
-              <ColorSwatches
-                colors={SKIN_TONES}
-                selected={appearance.bodyColor}
-                onSelect={(bodyColor) => updateAppearance({ bodyColor })}
-              />
-            </div>
-
-            <div>
-              <div className="chibi-label" style={{ textTransform: "none", letterSpacing: 0 }}>Hair color</div>
-              <ColorSwatches
-                colors={HAIR_COLORS}
-                selected={appearance.hairColor}
-                onSelect={(hairColor) => updateAppearance({ hairColor })}
-              />
-            </div>
-
-            <div>
-              <div className="chibi-label" style={{ textTransform: "none", letterSpacing: 0 }}>Outfit color</div>
-              <ColorSwatches
-                colors={OUTFIT_COLORS}
-                selected={appearance.outfitColor}
-                onSelect={(outfitColor) => updateAppearance({ outfitColor })}
-              />
-            </div>
-
-            <div>
-              <div className="chibi-label" style={{ textTransform: "none", letterSpacing: 0 }}>Hair style</div>
-              <StylePicker
-                options={HAIR_STYLES}
-                selected={appearance.hairStyle}
-                labels={HAIR_LABELS}
-                onSelect={(hairStyle) => updateAppearance({ hairStyle })}
-              />
-            </div>
-
-            <div>
-              <div className="chibi-label" style={{ textTransform: "none", letterSpacing: 0 }}>Outfit style</div>
-              <StylePicker
-                options={OUTFIT_STYLES}
-                selected={appearance.outfitStyle}
-                labels={OUTFIT_LABELS}
-                onSelect={(outfitStyle) => updateAppearance({ outfitStyle })}
-              />
-            </div>
-            </>)}
+            )}
 
             <div className="chibi-card chibi-card--info" style={{ padding: "14px 16px" }}>
                 <div className="chibi-label">Wallet</div>

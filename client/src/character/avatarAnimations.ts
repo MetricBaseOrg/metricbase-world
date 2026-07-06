@@ -18,6 +18,7 @@ export function getAvatarTextureKey(
 }
 import Phaser from "phaser";
 import { AVATAR_LOGICAL_HEIGHT, AVATAR_LOGICAL_WIDTH, renderAvatarPoseCanvas } from "./avatarPose";
+import { HD_DISPLAY_SIZE, HD_ORIGIN_Y, hdCharacterFor, hdReadyFor, resolveHdPose } from "./handDrawnAvatar";
 
 const FALLBACK_PLAYER_TEXTURE = "player";
 
@@ -60,6 +61,24 @@ export function setAvatarPose(
   action: AvatarAction,
   frame: number,
 ): string {
+  // Hand-drawn frames win when the character's art is declared + loaded;
+  // until then (and for anything undeclared) the procedural paper-doll
+  // renders exactly as before — existing players never see a gap.
+  const character = hdCharacterFor(appearance);
+  if (hdReadyFor(character)) {
+    const hd = resolveHdPose(scene, character, direction, action, frame);
+    if (hd) {
+      if (sprite.anims.isPlaying) sprite.anims.stop();
+      if (sprite.texture.key !== hd.key) {
+        sprite.setTexture(hd.key);
+        sprite.setOrigin(0.5, HD_ORIGIN_Y);
+        sprite.setDisplaySize(HD_DISPLAY_SIZE, HD_DISPLAY_SIZE);
+      }
+      sprite.setFlipX(hd.flip);
+      return hd.key;
+    }
+  }
+
   const textureKey = ensureFrameTexture(scene, appearance, direction, action, frame);
   if (sprite.anims.isPlaying) {
     sprite.anims.stop();
@@ -70,6 +89,7 @@ export function setAvatarPose(
     sprite.setTexture(resolvedKey);
     sprite.setOrigin(0.5, 0.93);
     sprite.setDisplaySize(AVATAR_LOGICAL_WIDTH, AVATAR_LOGICAL_HEIGHT);
+    sprite.setFlipX(false);
   }
   return resolvedKey;
 }

@@ -1,6 +1,7 @@
 import { type CharacterAppearance } from "@metricbase/shared";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { drawCharacter } from "../character/characterArt";
+import { hdCharacterFor, hdReadyFor } from "../character/handDrawnAvatar";
 
 interface CharacterPreviewProps {
   appearance: CharacterAppearance;
@@ -10,6 +11,11 @@ interface CharacterPreviewProps {
 
 export function CharacterPreview({ appearance, width = 200, height = 240 }: CharacterPreviewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [artFailed, setArtFailed] = useState(false);
+  // When hand-drawn art exists, show the front-idle frame over the scene
+  // (fireflies/glow stay for atmosphere). Falls back to the drawn character.
+  const character = hdCharacterFor(appearance);
+  const hdUrl = !artFailed && hdReadyFor(character) ? `/assets/characters/${character}-front-idle-0.png` : null;
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -142,8 +148,8 @@ export function CharacterPreview({ appearance, width = 200, height = 240 }: Char
     ctx.arc(fx + 1, fy - 8, 1, 0, Math.PI * 2);
     ctx.fill();
 
-    // draw character
-    drawCharacter(ctx, appearance, width, height);
+    // draw character (skipped when hand-drawn art overlays the scene)
+    if (!hdUrl) drawCharacter(ctx, appearance, width, height);
 
     // draw floating fireflies
     const fireflies = [
@@ -168,20 +174,34 @@ export function CharacterPreview({ appearance, width = 200, height = 240 }: Char
       ctx.arc(ff.x, ff.y, ff.size * 0.8, 0, Math.PI * 2);
       ctx.fill();
     }
-  }, [appearance, width, height]);
+  }, [appearance, width, height, hdUrl]);
 
   return (
-    <canvas
-      ref={canvasRef}
-      className="chibi-character-preview"
-      width={width}
-      height={height}
-      style={{
-        width,
-        maxWidth: "100%",
-        height: "auto",
-        display: "block",
-      }}
-    />
+    <div style={{ position: "relative", width, maxWidth: "100%" }}>
+      <canvas
+        ref={canvasRef}
+        className="chibi-character-preview"
+        width={width}
+        height={height}
+        style={{ width, maxWidth: "100%", height: "auto", display: "block" }}
+      />
+      {hdUrl && (
+        <img
+          src={hdUrl}
+          alt=""
+          onError={() => setArtFailed(true)}
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            left: "50%",
+            bottom: "6%",
+            transform: "translateX(-50%)",
+            width: "78%",
+            height: "auto",
+            pointerEvents: "none",
+          }}
+        />
+      )}
+    </div>
   );
 }

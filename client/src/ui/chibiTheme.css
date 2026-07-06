@@ -2052,6 +2052,48 @@ body {
   background: var(--chibi-danger);
 }
 
+/* Login hero picker — two cards styled after the key-art banner (sunny sky
+   blues, chunky outlines, gold glow on the chosen hero). */
+.chibi-hero-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 10px 10px;
+  cursor: pointer;
+  font-family: inherit;
+  border: 3px solid var(--chibi-outline);
+  border-radius: 16px;
+  background: linear-gradient(180deg, #b8e8fc 0%, #e8f7ff 70%, #d1f0c2 100%);
+  box-shadow: 0 4px 0 var(--chibi-shadow);
+  transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease;
+  filter: saturate(0.55) opacity(0.85);
+}
+.chibi-hero-card:hover {
+  transform: translateY(-2px);
+  filter: saturate(0.9) opacity(1);
+}
+.chibi-hero-card.active {
+  filter: none;
+  border-color: #e0a92e;
+  box-shadow: 0 4px 0 #b8860b, 0 0 0 3px #ffe49a, 0 6px 18px rgba(224, 169, 46, 0.35);
+  transform: translateY(-2px);
+}
+.chibi-hero-card__name {
+  font-weight: 900;
+  font-size: 0.9rem;
+  color: #2a4a68;
+  background: #fffdf6;
+  border: 2px solid var(--chibi-outline);
+  border-radius: 999px;
+  padding: 3px 14px;
+}
+.chibi-hero-card.active .chibi-hero-card__name {
+  background: #f5c542;
+  color: #4a3313;
+}
+
 /* @mention chips in chat + mail; --self glows when YOU are tagged. */
 .chibi-mention {
   display: inline-block;
