@@ -32,6 +32,7 @@ import { QuestPanel } from "./ui/QuestPanel";
 import { ErrorBoundary } from "./ui/ErrorBoundary";
 import { mentionsLocalPlayer } from "./ui/markdown";
 import { initHandDrawnAvatars } from "./character/handDrawnAvatar";
+import { resolveZoneConfig } from "./game/playerZoneConfig";
 import { ArcadeModal } from "./ui/ArcadeModal";
 import { BlackZoneModal } from "./ui/BlackZoneModal";
 import { CropMarketPanel } from "./ui/CropMarketPanel";
@@ -120,6 +121,9 @@ export function App() {
     const unsubscribeZone = networkManager.onZoneChange((zoneId, zoneName) => {
       setZoneName(zoneName);
       useGameStore.getState().setZoneId(zoneId);
+      // Resolve the real tier (player zones carry it on their cached config;
+      // static zones from ZONE_CONFIGS). Config push updates it again below.
+      useGameStore.getState().setZoneDangerTier(resolveZoneConfig(zoneId).dangerTier ?? "safe");
     });
 
     const applyProfilePatch = useGameStore.getState().applyProfilePatch;

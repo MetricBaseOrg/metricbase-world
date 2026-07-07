@@ -21,3 +21,7 @@ server/.env
 /*.html
 !client/**/*.html
 /hunts.json
+
+# Android TWA signing keystore — NEVER commit (dapp-store signing secret)
+*.keystore
+android-twa/*.keystore

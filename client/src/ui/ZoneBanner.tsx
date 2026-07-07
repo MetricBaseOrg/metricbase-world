@@ -1,4 +1,4 @@
-import { getDangerTierMeta } from "@metricbase/shared";
+import { DANGER_TIER_META } from "@metricbase/shared";
 import { useEffect, useRef, useState } from "react";
 import { isAnyPanelOpen, useGameStore } from "../store/gameStore";
 
@@ -10,20 +10,25 @@ import { isAnyPanelOpen, useGameStore } from "../store/gameStore";
 export function ZoneBanner() {
   const zoneId = useGameStore((state) => state.zoneId);
   const zoneName = useGameStore((state) => state.zoneName);
+  const dangerTier = useGameStore((state) => state.zoneDangerTier);
   const worldEditing = useGameStore((state) => state.worldEditing);
   const panelOpen = useGameStore(isAnyPanelOpen);
   const [showBanner, setShowBanner] = useState(false);
-  const lastZone = useRef<string | null>(null);
+  const lastKey = useRef<string | null>(null);
 
-  const meta = getDangerTierMeta(zoneId);
+  // Tier comes from the store (resolved from the live zone config, so player
+  // Worlds show their owner-set tier — not always "safe").
+  const meta = DANGER_TIER_META[dangerTier] ?? DANGER_TIER_META.safe;
 
+  // Flash the banner on zone entry AND on a live tier change (safe → red).
   useEffect(() => {
-    if (lastZone.current === zoneId) return;
-    lastZone.current = zoneId;
+    const key = `${zoneId}|${dangerTier}`;
+    if (lastKey.current === key) return;
+    lastKey.current = key;
     setShowBanner(true);
     const timer = window.setTimeout(() => setShowBanner(false), 3200);
     return () => window.clearTimeout(timer);
-  }, [zoneId]);
+  }, [zoneId, dangerTier]);
 
   // Keep the corner chip / banner out of the way while building or in any panel.
   if (worldEditing || panelOpen) return null;

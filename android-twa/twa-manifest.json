@@ -1,0 +1,35 @@
+{
+  "packageId": "org.metricbase.world.twa",
+  "host": "world.metricbase.org",
+  "name": "MetricBase World",
+  "launcherName": "MB World",
+  "themeColor": "#b8e8fc",
+  "navigationColor": "#b8e8fc",
+  "navigationColorDark": "#b8e8fc",
+  "navigationDividerColor": "#00000000",
+  "navigationDividerColorDark": "#00000000",
+  "backgroundColor": "#b8e8fc",
+  "enableNotifications": false,
+  "startUrl": "/play",
+  "iconUrl": "https://world.metricbase.org/pwa-512x512.png",
+  "maskableIconUrl": "https://world.metricbase.org/pwa-512x512.png",
+  "splashFadeOutDuration": 300,
+  "signingKey": {
+    "path": "./android-twa.keystore",
+    "alias": "android-twa"
+  },
+  "appVersionName": "1.0.0",
+  "appVersionCode": 1,
+  "appVersion": "1.0.0",
+  "fallbackType": "customtabs",
+  "display": "standalone",
+  "orientation": "landscape",
+  "webManifestUrl": "https://world.metricbase.org/manifest.webmanifest",
+  "scopes": [
+    "/"
+  ],
+  "shortcuts": [],
+  "fingerprints": [],
+  "features": {},
+  "alphaDependencies": {}
+}

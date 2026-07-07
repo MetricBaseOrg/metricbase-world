@@ -501,6 +501,11 @@ export class GameScene extends Phaser.Scene {
     const unsubscribeZoneConfig = networkManager.onZoneConfigUpdate((zoneId) => {
       // Don't clobber an in-progress local edit with the server's echo.
       if (!this.worldEditing) this.refreshZoneContent(zoneId);
+      // Keep the danger-tier pill in sync when a World's config is pushed
+      // (including a live owner tier change: safe → red etc.).
+      if (zoneId === useGameStore.getState().zoneId) {
+        useGameStore.getState().setZoneDangerTier(resolveZoneConfig(zoneId).dangerTier ?? "safe");
+      }
     });
 
     const unsubscribeMobHealth = networkManager.onMobHealth((payload) => {

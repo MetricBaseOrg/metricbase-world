@@ -3,6 +3,7 @@ import {
   ProfilePayload,
   QuestStatePayload,
   type CharacterAppearance,
+  type DangerTier,
   type EquipmentStatePayload,
   type InventoryStatePayload,
   type LandPlotState,
@@ -41,6 +42,8 @@ interface GameStore {
   playerCount: number;
   zoneName: string;
   zoneId: string;
+  /** Resolved PvP danger tier of the current zone (player zones included). */
+  zoneDangerTier: DangerTier;
   /** Currently left-click-targeted player (for duel challenges), or null. */
   selectedPlayer: string | null;
   chatMessages: ChatMessagePayload[];
@@ -128,6 +131,7 @@ interface GameStore {
   setPlayerCount: (count: number) => void;
   setZoneName: (zoneName: string) => void;
   setZoneId: (zoneId: string) => void;
+  setZoneDangerTier: (tier: DangerTier) => void;
   setSelectedPlayer: (name: string | null) => void;
   addChatMessage: (message: ChatMessagePayload) => void;
   clearChat: () => void;
@@ -232,6 +236,7 @@ export const useGameStore = create<GameStore>((set) => ({
   playerCount: 0,
   zoneName: "MetricBase Hub",
   zoneId: "zone_hub",
+  zoneDangerTier: "safe",
   selectedPlayer: null,
   chatMessages: [],
   questState: { active: [], completed: [] },
@@ -335,6 +340,7 @@ export const useGameStore = create<GameStore>((set) => ({
   setPlayerCount: (count) => set({ playerCount: count }),
   setZoneName: (zoneName) => set({ zoneName }),
   setZoneId: (zoneId) => set({ zoneId }),
+  setZoneDangerTier: (zoneDangerTier) => set({ zoneDangerTier }),
   setSelectedPlayer: (selectedPlayer) => set({ selectedPlayer }),
   addChatMessage: (message) =>
     set((state) => ({
