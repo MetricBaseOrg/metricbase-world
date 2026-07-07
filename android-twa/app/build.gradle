@@ -21,9 +21,9 @@ plugins {
 }
 
 def twaManifest = [
-    applicationId: 'org.metricbase.world.twa',
+    applicationId: 'org.metricbase.world',
     hostName: 'world.metricbase.org', // The domain being opened in the TWA.
-    launchUrl: '/', // The start path for the TWA. Must be relative to the domain.
+    launchUrl: '/play', // The start path for the TWA. Must be relative to the domain.
     name: 'MetricBase World', // The application name.
     launcherName: 'MB World', // The name shown on the Android Launcher.
     themeColor: '#B8E8FC', // The color used for the status bar.
@@ -41,7 +41,7 @@ def twaManifest = [
     // - icon: Name of the resource in the drawable folder to use as an icon.
     shortcuts: [],
     // The duration of fade out animation in milliseconds to be played when removing splash screen.
-    splashScreenFadeOutDuration: ,
+    splashScreenFadeOutDuration: 300,
     generatorApp: 'bubblewrap-cli', // Application that generated the Android Project
     // The fallback strategy for when Trusted Web Activity is not available. Possible values are
     // 'customtabs' and 'webview'.
@@ -52,13 +52,13 @@ def twaManifest = [
 
 android {
     compileSdkVersion 36
-    namespace "org.metricbase.world.twa"
+    namespace "org.metricbase.world"
     defaultConfig {
-        applicationId "org.metricbase.world.twa"
+        applicationId "org.metricbase.world"
         minSdkVersion 21
         targetSdkVersion 35
-        versionCode 2
-        versionName "0.105.0"
+        versionCode 3
+        versionName "0.106.0"
 
         // The name for the application
         resValue "string", "appName", twaManifest.name

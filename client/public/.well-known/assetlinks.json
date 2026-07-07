@@ -3,9 +3,9 @@
     "relation": ["delegate_permission/common.handle_all_urls"],
     "target": {
       "namespace": "android_app",
-      "package_name": "org.metricbase.world.twa",
+      "package_name": "org.metricbase.world",
       "sha256_cert_fingerprints": [
-        "YOUR_SHA256_FINGERPRINT_HERE"
+        "D8:50:76:EE:7B:83:C2:30:97:AB:76:03:6C:E9:37:46:0C:FC:88:99:82:0B:C7:36:00:D5:93:BB:49:A5:22:8B"
       ]
     }
   }
