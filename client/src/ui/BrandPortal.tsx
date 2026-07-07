@@ -505,7 +505,7 @@ export function BrandPortal() {
         <footer style={{ textAlign: "center", color: "#9c8a6d", fontSize: "0.74rem", marginTop: 34, lineHeight: 1.7 }}>
           Campaigns are human-reviewed before going live. Spend and payouts are publicly auditable on the{" "}
           <a href="/stats" style={{ color: "#5a97e0" }}>economy dashboard</a>.<br />
-          Want to see your board in the wild? <a href="/" style={{ color: "#5a97e0" }}>Jump into MetricBase World</a> 🌍
+          Want to see your board in the wild? <a href="/play" style={{ color: "#5a97e0" }}>Jump into MetricBase World</a> 🌍
         </footer>
       </div>
     </div>
