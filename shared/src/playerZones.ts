@@ -244,6 +244,16 @@ export function playerZoneToConfig(record: PlayerZoneRecord): ZoneConfig {
       const def = RESOURCE_PROPS[s.prop];
       return makePlayerZoneResource(`sres_${s.id}`, s.prop, def.kind, def.label, s.tileX, s.tileY);
     });
+  // Re-derive each stored node's gather config from its prop so the yielded
+  // material always matches the placed deposit/tree. Older saves persisted nodes
+  // when every rock minted Copper Ore; refreshing here corrects them on load
+  // without a data migration (player nodes never carry custom loot).
+  const storedResources = build.resources.map((r) => {
+    const def = r.prop ? RESOURCE_PROPS[r.prop] : undefined;
+    if (!def) return r;
+    const fresh = makePlayerZoneResource(r.id, r.prop as string, def.kind, r.name, r.tileX, r.tileY);
+    return { ...r, kind: fresh.kind, mining: fresh.mining, fishing: fresh.fishing, woodcutting: fresh.woodcutting };
+  });
   const scenery = build.scenery.filter((s) => !RESOURCE_PROPS[s.prop]);
   // Placed mob dens become real combat NPCs (id prefix keys their rewards).
   const mobs = build.scenery
@@ -267,7 +277,7 @@ export function playerZoneToConfig(record: PlayerZoneRecord): ZoneConfig {
     spawnTile: build.spawnTile,
     portals: [playerZoneExitPortal(gridSize)],
     npcs: mobs,
-    resources: [...build.resources, ...legacyResources],
+    resources: [...storedResources, ...legacyResources],
     farmPlots: [...ownFarmPlots, ...soilPlots],
     landPlots: build.landPlots,
     scenery,

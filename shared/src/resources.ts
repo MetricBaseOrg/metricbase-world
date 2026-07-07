@@ -44,8 +44,28 @@ export interface ZoneResourceNode {
   prop?: string;
 }
 
-/** Build a gatherable resource node from a placed player-zone asset. Uses basic
- *  loot per skill so player Worlds don't mint high-tier materials. */
+/** Per-prop yield overrides for player-zone gather nodes, keyed by asset id.
+ *  Lets the mined/felled material depend on which deposit/tree prop was placed
+ *  (an Iron Deposit yields iron, a Gem Rock yields gemstones, etc.) instead of
+ *  every rock minting Copper Ore. Levels stay modest so Worlds don't out-earn
+ *  the wild zones. Props without an entry fall back to the basic per-kind loot. */
+const PROP_MINING_YIELD: Record<string, Pick<MiningConfig, "rockLevel" | "requiredLevel" | "skillXp" | "respawnMs" | "lootItemId">> = {
+  "copper-rock": { rockLevel: 1, requiredLevel: 1, skillXp: 12, respawnMs: 30_000, lootItemId: "item_ore" },
+  "iron-deposit": { rockLevel: 3, requiredLevel: 3, skillXp: 28, respawnMs: 45_000, lootItemId: "item_iron_ore" },
+  "iron-vein": { rockLevel: 3, requiredLevel: 3, skillXp: 28, respawnMs: 45_000, lootItemId: "item_iron_ore" },
+  "gem-studded": { rockLevel: 6, requiredLevel: 6, skillXp: 45, respawnMs: 60_000, lootItemId: "item_gemstone" },
+  "obsidian-gem": { rockLevel: 8, requiredLevel: 8, skillXp: 60, respawnMs: 75_000, lootItemId: "item_gemstone" },
+};
+
+const PROP_WOODCUTTING_YIELD: Record<string, Pick<WoodcuttingConfig, "treeLevel" | "requiredLevel" | "skillXp" | "respawnMs" | "lootItemId">> = {
+  hardwood: { treeLevel: 3, requiredLevel: 3, skillXp: 26, respawnMs: 40_000, lootItemId: "item_hardwood" },
+  "ancient-hardwood": { treeLevel: 6, requiredLevel: 6, skillXp: 42, respawnMs: 55_000, lootItemId: "item_hardwood" },
+  "cavern-hardwood": { treeLevel: 8, requiredLevel: 8, skillXp: 55, respawnMs: 70_000, lootItemId: "item_hardwood" },
+};
+
+/** Build a gatherable resource node from a placed player-zone asset. The yielded
+ *  material follows the placed prop (see PROP_*_YIELD); unmapped props fall back
+ *  to basic loot so player Worlds don't mint high-tier materials by default. */
 export function makePlayerZoneResource(
   id: string,
   assetId: string,
@@ -56,11 +76,17 @@ export function makePlayerZoneResource(
 ): ZoneResourceNode {
   const node: ZoneResourceNode = { id, name, tileX, tileY, kind, prop: assetId };
   if (kind === "rock") {
-    node.mining = { rockLevel: 1, skillXp: 12, respawnMs: 30_000, lootItemId: "item_ore", lootQuantity: 1 };
+    const y = PROP_MINING_YIELD[assetId];
+    node.mining = y
+      ? { ...y, lootQuantity: 1 }
+      : { rockLevel: 1, skillXp: 12, respawnMs: 30_000, lootItemId: "item_ore", lootQuantity: 1 };
   } else if (kind === "fish") {
     node.fishing = { spotLevel: 1, skillXp: 11, respawnMs: 15_000, lootItemId: "item_fish", lootQuantity: 1 };
   } else {
-    node.woodcutting = { treeLevel: 1, skillXp: 10, respawnMs: 25_000, lootItemId: "item_wood", lootQuantity: 1 };
+    const y = PROP_WOODCUTTING_YIELD[assetId];
+    node.woodcutting = y
+      ? { ...y, lootQuantity: 1 }
+      : { treeLevel: 1, skillXp: 10, respawnMs: 25_000, lootItemId: "item_wood", lootQuantity: 1 };
   }
   return node;
 }

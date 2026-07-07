@@ -2,6 +2,7 @@ import { Buffer } from "buffer";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
+import { getHttpServerUrl } from "./game/serverUrl";
 import { BrandPortal } from "./ui/BrandPortal";
 import { LandingPage } from "./ui/LandingPage";
 import "./ui/chibiTheme.css";
@@ -39,8 +40,19 @@ const path = window.location.pathname.replace(/\/+$/, "");
 const isBrandPortal = path === "/brands";
 const isPlay = path === "/play";
 
-createRoot(document.getElementById("root")!).render(
-  <StrictMode>
-    {isBrandPortal ? <BrandPortal /> : isPlay ? <App /> : <LandingPage />}
-  </StrictMode>,
-);
+// /stats is a server-rendered page (proxied to the backend by vercel.json), not
+// a SPA route. If the SPA still boots here it means the request never reached
+// the network — an installed PWA/TWA service worker served the cached index.html
+// as its navigation fallback — and we'd otherwise render the marketing landing
+// page. Bounce to the backend origin: it's cross-origin, so the same-origin
+// service worker can't intercept it (no redirect loop), and the real dashboard
+// shows regardless of whether the service worker has updated.
+if (path === "/stats") {
+  window.location.replace(`${getHttpServerUrl()}/stats`);
+} else {
+  createRoot(document.getElementById("root")!).render(
+    <StrictMode>
+      {isBrandPortal ? <BrandPortal /> : isPlay ? <App /> : <LandingPage />}
+    </StrictMode>,
+  );
+}

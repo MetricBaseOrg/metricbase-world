@@ -8,6 +8,14 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: "autoUpdate",
+      workbox: {
+        // The SPA index.html is the SPA navigation fallback, but these routes
+        // are server-rendered / proxied (see vercel.json) — /stats and /docs are
+        // real server pages and /api/* is JSON. Without this denylist the service
+        // worker serves index.html (the landing page) for them from cache, so
+        // /stats "redirected to the marketing page" once the PWA/TWA shipped.
+        navigateFallbackDenylist: [/^\/stats/, /^\/api/, /^\/docs/],
+      },
       manifest: {
         name: "MetricBase World",
         short_name: "MetricBase World",
@@ -75,6 +83,11 @@ export default defineConfig({
     port: 5173,
     proxy: {
       "/health": "http://localhost:2567",
+      // Prod rewrites these to the Railway server (see vercel.json). In dev,
+      // proxy them to the local game server so /stats and the /api/* routes
+      // resolve instead of falling through to the SPA index.html.
+      "/stats": "http://localhost:2567",
+      "/api": "http://localhost:2567",
     },
   },
 });
