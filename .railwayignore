@@ -1,0 +1,15 @@
+# Slim `railway up` to only what the server build needs: workspace manifests +
+# shared/ + server/. pnpm install + shared/server tsc builds run on Railway.
+node_modules
+**/node_modules
+.git
+android-twa
+dist
+**/dist
+*.tsbuildinfo
+assets
+docs
+# Keep only client/package.json so the pnpm workspace still resolves; the client
+# is built on Vercel, never here, so its source/art aren't needed for the server.
+client/*
+!client/package.json

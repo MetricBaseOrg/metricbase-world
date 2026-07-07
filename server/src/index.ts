@@ -1,3 +1,4 @@
+// Deploy marker: 0.106.1 — World mining per-deposit yields + /stats fix.
 import { Server } from "@colyseus/core";
 import { WebSocketTransport } from "@colyseus/ws-transport";
 import {

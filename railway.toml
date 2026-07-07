@@ -1,6 +1,10 @@
 [build]
 builder = "NIXPACKS"
 buildCommand = "pnpm install && pnpm --filter @metricbase/shared build && pnpm --filter @metricbase/server build"
+# The server depends on @metricbase/shared (GAME_VERSION, zone/resource logic),
+# so shared-only changes MUST redeploy. Without this, Railway's default watch
+# paths skipped every shared-only commit and prod froze on an old build.
+watchPatterns = ["server/**", "shared/**", "package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml", "railway.toml"]
 
 [deploy]
 startCommand = "node server/dist/index.js"
