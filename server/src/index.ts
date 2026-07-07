@@ -1,4 +1,4 @@
-// Deploy marker: 0.106.2 — raise WS maxPayload so World build saves don't drop the room.
+// Deploy marker: 0.106.3 — skill XP is monotonic on save (stop gathering-progress resets).
 import { Server } from "@colyseus/core";
 import { WebSocketTransport } from "@colyseus/ws-transport";
 import {

@@ -135,6 +135,16 @@ export async function saveCharacter(record: CharacterRecord): Promise<void> {
   // it can't clobber their real progress (level, gold, inventory, skills,
   // gear all survive). A brand-new character (INSERT, no conflict) is
   // unaffected; normal play (equal or higher XP) always writes through.
+  //
+  // Gather-skill XP (mining/woodcutting/fishing/farming) is ALSO monotonic, but
+  // combat XP and skill XP advance independently — a pure gathering session
+  // raises skills while combat xp stays flat, so the xp guard passes at EQUAL
+  // xp. If such a save carries a stale/empty skills map (a partial state load:
+  // combat xp loaded but skills came back default), a blind `skills =
+  // EXCLUDED.skills` overwrite would ZERO a player's trained skills. So skills
+  // are merged with a per-skill GREATEST below: a save can never lower any
+  // skill, mirroring the xp/level/bag_level protection. (This is what silently
+  // reset gathering progress for players like "showot".)
   const result = await db.query(
     `INSERT INTO characters (name, wallet_address, zone_id, x, y, level, xp, gold, quest_progress, appearance, inventory, hp, equipment, npc_interact_at, mob_gold_claimed, knocked_out_until, skills, stamina, vip_pass_until, black_pass, pvp_rating, pvp_kills, pvp_season, honor, guild_coin, gems, bag_level, updated_at)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10::jsonb, $11::jsonb, $12, $13::jsonb, $14::jsonb, $15::jsonb, $16, $17::jsonb, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, NOW())
@@ -155,7 +165,12 @@ export async function saveCharacter(record: CharacterRecord): Promise<void> {
        npc_interact_at = EXCLUDED.npc_interact_at,
        mob_gold_claimed = EXCLUDED.mob_gold_claimed,
        knocked_out_until = EXCLUDED.knocked_out_until,
-       skills = EXCLUDED.skills,
+       skills = jsonb_build_object(
+         'woodcutting', GREATEST(COALESCE((characters.skills->>'woodcutting')::int, 0), COALESCE((EXCLUDED.skills->>'woodcutting')::int, 0)),
+         'mining',      GREATEST(COALESCE((characters.skills->>'mining')::int, 0),      COALESCE((EXCLUDED.skills->>'mining')::int, 0)),
+         'fishing',     GREATEST(COALESCE((characters.skills->>'fishing')::int, 0),     COALESCE((EXCLUDED.skills->>'fishing')::int, 0)),
+         'farming',     GREATEST(COALESCE((characters.skills->>'farming')::int, 0),     COALESCE((EXCLUDED.skills->>'farming')::int, 0))
+       ),
        stamina = EXCLUDED.stamina,
        vip_pass_until = COALESCE(EXCLUDED.vip_pass_until, characters.vip_pass_until),
        black_pass = characters.black_pass OR EXCLUDED.black_pass,
