@@ -1,4 +1,4 @@
-// Deploy marker: 0.106.1 — World mining per-deposit yields + /stats fix.
+// Deploy marker: 0.106.2 — raise WS maxPayload so World build saves don't drop the room.
 import { Server } from "@colyseus/core";
 import { WebSocketTransport } from "@colyseus/ws-transport";
 import {
@@ -101,7 +101,12 @@ app.get("/stats", async (_req, res) => {
 const httpServer = createServer(app);
 
 const gameServer = new Server({
-  transport: new WebSocketTransport({ server: httpServer }),
+  // Colyseus's ws-transport defaults maxPayload to 4KB, which is smaller than a
+  // World build save (tiles + scenery + resources as JSON). An oversized frame
+  // makes `ws` terminate the connection mid-save — the room drops the client and
+  // the online counter flips to 0. Raise the limit; builds are already bounded
+  // by sanitizeBuild (grid size), so a few MB is safe headroom.
+  transport: new WebSocketTransport({ server: httpServer, maxPayload: 4 * 1024 * 1024 }),
 });
 
 gameServer.define(ZONE_HUB, ZoneRoom, { zoneId: ZONE_HUB });
