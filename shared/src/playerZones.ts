@@ -1,7 +1,7 @@
 import type { FarmPlotNode } from "./farming.js";
 import type { LandPlotNode } from "./housing.js";
 import { makePlayerZoneResource, type ZoneResourceNode } from "./resources.js";
-import type { SceneryNode, ZoneConfig, ZonePortal } from "./zones.js";
+import type { DangerTier, SceneryNode, ZoneConfig, ZonePortal } from "./zones.js";
 import {
   isGroundPaintBlocking,
   isZonePropSolid,
@@ -117,6 +117,15 @@ export interface PlayerZoneMeta {
   createdAt: number;
   /** Expansion steps purchased (0 = base 24×24; see ZONE_EXPANSIONS). */
   expandLevel: number;
+  /** PvP danger tier the owner set (safe/yellow/red/black; default safe). */
+  dangerTier: DangerTier;
+}
+
+/** Danger tiers an owner may set on their World, easiest → deadliest. */
+export const PLAYER_ZONE_DANGER_TIERS: DangerTier[] = ["safe", "yellow", "red", "black"];
+
+export function normalizePlayerZoneTier(tier: unknown): DangerTier {
+  return PLAYER_ZONE_DANGER_TIERS.includes(tier as DangerTier) ? (tier as DangerTier) : "safe";
 }
 
 /**
@@ -254,7 +263,7 @@ export function playerZoneToConfig(record: PlayerZoneRecord): ZoneConfig {
     id: record.zoneId,
     roomName: PLAYER_ZONE_ROOM,
     displayName: record.displayName,
-    dangerTier: "safe",
+    dangerTier: normalizePlayerZoneTier(record.dangerTier),
     spawnTile: build.spawnTile,
     portals: [playerZoneExitPortal(gridSize)],
     npcs: mobs,

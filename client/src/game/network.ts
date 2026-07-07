@@ -63,6 +63,7 @@ import {
   ZoneState,
   ZoneTransferPayload,
   type CharacterAppearance,
+  type DangerTier,
   type Player,
   type PlayerProfilePayload,
 } from "@metricbase/shared";
@@ -109,6 +110,7 @@ export interface WorldDirectoryEntry {
   /** Players inside right now. */
   online: number;
   gatherTax: number;
+  dangerTier: DangerTier;
   /** Placed props + resource nodes — a rough "how built is it" signal. */
   props: number;
 }
@@ -120,6 +122,7 @@ export interface MyWorldEntry {
   earnings: number;
   visits: number;
   gatherTax: number;
+  dangerTier: DangerTier;
   /** Lifetime analytics counters. */
   passesSold: number;
   passGold: number;
@@ -539,7 +542,7 @@ export class NetworkManager {
   }
   sendZoneMetaSet(
     zoneId: string,
-    patch: { displayName?: string; passPrice?: number; published?: boolean; gatherTax?: number },
+    patch: { displayName?: string; passPrice?: number; published?: boolean; gatherTax?: number; dangerTier?: DangerTier },
   ) {
     this.room?.send("zoneMetaSet", { zoneId, ...patch });
   }

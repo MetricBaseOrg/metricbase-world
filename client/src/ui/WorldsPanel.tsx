@@ -1,4 +1,13 @@
-import { MAX_GATHER_TAX, MAX_ZONE_PASS_PRICE, nextZoneExpansion, ZONE_EXPANSIONS, ZONE_SLOT_COST } from "@metricbase/shared";
+import {
+  DANGER_TIER_META,
+  MAX_GATHER_TAX,
+  MAX_ZONE_PASS_PRICE,
+  nextZoneExpansion,
+  PLAYER_ZONE_DANGER_TIERS,
+  ZONE_EXPANSIONS,
+  ZONE_SLOT_COST,
+  type DangerTier,
+} from "@metricbase/shared";
 import { useEffect, useState } from "react";
 import { playSfx } from "../audio/soundEffects";
 import {
@@ -63,7 +72,7 @@ export function WorldsPanel() {
   const [notice, setNotice] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   // Local edits to a world's meta before saving.
-  const [drafts, setDrafts] = useState<Record<string, { displayName: string; passPrice: string; gatherTax: string }>>({});
+  const [drafts, setDrafts] = useState<Record<string, { displayName: string; passPrice: string; gatherTax: string; dangerTier: DangerTier }>>({});
 
   useEffect(() => {
     const offDir = networkManager.onWorldsList(setDirectory);
@@ -72,7 +81,7 @@ export function WorldsPanel() {
       setDrafts((prev) => {
         const next = { ...prev };
         for (const w of worlds) {
-          if (!next[w.zoneId]) next[w.zoneId] = { displayName: w.displayName, passPrice: String(w.passPrice), gatherTax: String(w.gatherTax) };
+          if (!next[w.zoneId]) next[w.zoneId] = { displayName: w.displayName, passPrice: String(w.passPrice), gatherTax: String(w.gatherTax), dangerTier: w.dangerTier ?? "safe" };
         }
         return next;
       });
@@ -163,7 +172,7 @@ export function WorldsPanel() {
 
   const saveMeta = (
     w: MyWorldEntry,
-    patch: { displayName?: string; passPrice?: number; published?: boolean; gatherTax?: number },
+    patch: { displayName?: string; passPrice?: number; published?: boolean; gatherTax?: number; dangerTier?: DangerTier },
   ) => {
     playSfx("ui_click");
     setPending(true);
@@ -338,6 +347,14 @@ export function WorldsPanel() {
                   <br />
                   {w.passPrice > 0 ? `🎟️ ${w.passPrice.toLocaleString()}g pass` : "🆓 Free entry"}
                   {(w.gatherTax ?? 0) > 0 ? ` · 🌾 ${w.gatherTax}% gather tax` : ""}
+                  {w.dangerTier && w.dangerTier !== "safe" && (
+                    <>
+                      {" · "}
+                      <span style={{ color: DANGER_TIER_META[w.dangerTier].color, fontWeight: 800 }}>
+                        ⚔️ {DANGER_TIER_META[w.dangerTier].label}
+                      </span>
+                    </>
+                  )}
                 </div>
                 <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
                   <button type="button" className="chibi-btn chibi-btn--mint" style={{ flex: 1 }} onClick={() => enter(w.zoneId)}>
@@ -405,7 +422,7 @@ export function WorldsPanel() {
           </div>
 
           {mine.map((w) => {
-            const draft = drafts[w.zoneId] ?? { displayName: w.displayName, passPrice: String(w.passPrice), gatherTax: String(w.gatherTax) };
+            const draft = drafts[w.zoneId] ?? { displayName: w.displayName, passPrice: String(w.passPrice), gatherTax: String(w.gatherTax), dangerTier: w.dangerTier ?? "safe" };
             return (
               <div key={w.zoneId} className="chibi-card" style={{ marginTop: 10, padding: "10px 12px" }}>
                 <div className="chibi-label" style={{ marginBottom: 4 }}>Name</div>
@@ -438,6 +455,38 @@ export function WorldsPanel() {
                 <div className="chibi-text-muted" style={{ fontSize: "0.7rem", marginTop: 2 }}>
                   Max {MAX_ZONE_PASS_PRICE.toLocaleString()}g pass · tax up to {MAX_GATHER_TAX}%. Each
                   harvest pays you that share of the haul's shop value, straight from the visitor's gold.
+                </div>
+
+                <div className="chibi-label" style={{ margin: "10px 0 4px" }}>PvP danger tier</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                  {PLAYER_ZONE_DANGER_TIERS.map((tier) => {
+                    const meta = DANGER_TIER_META[tier];
+                    const active = draft.dangerTier === tier;
+                    return (
+                      <button
+                        key={tier}
+                        type="button"
+                        className="chibi-btn"
+                        style={{
+                          flex: "1 1 46%",
+                          padding: "7px 8px",
+                          fontSize: "0.76rem",
+                          fontWeight: 800,
+                          border: `2px solid ${active ? meta.color : "var(--chibi-outline-light)"}`,
+                          background: active ? meta.color : "transparent",
+                          color: active ? "#2b2118" : "inherit",
+                          boxShadow: active ? `0 0 0 2px ${meta.color}55` : "none",
+                        }}
+                        onClick={() => setDrafts((p) => ({ ...p, [w.zoneId]: { ...draft, dangerTier: tier } }))}
+                      >
+                        {tier === "safe" ? "🟢" : tier === "yellow" ? "🟡" : tier === "red" ? "🔴" : "🟣"} {meta.label}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="chibi-text-muted" style={{ fontSize: "0.7rem", marginTop: 3, lineHeight: 1.45 }}>
+                  {DANGER_TIER_META[draft.dangerTier].rule}
+                  {draft.dangerTier !== "safe" && " Save to apply — visitors inside are warned instantly."}
                 </div>
 
                 {/* Owner analytics: lifetime performance of this World. */}
@@ -531,6 +580,7 @@ export function WorldsPanel() {
                         displayName: draft.displayName.trim() || w.displayName,
                         passPrice: Math.min(MAX_ZONE_PASS_PRICE, Number(draft.passPrice) || 0),
                         gatherTax: Number(draft.gatherTax) || 0,
+                        dangerTier: draft.dangerTier,
                       })
                     }
                   >

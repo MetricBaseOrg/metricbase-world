@@ -104,6 +104,8 @@ import {
   getAbilityById,
   weaponGrantsAbility,
   getZoneDangerTier,
+  DANGER_TIER_META,
+  normalizePlayerZoneTier,
   type DangerTier,
   type LootBagState,
   CRIMINAL_DURATION_MS,
@@ -666,7 +668,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       "zoneMetaSet",
       (
         client,
-        message: { zoneId?: string; displayName?: string; passPrice?: number; published?: boolean; gatherTax?: number },
+        message: { zoneId?: string; displayName?: string; passPrice?: number; published?: boolean; gatherTax?: number; dangerTier?: DangerTier },
       ) => {
         void this.handleZoneMetaSet(client, message.zoneId ?? "", message);
       },
@@ -2355,7 +2357,9 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       }
     }
 
-    const tier: DangerTier = getZoneDangerTier(this.zoneConfig.id);
+    // Player Worlds carry their tier on the runtime config (owner-set); static
+    // zones resolve from ZONE_CONFIGS. Prefer the config so both work.
+    const tier: DangerTier = this.zoneConfig.dangerTier ?? getZoneDangerTier(this.zoneConfig.id);
     if (tier === "safe") {
       client.send("chat", this.systemChat("PvP", "This is a Safe zone — no PvP here."));
       return;
@@ -3307,7 +3311,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   private async handleZoneMetaSet(
     client: Client,
     zoneId: string,
-    patch: { displayName?: string; passPrice?: number; published?: boolean; gatherTax?: number },
+    patch: { displayName?: string; passPrice?: number; published?: boolean; gatherTax?: number; dangerTier?: DangerTier },
   ) {
     const player = this.state.players.get(client.sessionId);
     if (!player) return;
@@ -3315,12 +3319,31 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     if (!zone || zone.ownerName !== player.name) {
       return void client.send("zoneResult", { ok: false, error: "You don't own that World." });
     }
+    const tierChanged = patch.dangerTier !== undefined && patch.dangerTier !== zone.dangerTier;
     setZoneMeta(zoneId, {
       displayName: patch.displayName,
       passPrice: patch.passPrice,
       published: patch.published,
       gatherTax: patch.gatherTax,
+      dangerTier: patch.dangerTier,
     });
+    // A tier change rewrites the PvP rules — push the fresh config to everyone
+    // currently inside so their client (and this room's combat checks) update
+    // without a rejoin.
+    if (tierChanged) {
+      const record = getPlayerZone(zoneId);
+      if (record) {
+        const label = DANGER_TIER_META[normalizePlayerZoneTier(record.dangerTier)].label;
+        for (const room of ZoneRoom.activeRooms) {
+          if (room.zoneConfig.id === zoneId) {
+            const cfg = playerZoneToConfig(record);
+            room.zoneConfig = cfg;
+            room.broadcast("playerZoneConfig", cfg);
+            room.broadcast("chat", room.systemChat("Worlds", `⚔️ This World is now a ${label}.`));
+          }
+        }
+      }
+    }
     client.send("zoneResult", { ok: true, zoneId, message: "World updated." });
     this.sendMyWorlds(client, player.name);
   }
@@ -3695,6 +3718,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         createdAt: z.createdAt,
         online: ZoneRoom.zoneOnlineCount(z.zoneId),
         gatherTax: z.gatherTax,
+        dangerTier: normalizePlayerZoneTier(z.dangerTier),
         props: z.build.scenery.length + z.build.resources.length,
       })),
     });
@@ -3717,6 +3741,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         earnings: z.earnings,
         visits: z.visits,
         gatherTax: z.gatherTax,
+        dangerTier: normalizePlayerZoneTier(z.dangerTier),
         passesSold: z.passesSold,
         passGold: z.passGold,
         taxGold: z.taxGold,

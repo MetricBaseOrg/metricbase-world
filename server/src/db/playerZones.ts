@@ -1,5 +1,6 @@
 import {
   emptyPlayerZoneBuild,
+  normalizePlayerZoneTier,
   type PlayerZoneBuild,
   type PlayerZoneRecord,
 } from "@metricbase/shared";
@@ -43,9 +44,10 @@ export async function loadPlayerZones(): Promise<PlayerZoneRecord[]> {
       lifetime_earnings: string | number | null;
       created_at: Date | string | null;
       expand_level: number | null;
+      danger_tier: string | null;
       build: unknown;
     }>(
-      "SELECT zone_id, owner_wallet, owner_name, display_name, pass_price, published, earnings, visits, gather_tax, passes_sold, pass_gold, tax_gold, lifetime_earnings, created_at, expand_level, build FROM player_zones",
+      "SELECT zone_id, owner_wallet, owner_name, display_name, pass_price, published, earnings, visits, gather_tax, passes_sold, pass_gold, tax_gold, lifetime_earnings, created_at, expand_level, danger_tier, build FROM player_zones",
     );
     return res.rows.map((row) => ({
       zoneId: row.zone_id,
@@ -64,6 +66,7 @@ export async function loadPlayerZones(): Promise<PlayerZoneRecord[]> {
       lifetimeEarnings: Math.max(Number(row.lifetime_earnings ?? 0), Number(row.pass_gold ?? 0) + Number(row.tax_gold ?? 0)),
       createdAt: row.created_at ? new Date(row.created_at).getTime() : Date.now(),
       expandLevel: row.expand_level ?? 0,
+      dangerTier: normalizePlayerZoneTier(row.danger_tier),
       build: normalizeBuild(row.build),
     }));
   } catch (error) {
@@ -77,8 +80,8 @@ export async function savePlayerZone(zone: PlayerZoneRecord): Promise<void> {
   if (!pool) return;
   try {
     await pool.query(
-      `INSERT INTO player_zones (zone_id, owner_wallet, owner_name, display_name, pass_price, published, earnings, visits, gather_tax, passes_sold, pass_gold, tax_gold, lifetime_earnings, expand_level, build)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+      `INSERT INTO player_zones (zone_id, owner_wallet, owner_name, display_name, pass_price, published, earnings, visits, gather_tax, passes_sold, pass_gold, tax_gold, lifetime_earnings, expand_level, danger_tier, build)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
        ON CONFLICT (zone_id)
        DO UPDATE SET owner_wallet = EXCLUDED.owner_wallet, owner_name = EXCLUDED.owner_name,
                      display_name = EXCLUDED.display_name, pass_price = EXCLUDED.pass_price,
@@ -86,7 +89,7 @@ export async function savePlayerZone(zone: PlayerZoneRecord): Promise<void> {
                      visits = EXCLUDED.visits, gather_tax = EXCLUDED.gather_tax,
                      passes_sold = EXCLUDED.passes_sold, pass_gold = EXCLUDED.pass_gold,
                      tax_gold = EXCLUDED.tax_gold, lifetime_earnings = EXCLUDED.lifetime_earnings,
-                     expand_level = EXCLUDED.expand_level,
+                     expand_level = EXCLUDED.expand_level, danger_tier = EXCLUDED.danger_tier,
                      build = EXCLUDED.build`,
       [
         zone.zoneId,
@@ -103,6 +106,7 @@ export async function savePlayerZone(zone: PlayerZoneRecord): Promise<void> {
         zone.taxGold,
         zone.lifetimeEarnings,
         zone.expandLevel,
+        normalizePlayerZoneTier(zone.dangerTier),
         JSON.stringify(zone.build ?? emptyPlayerZoneBuild()),
       ],
     );

@@ -9,8 +9,10 @@ import {
   MAX_ZONE_RESOURCES,
   MAX_ZONE_SCENERY,
   MIN_ZONE_PASS_PRICE,
+  normalizePlayerZoneTier,
   PLAYER_ZONE_GRID,
   PLAYER_ZONE_PREFIX,
+  type DangerTier,
   type PlayerZoneBuild,
   type PlayerZoneRecord,
 } from "@metricbase/shared";
@@ -82,6 +84,7 @@ export function createPlayerZone(ownerName: string, ownerWallet: string | null):
     lifetimeEarnings: 0,
     createdAt: Date.now(),
     expandLevel: 0,
+    dangerTier: "safe",
     build: emptyPlayerZoneBuild(),
   };
   zones.set(zoneId, record);
@@ -151,7 +154,7 @@ export function setZoneBuild(zoneId: string, build: PlayerZoneBuild): void {
 /** Update listing metadata (name/price/published/gather tax) on a zone. */
 export function setZoneMeta(
   zoneId: string,
-  patch: { displayName?: string; passPrice?: number; published?: boolean; gatherTax?: number },
+  patch: { displayName?: string; passPrice?: number; published?: boolean; gatherTax?: number; dangerTier?: DangerTier },
 ): void {
   const zone = zones.get(zoneId);
   if (!zone) return;
@@ -163,6 +166,9 @@ export function setZoneMeta(
   }
   if (typeof patch.gatherTax === "number" && Number.isFinite(patch.gatherTax)) {
     zone.gatherTax = Math.max(0, Math.min(MAX_GATHER_TAX, Math.floor(patch.gatherTax)));
+  }
+  if (patch.dangerTier !== undefined) {
+    zone.dangerTier = normalizePlayerZoneTier(patch.dangerTier);
   }
   if (typeof patch.published === "boolean") zone.published = patch.published;
   void savePlayerZone(zone);
