@@ -128,7 +128,14 @@ export async function saveCharacter(record: CharacterRecord): Promise<void> {
   const db = getPool();
   if (!db) return;
 
-  await db.query(
+  // DATA-LOSS SAFEGUARD: XP is monotonic in this game (it never decreases).
+  // The `WHERE EXCLUDED.xp >= characters.xp` guard makes a save that would
+  // REGRESS a character's XP a no-op for the ENTIRE row — so if a player's
+  // in-memory state ever fails to load and a near-default record is written,
+  // it can't clobber their real progress (level, gold, inventory, skills,
+  // gear all survive). A brand-new character (INSERT, no conflict) is
+  // unaffected; normal play (equal or higher XP) always writes through.
+  const result = await db.query(
     `INSERT INTO characters (name, wallet_address, zone_id, x, y, level, xp, gold, quest_progress, appearance, inventory, hp, equipment, npc_interact_at, mob_gold_claimed, knocked_out_until, skills, stamina, vip_pass_until, black_pass, pvp_rating, pvp_kills, pvp_season, honor, guild_coin, gems, bag_level, updated_at)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10::jsonb, $11::jsonb, $12, $13::jsonb, $14::jsonb, $15::jsonb, $16, $17::jsonb, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, NOW())
      ON CONFLICT (name)
@@ -137,8 +144,8 @@ export async function saveCharacter(record: CharacterRecord): Promise<void> {
        zone_id = EXCLUDED.zone_id,
        x = EXCLUDED.x,
        y = EXCLUDED.y,
-       level = EXCLUDED.level,
-       xp = EXCLUDED.xp,
+       level = GREATEST(characters.level, EXCLUDED.level),
+       xp = GREATEST(characters.xp, EXCLUDED.xp),
        gold = EXCLUDED.gold,
        quest_progress = EXCLUDED.quest_progress,
        appearance = EXCLUDED.appearance,
@@ -159,7 +166,9 @@ export async function saveCharacter(record: CharacterRecord): Promise<void> {
        guild_coin = EXCLUDED.guild_coin,
        gems = EXCLUDED.gems,
        bag_level = GREATEST(characters.bag_level, EXCLUDED.bag_level),
-       updated_at = NOW()`,
+       updated_at = NOW()
+     WHERE EXCLUDED.xp >= characters.xp
+     RETURNING xp`,
     [
       record.name,
       record.walletAddress,
@@ -190,6 +199,17 @@ export async function saveCharacter(record: CharacterRecord): Promise<void> {
       record.bagLevel,
     ],
   );
+
+  // The guard rejected this save (incoming XP below stored) — a strong signal
+  // that this player's in-memory state didn't load correctly. Loud-log it so
+  // corruption is caught early instead of silently losing progress.
+  if (result.rowCount === 0) {
+    console.error(
+      `[characters] BLOCKED regressive save for "${record.name}" ` +
+        `(incoming xp=${record.xp}, level=${record.level}) — existing progress preserved. ` +
+        `Investigate: this player's state may have failed to load.`,
+    );
+  }
 }
 
 /**
