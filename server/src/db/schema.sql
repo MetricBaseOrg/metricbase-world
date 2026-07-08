@@ -390,3 +390,26 @@ CREATE TABLE IF NOT EXISTS siege_state (
   sovereign_guild_id VARCHAR(64),
   won_at TIMESTAMPTZ
 );
+
+-- ============================================================================
+-- WALLET-AS-IDENTITY MIGRATION (Phase 3): tables that reference players by the
+-- mutable display NAME get a parallel immutable WALLET column so a rename never
+-- breaks mail, jobs, guild membership, passes, ownership, etc. Additive + dual
+-- written during the bake period; the legacy *_name columns are dropped later
+-- (Phase 5). Backfilled once from characters via a one-off script, not on boot.
+-- (player_zones.owner_wallet and land_plots.owner_wallet already exist.)
+-- ============================================================================
+ALTER TABLE mail            ADD COLUMN IF NOT EXISTS recipient_wallet VARCHAR(44);
+ALTER TABLE mail            ADD COLUMN IF NOT EXISTS sender_wallet    VARCHAR(44);
+ALTER TABLE jobs            ADD COLUMN IF NOT EXISTS employer_wallet  VARCHAR(44);
+ALTER TABLE jobs            ADD COLUMN IF NOT EXISTS worker_wallet    VARCHAR(44);
+ALTER TABLE guilds          ADD COLUMN IF NOT EXISTS leader_wallet    VARCHAR(44);
+ALTER TABLE zone_passes     ADD COLUMN IF NOT EXISTS holder_wallet    VARCHAR(44);
+ALTER TABLE farm_plots      ADD COLUMN IF NOT EXISTS planter_wallet   VARCHAR(44);
+ALTER TABLE asset_inventory ADD COLUMN IF NOT EXISTS player_wallet    VARCHAR(44);
+ALTER TABLE asset_listings  ADD COLUMN IF NOT EXISTS seller_wallet    VARCHAR(44);
+ALTER TABLE pending_gold    ADD COLUMN IF NOT EXISTS player_wallet    VARCHAR(44);
+ALTER TABLE daily_state     ADD COLUMN IF NOT EXISTS player_wallet    VARCHAR(44);
+CREATE INDEX IF NOT EXISTS mail_recipient_wallet_idx ON mail (recipient_wallet, created_at DESC);
+CREATE INDEX IF NOT EXISTS zone_passes_holder_wallet_idx ON zone_passes (zone_id, holder_wallet);
+CREATE INDEX IF NOT EXISTS asset_inventory_player_wallet_idx ON asset_inventory (player_wallet);
