@@ -1,4 +1,4 @@
-// Deploy marker: 0.106.4 — login falls back to Hub when saved zone is un-enterable (no lockout).
+// Deploy marker: 0.106.5 — single-session enforcement (kick a character's old session on new login).
 import { Server } from "@colyseus/core";
 import { WebSocketTransport } from "@colyseus/ws-transport";
 import {

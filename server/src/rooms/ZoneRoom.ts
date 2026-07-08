@@ -405,6 +405,11 @@ function getClientRpcUrl(): string {
 
 type JoinAuthData = JoinOptions & { wallet?: string };
 
+/** WebSocket close code sent to a character's old session when a newer login for
+ *  the same name takes over (single-session enforcement). The client just shows
+ *  a normal disconnect — it does not auto-rejoin, so there's no kick loop. */
+const GOODBYE_DUPLICATE_LOGIN = 4001;
+
 /** Count each placeable asset used in a build (ground paint + scenery + nodes). */
 function countBuildAssets(build: PlayerZoneBuild): Map<string, number> {
   const counts = new Map<string, number>();
@@ -1305,7 +1310,22 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     this.playerBagLevel.set(player.name, saved?.bagLevel ?? 0);
 
     this.state.players.set(client.sessionId, player);
+    // SINGLE-SESSION ENFORCEMENT: all in-memory player state (inventory, gold,
+    // skills, …) is keyed by character NAME, so two live sessions for the same
+    // name share those maps — and whichever leaves first deletes them, wiping
+    // the survivor's items. Before this session takes over, disconnect any prior
+    // live session for this name. It's marked `transferring` so its onLeave skips
+    // the persist (this session just loaded fresh state and now owns the maps),
+    // and because activePlayerSession points here it also skips the map deletion
+    // and (client-scoped) presence clear. Genuine reconnects reuse the same
+    // sessionId, so they never trip this.
+    const priorSessionId = this.activePlayerSession.get(player.name);
     this.activePlayerSession.set(player.name, client.sessionId);
+    if (priorSessionId && priorSessionId !== client.sessionId) {
+      this.transferring.add(priorSessionId);
+      const priorClient = this.clients.find((entry) => entry.sessionId === priorSessionId);
+      priorClient?.leave(GOODBYE_DUPLICATE_LOGIN);
+    }
     // Load daily-quest state (ticks the login streak); entering someone else's
     // World counts toward the "visit a player World" task.
     void this.ensureDaily(player.name).then(() => {
