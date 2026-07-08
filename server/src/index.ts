@@ -1,4 +1,4 @@
-// Deploy marker: 0.106.5 — single-session enforcement (kick a character's old session on new login).
+// Deploy marker: 0.106.6 — wallet-canonical persistence (saveCharacter upserts ON CONFLICT wallet_address).
 import { Server } from "@colyseus/core";
 import { WebSocketTransport } from "@colyseus/ws-transport";
 import {

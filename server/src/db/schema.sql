@@ -19,6 +19,11 @@ ALTER TABLE characters ADD COLUMN IF NOT EXISTS appearance JSONB NOT NULL DEFAUL
 ALTER TABLE characters ADD COLUMN IF NOT EXISTS inventory JSONB NOT NULL DEFAULT '[]'::jsonb;
 ALTER TABLE characters ADD COLUMN IF NOT EXISTS wallet_address VARCHAR(44);
 CREATE UNIQUE INDEX IF NOT EXISTS characters_wallet_address_idx ON characters (wallet_address) WHERE wallet_address IS NOT NULL;
+-- Wallet is the canonical player identity: a full (non-partial) unique index so
+-- saveCharacter can upsert with `ON CONFLICT (wallet_address)`. Nullable column,
+-- so multiple NULL wallets are still allowed (walletless local/dev with the
+-- token gate off); every non-null wallet is unique (one wallet ⇄ one character).
+CREATE UNIQUE INDEX IF NOT EXISTS characters_wallet_unique ON characters (wallet_address);
 ALTER TABLE characters ADD COLUMN IF NOT EXISTS gold INTEGER NOT NULL DEFAULT 25;
 ALTER TABLE characters ADD COLUMN IF NOT EXISTS hp INTEGER;
 ALTER TABLE characters ADD COLUMN IF NOT EXISTS equipment JSONB NOT NULL DEFAULT '{"weaponId":null}'::jsonb;

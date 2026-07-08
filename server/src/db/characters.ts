@@ -145,10 +145,19 @@ export async function saveCharacter(record: CharacterRecord): Promise<void> {
   // are merged with a per-skill GREATEST below: a save can never lower any
   // skill, mirroring the xp/level/bag_level protection. (This is what silently
   // reset gathering progress for players like "showot".)
+  //
+  // WALLET-CANONICAL IDENTITY: the save is located by the immutable, verified
+  // WALLET (`ON CONFLICT (wallet_address)`), not the mutable display `name`, so a
+  // save always lands on the right account row and a rename can never split or
+  // orphan a character's data. `name` is NOT in the UPDATE SET (it's a display
+  // label changed only by the dedicated rename flow), so a normal save never
+  // rewrites it. Walletless rows (local/dev with the token gate off) fall back to
+  // the legacy name conflict target.
+  const conflictTarget = record.walletAddress ? "wallet_address" : "name";
   const result = await db.query(
     `INSERT INTO characters (name, wallet_address, zone_id, x, y, level, xp, gold, quest_progress, appearance, inventory, hp, equipment, npc_interact_at, mob_gold_claimed, knocked_out_until, skills, stamina, vip_pass_until, black_pass, pvp_rating, pvp_kills, pvp_season, honor, guild_coin, gems, bag_level, updated_at)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10::jsonb, $11::jsonb, $12, $13::jsonb, $14::jsonb, $15::jsonb, $16, $17::jsonb, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, NOW())
-     ON CONFLICT (name)
+     ON CONFLICT (${conflictTarget})
      DO UPDATE SET
        wallet_address = COALESCE(EXCLUDED.wallet_address, characters.wallet_address),
        zone_id = EXCLUDED.zone_id,
