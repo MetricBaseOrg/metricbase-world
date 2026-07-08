@@ -521,9 +521,13 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   private static vipPassUntil = new Map<string, number>();
   /** Jail sentences (player name -> release time). In-memory; clears on restart. */
   private static jailedUntil = new Map<string, number>();
-  /** Tracks which session ID is "active" for each player name. Used to prevent
-   *  a stale onLeave from wiping in-memory state belonging to a new session. */
+  /** Tracks which session ID is "active" for each player key (pid = wallet).
+   *  Used to prevent a stale onLeave from wiping in-memory state belonging to a
+   *  new session. */
   private activePlayerSession = new Map<string, string>();
+  /** name -> pid (wallet) for players currently in this room, so features that
+   *  address an ONLINE player by display name can resolve their stable id. */
+  private nameToPid = new Map<string, string>();
   private zoneConfig!: ZoneConfig;
   /** Set only for player-owned zones; the owning record backing this room. */
   private playerZone?: PlayerZoneRecord;
@@ -1258,23 +1262,23 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     if (freeRespawnReady) {
       player.x = spawn.x;
       player.y = spawn.y;
-      this.playerHp.set(player.name, maxHp);
+      this.playerHp.set(this.pidOf(player), maxHp);
     } else if (savedHp <= 0 && knockedUntil && Date.now() < knockedUntil) {
       player.x = spawn.x;
       player.y = spawn.y;
-      this.playerHp.set(player.name, 0);
+      this.playerHp.set(this.pidOf(player), 0);
       this.playerKnockedOutUntil.set(player.name, knockedUntil);
     } else if (saved && saved.zoneId === this.zoneConfig.id) {
       player.x = saved.x;
       player.y = saved.y;
-      this.playerHp.set(player.name, Math.min(savedHp, maxHp));
+      this.playerHp.set(this.pidOf(player), Math.min(savedHp, maxHp));
     } else {
       player.x = spawn.x;
       player.y = spawn.y;
-      this.playerHp.set(player.name, Math.min(savedHp, maxHp));
+      this.playerHp.set(this.pidOf(player), Math.min(savedHp, maxHp));
     }
 
-    this.playerStamina.set(player.name, clampStamina(saved?.stamina ?? STARTING_STAMINA));
+    this.playerStamina.set(this.pidOf(player), clampStamina(saved?.stamina ?? STARTING_STAMINA));
 
     // Safety net: never drop a player onto a blocked tile. Stale saved
     // coordinates inside a wall (e.g. the map corner) leave the player
@@ -1298,16 +1302,16 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         rating = STARTING_PVP_RATING;
         kills = 0;
       }
-      this.playerPvpRating.set(player.name, rating);
-      this.playerPvpKills.set(player.name, kills);
-      this.playerPvpSeason.set(player.name, season);
+      this.playerPvpRating.set(this.pidOf(player), rating);
+      this.playerPvpKills.set(this.pidOf(player), kills);
+      this.playerPvpSeason.set(this.pidOf(player), season);
     }
 
     // Soft currencies (HUD-P4).
-    this.playerHonor.set(player.name, saved?.honor ?? 0);
-    this.playerGuildCoin.set(player.name, saved?.guildCoin ?? 0);
-    this.playerGems.set(player.name, saved?.gems ?? 0);
-    this.playerBagLevel.set(player.name, saved?.bagLevel ?? 0);
+    this.playerHonor.set(this.pidOf(player), saved?.honor ?? 0);
+    this.playerGuildCoin.set(this.pidOf(player), saved?.guildCoin ?? 0);
+    this.playerGems.set(this.pidOf(player), saved?.gems ?? 0);
+    this.playerBagLevel.set(this.pidOf(player), saved?.bagLevel ?? 0);
 
     this.state.players.set(client.sessionId, player);
     // SINGLE-SESSION ENFORCEMENT: all in-memory player state (inventory, gold,
@@ -1321,6 +1325,9 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     // sessionId, so they never trip this.
     const priorSessionId = this.activePlayerSession.get(player.name);
     this.activePlayerSession.set(player.name, client.sessionId);
+    // Map this online player's display name -> stable pid (wallet) so features
+    // that address them by name resolve to the wallet-keyed in-memory state.
+    this.nameToPid.set(player.name, this.pidOf(player));
     if (priorSessionId && priorSessionId !== client.sessionId) {
       this.transferring.add(priorSessionId);
       const priorClient = this.clients.find((entry) => entry.sessionId === priorSessionId);
@@ -1335,24 +1342,24 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     });
     setOnline(player.name, client, (type, payload) => client.send(type, payload));
     this.inputs.set(client.sessionId, { dx: 0, dy: 0 });
-    this.questProgress.set(player.name, saved?.questProgress ?? { active: [], objectiveIndex: {}, completed: [] });
-    this.inventories.set(player.name, normalizeInventory(saved?.inventory));
+    this.questProgress.set(this.pidOf(player), saved?.questProgress ?? { active: [], objectiveIndex: {}, completed: [] });
+    this.inventories.set(this.pidOf(player), normalizeInventory(saved?.inventory));
     // Collect any gold owed from asset sales made while offline.
     const owed = takePendingGold(player.name);
-    this.playerGold.set(player.name, (saved?.gold ?? STARTING_GOLD) + owed);
+    this.playerGold.set(this.pidOf(player), (saved?.gold ?? STARTING_GOLD) + owed);
     const eq = normalizeEquipment(saved?.equipment);
-    this.playerEquipment.set(player.name, eq);
+    this.playerEquipment.set(this.pidOf(player), eq);
     player.weaponId = eq.weaponId ?? "";
     player.toolId = eq.toolId ?? "";
     player.speedMult = getMountSpeed(eq.mountId);
     player.petId = eq.petId ?? "";
     // Seed the public vitals immediately (the tick loop keeps them fresh).
     player.maxHp = getPlayerMaxHp(player.level);
-    player.hp = this.playerHp.get(player.name) ?? player.maxHp;
-    player.stamina = this.playerStamina.get(player.name) ?? STARTING_STAMINA;
-    this.npcInteractAt.set(player.name, saved?.npcInteractAt ?? {});
-    this.mobGoldClaimed.set(player.name, saved?.mobGoldClaimed ?? {});
-    this.playerSkills.set(player.name, normalizeSkills(saved?.skills));
+    player.hp = this.playerHp.get(this.pidOf(player)) ?? player.maxHp;
+    player.stamina = this.playerStamina.get(this.pidOf(player)) ?? STARTING_STAMINA;
+    this.npcInteractAt.set(this.pidOf(player), saved?.npcInteractAt ?? {});
+    this.mobGoldClaimed.set(this.pidOf(player), saved?.mobGoldClaimed ?? {});
+    this.playerSkills.set(this.pidOf(player), normalizeSkills(saved?.skills));
 
     this.sendProfile(client, player);
     this.sendQuestState(client, player.name);
@@ -1432,29 +1439,30 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       const isActive = this.activePlayerSession.get(player.name) === client.sessionId;
       if (isActive) {
         this.activePlayerSession.delete(player.name);
+        this.nameToPid.delete(player.name);
       }
       clearOnline(player.name, client);
       if (isActive) {
-        this.questProgress.delete(player.name);
-        this.inventories.delete(player.name);
-        this.playerGold.delete(player.name);
-        this.playerHp.delete(player.name);
-        this.playerEquipment.delete(player.name);
-        this.npcInteractAt.delete(player.name);
-        this.mobGoldClaimed.delete(player.name);
+        this.questProgress.delete(this.pidOf(player));
+        this.inventories.delete(this.pidOf(player));
+        this.playerGold.delete(this.pidOf(player));
+        this.playerHp.delete(this.pidOf(player));
+        this.playerEquipment.delete(this.pidOf(player));
+        this.npcInteractAt.delete(this.pidOf(player));
+        this.mobGoldClaimed.delete(this.pidOf(player));
         this.playerKnockedOutUntil.delete(player.name);
         this.playerLastCombatAt.delete(player.name);
         this.playerLastRegenAt.delete(player.name);
-        this.playerStamina.delete(player.name);
+        this.playerStamina.delete(this.pidOf(player));
         this.playerLastStaminaRegenAt.delete(player.name);
         this.playerLastHungerNoticeAt.delete(player.name);
         this.playerLastDarkNoticeAt.delete(player.name);
         this.playerLastRestAt.delete(player.name);
         this.craftingUntil.delete(player.name);
-        this.playerSkills.delete(player.name);
-        this.playerPvpRating.delete(player.name);
-        this.playerPvpKills.delete(player.name);
-        this.playerPvpSeason.delete(player.name);
+        this.playerSkills.delete(this.pidOf(player));
+        this.playerPvpRating.delete(this.pidOf(player));
+        this.playerPvpKills.delete(this.pidOf(player));
+        this.playerPvpSeason.delete(this.pidOf(player));
       }
       // Leaving (or changing zone) mid-duel forfeits — the opponent wins.
       const duelOpponent = this.activeDuels.get(player.name);
@@ -1600,8 +1608,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     // on change to keep the patch stream small.
     for (const [, player] of this.state.players) {
       const maxHp = getPlayerMaxHp(player.level);
-      const hp = this.playerHp.get(player.name) ?? maxHp;
-      const stamina = this.playerStamina.get(player.name) ?? STARTING_STAMINA;
+      const hp = this.playerHp.get(this.pidOf(player)) ?? maxHp;
+      const stamina = this.playerStamina.get(this.pidOf(player)) ?? STARTING_STAMINA;
       if (player.maxHp !== maxHp) player.maxHp = maxHp;
       if (player.hp !== hp) player.hp = hp;
       if (player.stamina !== stamina) player.stamina = stamina;
@@ -1622,7 +1630,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       if (!player || this.isKnockedOut(player.name)) continue;
 
       const maxHp = getPlayerMaxHp(player.level);
-      const currentHp = this.playerHp.get(player.name) ?? maxHp;
+      const currentHp = this.playerHp.get(this.pidOf(player)) ?? maxHp;
       if (currentHp >= maxHp) continue;
 
       const lastCombat = this.playerLastCombatAt.get(player.name) ?? 0;
@@ -1632,7 +1640,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       if (now - lastRegen < HP_REGEN_INTERVAL_MS) continue;
 
       this.playerLastRegenAt.set(player.name, now);
-      this.playerHp.set(player.name, Math.min(maxHp, currentHp + HP_REGEN_AMOUNT));
+      this.playerHp.set(this.pidOf(player), Math.min(maxHp, currentHp + HP_REGEN_AMOUNT));
       this.sendProfile(client, player);
     }
 
@@ -1642,14 +1650,14 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       const player = this.state.players.get(client.sessionId);
       if (!player || this.isKnockedOut(player.name)) continue;
 
-      const stamina = this.playerStamina.get(player.name) ?? STARTING_STAMINA;
+      const stamina = this.playerStamina.get(this.pidOf(player)) ?? STARTING_STAMINA;
       if (stamina >= MAX_STAMINA) continue;
 
       const lastTrickle = this.playerLastStaminaRegenAt.get(player.name) ?? 0;
       if (now - lastTrickle < STAMINA_REGEN_INTERVAL_MS) continue;
 
       this.playerLastStaminaRegenAt.set(player.name, now);
-      this.playerStamina.set(player.name, clampStamina(stamina + STAMINA_REGEN_AMOUNT));
+      this.playerStamina.set(this.pidOf(player), clampStamina(stamina + STAMINA_REGEN_AMOUNT));
       this.sendProfile(client, player);
     }
 
@@ -1967,7 +1975,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
     const progress = this.getQuestProgress(player.name);
     for (const questId of getQuestsOfferedByNpc(npcId, progress)) {
-      this.questProgress.set(player.name, startQuest(progress, questId));
+      this.questProgress.set(this.pidOf(player), startQuest(progress, questId));
       const quest = getQuestDefinition(questId);
       this.broadcastChat({
         id: crypto.randomUUID(),
@@ -1980,7 +1988,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     }
 
     const now = Date.now();
-    const interactAt = { ...(this.npcInteractAt.get(player.name) ?? {}) };
+    const interactAt = { ...(this.npcInteractAt.get(this.pidOf(player)) ?? {}) };
     const lastInteract = interactAt[npcId] ?? 0;
     const canEarnXp = now - lastInteract >= NPC_INTERACT_COOLDOWN_MS;
 
@@ -1996,7 +2004,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
     if (canEarnXp) {
       interactAt[npcId] = now;
-      this.npcInteractAt.set(player.name, interactAt);
+      this.npcInteractAt.set(this.pidOf(player), interactAt);
       this.grantXp(client, player, XP_NPC_INTERACT, `spoke with ${npc.name}`);
     }
 
@@ -2013,7 +2021,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     const ability = getAbilityById(abilityId);
     if (!ability) return;
 
-    const weaponId = this.playerEquipment.get(player.name)?.weaponId ?? null;
+    const weaponId = this.playerEquipment.get(this.pidOf(player))?.weaponId ?? null;
     if (!weaponGrantsAbility(weaponId, abilityId)) {
       client.send("inventoryResult", { ok: false, error: "Your weapon can't use that skill." });
       return;
@@ -2045,7 +2053,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     const currentHp = this.mobHp.get(npcId);
     if (currentHp === undefined || currentHp <= 0) return;
 
-    const playerHp = this.playerHp.get(player.name) ?? getPlayerMaxHp(player.level);
+    const playerHp = this.playerHp.get(this.pidOf(player)) ?? getPlayerMaxHp(player.level);
     if (playerHp <= 0) return;
 
     const staminaCost = ability ? ability.staminaCost : STAMINA_COST_ATTACK;
@@ -2058,7 +2066,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
     this.attackCooldowns.set(cooldownKey, now);
     this.playerLastCombatAt.set(player.name, now);
-    const equipment = normalizeEquipment(this.playerEquipment.get(player.name));
+    const equipment = normalizeEquipment(this.playerEquipment.get(this.pidOf(player)));
     const stats = getEquipmentStats(equipment);
     // Mobs have no armor (Phase 1); PvP in Phase 2 passes the target's armor.
     const hit = rollHit({
@@ -2105,11 +2113,11 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       const rewards = getMobRewardConfig(npcId);
       if (rewards && rewards.goldReward > 0) {
         if (rewards.goldOnceOnly) {
-          const claimed = { ...(this.mobGoldClaimed.get(player.name) ?? {}) };
+          const claimed = { ...(this.mobGoldClaimed.get(this.pidOf(player)) ?? {}) };
           if (!claimed[npcId]) {
             this.grantGold(client, player, rewards.goldReward, `defeated ${npc.name}`);
             claimed[npcId] = true;
-            this.mobGoldClaimed.set(player.name, claimed);
+            this.mobGoldClaimed.set(this.pidOf(player), claimed);
           }
         } else {
           this.grantGold(client, player, rewards.goldReward, `defeated ${npc.name}`);
@@ -2122,7 +2130,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
       // Gems: a rare premium drop from powerful foes (HUD-P4).
       if (npc.combat.rewardXp >= GEM_ELITE_MIN_XP && Math.random() < GEM_DROP_CHANCE) {
-        this.playerGems.set(player.name, (this.playerGems.get(player.name) ?? 0) + GEMS_PER_ELITE);
+        this.playerGems.set(this.pidOf(player), (this.playerGems.get(this.pidOf(player)) ?? 0) + GEMS_PER_ELITE);
         client.send("chat", this.systemChat("Loot", `💎 You found ${GEMS_PER_ELITE} Gem!`));
       }
 
@@ -2184,7 +2192,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     slots: EquipmentSlot[],
   ) {
     if (slots.length === 0) return;
-    const equipment = normalizeEquipment(this.playerEquipment.get(player.name));
+    const equipment = normalizeEquipment(this.playerEquipment.get(this.pidOf(player)));
     const durability = { ...(equipment.durability ?? {}) };
     let broke = false;
 
@@ -2217,7 +2225,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     }
 
     equipment.durability = durability;
-    this.playerEquipment.set(player.name, equipment);
+    this.playerEquipment.set(this.pidOf(player), equipment);
 
     if (broke) {
       player.weaponId = equipment.weaponId ?? "";
@@ -2233,7 +2241,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     if (!player) return;
     if (this.isKnockedOut(player.name)) return;
 
-    const equipment = normalizeEquipment(this.playerEquipment.get(player.name));
+    const equipment = normalizeEquipment(this.playerEquipment.get(this.pidOf(player)));
     const durability = { ...(equipment.durability ?? {}) };
 
     let missing = 0;
@@ -2255,16 +2263,16 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
     // 2 gold per durability point restored — a steady gold sink for fighters.
     const cost = Math.max(5, Math.ceil(missing * 2));
-    const gold = this.playerGold.get(player.name) ?? STARTING_GOLD;
+    const gold = this.playerGold.get(this.pidOf(player)) ?? STARTING_GOLD;
     if (gold < cost) {
       client.send("inventoryResult", { ok: false, error: `Repair costs ${cost}g — not enough gold.` });
       return;
     }
 
-    this.playerGold.set(player.name, gold - cost);
+    this.playerGold.set(this.pidOf(player), gold - cost);
     for (const [slot, max] of full) durability[slot] = max;
     equipment.durability = durability;
-    this.playerEquipment.set(player.name, equipment);
+    this.playerEquipment.set(this.pidOf(player), equipment);
 
     this.broadcastChat({
       id: crypto.randomUUID(),
@@ -2279,7 +2287,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     this.sendInventory(client, player.name);
     client.send("inventoryResult", {
       ok: true,
-      inventory: buildInventoryPayload(this.inventories.get(player.name) ?? [], equipment.weaponId ?? null, this.bagCapOf(player.name)),
+      inventory: buildInventoryPayload(this.inventories.get(this.pidOf(player)) ?? [], equipment.weaponId ?? null, this.bagCapOf(player.name)),
     });
     await this.persistPlayer(player);
   }
@@ -2292,7 +2300,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       client.send("enhanceResult", { ok: false, error: "That can't be enhanced." });
       return;
     }
-    const equipment = normalizeEquipment(this.playerEquipment.get(player.name));
+    const equipment = normalizeEquipment(this.playerEquipment.get(this.pidOf(player)));
     const field = this.equipFieldForSlot(slot);
     const itemId = field ? ((equipment as unknown as Record<string, unknown>)[field] as string | null) : null;
     if (!itemId) {
@@ -2305,22 +2313,22 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       return;
     }
     const cost = enhanceCost(level);
-    const gold = this.playerGold.get(player.name) ?? STARTING_GOLD;
+    const gold = this.playerGold.get(this.pidOf(player)) ?? STARTING_GOLD;
     if (gold < cost) {
       client.send("enhanceResult", { ok: false, error: `Enhancing costs ${cost}g.` });
       return;
     }
 
     // Gold is consumed on the attempt whether it succeeds or fails.
-    this.playerGold.set(player.name, gold - cost);
+    this.playerGold.set(this.pidOf(player), gold - cost);
     const success = Math.random() < enhanceSuccessRate(level);
     if (success) {
       equipment.enhance = { ...(equipment.enhance ?? {}), [slot]: level + 1 };
-      this.playerEquipment.set(player.name, equipment);
+      this.playerEquipment.set(this.pidOf(player), equipment);
     }
 
     this.sendProfile(client, player);
-    client.send("equipmentState", buildEquipmentState(this.playerEquipment.get(player.name)));
+    client.send("equipmentState", buildEquipmentState(this.playerEquipment.get(this.pidOf(player))));
     client.send("enhanceResult", {
       ok: true,
       success,
@@ -2427,8 +2435,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     this.playerLastCombatAt.set(attacker.name, now);
     this.playerLastCombatAt.set(victim.name, now);
 
-    const attackerStats = getEquipmentStats(normalizeEquipment(this.playerEquipment.get(attacker.name)));
-    const victimStats = getEquipmentStats(normalizeEquipment(this.playerEquipment.get(victim.name)));
+    const attackerStats = getEquipmentStats(normalizeEquipment(this.playerEquipment.get(this.pidForName(attacker.name))));
+    const victimStats = getEquipmentStats(normalizeEquipment(this.playerEquipment.get(this.pidForName(victim.name))));
     const hit = rollHit({
       attack: attackerStats.attack,
       critChance: attackerStats.critChance,
@@ -2502,7 +2510,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     this.duelEndsAt.set(player.name, endsAt);
     // Both start fresh.
     for (const p of [challenger, player]) {
-      this.playerHp.set(p.name, getPlayerMaxHp(p.level));
+      this.playerHp.set(this.pidForName(p.name), getPlayerMaxHp(p.level));
       this.sendProfile(this.clientForName(p.name) ?? client, p);
     }
     sendToPlayer(fromName, "duelStart", { opponent: player.name, endsAt });
@@ -2527,16 +2535,16 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     }
     this.attackCooldowns.set(client.sessionId, now);
 
-    const aStats = getEquipmentStats(normalizeEquipment(this.playerEquipment.get(attacker.name)));
-    const vStats = getEquipmentStats(normalizeEquipment(this.playerEquipment.get(victim.name)));
+    const aStats = getEquipmentStats(normalizeEquipment(this.playerEquipment.get(this.pidForName(attacker.name))));
+    const vStats = getEquipmentStats(normalizeEquipment(this.playerEquipment.get(this.pidForName(victim.name))));
     const hit = rollHit({
       attack: aStats.attack,
       critChance: aStats.critChance,
       critMult: aStats.critMult,
       targetArmor: vStats.armor,
     });
-    const vHp = Math.max(0, (this.playerHp.get(victim.name) ?? getPlayerMaxHp(victim.level)) - hit.damage);
-    this.playerHp.set(victim.name, vHp);
+    const vHp = Math.max(0, (this.playerHp.get(this.pidForName(victim.name)) ?? getPlayerMaxHp(victim.level)) - hit.damage);
+    this.playerHp.set(this.pidForName(victim.name), vHp);
 
     const down = vHp <= 0;
     this.broadcast("pvpHit", {
@@ -2569,7 +2577,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       const session = this.activePlayerSession.get(name);
       const player = session ? this.state.players.get(session) : undefined;
       if (player) {
-        this.playerHp.set(name, getPlayerMaxHp(player.level));
+        this.playerHp.set(this.pidForName(name), getPlayerMaxHp(player.level));
         const c = this.clientForName(name);
         if (c) {
           this.sendProfile(c, player);
@@ -2596,9 +2604,9 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     atWar = false,
   ): boolean {
     const maxHp = getPlayerMaxHp(victim.level);
-    const current = this.playerHp.get(victim.name) ?? maxHp;
+    const current = this.playerHp.get(this.pidForName(victim.name)) ?? maxHp;
     const next = Math.max(0, current - amount);
-    this.playerHp.set(victim.name, next);
+    this.playerHp.set(this.pidForName(victim.name), next);
     this.playerLastCombatAt.set(victim.name, Date.now());
 
     const knockedOut = next === 0;
@@ -2632,7 +2640,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         // Caught! A criminal who's defeated goes straight to jail (no pay-to-respawn).
         arrested = true;
         ZoneRoom.jailedUntil.set(victim.name, Date.now() + JAIL_DURATION_MS);
-        this.playerHp.set(victim.name, maxHp);
+        this.playerHp.set(this.pidForName(victim.name), maxHp);
         this.playerKnockedOutUntil.delete(victim.name);
         victimClient.send("transfer", { targetZone: ZONE_JAIL, label: "Jail" });
         victimClient.send(
@@ -2651,21 +2659,21 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
       // PvP season rating: reward the victor, dock the loser (floored at 0).
       this.playerPvpRating.set(
-        attacker.name,
-        (this.playerPvpRating.get(attacker.name) ?? STARTING_PVP_RATING) + PVP_KILL_RATING,
+        this.pidForName(attacker.name),
+        (this.playerPvpRating.get(this.pidForName(attacker.name)) ?? STARTING_PVP_RATING) + PVP_KILL_RATING,
       );
-      this.playerPvpKills.set(attacker.name, (this.playerPvpKills.get(attacker.name) ?? 0) + 1);
+      this.playerPvpKills.set(this.pidForName(attacker.name), (this.playerPvpKills.get(this.pidForName(attacker.name)) ?? 0) + 1);
       this.playerPvpRating.set(
-        victim.name,
-        Math.max(0, (this.playerPvpRating.get(victim.name) ?? STARTING_PVP_RATING) - PVP_DEATH_RATING),
+        this.pidForName(victim.name),
+        Math.max(0, (this.playerPvpRating.get(this.pidForName(victim.name)) ?? STARTING_PVP_RATING) - PVP_DEATH_RATING),
       );
 
       // Soft currencies: honor for the victor, plus guild coin if they're in a guild.
-      this.playerHonor.set(attacker.name, (this.playerHonor.get(attacker.name) ?? 0) + HONOR_PER_KILL);
+      this.playerHonor.set(this.pidForName(attacker.name), (this.playerHonor.get(this.pidForName(attacker.name)) ?? 0) + HONOR_PER_KILL);
       if (getGuildForMember(attacker.name)) {
         this.playerGuildCoin.set(
-          attacker.name,
-          (this.playerGuildCoin.get(attacker.name) ?? 0) + GUILD_COIN_PER_KILL,
+          this.pidForName(attacker.name),
+          (this.playerGuildCoin.get(this.pidForName(attacker.name)) ?? 0) + GUILD_COIN_PER_KILL,
         );
       }
       const attackerClient = this.clientForName(attacker.name);
@@ -2697,7 +2705,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   /** Spawn a loot bag at the victim with the dropped items for the zone tier. */
   private dropLootBag(victim: InstanceType<typeof PlayerSchema>, tier: DangerTier) {
     if (tier === "safe" || tier === "yellow") return; // no item loss in safe/yellow
-    const inventory = this.inventories.get(victim.name) ?? [];
+    const inventory = this.inventories.get(this.pidForName(victim.name)) ?? [];
     const dropped: InventoryEntry[] = [];
     const kept: InventoryEntry[] = [];
     for (const entry of inventory) {
@@ -2711,13 +2719,13 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     // Black zones also bleed half the victim's loose gold.
     let goldDropped = 0;
     if (tier === "black") {
-      const gold = this.playerGold.get(victim.name) ?? 0;
+      const gold = this.playerGold.get(this.pidForName(victim.name)) ?? 0;
       goldDropped = Math.floor(gold / 2);
-      if (goldDropped > 0) this.playerGold.set(victim.name, gold - goldDropped);
+      if (goldDropped > 0) this.playerGold.set(this.pidForName(victim.name), gold - goldDropped);
     }
 
     if (dropped.length === 0 && goldDropped === 0) return;
-    this.inventories.set(victim.name, kept);
+    this.inventories.set(this.pidForName(victim.name), kept);
     const victimClient = this.clientForName(victim.name);
     if (victimClient) this.sendInventory(victimClient, victim.name);
 
@@ -2745,14 +2753,14 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       return;
     }
 
-    let inventory = this.inventories.get(player.name) ?? [];
+    let inventory = this.inventories.get(this.pidOf(player)) ?? [];
     const leftover: InventoryEntry[] = [];
     for (const entry of bag.items) {
       const { inventory: nextInv, added } = addItemToInventory(inventory, entry.itemId, entry.quantity, this.bagCapOf(player.name));
       inventory = nextInv;
       if (added < entry.quantity) leftover.push({ itemId: entry.itemId, quantity: entry.quantity - added });
     }
-    this.inventories.set(player.name, inventory);
+    this.inventories.set(this.pidOf(player), inventory);
     if (bag.gold > 0) this.grantGold(client, player, bag.gold, "loot bag");
 
     if (leftover.length > 0) {
@@ -2919,7 +2927,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     this.attackCooldowns.set(client.sessionId, now);
     this.playerLastCombatAt.set(player.name, now);
 
-    const stats = getEquipmentStats(normalizeEquipment(this.playerEquipment.get(player.name)));
+    const stats = getEquipmentStats(normalizeEquipment(this.playerEquipment.get(this.pidOf(player))));
     const hit = rollHit({
       attack: stats.attack,
       critChance: stats.critChance,
@@ -2989,12 +2997,12 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       client.send("chat", this.systemChat("Bounty", `Bounties start at ${MIN_BOUNTY} gold.`));
       return;
     }
-    const have = this.playerGold.get(player.name) ?? 0;
+    const have = this.playerGold.get(this.pidOf(player)) ?? 0;
     if (have < amount) {
       client.send("chat", this.systemChat("Bounty", "Not enough gold for that bounty."));
       return;
     }
-    this.playerGold.set(player.name, have - amount);
+    this.playerGold.set(this.pidOf(player), have - amount);
     this.bounties.set(targetName, (this.bounties.get(targetName) ?? 0) + amount);
     this.sendProfile(client, player);
     this.broadcastChat(
@@ -3062,7 +3070,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       return;
     }
 
-    const gold = this.playerGold.get(player.name) ?? STARTING_GOLD;
+    const gold = this.playerGold.get(this.pidOf(player)) ?? STARTING_GOLD;
     if (gold < VIP_PASS_GOLD_COST) {
       client.send("vipPassResult", { ok: false, error: `A VIP pass costs ${VIP_PASS_GOLD_COST.toLocaleString()} gold.` });
       return;
@@ -3078,7 +3086,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       return;
     }
 
-    this.playerGold.set(player.name, gold - VIP_PASS_GOLD_COST);
+    this.playerGold.set(this.pidOf(player), gold - VIP_PASS_GOLD_COST);
     bumpMetric("base.burned", Math.round(result.burned ?? VIP_PASS_BURN_AMOUNT));
     ZoneRoom.vipPassUntil.set(wallet, Date.now() + VIP_PASS_DAYS * 24 * 60 * 60 * 1000);
     this.sendProfile(client, player);
@@ -3098,7 +3106,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       client.send("vipPassResult", { ok: false, error: "Link a wallet first to buy a VIP pass." });
       return;
     }
-    const gold = this.playerGold.get(player.name) ?? STARTING_GOLD;
+    const gold = this.playerGold.get(this.pidOf(player)) ?? STARTING_GOLD;
     if (gold < VIP_PASS_GOLD_ONLY_COST) {
       client.send("vipPassResult", {
         ok: false,
@@ -3107,7 +3115,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       return;
     }
 
-    this.playerGold.set(player.name, gold - VIP_PASS_GOLD_ONLY_COST);
+    this.playerGold.set(this.pidOf(player), gold - VIP_PASS_GOLD_ONLY_COST);
     ZoneRoom.vipPassUntil.set(wallet, Date.now() + VIP_PASS_DAYS * 24 * 60 * 60 * 1000);
     this.sendProfile(client, player);
     await this.persistPlayer(player);
@@ -3129,7 +3137,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     const wallet = this.playerWallets.get(client.sessionId) ?? null;
     // Admins found Worlds for free (for testing / official Worlds).
     const free = adService.isAdmin(wallet);
-    const gold = this.playerGold.get(player.name) ?? STARTING_GOLD;
+    const gold = this.playerGold.get(this.pidOf(player)) ?? STARTING_GOLD;
     if (!free && gold < ZONE_SLOT_COST) {
       return void client.send("zoneResult", {
         ok: false,
@@ -3137,7 +3145,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       });
     }
     if (!free) {
-      this.playerGold.set(player.name, gold - ZONE_SLOT_COST);
+      this.playerGold.set(this.pidOf(player), gold - ZONE_SLOT_COST);
       await creditTreasuryGold("zone_slot", ZONE_SLOT_COST);
     }
     const zone = createPlayerZone(player.name, wallet);
@@ -3220,9 +3228,9 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     }
     // Sync the live session to the authoritative DB balance (viaPending means the
     // character row wasn't saved yet, so it's applied on their next join).
-    if (res.newGold != null) this.playerGold.set(player.name, res.newGold);
+    if (res.newGold != null) this.playerGold.set(this.pidOf(player), res.newGold);
     else if (!res.viaPending)
-      this.playerGold.set(player.name, (this.playerGold.get(player.name) ?? STARTING_GOLD) + goldCredited);
+      this.playerGold.set(this.pidOf(player), (this.playerGold.get(this.pidOf(player)) ?? STARTING_GOLD) + goldCredited);
     this.sendProfile(client, player);
     client.send("pipGoldResult", { ok: true, signature, gold: goldCredited, viaPending: res.viaPending });
   }
@@ -3284,14 +3292,14 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       }
     }
     if (!isAdmin && goldCost > 0) {
-      const gold = this.playerGold.get(player.name) ?? STARTING_GOLD;
+      const gold = this.playerGold.get(this.pidOf(player)) ?? STARTING_GOLD;
       if (gold < goldCost) {
         return void client.send("zoneResult", {
           ok: false,
           error: `You need ${goldCost.toLocaleString()} gold to build this (you have ${gold.toLocaleString()}). Buy assets in the Build Shop first.`,
         });
       }
-      this.playerGold.set(player.name, gold - goldCost);
+      this.playerGold.set(this.pidOf(player), gold - goldCost);
       await creditTreasuryGold("zone_build", goldCost);
       this.sendProfile(client, player);
       await this.persistPlayer(player);
@@ -3378,7 +3386,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     }
     const amount = collectZoneEarnings(zoneId);
     if (amount <= 0) return void client.send("zoneResult", { ok: false, error: "No earnings to collect yet." });
-    this.playerGold.set(player.name, (this.playerGold.get(player.name) ?? STARTING_GOLD) + amount);
+    this.playerGold.set(this.pidOf(player), (this.playerGold.get(this.pidOf(player)) ?? STARTING_GOLD) + amount);
     this.sendProfile(client, player);
     await this.persistPlayer(player);
     client.send("zoneResult", { ok: true, zoneId, message: `Collected ${amount.toLocaleString()} gold.` });
@@ -3399,14 +3407,14 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     if (canEnterZone(zoneId, player.name)) {
       return void client.send("zoneResult", { ok: true, zoneId, message: "Your pass is still valid." });
     }
-    const gold = this.playerGold.get(player.name) ?? STARTING_GOLD;
+    const gold = this.playerGold.get(this.pidOf(player)) ?? STARTING_GOLD;
     if (gold < zone.passPrice) {
       return void client.send("zoneResult", {
         ok: false,
         error: `A pass costs ${zone.passPrice.toLocaleString()} gold.`,
       });
     }
-    this.playerGold.set(player.name, gold - zone.passPrice);
+    this.playerGold.set(this.pidOf(player), gold - zone.passPrice);
     addZoneEarnings(zoneId, zone.passPrice);
     bumpMetric("pass.sold", 1);
     bumpMetric("pass.gold", zone.passPrice);
@@ -3507,9 +3515,9 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     if (task.gold > 0) {
       mintGold(task.gold);
       bumpMetric("daily.gold", task.gold);
-      this.playerGold.set(player.name, (this.playerGold.get(player.name) ?? STARTING_GOLD) + task.gold);
+      this.playerGold.set(this.pidOf(player), (this.playerGold.get(this.pidOf(player)) ?? STARTING_GOLD) + task.gold);
     }
-    if (task.gems > 0) this.playerGems.set(player.name, (this.playerGems.get(player.name) ?? 0) + task.gems);
+    if (task.gems > 0) this.playerGems.set(this.pidOf(player), (this.playerGems.get(this.pidOf(player)) ?? 0) + task.gems);
     bumpMetric("daily.claimed", 1);
     this.sendProfile(client, player);
     await this.persistPlayer(player);
@@ -3531,7 +3539,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     mintGold(gold);
     bumpMetric("daily.gold", gold);
     bumpMetric("daily.login", 1);
-    this.playerGold.set(player.name, (this.playerGold.get(player.name) ?? STARTING_GOLD) + gold);
+    this.playerGold.set(this.pidOf(player), (this.playerGold.get(this.pidOf(player)) ?? STARTING_GOLD) + gold);
     this.sendProfile(client, player);
     await this.persistPlayer(player);
     void saveDailyState(player.name, state);
@@ -3541,7 +3549,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
   /** Inventory slots for a player (base 16, more with purchased bag levels). */
   private bagCapOf(playerName: string): number {
-    return bagCapacity(this.playerBagLevel.get(playerName) ?? 0);
+    return bagCapacity(this.playerBagLevel.get(this.pidForName(playerName)) ?? 0);
   }
 
   /**
@@ -3551,7 +3559,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   private async handleBagExpand(client: Client, signature: string) {
     const player = this.state.players.get(client.sessionId);
     if (!player) return;
-    const level = this.playerBagLevel.get(player.name) ?? 0;
+    const level = this.playerBagLevel.get(this.pidOf(player)) ?? 0;
     const step = nextBagExpansion(level);
     if (!step) {
       return void client.send("bagExpandResult", { ok: false, error: "Your bag is already at its maximum size." });
@@ -3578,7 +3586,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       bumpMetric("base.burned", Math.round(result.burned ?? step.burnCost));
     }
 
-    this.playerBagLevel.set(player.name, level + 1);
+    this.playerBagLevel.set(this.pidOf(player), level + 1);
     bumpMetric("bag.expanded", 1);
     await this.persistPlayer(player);
     this.sendInventory(client, player.name);
@@ -3663,19 +3671,19 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     if (!near) return void client.send("cropMarketResult", { ok: false, error: "Walk up to the market first." });
 
     const qty = Math.max(1, Math.min(99, Math.floor(rawQty) || 1));
-    const gold = this.playerGold.get(player.name) ?? STARTING_GOLD;
-    const inventory = this.inventories.get(player.name) ?? [];
+    const gold = this.playerGold.get(this.pidOf(player)) ?? STARTING_GOLD;
+    const inventory = this.inventories.get(this.pidOf(player)) ?? [];
 
     if (action === "buySeed") {
       const { inventory: next, added } = addItemToInventory(inventory, market.seedItemId, qty, this.bagCapOf(player.name));
       if (added <= 0) return void client.send("cropMarketResult", { ok: false, error: "Inventory full." });
       const cost = market.seedPrice * added;
       if (gold < cost) return void client.send("cropMarketResult", { ok: false, error: "Not enough gold." });
-      this.playerGold.set(player.name, gold - cost);
+      this.playerGold.set(this.pidOf(player), gold - cost);
       burnGold(cost);
       bumpMetric("buy.count", added);
       bumpMetric("buy.gold", cost);
-      this.inventories.set(player.name, next);
+      this.inventories.set(this.pidOf(player), next);
       this.sendProfile(client, player);
       this.sendInventory(client, player.name);
       await this.persistPlayer(player);
@@ -3697,12 +3705,12 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       }
       const { inventory: next } = removeItemFromInventory(inventory, market.cropItemId, count);
       const payout = market.cropSellPrice * count;
-      this.playerGold.set(player.name, gold + payout);
+      this.playerGold.set(this.pidOf(player), gold + payout);
       mintGold(payout);
       bumpMetric("sell.count", count);
       bumpMetric("sell.gold", payout);
       this.bumpDaily(player.name, "sell", count);
-      this.inventories.set(player.name, next);
+      this.inventories.set(this.pidOf(player), next);
       this.sendProfile(client, player);
       this.sendInventory(client, player.name);
       await this.persistPlayer(player);
@@ -3791,14 +3799,14 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     const free = adService.isAdmin(wallet);
     const total = price * count;
     if (!free) {
-      const gold = this.playerGold.get(player.name) ?? STARTING_GOLD;
+      const gold = this.playerGold.get(this.pidOf(player)) ?? STARTING_GOLD;
       if (gold < total) {
         return void client.send("buildShopResult", {
           ok: false,
           error: `Need ${total.toLocaleString()} gold (you have ${gold.toLocaleString()}).`,
         });
       }
-      this.playerGold.set(player.name, gold - total);
+      this.playerGold.set(this.pidOf(player), gold - total);
       await creditTreasuryGold("build_shop", total);
       this.sendProfile(client, player);
       await this.persistPlayer(player);
@@ -3860,11 +3868,11 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     if (listing.sellerName === player.name) {
       return void client.send("zoneResult", { ok: false, error: "That's your listing — cancel it instead." });
     }
-    const gold = this.playerGold.get(player.name) ?? STARTING_GOLD;
+    const gold = this.playerGold.get(this.pidOf(player)) ?? STARTING_GOLD;
     if (gold < listing.price) {
       return void client.send("zoneResult", { ok: false, error: `Need ${listing.price.toLocaleString()} gold.` });
     }
-    this.playerGold.set(player.name, gold - listing.price);
+    this.playerGold.set(this.pidOf(player), gold - listing.price);
     completeBuy(player.name, id);
     bumpMetric("asset.sold", listing.qty);
     bumpMetric("asset.saleGold", listing.price);
@@ -3897,7 +3905,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   ) {
     const player = this.state.players.get(client.sessionId);
     if (!player) return;
-    const gold = this.playerGold.get(player.name) ?? STARTING_GOLD;
+    const gold = this.playerGold.get(this.pidOf(player)) ?? STARTING_GOLD;
     if (gold < rewardGold) {
       return void client.send("jobResult", {
         ok: false,
@@ -3907,7 +3915,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     const result = postJob(player.name, kind, itemId, qty, rewardGold, this.zoneConfig.id);
     if (!result.ok) return void client.send("jobResult", { ok: false, error: result.error });
     // Escrow the reward now; it's refunded on cancel, paid to the worker on completion.
-    this.playerGold.set(player.name, gold - rewardGold);
+    this.playerGold.set(this.pidOf(player), gold - rewardGold);
     bumpMetric("jobs.posted");
     bumpMetric("jobs.escrowGold", rewardGold);
     this.sendProfile(client, player);
@@ -3922,7 +3930,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     if (!player) return;
     const result = cancelJob(player.name, id);
     if (!result.ok) return void client.send("jobResult", { ok: false, error: result.error });
-    this.playerGold.set(player.name, (this.playerGold.get(player.name) ?? STARTING_GOLD) + result.refund);
+    this.playerGold.set(this.pidOf(player), (this.playerGold.get(this.pidOf(player)) ?? STARTING_GOLD) + result.refund);
     bumpMetric("jobs.cancelled");
     this.sendProfile(client, player);
     await this.persistPlayer(player);
@@ -3960,13 +3968,13 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       return void client.send("jobResult", { ok: false, error: "Nothing to deliver for that job." });
     }
     const remaining = job.qty - job.progress;
-    const current = this.inventories.get(player.name) ?? [];
+    const current = this.inventories.get(this.pidOf(player)) ?? [];
     const { inventory, removed } = removeItemFromInventory(current, job.itemId, remaining);
     if (removed <= 0) {
       const itemName = getItemDefinition(job.itemId).name;
       return void client.send("jobResult", { ok: false, error: `You have no ${itemName} to deliver.` });
     }
-    this.inventories.set(player.name, inventory);
+    this.inventories.set(this.pidOf(player), inventory);
     this.sendInventory(client, player.name);
     const applied = applyDelivery(id, removed);
     if (!applied) return;
@@ -4043,7 +4051,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
       const result = advanceQuestObjective(progress, questId);
       progress = result.progress;
-      this.questProgress.set(playerName, progress);
+      this.questProgress.set(this.pidForName(playerName), progress);
 
       if (result.completed) {
         progress = await this.finishQuest(client, playerName, questId, progress);
@@ -4066,7 +4074,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
       const result = advanceQuestObjective(progress, questId);
       progress = result.progress;
-      this.questProgress.set(playerName, progress);
+      this.questProgress.set(this.pidForName(playerName), progress);
 
       if (result.completed) {
         progress = await this.finishQuest(client, playerName, questId, progress);
@@ -4087,7 +4095,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     if (!player) return progress;
 
     progress = completeQuest(progress, questId);
-    this.questProgress.set(playerName, progress);
+    this.questProgress.set(this.pidForName(playerName), progress);
     bumpMetric("quest.completed", 1);
     this.grantXp(client, player, quest.rewardXp, `completed ${quest.title}`);
     if (quest.rewardGold) {
@@ -4160,7 +4168,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
       const result = advanceQuestObjective(progress, questId);
       progress = result.progress;
-      this.questProgress.set(playerName, progress);
+      this.questProgress.set(this.pidForName(playerName), progress);
 
       if (result.completed) {
         progress = await this.finishQuest(client, playerName, questId, progress);
@@ -4172,7 +4180,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
   private async checkCollectObjectives(client: Client, playerName: string) {
     let progress = this.getQuestProgress(playerName);
-    const inventory = this.inventories.get(playerName) ?? [];
+    const inventory = this.inventories.get(this.pidForName(playerName)) ?? [];
 
     for (const questId of [...progress.active]) {
       const quest = getQuestDefinition(questId);
@@ -4183,7 +4191,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
       const result = advanceQuestObjective(progress, questId);
       progress = result.progress;
-      this.questProgress.set(playerName, progress);
+      this.questProgress.set(this.pidForName(playerName), progress);
 
       if (result.completed) {
         progress = await this.finishQuest(client, playerName, questId, progress);
@@ -4238,7 +4246,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
     if (player.level > previousLevel) {
       const maxHp = getPlayerMaxHp(player.level);
-      this.playerHp.set(player.name, maxHp);
+      this.playerHp.set(this.pidOf(player), maxHp);
       this.sendProfile(client, player);
       this.broadcastChat({
         id: crypto.randomUUID(),
@@ -4253,7 +4261,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
   private getQuestProgress(playerName: string): QuestProgress {
     return (
-      this.questProgress.get(playerName) ?? { active: [], objectiveIndex: {}, completed: [] }
+      this.questProgress.get(this.pidForName(playerName)) ?? { active: [], objectiveIndex: {}, completed: [] }
     );
   }
 
@@ -4265,8 +4273,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     const shop = npc.shopId ? getShopByNpcId(npc.id) : null;
     if (!shop) return;
 
-    const inventory = this.inventories.get(player.name) ?? [];
-    const gold = this.playerGold.get(player.name) ?? STARTING_GOLD;
+    const inventory = this.inventories.get(this.pidOf(player)) ?? [];
+    const gold = this.playerGold.get(this.pidOf(player)) ?? STARTING_GOLD;
     const wallet = this.getClientWallet(client) ?? null;
     const market = await buildMarketState(wallet);
 
@@ -4286,26 +4294,26 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
   private sendProfile(client: Client, player: InstanceType<typeof PlayerSchema>) {
     const maxHp = getPlayerMaxHp(player.level);
-    const equipment = this.playerEquipment.get(player.name);
+    const equipment = this.playerEquipment.get(this.pidOf(player));
     const knockedOut = this.isKnockedOut(player.name);
     client.send("profile", {
       level: player.level,
       xp: player.xp,
-      gold: this.playerGold.get(player.name) ?? STARTING_GOLD,
-      hp: this.playerHp.get(player.name) ?? maxHp,
+      gold: this.playerGold.get(this.pidOf(player)) ?? STARTING_GOLD,
+      hp: this.playerHp.get(this.pidOf(player)) ?? maxHp,
       maxHp,
       equippedWeaponId: equipment?.weaponId ?? null,
       equippedToolId: equipment?.toolId ?? null,
-      stamina: this.playerStamina.get(player.name) ?? STARTING_STAMINA,
+      stamina: this.playerStamina.get(this.pidOf(player)) ?? STARTING_STAMINA,
       maxStamina: MAX_STAMINA,
       knockedOut,
       freeRespawnAt: knockedOut ? (this.playerKnockedOutUntil.get(player.name) ?? null) : null,
-      honor: this.playerHonor.get(player.name) ?? 0,
-      guildCoin: this.playerGuildCoin.get(player.name) ?? 0,
-      gems: this.playerGems.get(player.name) ?? 0,
+      honor: this.playerHonor.get(this.pidOf(player)) ?? 0,
+      guildCoin: this.playerGuildCoin.get(this.pidOf(player)) ?? 0,
+      gems: this.playerGems.get(this.pidOf(player)) ?? 0,
     });
     // Keep the client's equipment + combat-stat panel in sync with every profile push.
-    client.send("equipmentState", buildEquipmentState(this.playerEquipment.get(player.name)));
+    client.send("equipmentState", buildEquipmentState(this.playerEquipment.get(this.pidOf(player))));
   }
 
   /**
@@ -4314,16 +4322,16 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
    * eat. Successful spends push a fresh profile so the HUD gauge updates.
    */
   private spendStamina(client: Client, playerName: string, cost: number): boolean {
-    const current = this.playerStamina.get(playerName) ?? STARTING_STAMINA;
+    const current = this.playerStamina.get(this.pidForName(playerName)) ?? STARTING_STAMINA;
     if (!hasStaminaFor(current, cost)) return false;
-    this.playerStamina.set(playerName, clampStamina(current - cost));
+    this.playerStamina.set(this.pidForName(playerName), clampStamina(current - cost));
     return true;
   }
 
   private restoreStamina(playerName: string, amount: number): number {
-    const current = this.playerStamina.get(playerName) ?? STARTING_STAMINA;
+    const current = this.playerStamina.get(this.pidForName(playerName)) ?? STARTING_STAMINA;
     const next = clampStamina(current + amount);
-    this.playerStamina.set(playerName, next);
+    this.playerStamina.set(this.pidForName(playerName), next);
     return next - current;
   }
 
@@ -4358,7 +4366,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   }
 
   private isKnockedOut(playerName: string): boolean {
-    const hp = this.playerHp.get(playerName);
+    const hp = this.playerHp.get(this.pidForName(playerName));
     return hp !== undefined && hp <= 0;
   }
 
@@ -4375,11 +4383,11 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     const freeRespawnAt = this.playerKnockedOutUntil.get(player.name) ?? 0;
 
     if (payGold) {
-      const gold = this.playerGold.get(player.name) ?? STARTING_GOLD;
+      const gold = this.playerGold.get(this.pidOf(player)) ?? STARTING_GOLD;
       if (gold < RESPAWN_GOLD_COST) {
         return { ok: false, error: `You need ${RESPAWN_GOLD_COST} gold to respawn now.` };
       }
-      this.playerGold.set(player.name, gold - RESPAWN_GOLD_COST);
+      this.playerGold.set(this.pidOf(player), gold - RESPAWN_GOLD_COST);
     } else if (now < freeRespawnAt) {
       return { ok: false, error: "Free respawn is not ready yet." };
     }
@@ -4388,7 +4396,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     const spawn = tileToWorld(this.zoneConfig.spawnTile.x, this.zoneConfig.spawnTile.y);
     player.x = spawn.x;
     player.y = spawn.y;
-    this.playerHp.set(player.name, maxHp);
+    this.playerHp.set(this.pidOf(player), maxHp);
     this.playerKnockedOutUntil.delete(player.name);
     this.playerLastCombatAt.delete(player.name);
     this.playerLastRegenAt.delete(player.name);
@@ -4422,8 +4430,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     client.send("respawnResult", {
       ok: result.ok,
       error: result.error,
-      gold: this.playerGold.get(player.name) ?? STARTING_GOLD,
-      hp: this.playerHp.get(player.name) ?? maxHp,
+      gold: this.playerGold.get(this.pidOf(player)) ?? STARTING_GOLD,
+      hp: this.playerHp.get(this.pidOf(player)) ?? maxHp,
       maxHp,
       knockedOut: this.isKnockedOut(player.name),
       freeRespawnAt: this.isKnockedOut(player.name)
@@ -4442,9 +4450,9 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     if (this.isKnockedOut(player.name)) return;
 
     const maxHp = getPlayerMaxHp(player.level);
-    const current = this.playerHp.get(player.name) ?? maxHp;
+    const current = this.playerHp.get(this.pidOf(player)) ?? maxHp;
     const next = Math.max(0, current - amount);
-    this.playerHp.set(player.name, next);
+    this.playerHp.set(this.pidOf(player), next);
     this.playerLastCombatAt.set(player.name, Date.now());
 
     if (next === 0) {
@@ -4490,8 +4498,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     const tax = applyGuildTax(player.name, amount);
     const kept = amount - tax;
 
-    const next = (this.playerGold.get(player.name) ?? STARTING_GOLD) + kept;
-    this.playerGold.set(player.name, next);
+    const next = (this.playerGold.get(this.pidOf(player)) ?? STARTING_GOLD) + kept;
+    this.playerGold.set(this.pidOf(player), next);
     this.sendProfile(client, player);
 
     this.broadcastChat({
@@ -4564,14 +4572,14 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     const { result, playerGold } = await placeMarketOrder({
       wallet,
       playerName: player.name,
-      playerGold: this.playerGold.get(player.name) ?? STARTING_GOLD,
+      playerGold: this.playerGold.get(this.pidOf(player)) ?? STARTING_GOLD,
       side,
       goldAmount,
       tokenPrice,
       currency,
     });
 
-    this.playerGold.set(player.name, playerGold);
+    this.playerGold.set(this.pidOf(player), playerGold);
     this.sendProfile(client, player);
     client.send("marketResult", result);
     if (result.ok) {
@@ -4590,10 +4598,10 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     const { result, playerGold } = await cancelPlayerMarketOrder({
       wallet,
       orderId,
-      playerGold: this.playerGold.get(player.name) ?? STARTING_GOLD,
+      playerGold: this.playerGold.get(this.pidOf(player)) ?? STARTING_GOLD,
     });
 
-    this.playerGold.set(player.name, playerGold);
+    this.playerGold.set(this.pidOf(player), playerGold);
     this.sendProfile(client, player);
     client.send("marketResult", result);
     if (result.ok) await this.persistPlayer(player);
@@ -4612,12 +4620,12 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     const { result, buyerGold } = await fillAskOrder({
       buyerWallet: wallet,
       buyerName: player.name,
-      buyerGold: this.playerGold.get(player.name) ?? STARTING_GOLD,
+      buyerGold: this.playerGold.get(this.pidOf(player)) ?? STARTING_GOLD,
       orderId,
       signature,
     });
 
-    this.playerGold.set(player.name, buyerGold);
+    this.playerGold.set(this.pidOf(player), buyerGold);
     this.sendProfile(client, player);
     client.send("marketResult", result);
     if (result.ok) {
@@ -4639,11 +4647,11 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     const { result, sellerGold } = await acceptBidOrder({
       sellerWallet: wallet,
       sellerName: player.name,
-      sellerGold: this.playerGold.get(player.name) ?? STARTING_GOLD,
+      sellerGold: this.playerGold.get(this.pidOf(player)) ?? STARTING_GOLD,
       orderId,
     });
 
-    this.playerGold.set(player.name, sellerGold);
+    this.playerGold.set(this.pidOf(player), sellerGold);
     this.sendProfile(client, player);
     client.send("marketResult", result);
     if (result.ok) {
@@ -4664,12 +4672,12 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
     const { result, buyerGold } = await completeBidPayment({
       buyerWallet: wallet,
-      buyerGold: this.playerGold.get(player.name) ?? STARTING_GOLD,
+      buyerGold: this.playerGold.get(this.pidOf(player)) ?? STARTING_GOLD,
       orderId,
       signature,
     });
 
-    this.playerGold.set(player.name, buyerGold);
+    this.playerGold.set(this.pidOf(player), buyerGold);
     this.sendProfile(client, player);
     client.send("marketResult", result);
     if (result.ok) {
@@ -4707,24 +4715,24 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       return;
     }
 
-    const gold = this.playerGold.get(player.name) ?? STARTING_GOLD;
+    const gold = this.playerGold.get(this.pidOf(player)) ?? STARTING_GOLD;
     if (gold < offer.price) {
       client.send("shopResult", { ok: false, error: "Not enough gold." });
       return;
     }
 
-    const current = this.inventories.get(player.name) ?? [];
+    const current = this.inventories.get(this.pidOf(player)) ?? [];
     const { inventory, added } = addItemToInventory(current, itemId, 1, this.bagCapOf(player.name));
     if (added <= 0) {
       client.send("shopResult", { ok: false, error: "Inventory full." });
       return;
     }
 
-    this.playerGold.set(player.name, gold - offer.price);
+    this.playerGold.set(this.pidOf(player), gold - offer.price);
     burnGold(offer.price);
     bumpMetric("buy.count", 1);
     bumpMetric("buy.gold", offer.price);
-    this.inventories.set(player.name, inventory);
+    this.inventories.set(this.pidOf(player), inventory);
     this.sendProfile(client, player);
     this.sendInventory(client, player.name);
 
@@ -4740,10 +4748,10 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
     client.send("shopResult", {
       ok: true,
-      gold: this.playerGold.get(player.name),
+      gold: this.playerGold.get(this.pidOf(player)),
       inventory: buildInventoryPayload(
         inventory,
-        this.playerEquipment.get(player.name)?.weaponId ?? null,
+        this.playerEquipment.get(this.pidOf(player))?.weaponId ?? null,
         this.bagCapOf(player.name),
       ),
     });
@@ -4774,7 +4782,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     }
 
     const sellQuantity = Math.max(1, Math.floor(quantity));
-    const current = this.inventories.get(player.name) ?? [];
+    const current = this.inventories.get(this.pidOf(player)) ?? [];
     const { inventory, removed } = removeItemFromInventory(current, itemId, sellQuantity);
     if (removed <= 0) {
       client.send("shopResult", { ok: false, error: "You don't have that item." });
@@ -4790,9 +4798,9 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     bumpMetric("sell.count", removed);
     bumpMetric("sell.gold", payout);
     this.bumpDaily(player.name, "sell", removed);
-    const gold = (this.playerGold.get(player.name) ?? STARTING_GOLD) + payout;
-    this.playerGold.set(player.name, gold);
-    this.inventories.set(player.name, inventory);
+    const gold = (this.playerGold.get(this.pidOf(player)) ?? STARTING_GOLD) + payout;
+    this.playerGold.set(this.pidOf(player), gold);
+    this.inventories.set(this.pidOf(player), inventory);
     this.sendProfile(client, player);
     this.sendInventory(client, player.name);
 
@@ -4820,7 +4828,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       gold,
       inventory: buildInventoryPayload(
         inventory,
-        this.playerEquipment.get(player.name)?.weaponId ?? null,
+        this.playerEquipment.get(this.pidOf(player))?.weaponId ?? null,
         this.bagCapOf(player.name),
       ),
       buyOffers: updated.buyOffers,
@@ -4831,8 +4839,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   }
 
   private sendInventory(client: Client, playerName: string) {
-    const inventory = this.inventories.get(playerName) ?? [];
-    const equipment = this.playerEquipment.get(playerName);
+    const inventory = this.inventories.get(this.pidForName(playerName)) ?? [];
+    const equipment = this.playerEquipment.get(this.pidForName(playerName));
     client.send("inventory", buildInventoryPayload(inventory, equipment?.weaponId ?? null, this.bagCapOf(playerName)));
   }
 
@@ -4842,11 +4850,11 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     itemId: string,
     quantity: number,
   ): Promise<number> {
-    const current = this.inventories.get(playerName) ?? [];
+    const current = this.inventories.get(this.pidForName(playerName)) ?? [];
     const { inventory, added } = addItemToInventory(current, itemId, quantity, this.bagCapOf(playerName));
     if (added <= 0) return 0;
 
-    this.inventories.set(playerName, inventory);
+    this.inventories.set(this.pidForName(playerName), inventory);
     this.sendInventory(client, playerName);
 
     const player = this.state.players.get(client.sessionId);
@@ -4866,7 +4874,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   }
 
   private sendQuestState(client: Client, playerName: string) {
-    const inventory = this.inventories.get(playerName) ?? [];
+    const inventory = this.inventories.get(this.pidForName(playerName)) ?? [];
     client.send("questState", buildQuestViews(this.getQuestProgress(playerName), inventory));
   }
 
@@ -4888,7 +4896,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       return;
     }
 
-    const current = this.inventories.get(player.name) ?? [];
+    const current = this.inventories.get(this.pidOf(player)) ?? [];
     const { inventory, removed } = removeItemFromInventory(current, itemId, 1);
     if (removed <= 0) {
       client.send("inventoryResult", { ok: false, error: "You don't have that item." });
@@ -4897,13 +4905,13 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
     const healAmount = getConsumableHeal(itemId) || POTION_HEAL_AMOUNT;
     const maxHp = getPlayerMaxHp(player.level);
-    const currentHp = this.playerHp.get(player.name) ?? maxHp;
+    const currentHp = this.playerHp.get(this.pidOf(player)) ?? maxHp;
     const healed = Math.min(healAmount, maxHp - currentHp);
     const nextHp = Math.min(maxHp, currentHp + healAmount);
-    this.playerHp.set(player.name, nextHp);
+    this.playerHp.set(this.pidOf(player), nextHp);
     // Eating food also restores energy (the hunger loop).
     const energyRestored = this.restoreStamina(player.name, getConsumableStamina(itemId));
-    this.inventories.set(player.name, inventory);
+    this.inventories.set(this.pidOf(player), inventory);
     this.sendProfile(client, player);
     this.sendInventory(client, player.name);
 
@@ -4935,7 +4943,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       ok: true,
       inventory: buildInventoryPayload(
         inventory,
-        this.playerEquipment.get(player.name)?.weaponId ?? null,
+        this.playerEquipment.get(this.pidOf(player))?.weaponId ?? null,
         this.bagCapOf(player.name),
       ),
       hp: nextHp,
@@ -4959,9 +4967,9 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       return;
     }
 
-    const inventory = this.inventories.get(player.name) ?? [];
-    const weaponId = this.playerEquipment.get(player.name)?.weaponId ?? null;
-    const gold = this.playerGold.get(player.name) ?? STARTING_GOLD;
+    const inventory = this.inventories.get(this.pidOf(player)) ?? [];
+    const weaponId = this.playerEquipment.get(this.pidOf(player))?.weaponId ?? null;
+    const gold = this.playerGold.get(this.pidOf(player)) ?? STARTING_GOLD;
 
     // Verify the player has every ingredient before consuming anything.
     for (const input of recipe.inputs) {
@@ -5024,8 +5032,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       return;
     }
 
-    let inventory = this.inventories.get(player.name) ?? [];
-    const weaponId = this.playerEquipment.get(player.name)?.weaponId ?? null;
+    let inventory = this.inventories.get(this.pidOf(player)) ?? [];
+    const weaponId = this.playerEquipment.get(this.pidOf(player))?.weaponId ?? null;
     if (getItemQuantity(inventory, itemId) < 1) {
       client.send("craftResult", {
         ok: false,
@@ -5042,7 +5050,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       inventory = result.inventory;
       if (result.added > 0) gained.push(`${result.added}x ${ITEMS[part.itemId]?.name ?? part.itemId}`);
     }
-    this.inventories.set(player.name, inventory);
+    this.inventories.set(this.pidOf(player), inventory);
     this.sendInventory(client, player.name);
 
     const itemName = ITEMS[itemId]?.name ?? itemId;
@@ -5084,7 +5092,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       return;
     }
 
-    const inventory = this.inventories.get(player.name) ?? [];
+    const inventory = this.inventories.get(this.pidOf(player)) ?? [];
     const projected = addItemToInventory(inventory, offer.itemId, offer.quantity, this.bagCapOf(player.name));
     if (projected.added <= 0) {
       client.send("softShopResult", { ok: false, error: "Your bag is full." });
@@ -5092,7 +5100,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     }
 
     balances.set(player.name, have - offer.cost);
-    this.inventories.set(player.name, projected.inventory);
+    this.inventories.set(this.pidOf(player), projected.inventory);
     this.sendInventory(client, player.name);
     this.sendProfile(client, player);
     client.send("softShopResult", { ok: true });
@@ -5310,7 +5318,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       });
     }
     const gold = dailyBonusGold(claim.streak);
-    this.playerGold.set(player.name, (this.playerGold.get(player.name) ?? STARTING_GOLD) + gold);
+    this.playerGold.set(this.pidOf(player), (this.playerGold.get(this.pidOf(player)) ?? STARTING_GOLD) + gold);
     this.sendProfile(client, player);
     client.send("chat", this.systemChat("Lodge", `🎁 Daily bonus: +${gold} gold (day ${claim.streak} streak)!`));
     client.send("casinoResult", { ok: true, state: await this.buildCasinoState(wallet, player.name) });
@@ -5539,7 +5547,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     }
 
     const cost = MAIL_SEND_COST + gold;
-    const balance = this.playerGold.get(player.name) ?? STARTING_GOLD;
+    const balance = this.playerGold.get(this.pidOf(player)) ?? STARTING_GOLD;
     if (balance < cost) {
       return void client.send("mailResult", {
         ok: false,
@@ -5547,7 +5555,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       });
     }
 
-    this.playerGold.set(player.name, balance - cost);
+    this.playerGold.set(this.pidOf(player), balance - cost);
     await insertMail(player.name, recipient, cleanSubject, cleanBody, gold);
     this.sendProfile(client, player);
     client.send("mailResult", { ok: true });
@@ -5573,7 +5581,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     if (!player || !id) return;
     const gold = await claimMailGold(id, player.name);
     if (gold > 0) {
-      this.playerGold.set(player.name, (this.playerGold.get(player.name) ?? STARTING_GOLD) + gold);
+      this.playerGold.set(this.pidOf(player), (this.playerGold.get(this.pidOf(player)) ?? STARTING_GOLD) + gold);
       this.sendProfile(client, player);
       client.send("chat", this.systemChat("Mail", `You claimed ${gold} gold.`));
       await this.persistPlayer(player);
@@ -5596,9 +5604,9 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     const recipe = getRecipe(recipeId);
     if (!recipe) return;
 
-    let inventory = this.inventories.get(playerName) ?? [];
-    const weaponId = this.playerEquipment.get(playerName)?.weaponId ?? null;
-    let gold = this.playerGold.get(playerName) ?? STARTING_GOLD;
+    let inventory = this.inventories.get(this.pidForName(playerName)) ?? [];
+    const weaponId = this.playerEquipment.get(this.pidForName(playerName))?.weaponId ?? null;
+    let gold = this.playerGold.get(this.pidForName(playerName)) ?? STARTING_GOLD;
 
     // Re-validate — materials/gold/space may have changed during the cast.
     for (const input of recipe.inputs) {
@@ -5639,8 +5647,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     }
     inventory = addItemToInventory(inventory, recipe.output.itemId, recipe.output.quantity, this.bagCapOf(playerName)).inventory;
     gold -= recipe.goldCost;
-    this.playerGold.set(playerName, gold);
-    this.inventories.set(playerName, inventory);
+    this.playerGold.set(this.pidForName(playerName), gold);
+    this.inventories.set(this.pidForName(playerName), inventory);
     bumpMetric("craft.count", recipe.output.quantity);
     this.bumpDaily(playerName, "craft", recipe.output.quantity);
     if (recipe.goldCost > 0) burnGold(recipe.goldCost); // forge fee sink
@@ -5709,8 +5717,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     if (!player) return;
     if (this.isKnockedOut(player.name)) return;
 
-    const current = normalizeEquipment(this.playerEquipment.get(player.name));
-    const inventory = this.inventories.get(player.name) ?? [];
+    const current = normalizeEquipment(this.playerEquipment.get(this.pidOf(player)));
+    const inventory = this.inventories.get(this.pidOf(player)) ?? [];
 
     if (itemId === null) {
       // Unequip the named slot (default weapon for older clients).
@@ -5718,7 +5726,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       const next = normalizeEquipment(current);
       (next as unknown as Record<string, unknown>)[field] = null;
       const normalized = normalizeEquipment(next);
-      this.playerEquipment.set(player.name, normalized);
+      this.playerEquipment.set(this.pidOf(player), normalized);
       player.weaponId = normalized.weaponId ?? "";
       player.toolId = normalized.toolId ?? "";
       player.speedMult = getMountSpeed(normalized.mountId);
@@ -5801,7 +5809,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       }
     }
     const normalized = normalizeEquipment(next);
-    this.playerEquipment.set(player.name, normalized);
+    this.playerEquipment.set(this.pidOf(player), normalized);
     player.weaponId = normalized.weaponId ?? "";
     player.toolId = normalized.toolId ?? "";
     player.speedMult = getMountSpeed(normalized.mountId);
@@ -5886,7 +5894,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       return;
     }
 
-    if (!hasStaminaFor(this.playerStamina.get(player.name) ?? STARTING_STAMINA, STAMINA_COST_GATHER)) {
+    if (!hasStaminaFor(this.playerStamina.get(this.pidOf(player)) ?? STARTING_STAMINA, STAMINA_COST_GATHER)) {
       this.notifyTooHungry(client, player.name, "gather");
       client.send("chopResult", {
         resourceId,
@@ -5904,7 +5912,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
     // Bait money: every cast burns a little gold, win or lose (FISHING_CAST_GOLD).
     if (gather.skill === "fishing" && FISHING_CAST_GOLD > 0) {
-      const gold = this.playerGold.get(player.name) ?? STARTING_GOLD;
+      const gold = this.playerGold.get(this.pidOf(player)) ?? STARTING_GOLD;
       if (gold < FISHING_CAST_GOLD) {
         client.send("chopResult", {
           resourceId,
@@ -5919,7 +5927,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         });
         return;
       }
-      this.playerGold.set(player.name, gold - FISHING_CAST_GOLD);
+      this.playerGold.set(this.pidOf(player), gold - FISHING_CAST_GOLD);
       burnGold(FISHING_CAST_GOLD);
       bumpMetric("fishing.bait.gold", FISHING_CAST_GOLD);
       this.sendProfile(client, player);
@@ -5929,7 +5937,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     const darkPenalty = gatherDurationMultiplier(now, player.lampOn);
     if (darkPenalty > 1.01) this.notifyDark(client, player.name);
 
-    const toolId = this.playerEquipment.get(player.name)?.toolId ?? null;
+    const toolId = this.playerEquipment.get(this.pidOf(player))?.toolId ?? null;
     // Fishing (new clients) is a catch minigame: the client resolves success or
     // escape via fishingResolve; endsAt becomes a generous timeout that CANCELS
     // rather than auto-completes. Older clients omit the flag and keep the
@@ -6090,8 +6098,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       const player = this.state.players.get(sessionId);
       if (player) {
         this.playerStamina.set(
-          player.name,
-          clampStamina((this.playerStamina.get(player.name) ?? STARTING_STAMINA) - STAMINA_COST_GATHER),
+          this.pidOf(player),
+          clampStamina((this.playerStamina.get(this.pidOf(player)) ?? STARTING_STAMINA) - STAMINA_COST_GATHER),
         );
         const client = this.clients.find((entry) => entry.sessionId === sessionId);
         if (client) this.sendProfile(client, player);
@@ -6121,12 +6129,12 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
     // Working the node burns energy (the food/hunger loop).
     this.playerStamina.set(
-      player.name,
-      clampStamina((this.playerStamina.get(player.name) ?? STARTING_STAMINA) - STAMINA_COST_GATHER),
+      this.pidOf(player),
+      clampStamina((this.playerStamina.get(this.pidOf(player)) ?? STARTING_STAMINA) - STAMINA_COST_GATHER),
     );
 
     // Steel-tier tools roll for a bonus drop on top of the node's base yield.
-    const equipment = this.playerEquipment.get(player.name);
+    const equipment = this.playerEquipment.get(this.pidOf(player));
     const toolId = equipment?.toolId;
     // Accessory/tool perks (master rods, lures, angler gear): extra XP, extra
     // rare-drop chance, and an extra yield roll.
@@ -6178,10 +6186,10 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     // charged up to what they carry, never below zero.
     if (client && this.playerZone && this.playerZone.ownerName !== player.name) {
       const taxPct = getZoneGatherTax(this.playerZone.zoneId);
-      const gold = this.playerGold.get(player.name) ?? STARTING_GOLD;
+      const gold = this.playerGold.get(this.pidOf(player)) ?? STARTING_GOLD;
       const tax = Math.min(gatherTaxGold(taxPct, haulValue), gold);
       if (tax > 0) {
-        this.playerGold.set(player.name, gold - tax);
+        this.playerGold.set(this.pidOf(player), gold - tax);
         addZoneTax(this.playerZone.zoneId, tax);
         bumpMetric("gathertax.gold", tax);
       }
@@ -6369,8 +6377,24 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     };
   }
 
+  /** The stable per-account key for all in-memory player state: the verified
+   *  WALLET, falling back to the display name only for walletless local/dev
+   *  sessions (token gate off). Anchoring the maps to the immutable wallet means
+   *  a rename can never orphan a player's in-memory state. */
+  private pidOf(player: InstanceType<typeof PlayerSchema>): string {
+    return this.playerWallets.get(player.sessionId) ?? player.name;
+  }
+
+  /** Resolve an ONLINE player's display name to their stable pid (wallet). Used
+   *  by features that address another player by name (duels, bounties, PvP). For
+   *  a name not currently in this room it returns the name unchanged (offline
+   *  addressing is handled per-feature against the DB). */
+  private pidForName(name: string): string {
+    return this.nameToPid.get(name) ?? name;
+  }
+
   private skillLevelFor(playerName: string, skill: GatherSkill): number {
-    const skills = this.playerSkills.get(playerName) ?? normalizeSkills();
+    const skills = this.playerSkills.get(this.pidForName(playerName)) ?? normalizeSkills();
     // All gather skills share the same XP curve.
     return woodcuttingLevelFromXp(skills[skill]);
   }
@@ -6380,10 +6404,10 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   }
 
   private grantSkillXp(playerName: string, skill: GatherSkill, amount: number) {
-    const skills = this.playerSkills.get(playerName) ?? normalizeSkills();
+    const skills = this.playerSkills.get(this.pidForName(playerName)) ?? normalizeSkills();
     const previousLevel = woodcuttingLevelFromXp(skills[skill]);
     const updated = { ...skills, [skill]: skills[skill] + amount };
-    this.playerSkills.set(playerName, updated);
+    this.playerSkills.set(this.pidForName(playerName), updated);
     const newLevel = woodcuttingLevelFromXp(updated[skill]);
     return {
       updated,
@@ -6438,14 +6462,14 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       return;
     }
 
-    const weaponId = this.playerEquipment.get(player.name)?.weaponId ?? null;
+    const weaponId = this.playerEquipment.get(this.pidOf(player))?.weaponId ?? null;
     const active = getFarmPlot(plotId);
     const now = Date.now();
 
     if (!active) {
       // Plant whichever seed the player owns (crop-table order: wheat first,
       // then carrot); fall back to the default seed for the error message.
-      let inventory = this.inventories.get(player.name) ?? [];
+      let inventory = this.inventories.get(this.pidOf(player)) ?? [];
       const ownedSeed = Object.keys(FARM_CROPS).find((seedId) => getItemQuantity(inventory, seedId) >= 1);
       const crop = getFarmCropBySeed(ownedSeed ?? DEFAULT_FARM_SEED);
       if (!crop) return;
@@ -6469,7 +6493,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         return;
       }
       inventory = removeItemFromInventory(inventory, crop.seedItemId, 1).inventory;
-      this.inventories.set(player.name, inventory);
+      this.inventories.set(this.pidOf(player), inventory);
       this.sendInventory(client, player.name);
       this.sendProfile(client, player);
       plantFarmPlot({
@@ -6518,10 +6542,10 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     // percent of the crop's value, same rule as chopping/mining/fishing there.
     if (this.playerZone && this.playerZone.ownerName !== player.name) {
       const taxPct = getZoneGatherTax(this.playerZone.zoneId);
-      const gold = this.playerGold.get(player.name) ?? STARTING_GOLD;
+      const gold = this.playerGold.get(this.pidOf(player)) ?? STARTING_GOLD;
       const tax = Math.min(gatherTaxGold(taxPct, getItemBaseValue(active.cropId) * grantedCrop), gold);
       if (tax > 0) {
-        this.playerGold.set(player.name, gold - tax);
+        this.playerGold.set(this.pidOf(player), gold - tax);
         addZoneTax(this.playerZone.zoneId, tax);
         bumpMetric("gathertax.gold", tax);
         this.sendProfile(client, player);
@@ -6553,7 +6577,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       sentAt: now,
     });
 
-    const inventory = this.inventories.get(player.name) ?? [];
+    const inventory = this.inventories.get(this.pidOf(player)) ?? [];
     client.send("farmResult", {
       ok: true,
       plotId,
@@ -6611,7 +6635,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       client.send("playerShopResult", { ok: false, plotId, error: "Enter a quantity and price." });
       return;
     }
-    const inv = this.inventories.get(player.name) ?? [];
+    const inv = this.inventories.get(this.pidOf(player)) ?? [];
     if (getItemQuantity(inv, itemId) < quantity) {
       client.send("playerShopResult", { ok: false, plotId, error: "You don't have that many." });
       return;
@@ -6627,7 +6651,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       client.send("playerShopResult", { ok: false, plotId, error: "You don't have that item." });
       return;
     }
-    this.inventories.set(player.name, inventory);
+    this.inventories.set(this.pidOf(player), inventory);
     if (existing) {
       existing.quantity += removed;
       existing.price = price;
@@ -6649,13 +6673,13 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     const idx = listings.findIndex((l) => l.itemId === itemId);
     if (idx < 0) return;
     const listing = listings[idx];
-    const inv = this.inventories.get(player.name) ?? [];
+    const inv = this.inventories.get(this.pidOf(player)) ?? [];
     const { inventory, added } = addItemToInventory(inv, itemId, listing.quantity, this.bagCapOf(player.name));
     if (added <= 0) {
       client.send("playerShopResult", { ok: false, plotId, error: "Make inventory space first." });
       return;
     }
-    this.inventories.set(player.name, inventory);
+    this.inventories.set(this.pidOf(player), inventory);
     if (added >= listing.quantity) listings.splice(idx, 1);
     else listing.quantity -= added;
     updatePlotShop(plotId, listings, shop.earnings);
@@ -6689,13 +6713,13 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       return;
     }
     const wantQty = Math.min(quantity, listing.quantity);
-    const gold = this.playerGold.get(player.name) ?? STARTING_GOLD;
+    const gold = this.playerGold.get(this.pidOf(player)) ?? STARTING_GOLD;
     const affordable = Math.min(wantQty, Math.floor(gold / listing.price));
     if (affordable <= 0) {
       client.send("playerShopResult", { ok: false, plotId, error: "Not enough gold." });
       return;
     }
-    const inv = this.inventories.get(player.name) ?? [];
+    const inv = this.inventories.get(this.pidOf(player)) ?? [];
     const { inventory, added } = addItemToInventory(inv, itemId, affordable, this.bagCapOf(player.name));
     if (added <= 0) {
       client.send("playerShopResult", { ok: false, plotId, error: "Your inventory is full." });
@@ -6703,8 +6727,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     }
     const cost = added * listing.price;
     const nextGold = gold - cost;
-    this.inventories.set(player.name, inventory);
-    this.playerGold.set(player.name, nextGold);
+    this.inventories.set(this.pidOf(player), inventory);
+    this.playerGold.set(this.pidOf(player), nextGold);
     listing.quantity -= added;
     const remaining = listings.filter((l) => l.quantity > 0);
     updatePlotShop(plotId, remaining, owned.earnings + cost);
@@ -6731,8 +6755,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       client.send("playerShopResult", { ok: false, plotId, error: "Nothing to collect." });
       return;
     }
-    const nextGold = (this.playerGold.get(player.name) ?? STARTING_GOLD) + shop.earnings;
-    this.playerGold.set(player.name, nextGold);
+    const nextGold = (this.playerGold.get(this.pidOf(player)) ?? STARTING_GOLD) + shop.earnings;
+    this.playerGold.set(this.pidOf(player), nextGold);
     updatePlotShop(plotId, shop.listings, 0);
     this.sendProfile(client, player);
     this.broadcastHousingState();
@@ -6758,7 +6782,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       return;
     }
 
-    const gold = this.playerGold.get(player.name) ?? STARTING_GOLD;
+    const gold = this.playerGold.get(this.pidOf(player)) ?? STARTING_GOLD;
     if (gold < PLOT_PRICE) {
       client.send("housingResult", {
         ok: false,
@@ -6770,7 +6794,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     }
 
     const nextGold = gold - PLOT_PRICE;
-    this.playerGold.set(player.name, nextGold);
+    this.playerGold.set(this.pidOf(player), nextGold);
     const wallet = this.getClientWallet(client) ?? this.playerWallets.get(client.sessionId) ?? null;
     claimPlot(plotId, this.zoneConfig.id, player.name, wallet, structure);
     blockPlotFootprint(this.zoneConfig.id, plot);
@@ -6898,7 +6922,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       return;
     }
 
-    const inventory = this.inventories.get(player.name) ?? [];
+    const inventory = this.inventories.get(this.pidOf(player)) ?? [];
     const { inventory: nextInv, removed } = removeItemFromInventory(inventory, LIGHT_OIL_ITEM, 1);
     if (removed <= 0) {
       client.send("housingResult", {
@@ -6909,7 +6933,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       return;
     }
 
-    this.inventories.set(player.name, nextInv);
+    this.inventories.set(this.pidOf(player), nextInv);
     refuelPlot(plotId, LIGHT_REFUEL_AMOUNT);
     this.sendInventory(client, player.name);
     this.broadcastHousingState();
@@ -6950,8 +6974,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     }
 
     this.playerLastRestAt.set(player.name, now);
-    this.playerStamina.set(player.name, MAX_STAMINA);
-    this.playerHp.set(player.name, getPlayerMaxHp(player.level));
+    this.playerStamina.set(this.pidOf(player), MAX_STAMINA);
+    this.playerHp.set(this.pidOf(player), getPlayerMaxHp(player.level));
     this.sendProfile(client, player);
     client.send("housingResult", { ok: true, plotId, ownerName: player.name });
     this.broadcastChat({
@@ -6971,7 +6995,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
     const name = sanitizeGuildName(rawName);
     const tag = sanitizeGuildTag(rawTag);
-    const gold = this.playerGold.get(player.name) ?? STARTING_GOLD;
+    const gold = this.playerGold.get(this.pidOf(player)) ?? STARTING_GOLD;
     if (gold < GUILD_CREATE_COST) {
       client.send("guildResult", {
         ok: false,
@@ -6988,7 +7012,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     }
 
     const nextGold = gold - GUILD_CREATE_COST;
-    this.playerGold.set(player.name, nextGold);
+    this.playerGold.set(this.pidOf(player), nextGold);
     player.guildTag = tagForMember(player.name);
     this.sendProfile(client, player);
     client.send("guildResult", { ok: true, gold: nextGold });
@@ -7151,7 +7175,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     const want = Math.floor(amount);
 
     if (action === "deposit") {
-      const gold = this.playerGold.get(player.name) ?? STARTING_GOLD;
+      const gold = this.playerGold.get(this.pidOf(player)) ?? STARTING_GOLD;
       if (want <= 0 || gold < want) {
         client.send("guildResult", { ok: false, error: "Not enough gold to deposit." });
         return;
@@ -7161,15 +7185,15 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         client.send("guildResult", { ok: false, error: result.error });
         return;
       }
-      this.playerGold.set(player.name, gold - want);
+      this.playerGold.set(this.pidOf(player), gold - want);
     } else {
       const result = withdrawFromBank(player.name, want);
       if (!result.ok || !result.amount) {
         client.send("guildResult", { ok: false, error: result.error });
         return;
       }
-      const gold = this.playerGold.get(player.name) ?? STARTING_GOLD;
-      this.playerGold.set(player.name, gold + result.amount);
+      const gold = this.playerGold.get(this.pidOf(player)) ?? STARTING_GOLD;
+      this.playerGold.set(this.pidOf(player), gold + result.amount);
     }
 
     this.sendProfile(client, player);
@@ -7205,7 +7229,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   }
 
   private sendSkillState(client: Client, playerName: string) {
-    const skills = this.playerSkills.get(playerName) ?? normalizeSkills();
+    const skills = this.playerSkills.get(this.pidForName(playerName)) ?? normalizeSkills();
     client.send("skillState", buildSkillStatePayload(skills));
   }
 
@@ -7264,7 +7288,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       y,
       level: player.level,
       xp: player.xp,
-      gold: this.playerGold.get(player.name) ?? STARTING_GOLD,
+      gold: this.playerGold.get(this.pidOf(player)) ?? STARTING_GOLD,
       questProgress: this.getQuestProgress(player.name),
       appearance: {
         bodyColor: player.bodyColor,
@@ -7273,16 +7297,16 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         hairStyle: player.hairStyle as "short" | "long" | "spiky",
         outfitStyle: player.outfitStyle as "robe" | "armor" | "casual",
       },
-      inventory: normalizeInventory(this.inventories.get(player.name)),
-      hp: this.playerHp.get(player.name) ?? getPlayerMaxHp(player.level),
-      equipment: normalizeEquipment(this.playerEquipment.get(player.name)),
-      npcInteractAt: this.npcInteractAt.get(player.name) ?? {},
-      mobGoldClaimed: this.mobGoldClaimed.get(player.name) ?? {},
+      inventory: normalizeInventory(this.inventories.get(this.pidOf(player))),
+      hp: this.playerHp.get(this.pidOf(player)) ?? getPlayerMaxHp(player.level),
+      equipment: normalizeEquipment(this.playerEquipment.get(this.pidOf(player))),
+      npcInteractAt: this.npcInteractAt.get(this.pidOf(player)) ?? {},
+      mobGoldClaimed: this.mobGoldClaimed.get(this.pidOf(player)) ?? {},
       knockedOutUntil: this.isKnockedOut(player.name)
         ? (this.playerKnockedOutUntil.get(player.name) ?? null)
         : null,
-      skills: normalizeSkills(this.playerSkills.get(player.name)),
-      stamina: clampStamina(this.playerStamina.get(player.name) ?? STARTING_STAMINA),
+      skills: normalizeSkills(this.playerSkills.get(this.pidOf(player))),
+      stamina: clampStamina(this.playerStamina.get(this.pidOf(player)) ?? STARTING_STAMINA),
       vipPassUntil: (() => {
         const wallet = this.playerWallets.get(player.sessionId);
         const until = wallet ? ZoneRoom.vipPassUntil.get(wallet) ?? 0 : 0;
@@ -7292,13 +7316,13 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         const wallet = this.playerWallets.get(player.sessionId);
         return wallet ? ZoneRoom.blackPassWallets.has(wallet) : false;
       })(),
-      pvpRating: this.playerPvpRating.get(player.name) ?? STARTING_PVP_RATING,
-      pvpKills: this.playerPvpKills.get(player.name) ?? 0,
-      pvpSeason: this.playerPvpSeason.get(player.name) ?? getPvpSeason(Date.now()),
-      honor: this.playerHonor.get(player.name) ?? 0,
-      guildCoin: this.playerGuildCoin.get(player.name) ?? 0,
-      gems: this.playerGems.get(player.name) ?? 0,
-      bagLevel: this.playerBagLevel.get(player.name) ?? 0,
+      pvpRating: this.playerPvpRating.get(this.pidOf(player)) ?? STARTING_PVP_RATING,
+      pvpKills: this.playerPvpKills.get(this.pidOf(player)) ?? 0,
+      pvpSeason: this.playerPvpSeason.get(this.pidOf(player)) ?? getPvpSeason(Date.now()),
+      honor: this.playerHonor.get(this.pidOf(player)) ?? 0,
+      guildCoin: this.playerGuildCoin.get(this.pidOf(player)) ?? 0,
+      gems: this.playerGems.get(this.pidOf(player)) ?? 0,
+      bagLevel: this.playerBagLevel.get(this.pidOf(player)) ?? 0,
     });
   }
 

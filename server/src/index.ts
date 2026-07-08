@@ -1,4 +1,4 @@
-// Deploy marker: 0.106.6 — wallet-canonical persistence (saveCharacter upserts ON CONFLICT wallet_address).
+// Deploy marker: 0.106.7 — Phase 2a: data-bearing session maps re-keyed by wallet (pidOf/pidForName).
 import { Server } from "@colyseus/core";
 import { WebSocketTransport } from "@colyseus/ws-transport";
 import {
