@@ -1,4 +1,4 @@
-// Deploy marker: 0.106.3 — skill XP is monotonic on save (stop gathering-progress resets).
+// Deploy marker: 0.106.4 — login falls back to Hub when saved zone is un-enterable (no lockout).
 import { Server } from "@colyseus/core";
 import { WebSocketTransport } from "@colyseus/ws-transport";
 import {

@@ -14,8 +14,22 @@ import {
   loadCharacterByName,
   loadCharacterByWallet,
 } from "../db/characters.js";
+import { canEnterZone, isPlayerZoneId } from "../zones/zoneRegistry.js";
 
 export const characterRouter = Router();
+
+/**
+ * A player's saved zone can become un-enterable after they left it — a visitor
+ * pass on a paid World expires, or the World is unpublished/deleted. Since the
+ * client joins whatever zone we return here on login, an un-enterable saved zone
+ * would 403 the join and LOCK THE PLAYER OUT of the game entirely. Fall back to
+ * the Hub (a spawn everyone can always enter); their location self-heals on the
+ * next save. Built-in zones and Worlds they own/hold a pass for pass through.
+ */
+function safeSpawnZone(zoneId: string, playerName: string): string {
+  if (isPlayerZoneId(zoneId) && !canEnterZone(zoneId, playerName)) return ZONE_HUB;
+  return zoneId;
+}
 
 characterRouter.get("/character/me", requireAuth, async (req, res) => {
   const wallet = (req as AuthenticatedRequest).authWallet;
@@ -47,14 +61,16 @@ characterRouter.get("/character", async (req, res) => {
   }
 
   const saved = await loadCharacterByName(name);
+  const zoneId = saved ? safeSpawnZone(saved.zoneId, saved.name) : ZONE_HUB;
+  const redirected = Boolean(saved) && zoneId !== saved!.zoneId;
 
   const payload: CharacterLookupResponse = saved
     ? {
         name: saved.name,
         walletAddress: saved.walletAddress,
-        zoneId: saved.zoneId,
-        x: saved.x,
-        y: saved.y,
+        zoneId,
+        x: redirected ? 0 : saved.x,
+        y: redirected ? 0 : saved.y,
         level: saved.level,
         xp: saved.xp,
         found: true,
@@ -130,12 +146,16 @@ function toLookupResponse(
   saved: NonNullable<Awaited<ReturnType<typeof loadCharacterByWallet>>>,
   wallet: string,
 ): CharacterLookupResponse {
+  const zoneId = safeSpawnZone(saved.zoneId, saved.name);
+  const redirected = zoneId !== saved.zoneId;
   return {
     name: saved.name,
     walletAddress: saved.walletAddress ?? wallet,
-    zoneId: saved.zoneId,
-    x: saved.x,
-    y: saved.y,
+    zoneId,
+    // On a Hub fallback, drop the stale World coordinates so they spawn at the
+    // Hub's default spawn rather than an arbitrary tile.
+    x: redirected ? 0 : saved.x,
+    y: redirected ? 0 : saved.y,
     level: saved.level,
     xp: saved.xp,
     found: true,
