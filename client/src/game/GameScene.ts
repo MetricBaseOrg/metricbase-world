@@ -224,6 +224,19 @@ function hash01(n: number): number {
 const GRASS_TINTS = [0xffffff, 0xf6f8e8, 0xeef3da, 0xfff3dc, 0xf2f3e0];
 const GROUND_DETAILS = ["detail_flowers", "detail_mushroom", "detail_pebbles", "detail_tuft", "detail_leaf"];
 
+/**
+ * Re-skin base zones with hand-drawn flat ground art (per-zone theme) instead of
+ * the procedural iso-cube tileset. Keys are the GroundLayer indices
+ * (0 grass · 1 stone · 2 water · 3 wall · 4 portal); values are ground-tile asset
+ * ids from zoneAssets. Walls render as the zone floor (collision still blocks
+ * them, as in player Worlds). Zones absent here keep the iso-cube tileset.
+ */
+const ZONE_TILE_SKIN: Record<string, Record<number, string>> = {
+  zone_hub: { 0: "grass", 1: "stone-path", 2: "water", 3: "grass", 4: "stone-path" },
+  zone_wilderness: { 0: "autumn-grass", 1: "stone-path", 2: "water", 3: "autumn-grass", 4: "stone-path" },
+  zone_grotto: { 0: "grass2", 1: "cave-floor", 2: "water2", 3: "cave-floor", 4: "cave-floor" },
+};
+
 export class GameScene extends Phaser.Scene {
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private wasd!: {
@@ -1606,8 +1619,34 @@ export class GameScene extends Phaser.Scene {
     // (grass by default + painted overrides); the built-in zones keep the crisp
     // procedural tileset untouched.
     const playerZone = isPlayerZoneId(zoneId);
+    const skin = playerZone ? undefined : ZONE_TILE_SKIN[zoneId];
 
-    for (let y = 0; !playerZone && y < MAP_HEIGHT; y++) {
+    // Flat re-skin: render this base zone's ground with hand-drawn tile art
+    // (like a player World) instead of the iso-cube tileset. Depth stays on the
+    // x+y scheme the base-zone entities sort against.
+    if (skin) {
+      for (let y = 0; y < MAP_HEIGHT; y++) {
+        for (let x = 0; x < MAP_WIDTH; x++) {
+          const type = skin[ground[y][x]] ?? skin[0];
+          const asset = getZoneAsset(type);
+          if (!asset) continue;
+          const { x: worldX, y: worldY } = tileToWorld(x, y);
+          const key = zoneAssetTextureKey(type);
+          const img = this.add.image(worldX, worldY, key).setOrigin(0.5, asset.anchorY).setDepth(x + y);
+          const applyReady = () => {
+            if (img.active) img.setTexture(key).setScale(zoneAssetScale(this, type)).setOrigin(0.5, asset.anchorY).setVisible(true);
+          };
+          if (this.textures.exists(key)) applyReady();
+          else {
+            img.setVisible(false);
+            ensureZoneAssetLoaded(this, type, applyReady);
+          }
+          this.mapTiles.push(img);
+        }
+      }
+    }
+
+    for (let y = 0; !playerZone && !skin && y < MAP_HEIGHT; y++) {
       for (let x = 0; x < MAP_WIDTH; x++) {
         const tileIndex = ground[y][x];
         const { x: worldX, y: worldY } = tileToWorld(x, y);
@@ -1644,7 +1683,7 @@ export class GameScene extends Phaser.Scene {
       }
     }
 
-    if (!playerZone) this.renderGroundDetails(zoneId, ground);
+    if (!playerZone && !skin) this.renderGroundDetails(zoneId, ground);
     this.renderGroundPaint(zoneId);
     this.renderNpcs(zoneId);
     this.renderResources(zoneId);
