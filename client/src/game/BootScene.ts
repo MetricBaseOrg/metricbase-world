@@ -42,6 +42,26 @@ export class BootScene extends Phaser.Scene {
     this.createBillboardTexture();
     this.createPortalTexture();
     this.createGroundDetailTextures();
+
+    // Hand-drawn NPCs
+    this.load.image("npc-pip", "/assets/npcs/npc-pip.png");
+    this.load.image("npc-guide", "/assets/npcs/npc-guide.png");
+    this.load.image("npc-smith", "/assets/npcs/npc-smith.png");
+    this.load.image("npc-warden", "/assets/npcs/npc-warden.png");
+    this.load.image("npc-rook", "/assets/npcs/npc-rook.png");
+
+    // Hand-drawn Mobs
+    this.load.image("mob-slime", "/assets/mobs/mob-slime.png");
+    this.load.image("mob-slime-brute", "/assets/mobs/mob-slime-brute.png");
+    this.load.image("mob-ember-slime", "/assets/mobs/mob-ember-slime.png");
+    this.load.image("mob-void-brute", "/assets/mobs/mob-void-brute.png");
+    this.load.image("mob-charred-sentinel", "/assets/mobs/mob-charred-sentinel.png");
+    this.load.image("mob-training-dummy", "/assets/mobs/mob-training-dummy.png");
+
+    // Hand-drawn World Scenery (Lodge)
+    this.load.image("scenery_rug", "/assets/world/scenery-rug.png");
+    this.load.image("scenery_fireplace", "/assets/world/scenery-fireplace.png");
+    this.load.image("scenery_bookshelf", "/assets/world/scenery-bookshelf.png");
   }
 
   /** Small cosmetic props scattered over grass to make the ground feel alive. */

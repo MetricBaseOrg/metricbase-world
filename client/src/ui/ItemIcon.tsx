@@ -10,8 +10,19 @@ import { drawItemIcon } from "./itemIcons";
 export function ItemIcon({ itemId, size = 32 }: { itemId: string; size?: number }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const [artFailed, setArtFailed] = useState(false);
-  const artFile = getFishSpecies(itemId)?.art ?? getFishDishArt(itemId);
-  const useArt = artFile !== null && artFile !== undefined && !artFailed;
+  
+  const fishArtFile = getFishSpecies(itemId)?.art ?? getFishDishArt(itemId);
+  const isFishOrDish = fishArtFile !== null && fishArtFile !== undefined;
+  
+  let itemImgSrc: string | undefined = undefined;
+  if (isFishOrDish && !artFailed) {
+    itemImgSrc = `/assets/fish/${fishArtFile}`;
+  } else if (itemId.startsWith("item_") && !artFailed) {
+    const filename = itemId.substring(5).replace(/_/g, "-");
+    itemImgSrc = `/assets/items/${filename}.png`;
+  }
+  
+  const useArt = itemImgSrc !== undefined;
 
   useEffect(() => {
     setArtFailed(false);
@@ -34,7 +45,7 @@ export function ItemIcon({ itemId, size = 32 }: { itemId: string; size?: number 
   if (useArt) {
     return (
       <img
-        src={`/assets/fish/${artFile}`}
+        src={itemImgSrc}
         alt=""
         onError={() => setArtFailed(true)}
         style={{ width: size, height: size, display: "block", objectFit: "contain" }}

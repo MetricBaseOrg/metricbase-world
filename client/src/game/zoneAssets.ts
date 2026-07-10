@@ -45,16 +45,20 @@ export interface ZoneAsset {
 const ANCHOR: Record<string, number> = {
   // ground (top-face centre)
   grass: 0.445, grass2: 0.404, soil: 0.387, empty: 0.382, water: 0.429, water2: 0.365,
-  river: 0.49, snow: 0.483, lava: 0.47, "stone-path": 0.481,
+  river: 0.49, snow: 0.483, lava: 0.47, "stone-path": 0.481, sand: 0.445,
+  "autumn-grass": 0.445, "cave-floor": 0.445, "farm-carrot": 0.445, swamp: 0.445, "wood-floor": 0.445,
   // buildings — the base diamond's CENTRE (its widest row), mapped onto the
   // footprint centre so the base tile replaces the 3×3/2×2 ground 1:1.
   house: 0.71, mansion: 0.622, cabin: 0.629, "shop-blue": 0.64, "market-wheat": 0.697,
   "market-carrot": 0.699, windmill: 0.717, fence: 0.684, gate: 0.723, bridge: 0.499,
+  bakery: 0.65, "bakery-stall": 0.65, barn: 0.65, blacksmith: 0.65, church: 0.65,
+  "guard-tower": 0.65, library: 0.65, mosque: 0.65, stable: 0.65, tavern: 0.65, townhall: 0.65,
   // resources (base surface)
   pine: 0.791, "pine-small": 0.6, sapling: 0.559, "young-oak": 0.701, "wild-oak": 0.748,
   ironwood: 0.729, hardwood: 0.729, "ancient-hardwood": 0.73, "cavern-hardwood": 0.73,
   "copper-rock": 0.496, "iron-deposit": 0.523, "iron-vein": 0.501, "gem-studded": 0.497,
   "obsidian-gem": 0.498, "fish-pond": 0.499, "berry-bush": 0.492, "crop-field": 0.496, "crop-wheat": 0.507,
+  "sakura-tree": 0.74, rock: 0.5, "deep-pool": 0.499, "crop-carrot": 0.507,
   // decor (base surface); barrel has no baked tile so it anchors near its foot
   well: 0.711, lamp: 0.6, torch: 0.693, bench: 0.661, flowerbed: 0.571, fontain: 0.523,
   statue: 0.594, crates: 0.499, signpost: 0.799, hedge: 0.668, "king-crystal": 0.519, barrel: 0.9,
@@ -107,6 +111,27 @@ const DESC: Record<string, string> = {
   "berry-bush": "Berry bush — quick gather node.",
   "crop-field": "Planted field visitors can harvest.",
   "crop-wheat": "Golden wheat patch — harvestable node.",
+  "crop-carrot": "Ripe orange carrot patch.",
+  "sakura-tree": "Cherry blossom sakura tree Woodcutting node.",
+  rock: "Basic mining rock node.",
+  "deep-pool": "Deep pool — darker salmon waters.",
+  "autumn-grass": "Warm orange autumn grass tile.",
+  "cave-floor": "Dark stone cave floor floor paint.",
+  "farm-carrot": "Ground tile painted with growing carrots.",
+  swamp: "Murky swamp mud and water paint.",
+  "wood-floor": "Cozy wooden planks floor paint.",
+  sand: "Warm desert sand tile paint.",
+  bakery: "A cozy bakery building — blocks walking.",
+  "bakery-stall": "Bakery stall showing fresh breads.",
+  barn: "Sturdy barn for storing farm tools.",
+  blacksmith: "A working blacksmith shop.",
+  church: "A historic church showing stained glass windows.",
+  "guard-tower": "Watchtower to guard the borders of your land.",
+  library: "Quiet library for researching old logs.",
+  mosque: "Beautiful mosque showing peaceful architecture.",
+  stable: "Stable for keeping horses and mounts.",
+  tavern: "Local tavern for travelers to rest.",
+  townhall: "Grand town hall for governing your World.",
   // decor
   well: "Stone well centrepiece — solid, blocks walking.",
   lamp: "Decorative street lamp for paths and plazas.",
@@ -169,6 +194,12 @@ export const ZONE_ASSETS: ZoneAsset[] = [
   g("snow", "Snow"),
   g("lava", "Lava"),
   g("stone-path", "Stone Path"),
+  g("sand", "Sand"),
+  g("autumn-grass", "Autumn Grass"),
+  g("cave-floor", "Cave Floor"),
+  g("farm-carrot", "Carrot Patch"),
+  g("swamp", "Swamp Paint"),
+  g("wood-floor", "Wood Floor"),
   // Buildings — 3×3 homes, 2×2 markets/windmill (carry their own ground base)
   b("house", "House"),
   b("mansion", "Mansion"),
@@ -177,6 +208,17 @@ export const ZONE_ASSETS: ZoneAsset[] = [
   b("market-wheat", "Wheat Market", { footprint: 2 }),
   b("market-carrot", "Carrot Market", { footprint: 2 }),
   b("windmill", "Windmill", { footprint: 2 }),
+  b("bakery", "Bakery"),
+  b("bakery-stall", "Bakery Stall", { footprint: 2 }),
+  b("barn", "Barn"),
+  b("blacksmith", "Blacksmith"),
+  b("church", "Church"),
+  b("guard-tower", "Guard Tower", { footprint: 2 }),
+  b("library", "Library"),
+  b("mosque", "Mosque"),
+  b("stable", "Stable", { footprint: 2 }),
+  b("tavern", "Tavern"),
+  b("townhall", "Town Hall"),
   // Barriers: thin 1×1 structures without a full ground base (don't clear ground).
   b("fence", "Fence", { footprint: 1, clearsGround: false }),
   b("gate", "Gate", { footprint: 1, clearsGround: false }),
@@ -191,15 +233,19 @@ export const ZONE_ASSETS: ZoneAsset[] = [
   r("hardwood", "Hardwood", "tree"),
   r("ancient-hardwood", "Ancient Hardwood", "tree"),
   r("cavern-hardwood", "Cavern Hardwood", "tree"),
+  r("sakura-tree", "Sakura Tree", "tree"),
   r("copper-rock", "Copper Rock", "rock"),
   r("iron-deposit", "Iron Deposit", "rock"),
   r("iron-vein", "Iron Vein", "rock"),
   r("gem-studded", "Gem Rock", "rock"),
   r("obsidian-gem", "Obsidian Gem", "rock"),
+  r("rock", "Rock", "rock"),
   r("fish-pond", "Fishing Spot", "fish", 72),
+  r("deep-pool", "Deep Pool", "fish", 72),
   r("berry-bush", "Berry Bush", "tree", 52),
   r("crop-field", "Crop Field", "tree", 72),
   r("crop-wheat", "Wheat Crop", "tree", 64),
+  r("crop-carrot", "Carrot Crop", "tree", 64),
   // Mob dens — virtual: they spawn real combat NPCs rather than a PNG prop.
   { id: "slime-den", file: "", emoji: "🟢", virtual: true, label: "Slime Den", desc: desc("slime-den"), category: "resource", worldWidth: 0, anchorY: 0.5, footprint: 1, clearsGround: false, bakedTile: false },
   { id: "brute-den", file: "", emoji: "🐸", virtual: true, label: "Brute Den", desc: desc("brute-den"), category: "resource", worldWidth: 0, anchorY: 0.5, footprint: 1, clearsGround: false, bakedTile: false },
@@ -248,6 +294,24 @@ export function ensureZoneAssetLoaded(scene: Phaser.Scene, id: string, onReady?:
   const url = `/assets/${asset.file}`;
   const done = () => onReady?.();
   scene.load.once(`filecomplete-image-${key}`, done);
+  
+  // Robust fallback for missing hand-drawn files
+  const onError = (fileObj: any) => {
+    if (fileObj && fileObj.key === key) {
+      if (!scene.textures.exists(key)) {
+        const g = scene.make.graphics({ x: 0, y: 0 });
+        g.fillStyle(0x7c2d12, 0.7); // warm brick-like color
+        g.fillRect(0, 0, 64, 64);
+        g.lineStyle(2, 0xfebf24);
+        g.strokeRect(0, 0, 64, 64);
+        g.generateTexture(key, 64, 64);
+        g.destroy();
+      }
+      done();
+    }
+  };
+  scene.load.once(`loaderror`, onError);
+  
   scene.load.image(key, url);
   if (!scene.load.isLoading()) scene.load.start();
 }

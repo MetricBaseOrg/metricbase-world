@@ -2744,40 +2744,101 @@ export class GameScene extends Phaser.Scene {
   private renderNpcs(zoneId: string) {
     const config = resolveZoneConfig(zoneId);
 
+    // Hand-drawn configurations for NPCs and mobs
+    const HD_CONFIGS: Record<string, { size: number; originY: number; shadowW: number; headOffset: number }> = {
+      "npc-pip": { size: 64, originY: 0.9, shadowW: 26, headOffset: 58 },
+      "npc-guide": { size: 64, originY: 0.9, shadowW: 26, headOffset: 58 },
+      "npc-smith": { size: 64, originY: 0.9, shadowW: 26, headOffset: 58 },
+      "npc-warden": { size: 64, originY: 0.9, shadowW: 26, headOffset: 58 },
+      "npc-rook": { size: 64, originY: 0.9, shadowW: 26, headOffset: 58 },
+      "mob-slime": { size: 48, originY: 0.82, shadowW: 24, headOffset: 38 },
+      "mob-slime-brute": { size: 80, originY: 0.86, shadowW: 36, headOffset: 68 },
+      "mob-ember-slime": { size: 48, originY: 0.82, shadowW: 24, headOffset: 38 },
+      "mob-void-brute": { size: 80, originY: 0.86, shadowW: 36, headOffset: 68 },
+      "mob-charred-sentinel": { size: 64, originY: 0.9, shadowW: 26, headOffset: 58 },
+      "mob-training-dummy": { size: 64, originY: 0.9, shadowW: 24, headOffset: 58 },
+    };
+
     for (const npc of config.npcs) {
       const { x, y } = tileToWorld(npc.tileX, npc.tileY);
       const isCombat = Boolean(npc.combat);
-      const mobTexture =
+
+      let npcTextureKey = "npc";
+      if (!isCombat) {
+        const npcKeyMap: Record<string, string> = {
+          hub_merchant: "npc-pip",
+          hub_guide: "npc-guide",
+          hub_smith: "npc-smith",
+          jail_guard: "npc-warden",
+          wilderness_scout: "npc-rook",
+        };
+        const mappedKey = npcKeyMap[npc.id];
+        if (mappedKey && this.textures.exists(mappedKey)) {
+          npcTextureKey = mappedKey;
+        }
+      }
+
+      let mobTexture =
         npc.id === SLIME_BRUTE_NPC_ID || npc.name === "Slime Brute"
           ? "brute"
           : npc.id === WILD_SLIME_NPC_ID || npc.id.startsWith("wild_slime") || npc.name === "Wild Slime"
             ? "slime"
             : isCombat
               ? "dummy"
-              : "npc";
+              : npcTextureKey;
+
+      // Overrides for hand-drawn mob assets if they are loaded
+      let mobKey = null;
+      if (npc.id === SLIME_BRUTE_NPC_ID || npc.name === "Slime Brute") {
+        mobKey = "mob-slime-brute";
+      } else if (npc.id === WILD_SLIME_NPC_ID || npc.id.startsWith("wild_slime") || npc.name === "Wild Slime") {
+        mobKey = "mob-slime";
+      } else if (npc.id === "training_dummy" || npc.name === "Training Dummy") {
+        mobKey = "mob-training-dummy";
+      } else if (npc.id.startsWith("ember_slime") || npc.name === "Ember Slime") {
+        mobKey = "mob-ember-slime";
+      } else if (npc.id.startsWith("void_brute") || npc.name === "Void Brute") {
+        mobKey = "mob-void-brute";
+      } else if (npc.id === "black_warden" || npc.name === "Charred Sentinel") {
+        mobKey = "mob-charred-sentinel";
+      }
+
+      if (mobKey && this.textures.exists(mobKey)) {
+        mobTexture = mobKey;
+      }
+
+      const hdConfig = HD_CONFIGS[mobTexture];
+      const isHandDrawn = Boolean(hdConfig);
+
       this.ensureContactShadowTexture();
       const shadowW: Record<string, number> = { slime: 24, brute: 32, dummy: 24, npc: 26 };
+      const shadowWidth = isHandDrawn ? hdConfig.shadowW : (shadowW[mobTexture] ?? 26);
       const shadow = this.add
         .image(x, y + 2, "contact_shadow")
-        .setDisplaySize(shadowW[mobTexture] ?? 26, (shadowW[mobTexture] ?? 26) * 0.46)
+        .setDisplaySize(shadowWidth, shadowWidth * 0.46)
         .setDepth(y - 0.5);
 
       const sprite = this.add.sprite(x, y, mobTexture);
       // Anchor each sprite so its feet/base plant on the tile.
-      const originY: Record<string, number> = {
-        slime: 0.82,
-        brute: 0.86,
-        dummy: 0.91,
-        npc: 0.91,
-      };
-      sprite.setOrigin(0.5, originY[mobTexture] ?? 0.9);
+      if (isHandDrawn) {
+        sprite.setDisplaySize(hdConfig.size, hdConfig.size);
+        sprite.setOrigin(0.5, hdConfig.originY);
+      } else {
+        const originY: Record<string, number> = {
+          slime: 0.82,
+          brute: 0.86,
+          dummy: 0.91,
+          npc: 0.91,
+        };
+        sprite.setOrigin(0.5, originY[mobTexture] ?? 0.9);
+      }
       sprite.setDepth(y);
       // Living NPCs gently bob in place; the training dummy stays rigid.
       // Wild slimes have active moving/bobbing/hopping handled in the update loop.
-      if (mobTexture !== "dummy" && !npc.id.startsWith("wild_slime")) {
+      if (mobTexture !== "dummy" && mobTexture !== "mob-training-dummy" && !npc.id.startsWith("wild_slime")) {
         this.tweens.add({
           targets: sprite,
-          y: y - (mobTexture === "slime" ? 3 : 2),
+          y: y - (mobTexture === "slime" || mobTexture === "mob-slime" || mobTexture === "mob-ember-slime" ? 3 : 2),
           duration: 1100 + Math.random() * 500,
           delay: Math.random() * 800,
           yoyo: true,
@@ -2792,7 +2853,7 @@ export class GameScene extends Phaser.Scene {
         dummy: 36,
         npc: 43,
       };
-      const offsetValue = headTopOffset[mobTexture] ?? 34;
+      const offsetValue = isHandDrawn ? hdConfig.headOffset : (headTopOffset[mobTexture] ?? 34);
       const headTopY = y - offsetValue;
       const labelY = isCombat ? headTopY - 12 : headTopY - 4;
       if (isCombat && npc.combat) {
@@ -2862,22 +2923,58 @@ export class GameScene extends Phaser.Scene {
       const labelOffset = kind === "rock" ? 34 : kind === "fish" ? 30 : 54;
       const labelColor = kind === "rock" ? "#e6d6b8" : kind === "fish" ? "#a7dcff" : "#9be870";
 
-      // Player-zone nodes render their hand-drawn PNG art; built-in zones use
-      // the procedurally-baked tree/rock/fishspot textures.
-      const asset = resource.prop ? getZoneAsset(resource.prop) : undefined;
+      // Map built-in resource types to hand-drawn zone asset props
+      let resourceProp = resource.prop;
+      if (!resourceProp) {
+        if (resource.kind === "tree") {
+          if (resource.woodcutting?.lootItemId === "item_hardwood") {
+            resourceProp = "hardwood";
+          } else if (resource.woodcutting?.lootItemId === "item_ironwood") {
+            resourceProp = "ironwood";
+          } else if (resource.woodcutting?.lootItemId === "item_ancient_hardwood") {
+            resourceProp = "ancient-hardwood";
+          } else if (resource.name.toLowerCase().includes("sakura")) {
+            resourceProp = "sakura-tree";
+          } else if (resource.name.toLowerCase().includes("pine")) {
+            resourceProp = resource.name.toLowerCase().includes("small") ? "pine-small" : "pine";
+          } else if (resource.name.toLowerCase().includes("oak")) {
+            resourceProp = resource.name.toLowerCase().includes("young") ? "young-oak" : "wild-oak";
+          } else if (resource.name.toLowerCase().includes("sapling")) {
+            resourceProp = "sapling";
+          }
+        } else if (resource.kind === "rock") {
+          if (resource.mining?.lootItemId === "item_iron_ore") {
+            resourceProp = "iron-deposit";
+          } else if (resource.mining?.lootItemId === "item_gemstone") {
+            resourceProp = "gem-studded";
+          } else if (resource.name.toLowerCase().includes("copper")) {
+            resourceProp = "copper-rock";
+          } else {
+            resourceProp = "rock";
+          }
+        } else if (resource.kind === "fish") {
+          if (resource.name.toLowerCase().includes("grotto") || resource.fishing?.lootItemId === "item_salmon") {
+            resourceProp = "deep-pool";
+          } else {
+            resourceProp = "fish-pond";
+          }
+        }
+      }
+
+      const asset = resourceProp ? getZoneAsset(resourceProp) : undefined;
       let sprite: Phaser.GameObjects.Sprite;
       if (asset) {
-        const key = zoneAssetTextureKey(resource.prop!);
+        const key = zoneAssetTextureKey(resourceProp!);
         sprite = this.add.sprite(x, y, key).setOrigin(0.5, asset.anchorY).setDepth(y);
         const applyReady = () => {
           if (!sprite.active) return;
-          sprite.setTexture(key).setScale(zoneAssetScale(this, resource.prop!)).setOrigin(0.5, asset.anchorY).setVisible(true);
+          sprite.setTexture(key).setScale(zoneAssetScale(this, resourceProp!)).setOrigin(0.5, asset.anchorY).setVisible(true);
           sprite.setAlpha(available ? 1 : 0.35);
         };
         if (this.textures.exists(key)) applyReady();
         else {
           sprite.setVisible(false);
-          ensureZoneAssetLoaded(this, resource.prop!, applyReady);
+          ensureZoneAssetLoaded(this, resourceProp!, applyReady);
         }
       } else {
         sprite = this.add.sprite(x, y, texture);
