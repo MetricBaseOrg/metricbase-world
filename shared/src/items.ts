@@ -170,6 +170,14 @@ export const ITEMS: Record<string, ItemDefinition> = {
     maxStack: 99,
     kind: "material",
   },
+  item_berries: {
+    id: "item_berries",
+    name: "Berries",
+    description: "A handful of wild berries foraged from a bush. Pip buys them for the kitchen.",
+    stackable: true,
+    maxStack: 99,
+    kind: "material",
+  },
   item_bread: {
     id: "item_bread",
     name: "Bread",

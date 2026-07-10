@@ -61,6 +61,17 @@ const PROP_WOODCUTTING_YIELD: Record<string, Pick<WoodcuttingConfig, "treeLevel"
   hardwood: { treeLevel: 3, requiredLevel: 3, skillXp: 26, respawnMs: 40_000, lootItemId: "item_hardwood" },
   "ancient-hardwood": { treeLevel: 6, requiredLevel: 6, skillXp: 42, respawnMs: 55_000, lootItemId: "item_hardwood" },
   "cavern-hardwood": { treeLevel: 8, requiredLevel: 8, skillXp: 55, respawnMs: 70_000, lootItemId: "item_hardwood" },
+  // Crop / forage nodes gather their edible produce, not logs.
+  "berry-bush": { treeLevel: 1, requiredLevel: 1, skillXp: 8, respawnMs: 20_000, lootItemId: "item_berries" },
+  "crop-carrot": { treeLevel: 1, requiredLevel: 1, skillXp: 8, respawnMs: 20_000, lootItemId: "item_carrot" },
+  "crop-wheat": { treeLevel: 1, requiredLevel: 1, skillXp: 8, respawnMs: 20_000, lootItemId: "item_wheat" },
+  "crop-field": { treeLevel: 1, requiredLevel: 1, skillXp: 8, respawnMs: 20_000, lootItemId: "item_wheat" },
+};
+
+/** Per-prop fishing yields so a placed Deep Pool lands salmon like the wild one. */
+const PROP_FISHING_YIELD: Record<string, Pick<FishingConfig, "spotLevel" | "requiredLevel" | "skillXp" | "respawnMs" | "lootItemId">> = {
+  "deep-pool": { spotLevel: 3, requiredLevel: 3, skillXp: 16, respawnMs: 20_000, lootItemId: "item_salmon" },
+  "fish-pond": { spotLevel: 1, skillXp: 11, respawnMs: 15_000, lootItemId: "item_fish" },
 };
 
 /** Build a gatherable resource node from a placed player-zone asset. The yielded
@@ -81,7 +92,10 @@ export function makePlayerZoneResource(
       ? { ...y, lootQuantity: 1 }
       : { rockLevel: 1, skillXp: 12, respawnMs: 30_000, lootItemId: "item_ore", lootQuantity: 1 };
   } else if (kind === "fish") {
-    node.fishing = { spotLevel: 1, skillXp: 11, respawnMs: 15_000, lootItemId: "item_fish", lootQuantity: 1 };
+    const y = PROP_FISHING_YIELD[assetId];
+    node.fishing = y
+      ? { ...y, lootQuantity: 1 }
+      : { spotLevel: 1, skillXp: 11, respawnMs: 15_000, lootItemId: "item_fish", lootQuantity: 1 };
   } else {
     const y = PROP_WOODCUTTING_YIELD[assetId];
     node.woodcutting = y

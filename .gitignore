@@ -25,3 +25,6 @@ server/.env
 # Android TWA signing keystore — NEVER commit (dapp-store signing secret)
 *.keystore
 android-twa/*.keystore
+
+# Local scratch scripts (AP tooling)
+.ap/

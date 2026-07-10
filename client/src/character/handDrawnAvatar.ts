@@ -91,13 +91,8 @@ export function resolveHdPose(
 ): { key: string; flip: boolean } | null {
   const counts = manifest?.[character];
   if (!counts) return null;
-  const frameCount = counts[action] ?? 0;
-  if (frameCount <= 0) return null;
 
   const { dir, flip } = drawnDirection(direction);
-  const artFrame = frame % frameCount;
-  const key = `hd-${character}-${dir}-${action}-${artFrame}`;
-  if (scene.textures.exists(key)) return { key, flip };
 
   // One lazy batch-load per character: queue every declared frame at once.
   if (!loadKicked.has(character)) {
@@ -111,5 +106,17 @@ export function resolveHdPose(
     }
     scene.load.start();
   }
-  return null;
+
+  const pick = (act: AvatarAction, f: number): string | null => {
+    const count = counts[act] ?? 0;
+    if (count <= 0) return null;
+    const key = `hd-${character}-${dir}-${act}-${f % count}`;
+    return scene.textures.exists(key) ? key : null;
+  };
+
+  // Show the requested action, but fall back to this direction's idle pose for any
+  // frame that hasn't been drawn yet — an undrawn action (e.g. a back-facing chop)
+  // holds the HD idle instead of dropping to the procedural doll.
+  const key = pick(action, frame) ?? pick("idle", 0);
+  return key ? { key, flip } : null;
 }

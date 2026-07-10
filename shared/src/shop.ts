@@ -81,6 +81,7 @@ export const SHOPS: Record<string, ShopDefinition> = {
       item_stormray: 420,
       item_abyssal_leviathan: 2000,
       item_wheat: 7,
+      item_berries: 6,
       item_slime_gel: 12,
       item_slime_core: 25,
       item_amber: 55,
