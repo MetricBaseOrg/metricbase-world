@@ -223,6 +223,9 @@ ALTER TABLE land_plots ADD COLUMN IF NOT EXISTS decor JSONB NOT NULL DEFAULT '[]
 ALTER TABLE land_plots ADD COLUMN IF NOT EXISTS light_on BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE land_plots ADD COLUMN IF NOT EXISTS energy INTEGER NOT NULL DEFAULT 100;
 ALTER TABLE land_plots ADD COLUMN IF NOT EXISTS energy_at BIGINT;
+-- P2P resale asking prices. NULL = not offered in that currency.
+ALTER TABLE land_plots ADD COLUMN IF NOT EXISTS sale_gold BIGINT;
+ALTER TABLE land_plots ADD COLUMN IF NOT EXISTS sale_base DOUBLE PRECISION;
 
 -- Treasury gold accounting: running totals of in-game gold routed to the
 -- treasury (e.g. zone-slot sales), kept per source for auditing / buybacks.

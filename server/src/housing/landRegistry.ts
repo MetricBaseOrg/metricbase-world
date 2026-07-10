@@ -44,9 +44,51 @@ export function claimPlot(
     lightOn: false,
     energy: LIGHT_MAX_ENERGY,
     energyAt: Date.now(),
+    saleGold: null,
+    saleBase: null,
   };
   plots.set(plotId, record);
   void saveLandPlot(record);
+}
+
+/** Set (or clear) a plot's resale asking prices. Pass null to withdraw a
+ *  currency; both null takes the plot off the market. */
+export function setPlotSale(plotId: string, saleGold: number | null, saleBase: number | null): void {
+  const record = plots.get(plotId);
+  if (!record) return;
+  record.saleGold = saleGold;
+  record.saleBase = saleBase;
+  void saveLandPlot(record);
+}
+
+/**
+ * Transfer ownership of a plot to a new owner (resale). Clears the sale listing,
+ * resets the owner-set sign, and hands over a clean shop (no inherited listings/
+ * earnings). Returns the previous record so the caller can settle the sale.
+ */
+export function transferPlot(
+  plotId: string,
+  newOwnerName: string,
+  newOwnerWallet: string | null,
+): StoredLandPlot | undefined {
+  const record = plots.get(plotId);
+  if (!record) return undefined;
+  const previous = { ...record };
+  record.ownerName = newOwnerName;
+  record.ownerWallet = newOwnerWallet;
+  record.saleGold = null;
+  record.saleBase = null;
+  record.sign = null;
+  record.listings = [];
+  record.earnings = 0;
+  plots.set(plotId, record);
+  void saveLandPlot(record);
+  return previous;
+}
+
+/** Every plot currently offered for resale (gold and/or $BASE). */
+export function getForSalePlots(): StoredLandPlot[] {
+  return [...plots.values()].filter((p) => (p.saleGold ?? null) !== null || (p.saleBase ?? null) !== null);
 }
 
 /** Switch a plot's building light on/off, settling its drained energy. */
@@ -138,6 +180,8 @@ export function buildLandPlotStates(plotIds: string[]): LandPlotState[] {
       earnings: owned.earnings,
       lightOn: light.lightOn,
       energy: light.energy,
+      saleGold: owned.saleGold ?? null,
+      saleBase: owned.saleBase ?? null,
     };
   });
 }

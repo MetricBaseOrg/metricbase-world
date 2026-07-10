@@ -13,6 +13,7 @@ import { ChatPanel } from "./ui/ChatPanel";
 import { CraftPanel } from "./ui/CraftPanel";
 import { EmoteBar } from "./ui/EmoteBar";
 import { HousingPanel } from "./ui/HousingPanel";
+import { HousingMarketPanel } from "./ui/HousingMarketPanel";
 import { PlayerShopPanel } from "./ui/PlayerShopPanel";
 import { DeathOverlay } from "./ui/DeathOverlay";
 import { TopBar } from "./ui/TopBar";
@@ -378,6 +379,7 @@ export function App() {
       {joined && <BuildShopPanel />}
       {joined && <WorldEditBar />}
       {joined && <HousingPanel />}
+      {joined && <HousingMarketPanel />}
       {joined && <PlayerShopPanel />}
       {joined && <InventoryHotkey />}
       {joined && (

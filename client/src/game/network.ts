@@ -39,6 +39,7 @@ import {
   FarmResultPayload,
   HousingStatePayload,
   HousingResultPayload,
+  HousingMarketListing,
   GuildStatePayload,
   GuildResultPayload,
   PartyStatePayload,
@@ -305,6 +306,8 @@ export class NetworkManager {
   private latestFarmState: FarmStatePayload = { plots: [] };
   private housingStateListeners = new Set<HousingStateListener>();
   private housingResultListeners = new Set<HousingResultListener>();
+  private housingMarketListeners = new Set<(payload: { listings: HousingMarketListing[] }) => void>();
+  private housingMarketChangedListeners = new Set<() => void>();
   private worldsListListeners = new Set<(worlds: WorldDirectoryEntry[]) => void>();
   private myWorldsListeners = new Set<(worlds: MyWorldEntry[]) => void>();
   private zoneResultListeners = new Set<(result: ZoneResultPayload) => void>();
@@ -969,6 +972,37 @@ export class NetworkManager {
 
   sendHousingRest(plotId: string) {
     this.room?.send("housingRest", { plotId });
+  }
+
+  // ===== P2P housing resale market =====
+  sendHousingListSale(plotId: string, saleGold: number | null, saleBase: number | null) {
+    this.room?.send("housingListSale", { plotId, saleGold, saleBase });
+  }
+
+  sendHousingUnlistSale(plotId: string) {
+    this.room?.send("housingUnlistSale", { plotId });
+  }
+
+  requestHousingMarket() {
+    this.room?.send("housingMarket", {});
+  }
+
+  sendHousingBuyResale(plotId: string) {
+    this.room?.send("housingBuyResale", { plotId });
+  }
+
+  sendHousingBuyResaleBase(plotId: string, signature: string) {
+    this.room?.send("housingBuyResaleBase", { plotId, signature });
+  }
+
+  onHousingMarket(listener: (payload: { listings: HousingMarketListing[] }) => void) {
+    this.housingMarketListeners.add(listener);
+    return () => this.housingMarketListeners.delete(listener);
+  }
+
+  onHousingMarketChanged(listener: () => void) {
+    this.housingMarketChangedListeners.add(listener);
+    return () => this.housingMarketChangedListeners.delete(listener);
   }
 
   sendGuildCreate(name: string, tag: string) {
@@ -1797,6 +1831,12 @@ export class NetworkManager {
       for (const listener of this.housingResultListeners) {
         listener(payload);
       }
+    });
+    this.room.onMessage("housingMarket", (payload: { listings: HousingMarketListing[] }) => {
+      for (const listener of this.housingMarketListeners) listener(payload);
+    });
+    this.room.onMessage("housingMarketChanged", () => {
+      for (const listener of this.housingMarketChangedListeners) listener();
     });
     this.room.onMessage("emote", (payload: EmotePayload) => {
       for (const listener of this.emoteListeners) {

@@ -67,6 +67,46 @@ export interface LandPlotState {
   lightOn?: boolean;
   /** Remaining light energy reserve, 0..LIGHT_MAX_ENERGY. */
   energy?: number;
+  /** Owner's resale asking price in gold; null/absent = not offered for gold. */
+  saleGold?: number | null;
+  /** Owner's resale asking price in $BASE (UI amount); null/absent = not offered. */
+  saleBase?: number | null;
+}
+
+/** A house/shop currently listed for resale on the P2P housing market. */
+export interface HousingMarketListing {
+  plotId: string;
+  zoneId: string;
+  zoneName: string;
+  structure: StructureType;
+  ownerName: string;
+  /** Seller's wallet — where a $BASE buyer sends payment directly. */
+  ownerWallet: string | null;
+  /** Owner-set building name, if any. */
+  sign?: string | null;
+  roof?: string | null;
+  /** Asking price in gold, or null if not offered for gold. */
+  saleGold: number | null;
+  /** Asking price in $BASE (UI amount), or null if not offered for $BASE. */
+  saleBase: number | null;
+}
+
+/** Bounds for resale asking prices (guards against fat-finger / overflow). */
+export const HOUSE_SALE_MAX_GOLD = 100_000_000;
+export const HOUSE_SALE_MAX_BASE = 1_000_000_000;
+
+/**
+ * Clean an owner-supplied resale price. Returns a finite positive number within
+ * bounds, or null (meaning "not offered in this currency"). `whole` rounds to an
+ * integer (gold); $BASE keeps up to 4 decimals.
+ */
+export function sanitizeSalePrice(raw: unknown, currency: "gold" | "base"): number | null {
+  const n = typeof raw === "number" ? raw : typeof raw === "string" ? Number(raw) : NaN;
+  if (!Number.isFinite(n) || n <= 0) return null;
+  const max = currency === "gold" ? HOUSE_SALE_MAX_GOLD : HOUSE_SALE_MAX_BASE;
+  const val = currency === "gold" ? Math.floor(n) : Math.round(n * 1e4) / 1e4;
+  if (val <= 0) return null;
+  return Math.min(val, max);
 }
 
 /** Max characters for an owner-set building sign. */

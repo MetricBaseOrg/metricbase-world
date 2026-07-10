@@ -381,6 +381,11 @@ export function TopBar({ onLeave }: TopBarProps) {
             🌍 Worlds
           </button>
 
+          <button type="button" className="chibi-btn chibi-btn--gold" style={{ width: "100%", marginTop: 8, padding: "8px 10px" }}
+            onClick={() => { playSfx("ui_open"); useGameStore.getState().setHousingMarketOpen(true); setMenuOpen(false); }}>
+            🏘️ Housing Market
+          </button>
+
           <button type="button" className="chibi-btn chibi-btn--primary" style={{ width: "100%", marginTop: 8, padding: "8px 10px" }}
             onClick={() => { playSfx("ui_open"); setInvitationsOpen(true); setMenuOpen(false); }}>
             ✉️ Invite Friends

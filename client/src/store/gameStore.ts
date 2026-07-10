@@ -90,6 +90,8 @@ interface GameStore {
   housingOpen: boolean;
   housingPlotId: string | null;
   housingPlots: LandPlotState[];
+  /** P2P housing resale marketplace panel. */
+  housingMarketOpen: boolean;
   playerShopOpen: boolean;
   playerShopPlotId: string | null;
   shop: ShopOpenPayload | null;
@@ -167,6 +169,7 @@ interface GameStore {
   setWorldEditing: (editing: boolean) => void;
   openHousing: (plotId: string) => void;
   setHousingOpen: (open: boolean) => void;
+  setHousingMarketOpen: (open: boolean) => void;
   setHousingPlots: (plots: LandPlotState[]) => void;
   openPlayerShop: (plotId: string) => void;
   setPlayerShopOpen: (open: boolean) => void;
@@ -197,6 +200,7 @@ export function isAnyPanelOpen(s: GameStore): boolean {
     s.chatOpen ||
     s.settingsOpen ||
     s.housingOpen ||
+    s.housingMarketOpen ||
     s.playerShopOpen ||
     s.shopOpen ||
     s.invitationsOpen ||
@@ -269,6 +273,7 @@ export const useGameStore = create<GameStore>((set) => ({
   housingOpen: false,
   housingPlotId: null,
   housingPlots: [],
+  housingMarketOpen: false,
   playerShopOpen: false,
   playerShopPlotId: null,
   shop: null,
@@ -388,6 +393,7 @@ export const useGameStore = create<GameStore>((set) => ({
   openHousing: (housingPlotId) =>
     set({ housingPlotId, housingOpen: true, inventoryOpen: false, craftOpen: false }),
   setHousingOpen: (housingOpen) => set({ housingOpen }),
+  setHousingMarketOpen: (housingMarketOpen) => set({ housingMarketOpen }),
   setHousingPlots: (housingPlots) => set({ housingPlots }),
   openPlayerShop: (playerShopPlotId) =>
     set({

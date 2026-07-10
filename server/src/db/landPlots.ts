@@ -19,6 +19,9 @@ export interface StoredLandPlot {
   lightOn: boolean;
   energy: number;
   energyAt: number | null;
+  /** Resale asking prices (owner-set); null = not offered in that currency. */
+  saleGold: number | null;
+  saleBase: number | null;
 }
 
 function normalizeListings(value: unknown): ShopListing[] {
@@ -47,8 +50,10 @@ export async function loadLandPlots(): Promise<StoredLandPlot[]> {
       light_on: boolean | null;
       energy: number | null;
       energy_at: string | number | null;
+      sale_gold: string | number | null;
+      sale_base: string | number | null;
     }>(
-      "SELECT plot_id, zone_id, owner_wallet, owner_name, structure, roof, sign, decor, listings, earnings, light_on, energy, energy_at FROM land_plots",
+      "SELECT plot_id, zone_id, owner_wallet, owner_name, structure, roof, sign, decor, listings, earnings, light_on, energy, energy_at, sale_gold, sale_base FROM land_plots",
     );
     return res.rows.map((row) => ({
       plotId: row.plot_id,
@@ -64,6 +69,8 @@ export async function loadLandPlots(): Promise<StoredLandPlot[]> {
       lightOn: Boolean(row.light_on),
       energy: row.energy ?? 100,
       energyAt: row.energy_at === null ? null : Number(row.energy_at),
+      saleGold: row.sale_gold === null ? null : Number(row.sale_gold),
+      saleBase: row.sale_base === null ? null : Number(row.sale_base),
     }));
   } catch (error) {
     console.warn("[landPlots] load failed:", error);
@@ -76,13 +83,14 @@ export async function saveLandPlot(plot: StoredLandPlot): Promise<void> {
   if (!pool) return;
   try {
     await pool.query(
-      `INSERT INTO land_plots (plot_id, zone_id, owner_wallet, owner_name, structure, roof, sign, decor, listings, earnings, light_on, energy, energy_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+      `INSERT INTO land_plots (plot_id, zone_id, owner_wallet, owner_name, structure, roof, sign, decor, listings, earnings, light_on, energy, energy_at, sale_gold, sale_base)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
        ON CONFLICT (plot_id)
        DO UPDATE SET owner_wallet = EXCLUDED.owner_wallet, owner_name = EXCLUDED.owner_name,
                      structure = EXCLUDED.structure, roof = EXCLUDED.roof, sign = EXCLUDED.sign,
                      decor = EXCLUDED.decor, listings = EXCLUDED.listings, earnings = EXCLUDED.earnings,
-                     light_on = EXCLUDED.light_on, energy = EXCLUDED.energy, energy_at = EXCLUDED.energy_at`,
+                     light_on = EXCLUDED.light_on, energy = EXCLUDED.energy, energy_at = EXCLUDED.energy_at,
+                     sale_gold = EXCLUDED.sale_gold, sale_base = EXCLUDED.sale_base`,
       [
         plot.plotId,
         plot.zoneId,
@@ -97,6 +105,8 @@ export async function saveLandPlot(plot: StoredLandPlot): Promise<void> {
         plot.lightOn,
         plot.energy,
         plot.energyAt,
+        plot.saleGold,
+        plot.saleBase,
       ],
     );
   } catch (error) {

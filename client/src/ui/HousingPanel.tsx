@@ -22,9 +22,12 @@ export function HousingPanel() {
   const playerName = useGameStore((state) => state.playerName);
   const setHousingOpen = useGameStore((state) => state.setHousingOpen);
   const setPlayerGold = useGameStore((state) => state.setPlayerGold);
+  const setHousingMarketOpen = useGameStore((state) => state.setHousingMarketOpen);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [signDraft, setSignDraft] = useState("");
+  const [goldPrice, setGoldPrice] = useState("");
+  const [basePrice, setBasePrice] = useState("");
 
   const plot = plots.find((entry) => entry.plotId === plotId);
 
@@ -32,6 +35,50 @@ export function HousingPanel() {
   useEffect(() => {
     setSignDraft(plot?.sign ?? "");
   }, [plot?.sign, plotId]);
+
+  // Prefill the sale inputs from the plot's current listing.
+  useEffect(() => {
+    setGoldPrice(plot?.saleGold != null ? String(plot.saleGold) : "");
+    setBasePrice(plot?.saleBase != null ? String(plot.saleBase) : "");
+  }, [plot?.saleGold, plot?.saleBase, plotId]);
+
+  const awaitHousingResult = () =>
+    new Promise<{ ok: boolean; error?: string; message?: string }>((resolve) => {
+      const timeout = window.setTimeout(() => resolve({ ok: false, error: "Request timed out." }), 8000);
+      const unsubscribe = networkManager.onHousingResult((payload) => {
+        window.clearTimeout(timeout);
+        unsubscribe();
+        resolve(payload);
+      });
+    });
+
+  const listForSale = async () => {
+    if (!plotId) return;
+    const gold = Number(goldPrice) > 0 ? Math.floor(Number(goldPrice)) : null;
+    const base = Number(basePrice) > 0 ? Number(basePrice) : null;
+    if (gold === null && base === null) {
+      setError("Set a gold and/or $BASE price first.");
+      return;
+    }
+    playSfx("ui_click");
+    setError(null);
+    networkManager.sendHousingListSale(plotId, gold, base);
+    const result = await awaitHousingResult();
+    if (!result.ok) {
+      playSfx("shop_fail");
+      setError(result.error ?? "Could not list the property.");
+    } else {
+      playSfx("craft");
+    }
+  };
+
+  const withdrawListing = async () => {
+    if (!plotId) return;
+    playSfx("ui_click");
+    setError(null);
+    networkManager.sendHousingUnlistSale(plotId);
+    await awaitHousingResult();
+  };
 
   if (!open || !plotId) return null;
   const owned = plot && plot.structure !== "none";
@@ -277,6 +324,56 @@ export function HousingPanel() {
                   <strong> Lamp Oil</strong> (craft it: 2 River Fish + 1 Wood).
                 </div>
               </div>
+
+              <div style={{ marginTop: 12, borderTop: "1px solid rgba(0,0,0,0.12)", paddingTop: 12 }}>
+                <div className="chibi-label" style={{ marginBottom: 6 }}>
+                  💰 Sell on the housing market
+                </div>
+                {(plot?.saleGold != null || plot?.saleBase != null) && (
+                  <div className="chibi-card chibi-card--info" style={{ padding: "6px 10px", marginBottom: 8, fontSize: "0.76rem" }}>
+                    Listed for{" "}
+                    {plot?.saleGold != null && <strong>🪙 {plot.saleGold.toLocaleString()}</strong>}
+                    {plot?.saleGold != null && plot?.saleBase != null && " or "}
+                    {plot?.saleBase != null && <strong>💠 {plot.saleBase.toLocaleString()} $BASE</strong>}
+                  </div>
+                )}
+                <div style={{ display: "flex", gap: 6 }}>
+                  <input
+                    className="chibi-input"
+                    type="number"
+                    min={0}
+                    value={goldPrice}
+                    placeholder="Gold price"
+                    onChange={(e) => setGoldPrice(e.target.value)}
+                    style={{ flex: 1 }}
+                    aria-label="Sale price in gold"
+                  />
+                  <input
+                    className="chibi-input"
+                    type="number"
+                    min={0}
+                    value={basePrice}
+                    placeholder="$BASE price"
+                    onChange={(e) => setBasePrice(e.target.value)}
+                    style={{ flex: 1 }}
+                    aria-label="Sale price in $BASE"
+                  />
+                </div>
+                <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
+                  <button type="button" className="chibi-btn chibi-btn--primary" onClick={() => void listForSale()} style={{ flex: 1, padding: "8px 10px", fontSize: "0.8rem" }}>
+                    List for sale
+                  </button>
+                  {(plot?.saleGold != null || plot?.saleBase != null) && (
+                    <button type="button" className="chibi-btn chibi-btn--secondary" onClick={() => void withdrawListing()} style={{ padding: "8px 10px", fontSize: "0.8rem" }}>
+                      Withdraw
+                    </button>
+                  )}
+                </div>
+                <div className="chibi-text-muted" style={{ fontSize: "0.72rem", marginTop: 4 }}>
+                  Leave a field blank to skip that currency. Buyers browse listings in the
+                  <strong> 🏘️ Housing Market</strong>. $BASE is paid straight to your wallet.
+                </div>
+              </div>
             </>
           )}
         </div>
@@ -320,6 +417,18 @@ export function HousingPanel() {
           )}
         </>
       )}
+
+      <button
+        type="button"
+        className="chibi-btn chibi-btn--ghost"
+        onClick={() => {
+          playSfx("ui_open");
+          setHousingMarketOpen(true);
+        }}
+        style={{ width: "100%", marginTop: 12, padding: "8px 10px", fontSize: "0.82rem" }}
+      >
+        🏘️ Browse Housing Market
+      </button>
 
       {error && (
         <div className="chibi-card chibi-card--danger" style={{ marginTop: 12, fontSize: "0.8rem" }}>

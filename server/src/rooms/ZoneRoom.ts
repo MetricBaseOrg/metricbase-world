@@ -62,7 +62,9 @@ import {
   isValidRoofId,
   isValidDecorId,
   sanitizeSign,
+  sanitizeSalePrice,
   structureLabel,
+  type HousingMarketListing,
   GUILD_CREATE_COST,
   sanitizeGuildName,
   sanitizeGuildTag,
@@ -287,13 +289,16 @@ import {
   anyPlotLit,
   buildLandPlotStates,
   claimPlot,
+  getForSalePlots,
   getPlotLight,
   getPlotOwner,
   refuelPlot,
   setPlotDecor,
   setPlotLight,
   setPlotRoof,
+  setPlotSale,
   setPlotSign,
+  transferPlot,
   updatePlotShop,
 } from "../housing/landRegistry.js";
 import {
@@ -410,6 +415,31 @@ type JoinAuthData = JoinOptions & { wallet?: string };
  *  the same name takes over (single-session enforcement). The client just shows
  *  a normal disconnect — it does not auto-rejoin, so there's no kick loop. */
 const GOODBYE_DUPLICATE_LOGIN = 4001;
+
+/** Build the global P2P housing market: every owned plot currently for sale,
+ *  annotated with its zone's display name for the buyer's browser. */
+function getHousingMarketListings(): HousingMarketListing[] {
+  return getForSalePlots().map((plot) => {
+    let zoneName = plot.zoneId;
+    try {
+      zoneName = getZoneConfig(plot.zoneId)?.displayName ?? plot.zoneId;
+    } catch {
+      /* unknown/unloaded zone — fall back to the id */
+    }
+    return {
+      plotId: plot.plotId,
+      zoneId: plot.zoneId,
+      zoneName,
+      structure: plot.structure,
+      ownerName: plot.ownerName,
+      ownerWallet: plot.ownerWallet,
+      sign: plot.sign,
+      roof: plot.roof,
+      saleGold: plot.saleGold ?? null,
+      saleBase: plot.saleBase ?? null,
+    };
+  });
+}
 
 /** Count each placeable asset used in a build (ground paint + scenery + nodes). */
 function countBuildAssets(build: PlayerZoneBuild): Map<string, number> {
@@ -974,6 +1004,29 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     this.onProtectedMessage("housingRest", (client, message: { plotId?: string }) => {
       void this.handleHousingRest(client, message.plotId ?? "");
     });
+
+    // ===== P2P housing resale market =====
+    this.onProtectedMessage(
+      "housingListSale",
+      (client, message: { plotId?: string; saleGold?: unknown; saleBase?: unknown }) => {
+        this.handleHousingListSale(client, message.plotId ?? "", message.saleGold, message.saleBase);
+      },
+    );
+    this.onProtectedMessage("housingUnlistSale", (client, message: { plotId?: string }) => {
+      this.handleHousingListSale(client, message.plotId ?? "", null, null);
+    });
+    this.onMessage("housingMarket", (client) => {
+      client.send("housingMarket", { listings: getHousingMarketListings() });
+    });
+    this.onProtectedMessage("housingBuyResale", (client, message: { plotId?: string }) => {
+      void this.handleHousingBuyResaleGold(client, message.plotId ?? "");
+    });
+    this.onProtectedMessage(
+      "housingBuyResaleBase",
+      (client, message: { plotId?: string; signature?: string }) => {
+        void this.handleHousingBuyResaleBase(client, message.plotId ?? "", message.signature ?? "");
+      },
+    );
 
     this.onProtectedMessage("guildCreate", (client, message: { name?: string; tag?: string }) => {
       void this.handleGuildCreate(client, message.name ?? "", message.tag ?? "");
@@ -7029,6 +7082,168 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       sentAt: now,
     });
     await this.persistPlayer(player);
+  }
+
+  // ===== P2P housing resale market =====
+
+  /** Nudge every online client to refresh an open Housing Market panel. */
+  private broadcastHousingMarketChanged() {
+    for (const room of ZoneRoom.activeRooms) room.broadcast("housingMarketChanged", {});
+  }
+
+  /** Re-broadcast a specific zone's housing state to any room hosting it — used
+   *  after a cross-zone ownership transfer so the plot re-renders for everyone
+   *  standing in the zone where the house physically sits. */
+  private static broadcastHousingForZone(zoneId: string) {
+    for (const room of ZoneRoom.activeRooms) {
+      if (room.zoneConfig.id === zoneId) room.broadcastHousingState();
+    }
+  }
+
+  /** Owner lists (or, with both prices null, withdraws) their plot for resale. */
+  private handleHousingListSale(client: Client, plotId: string, saleGoldRaw: unknown, saleBaseRaw: unknown) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !plotId) return;
+    const owner = getPlotOwner(plotId);
+    if (!owner || owner.ownerName !== player.name) {
+      client.send("housingResult", { ok: false, plotId, error: "You can only sell your own property." });
+      return;
+    }
+    const saleGold = sanitizeSalePrice(saleGoldRaw, "gold");
+    const saleBase = sanitizeSalePrice(saleBaseRaw, "base");
+    if (saleBase !== null && !owner.ownerWallet) {
+      client.send("housingResult", { ok: false, plotId, error: "Link a wallet before pricing in $BASE." });
+      return;
+    }
+    setPlotSale(plotId, saleGold, saleBase);
+    ZoneRoom.broadcastHousingForZone(owner.zoneId);
+    this.broadcastHousingMarketChanged();
+    const listed = saleGold !== null || saleBase !== null;
+    client.send("housingResult", {
+      ok: true,
+      plotId,
+      ownerName: player.name,
+      message: listed ? "Your property is now on the market." : "Listing withdrawn.",
+    });
+  }
+
+  /** Buy a listed house/shop with in-game gold (atomic, server-side). */
+  private async handleHousingBuyResaleGold(client: Client, plotId: string) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !plotId || this.isKnockedOut(player.name)) return;
+    const owner = getPlotOwner(plotId);
+    if (!owner || (owner.saleGold ?? null) === null) {
+      return void client.send("housingResult", { ok: false, plotId, error: "That property isn't for sale in gold." });
+    }
+    if (owner.ownerName === player.name) {
+      return void client.send("housingResult", { ok: false, plotId, error: "You already own this — unlist it instead." });
+    }
+    const price = owner.saleGold as number;
+    const gold = this.playerGold.get(this.pidOf(player)) ?? STARTING_GOLD;
+    if (gold < price) {
+      return void client.send("housingResult", { ok: false, plotId, gold, error: `You need ${price.toLocaleString()} gold.` });
+    }
+    const sellerName = owner.ownerName;
+    const zoneId = owner.zoneId;
+    const nextGold = gold - price;
+    this.playerGold.set(this.pidOf(player), nextGold);
+    const wallet = this.getClientWallet(client) ?? this.playerWallets.get(client.sessionId) ?? null;
+    const previous = transferPlot(plotId, player.name, wallet);
+    // Seller receives the sale price plus any uncollected shop earnings (reset on
+    // transfer), paid immediately if online or queued as pending gold otherwise.
+    this.creditPlayerByName(sellerName, price + (previous?.earnings ?? 0));
+    bumpMetric("house.resaleGold", price);
+    this.sendProfile(client, player);
+    ZoneRoom.broadcastHousingForZone(zoneId);
+    this.broadcastHousingMarketChanged();
+    this.announceHouseSale(player.name, sellerName, structureLabel(owner.structure), `${price.toLocaleString()} gold`);
+    client.send("housingResult", { ok: true, plotId, gold: nextGold, ownerName: player.name, message: "Property purchased!" });
+    await this.persistPlayer(player);
+  }
+
+  /** Buy a listed house/shop with $BASE the buyer already sent to the seller's
+   *  wallet on-chain (direct, non-custodial). Verifies the signature, then
+   *  transfers ownership. Idempotent via the recorded signature. */
+  private async handleHousingBuyResaleBase(client: Client, plotId: string, signature: string) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !plotId || this.isKnockedOut(player.name)) return;
+    const wallet = this.getClientWallet(client) ?? this.playerWallets.get(client.sessionId) ?? null;
+    if (!wallet) return void client.send("housingResult", { ok: false, plotId, error: "Link a wallet to pay with $BASE." });
+    if (!signature || signature.length < 32) {
+      return void client.send("housingResult", { ok: false, plotId, error: "Missing payment transaction." });
+    }
+    const owner = getPlotOwner(plotId);
+    if (!owner || (owner.saleBase ?? null) === null) {
+      return void client.send("housingResult", { ok: false, plotId, error: "That property isn't for sale in $BASE." });
+    }
+    if (owner.ownerName === player.name) {
+      return void client.send("housingResult", { ok: false, plotId, error: "You already own this." });
+    }
+    if (!owner.ownerWallet) {
+      return void client.send("housingResult", { ok: false, plotId, error: "The seller has no wallet to receive $BASE." });
+    }
+    if (await isPurchaseRedeemed(signature)) {
+      return void client.send("housingResult", { ok: false, plotId, signature, error: "That payment was already used." });
+    }
+    const price = owner.saleBase as number;
+    const mint = process.env.TOKEN_MINT?.trim() || METRICBASE_TOKEN_MINT;
+    let v;
+    try {
+      v = await verifyPeerTokenTransfer(signature, { fromWallet: wallet, toWallet: owner.ownerWallet, mint, minUiAmount: price }, 10);
+    } catch (error) {
+      console.warn("[house] $BASE verify threw:", error);
+      return void client.send("housingResult", {
+        ok: false,
+        plotId,
+        signature,
+        retryable: true,
+        error: "Couldn't confirm your payment on-chain. Your $BASE is safe — try again in a moment.",
+      });
+    }
+    if (!v.ok || v.uiAmount === undefined || v.uiAmount <= 0) {
+      return void client.send("housingResult", {
+        ok: false,
+        plotId,
+        signature,
+        retryable: v.retryable === true,
+        error: v.error ?? "Payment not found on-chain.",
+      });
+    }
+    // Payment confirmed. Ensure the seller still owns it (a concurrent gold sale
+    // could have transferred it while the buyer was paying) before handing over.
+    const current = getPlotOwner(plotId);
+    if (!current || current.ownerName !== owner.ownerName) {
+      return void client.send("housingResult", {
+        ok: false,
+        plotId,
+        signature,
+        error: "This property was just sold to someone else — contact the seller for a $BASE refund.",
+      });
+    }
+    const sellerName = current.ownerName;
+    const zoneId = current.zoneId;
+    // Transfer first (persisted), then record the signature so a mid-flight crash
+    // leaves the payment safely retryable rather than consumed without the house.
+    const previous = transferPlot(plotId, player.name, wallet);
+    await recordTokenPurchase(signature, wallet, `house_resale:${plotId}`, v.uiAmount);
+    if (previous?.earnings) this.creditPlayerByName(sellerName, previous.earnings);
+    bumpMetric("house.resaleBase", Math.round(v.uiAmount));
+    ZoneRoom.broadcastHousingForZone(zoneId);
+    this.broadcastHousingMarketChanged();
+    this.announceHouseSale(player.name, sellerName, structureLabel(owner.structure), `${price.toLocaleString()} $BASE`);
+    client.send("housingResult", { ok: true, plotId, signature, ownerName: player.name, message: "Property purchased with $BASE!" });
+    await this.persistPlayer(player);
+  }
+
+  private announceHouseSale(buyer: string, seller: string, what: string, priceLabel: string) {
+    this.broadcastChat({
+      id: crypto.randomUUID(),
+      channel: "system",
+      senderId: "system",
+      senderName: "Housing",
+      body: `🏡 ${buyer} bought ${seller}'s ${what} for ${priceLabel}.`,
+      sentAt: Date.now(),
+    });
   }
 
   private async handleGuildCreate(client: Client, rawName: string, rawTag: string) {
