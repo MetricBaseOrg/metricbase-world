@@ -1,4 +1,4 @@
-// Deploy marker: 0.106.9 — move center Grotto deep pool to shore edge (was awkward to fish).
+// Deploy marker: 0.107.0 — move Wilderness south oak off the river; new-art props in base zones.
 import { Server } from "@colyseus/core";
 import { WebSocketTransport } from "@colyseus/ws-transport";
 import {

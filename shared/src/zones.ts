@@ -435,7 +435,9 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
       {
         id: "wild_tree_south",
         name: "Wild Oak",
-        tileX: 12,
+        // Was (12,18) — that column is the river, so the oak floated on water
+        // beside Yama's Shop. Moved one step east onto the dry grass shore.
+        tileX: 13,
         tileY: 18,
         kind: "tree",
         woodcutting: {

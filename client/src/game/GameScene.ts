@@ -139,6 +139,9 @@ interface RenderedFarmPlot {
   /** Soil-paint plots: the painted soil art IS the empty state, so the plot
    *  sprite only shows once something is growing. */
   hideWhenEmpty?: boolean;
+  /** Persistent soil PNG tile drawn under built-in plots in re-skinned base
+   *  zones so the tilled ground uses the new hand-drawn soil art. */
+  soilBase?: Phaser.GameObjects.Sprite;
 }
 
 interface RenderedLandPlot {
@@ -154,6 +157,10 @@ interface RenderedLandPlot {
   decorSprites: (Phaser.GameObjects.Sprite | null)[];
   lightOn: boolean;
   glow: Phaser.GameObjects.Image | null;
+  /** Prop id of the currently-shown PNG structure (house/shop-blue), or null
+   *  when the plot shows the procedural For-Sale marker. Guards async art loads
+   *  against a structure change firing a stale texture swap. */
+  structureProp: string | null;
 }
 
 interface RenderedNpc {
@@ -1785,11 +1792,13 @@ export class GameScene extends Phaser.Scene {
     for (const node of config.scenery ?? []) {
       const { x, y } = tileToWorld(node.tileX, node.tileY);
       const flat = node.flat ?? false;
-      // Player-zone props render from lazily-loaded PNG art; built-in props use
-      // the procedurally-baked scenery_<prop> textures.
-      // PNG art is only used in player-owned zones; built-in zones keep their
-      // procedurally-baked scenery_<prop> textures untouched.
-      const asset = isPlayerZoneId(zoneId) ? getZoneAsset(node.prop) : undefined;
+      // Player-zone props render from lazily-loaded PNG art. Re-skinned base
+      // zones also use the hand-drawn PNG art wherever a prop has one (e.g.
+      // hedge/bench/signpost); props with no PNG match (lamppost, lantern,
+      // plant, crate, blackjack…) return undefined and fall through to the
+      // procedural scenery_<prop> textures, keeping their lights + interacts.
+      const useArt = isPlayerZoneId(zoneId) || Boolean(ZONE_TILE_SKIN[zoneId]);
+      const asset = useArt ? getZoneAsset(node.prop) : undefined;
       // Virtual assets (mob dens) are rendered as live NPCs, not props.
       if (asset?.virtual) continue;
       if (asset) {
@@ -2546,6 +2555,9 @@ export class GameScene extends Phaser.Scene {
 
   private renderFarmPlots(zoneId: string) {
     const config = resolveZoneConfig(zoneId);
+    // Re-skinned base zones render built-in tilled plots on the hand-drawn soil
+    // PNG (a persistent 2×2 base tile) instead of the old procedural patch.
+    const skinned = Boolean(ZONE_TILE_SKIN[zoneId]);
     for (const plot of config.farmPlots ?? []) {
       // Soil-paint plots (player zones) are single tiles whose painted soil art
       // is the empty state; built-in plots use the 2×2 procedural patch.
@@ -2553,11 +2565,34 @@ export class GameScene extends Phaser.Scene {
       const { x, y } = soilPlot
         ? tileToWorld(plot.tileX, plot.tileY)
         : tileToWorld(plot.tileX + 0.5, plot.tileY + 0.5);
+      // Built-in plots in a re-skinned zone: lay a soil PNG base under the plot
+      // and hide the (procedural) crop sprite while empty, so the tilled ground
+      // shows the new soil art rather than the old brown patch.
+      const useSoilArt = skinned && !soilPlot;
+      let soilBase: Phaser.GameObjects.Sprite | undefined;
+      if (useSoilArt) {
+        const key = zoneAssetTextureKey("soil");
+        const asset = getZoneAsset("soil");
+        soilBase = this.add.sprite(x, y, key).setOrigin(0.5, asset?.anchorY ?? 0.387).setDepth(y - 2);
+        const applySoil = () => {
+          if (!soilBase?.active) return;
+          // ×2 so one soil tile spans the plot's 2×2 footprint.
+          soilBase.setTexture(key).setScale(zoneAssetScale(this, "soil") * 2).setVisible(true);
+        };
+        if (this.textures.exists(key)) applySoil();
+        else {
+          soilBase.setVisible(false);
+          ensureZoneAssetLoaded(this, "soil", applySoil);
+        }
+      }
       const sprite = this.add.sprite(x, y, "plot_empty");
       sprite.setOrigin(0.5, 0.526);
       sprite.setDepth(y);
+      if (soilPlot || useSoilArt) {
+        sprite.setVisible(false);
+      }
       if (soilPlot) {
-        sprite.setScale(0.62).setVisible(false);
+        sprite.setScale(0.62);
       }
       const label = this.add
         .text(x, y - 44, "Plot", {
@@ -2582,7 +2617,8 @@ export class GameScene extends Phaser.Scene {
         worldX: x,
         worldY: y,
         stage: "empty",
-        hideWhenEmpty: soilPlot,
+        hideWhenEmpty: soilPlot || useSoilArt,
+        soilBase,
       });
     }
     this.applyFarmState(networkManager.getFarmState());
@@ -2594,6 +2630,7 @@ export class GameScene extends Phaser.Scene {
       plot.label.destroy();
       plot.barBg.destroy();
       plot.barFill.destroy();
+      plot.soilBase?.destroy();
     });
     this.renderedFarmPlots.clear();
   }
@@ -2636,6 +2673,7 @@ export class GameScene extends Phaser.Scene {
         decorSprites: new Array(PLOT_DECOR_SLOTS).fill(null),
         lightOn: false,
         glow: null,
+        structureProp: null,
       });
     }
     this.applyHousingState(networkManager.getHousingState());
@@ -2657,11 +2695,30 @@ export class GameScene extends Phaser.Scene {
       if (!plot) continue;
       const owned = state.structure !== "none";
       plot.lightOn = owned && Boolean(state.lightOn);
-      const base = owned ? (state.structure === "shop" ? "shop" : "house") : "plot_marker";
-      // Use the painted roof variant when the owner has chosen one.
-      const variant = owned && state.roof ? `${base}_${state.roof}` : base;
-      plot.sprite.setTexture(this.textures.exists(variant) ? variant : base);
-      plot.sprite.setDepth(plot.worldY);
+      if (owned) {
+        // Owned plots render the hand-drawn PNG house/shop (3×3, footprint-centred
+        // on the plot's centre tile) so player structures match the new art in the
+        // re-skinned base zones. The single-look PNGs supersede the old procedural
+        // roof-colour variants.
+        const prop = state.structure === "shop" ? "shop-blue" : "house";
+        plot.structureProp = prop;
+        const asset = getZoneAsset(prop);
+        const key = zoneAssetTextureKey(prop);
+        const applyArt = () => {
+          // A later state change may have re-pointed this plot; bail if so.
+          if (!plot.sprite.active || plot.structureProp !== prop || !asset) return;
+          plot.sprite
+            .setTexture(key)
+            .setOrigin(0.5, asset.anchorY)
+            .setScale(zoneAssetScale(this, prop))
+            .setDepth(plot.worldY);
+        };
+        if (this.textures.exists(key)) applyArt();
+        else ensureZoneAssetLoaded(this, prop, applyArt);
+      } else {
+        plot.structureProp = null;
+        plot.sprite.setTexture("plot_marker").setOrigin(0.5, 0.667).setScale(1).setDepth(plot.worldY);
+      }
       if (owned && state.ownerName) {
         // Owner-set sign takes precedence over the default "X's House" label.
         plot.label.setText(state.sign || `${state.ownerName}'s ${structureLabel(state.structure)}`);
@@ -4398,7 +4455,11 @@ export class GameScene extends Phaser.Scene {
    * tile directly in front never draws over the character's feet.
    */
   private playerDepthLift(): number {
-    return isPlayerZoneId(this.currentZoneId ?? "") ? 16 : 0;
+    const zone = this.currentZoneId ?? "";
+    // Re-skinned base zones render ground at worldY-2 (like player Worlds) so
+    // node bases embed. That same ground would clip the character's feet unless
+    // we lift the player above it, exactly as player zones do.
+    return isPlayerZoneId(zone) || ZONE_TILE_SKIN[zone] ? 16 : 0;
   }
 
   private interpolateRemotePlayers() {
