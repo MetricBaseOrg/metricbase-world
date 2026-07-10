@@ -1930,9 +1930,14 @@ export class GameScene extends Phaser.Scene {
    *  lantern→torch) keeps its light. */
   private addSceneryLight(prop: string, x: number, y: number) {
     const lightSpec: Record<string, { dy: number; size: number; type: "lamp" | "fire"; tint?: number }> = {
-      lamppost: { dy: -56, size: LAMP_GLOW_DIAMETER * 0.95, type: "lamp" },
-      // lantern now renders as the fire brazier (torch) art — warm, fiery light.
-      lantern: { dy: -46, size: LAMP_GLOW_DIAMETER * 0.72, type: "fire", tint: 0xff8a36 },
+      // Stone-lantern art — the lit bulb sits ~16px above the base. Same art (and
+      // glow) whether placed as a base-zone "lamppost" or a Worlds "lamp".
+      lamp: { dy: -16, size: LAMP_GLOW_DIAMETER * 0.85, type: "lamp" },
+      lamppost: { dy: -16, size: LAMP_GLOW_DIAMETER * 0.85, type: "lamp" },
+      // Fire-brazier art — flame near the top. Placed as base-zone "lantern" or
+      // Worlds "torch"; a warm, flickering fire light.
+      torch: { dy: -40, size: LAMP_GLOW_DIAMETER * 0.72, type: "fire", tint: 0xff8a36 },
+      lantern: { dy: -40, size: LAMP_GLOW_DIAMETER * 0.72, type: "fire", tint: 0xff8a36 },
       fireplace: { dy: -10, size: LAMP_GLOW_DIAMETER * 0.95, type: "fire", tint: 0xff8a36 },
     };
     const spec = lightSpec[prop];
