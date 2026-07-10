@@ -45,8 +45,8 @@ export interface ZoneAsset {
 const ANCHOR: Record<string, number> = {
   // ground (top-face centre)
   grass: 0.445, grass2: 0.404, soil: 0.387, empty: 0.382, water: 0.329, water2: 0.331,
-  river: 0.49, snow: 0.483, lava: 0.47, "stone-path": 0.481, sand: 0.445,
-  "autumn-grass": 0.445, "cave-floor": 0.445, "farm-carrot": 0.445, swamp: 0.445, "wood-floor": 0.445,
+  river: 0.49, snow: 0.483, lava: 0.414, "stone-path": 0.481, sand: 0.356,
+  "autumn-grass": 0.445, "cave-floor": 0.343, "farm-carrot": 0.445, swamp: 0.340, "wood-floor": 0.445,
   // buildings — the base diamond's CENTRE (its widest row), mapped onto the
   // footprint centre so the base tile replaces the 3×3/2×2 ground 1:1.
   house: 0.71, mansion: 0.622, cabin: 0.629, "shop-blue": 0.64, "market-wheat": 0.697,

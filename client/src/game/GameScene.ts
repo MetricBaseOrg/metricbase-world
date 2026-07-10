@@ -248,6 +248,17 @@ const ZONE_TILE_SKIN: Record<string, Record<number, string>> = {
   zone_black: { 0: "cave-floor", 1: "cave-floor", 2: "lava", 3: "cave-floor", 4: "cave-floor" },
 };
 
+/**
+ * Maps a zone scenery prop id to the hand-drawn asset id that should render it,
+ * where the two differ. Lets built-in zones keep their existing prop names (and
+ * light/interact behaviour) while adopting the new PNG art.
+ */
+const SCENERY_ART_ALIAS: Record<string, string> = {
+  crate: "crates",
+  lamppost: "lamp",
+  lantern: "torch",
+};
+
 export class GameScene extends Phaser.Scene {
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private wasd!: {
@@ -340,6 +351,7 @@ export class GameScene extends Phaser.Scene {
   >();
   /** Castle Siege King Crystal (Black zone). */
   private crystalGfx: Phaser.GameObjects.Graphics | null = null;
+  private crystalSprite: Phaser.GameObjects.Sprite | null = null;
   private crystalLabel: Phaser.GameObjects.Text | null = null;
   private siegeState: SiegeStatePayload | null = null;
   /** Local player's mount speed multiplier, mirrored for client prediction. */
@@ -1828,11 +1840,14 @@ export class GameScene extends Phaser.Scene {
       // plant, crate, blackjack…) return undefined and fall through to the
       // procedural scenery_<prop> textures, keeping their lights + interacts.
       const useArt = isPlayerZoneId(zoneId) || Boolean(ZONE_TILE_SKIN[zoneId]);
-      const asset = useArt ? getZoneAsset(node.prop) : undefined;
+      // Some props render under a different art id (e.g. crate→crates,
+      // lamppost→lamp, lantern→torch) while keeping their prop-driven lights.
+      const artProp = SCENERY_ART_ALIAS[node.prop] ?? node.prop;
+      const asset = useArt ? getZoneAsset(artProp) : undefined;
       // Virtual assets (mob dens) are rendered as live NPCs, not props.
       if (asset?.virtual) continue;
       if (asset) {
-        const key = zoneAssetTextureKey(node.prop);
+        const key = zoneAssetTextureKey(artProp);
         const N = asset.footprint;
         // Multi-tile buildings carry a baked N×N ground base. The placed tile is
         // the back corner; anchor the base by its centre at the footprint's
@@ -1859,14 +1874,16 @@ export class GameScene extends Phaser.Scene {
         const sprite = this.add.sprite(px, py, key).setOrigin(0.5, originY).setDepth(depth);
         const applyReady = () => {
           if (!sprite.active) return;
-          sprite.setTexture(key).setScale(zoneAssetScale(this, node.prop)).setOrigin(0.5, originY).setVisible(true);
+          sprite.setTexture(key).setScale(zoneAssetScale(this, artProp)).setOrigin(0.5, originY).setVisible(true);
         };
         if (this.textures.exists(key)) applyReady();
         else {
           sprite.setVisible(false);
-          ensureZoneAssetLoaded(this, node.prop, applyReady);
+          ensureZoneAssetLoaded(this, artProp, applyReady);
         }
         this.renderedScenery.push(sprite);
+        // Keep prop-driven lights (lamppost/lantern/…) even on the PNG path.
+        this.addSceneryLight(node.prop, px, py);
         // Placed crop markets + Shop buildings are functional: walk up + interact.
         const market = getCropMarket(node.prop);
         if (market) {
@@ -1897,22 +1914,28 @@ export class GameScene extends Phaser.Scene {
         });
       }
 
-      // Light-emitting props cast a warm pool that brightens + flickers at night.
-      const lightSpec: Record<string, { dy: number; size: number; type: "lamp" | "fire"; tint?: number }> = {
-        lamppost: { dy: -56, size: LAMP_GLOW_DIAMETER * 0.95, type: "lamp" },
-        lantern: { dy: -33, size: LAMP_GLOW_DIAMETER * 0.7, type: "lamp" },
-        fireplace: { dy: -10, size: LAMP_GLOW_DIAMETER * 0.95, type: "fire", tint: 0xff8a36 },
-      };
-      const spec = lightSpec[node.prop];
-      if (spec) {
-        const glow = this.makeGlow()
-          .setPosition(x, y + spec.dy)
-          .setDisplaySize(spec.size, spec.size)
-          .setVisible(true);
-        if (spec.tint) glow.setTint(spec.tint);
-        this.sceneryLights.push({ glow, type: spec.type, phase: Math.random() * Math.PI * 2 });
-      }
+      this.addSceneryLight(node.prop, x, y);
     }
+  }
+
+  /** Cast a warm, night-flickering glow for a light-emitting prop. Shared by the
+   *  procedural and PNG scenery paths so aliased art (lamppost→lamp,
+   *  lantern→torch) keeps its light. */
+  private addSceneryLight(prop: string, x: number, y: number) {
+    const lightSpec: Record<string, { dy: number; size: number; type: "lamp" | "fire"; tint?: number }> = {
+      lamppost: { dy: -56, size: LAMP_GLOW_DIAMETER * 0.95, type: "lamp" },
+      // lantern now renders as the fire brazier (torch) art — warm, fiery light.
+      lantern: { dy: -46, size: LAMP_GLOW_DIAMETER * 0.72, type: "fire", tint: 0xff8a36 },
+      fireplace: { dy: -10, size: LAMP_GLOW_DIAMETER * 0.95, type: "fire", tint: 0xff8a36 },
+    };
+    const spec = lightSpec[prop];
+    if (!spec) return;
+    const glow = this.makeGlow()
+      .setPosition(x, y + spec.dy)
+      .setDisplaySize(spec.size, spec.size)
+      .setVisible(true);
+    if (spec.tint) glow.setTint(spec.tint);
+    this.sceneryLights.push({ glow, type: spec.type, phase: Math.random() * Math.PI * 2 });
   }
 
   private clearScenery() {
@@ -3068,17 +3091,12 @@ export class GameScene extends Phaser.Scene {
       let resourceProp = resource.prop;
       if (!resourceProp) {
         if (resource.kind === "tree") {
-          // Prefer the loot item, then fall back to the display name — several
-          // built-in trees (e.g. Wilderness "Ironwood") loot plain item_wood, so
-          // the lootItemId checks miss and only the name identifies the species.
+          // Match on the display name FIRST — it's the most specific descriptor.
+          // The loot item is only a fallback: several trees (Wilderness "Ironwood",
+          // Black-zone "Ancient Hardwood") loot plain item_wood/item_hardwood, so a
+          // loot-first check would mis-map them (e.g. Ancient Hardwood → hardwood).
           const lname = resource.name.toLowerCase();
-          if (resource.woodcutting?.lootItemId === "item_hardwood") {
-            resourceProp = "hardwood";
-          } else if (resource.woodcutting?.lootItemId === "item_ironwood") {
-            resourceProp = "ironwood";
-          } else if (resource.woodcutting?.lootItemId === "item_ancient_hardwood") {
-            resourceProp = "ancient-hardwood";
-          } else if (lname.includes("cavern")) {
+          if (lname.includes("cavern")) {
             resourceProp = "cavern-hardwood";
           } else if (lname.includes("ancient")) {
             resourceProp = "ancient-hardwood";
@@ -3094,6 +3112,12 @@ export class GameScene extends Phaser.Scene {
             resourceProp = lname.includes("young") ? "young-oak" : "wild-oak";
           } else if (lname.includes("sapling")) {
             resourceProp = "sapling";
+          } else if (resource.woodcutting?.lootItemId === "item_ancient_hardwood") {
+            resourceProp = "ancient-hardwood";
+          } else if (resource.woodcutting?.lootItemId === "item_ironwood") {
+            resourceProp = "ironwood";
+          } else if (resource.woodcutting?.lootItemId === "item_hardwood") {
+            resourceProp = "hardwood";
           }
         } else if (resource.kind === "rock") {
           if (resource.mining?.lootItemId === "item_iron_ore") {
@@ -3893,10 +3917,25 @@ export class GameScene extends Phaser.Scene {
     if ((this.currentZoneId ?? networkManager.zoneId) !== ZONE_BLACK) return;
 
     const { x, y } = tileToWorld(KING_CRYSTAL_TILE.x, KING_CRYSTAL_TILE.y);
+    if (!this.crystalSprite) {
+      // Hand-drawn crystal monument art; the graphics layer keeps the HP bar.
+      const asset = getZoneAsset("king-crystal");
+      const key = zoneAssetTextureKey("king-crystal");
+      this.crystalSprite = this.add.sprite(x, y, key).setOrigin(0.5, asset?.anchorY ?? 0.519).setDepth(y);
+      const applyArt = () => {
+        if (!this.crystalSprite?.active) return;
+        this.crystalSprite.setTexture(key).setScale(zoneAssetScale(this, "king-crystal")).setOrigin(0.5, asset?.anchorY ?? 0.519).setVisible(true);
+      };
+      if (this.textures.exists(key)) applyArt();
+      else {
+        this.crystalSprite.setVisible(false);
+        ensureZoneAssetLoaded(this, "king-crystal", applyArt);
+      }
+    }
     if (!this.crystalGfx) {
-      this.crystalGfx = this.add.graphics().setDepth(y);
+      this.crystalGfx = this.add.graphics().setDepth(y + 1);
       this.crystalLabel = this.add
-        .text(x, y - 46, "", {
+        .text(x, y - 56, "", {
           fontFamily: "Nunito, sans-serif",
           fontSize: "12px",
           fontStyle: "700",
@@ -3913,23 +3952,13 @@ export class GameScene extends Phaser.Scene {
     g.clear();
     g.setPosition(x, y);
     const pct = state.maxHp > 0 ? Math.max(0, state.hp / state.maxHp) : 0;
-    const color = state.active ? 0xb15cff : 0x6b7280;
-    // Diamond crystal.
-    g.fillStyle(color, state.active ? 1 : 0.6);
-    g.beginPath();
-    g.moveTo(0, -34);
-    g.lineTo(14, -18);
-    g.lineTo(0, -2);
-    g.lineTo(-14, -18);
-    g.closePath();
-    g.fillPath();
-    g.lineStyle(2, 0xffffff, state.active ? 0.9 : 0.4);
-    g.strokePath();
-    // HP bar.
+    // Sealed crystal reads dim/grey; an active siege lights it up.
+    this.crystalSprite?.setTint(state.active ? 0xffffff : 0x8a8f99).setAlpha(state.active ? 1 : 0.75);
+    // HP bar (just above the monument's crown).
     g.fillStyle(0x2b1d12, 0.8);
-    g.fillRect(-18, -46, 36, 5);
+    g.fillRect(-18, -48, 36, 5);
     g.fillStyle(pct > 0.3 ? 0x6ad27e : 0xff5a5a, 1);
-    g.fillRect(-18, -46, 36 * pct, 5);
+    g.fillRect(-18, -48, 36 * pct, 5);
 
     this.crystalLabel?.setText(
       state.active
@@ -3940,8 +3969,10 @@ export class GameScene extends Phaser.Scene {
 
   private clearCrystal() {
     this.crystalGfx?.destroy();
+    this.crystalSprite?.destroy();
     this.crystalLabel?.destroy();
     this.crystalGfx = null;
+    this.crystalSprite = null;
     this.crystalLabel = null;
   }
 
