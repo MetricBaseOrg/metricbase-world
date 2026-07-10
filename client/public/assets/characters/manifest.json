@@ -1,7 +1,9 @@
 {
   "characters": {
     "boy": {
-      "idle": 2
+      "idle": 2,
+      "walk": 4,
+      "chop": 3
     }
   }
 }
