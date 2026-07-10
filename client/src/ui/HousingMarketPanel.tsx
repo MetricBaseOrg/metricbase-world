@@ -146,7 +146,7 @@ export function HousingMarketPanel() {
   };
 
   return (
-    <div className="chibi-panel chibi-panel--floating chibi-anchor chibi-anchor--center" style={{ pointerEvents: "auto", maxWidth: 440, width: "94vw" }}>
+    <div className="chibi-panel chibi-panel--floating chibi-panel--modal chibi-anchor chibi-anchor--center" style={{ pointerEvents: "auto", maxWidth: 440, width: "94vw" }}>
       <div className="chibi-close-row">
         <div className="chibi-title chibi-title--sm chibi-sparkle-title">🏘️ Housing Market</div>
         <button type="button" className="chibi-btn chibi-btn--ghost" onClick={close} aria-label="Close">
@@ -154,6 +154,7 @@ export function HousingMarketPanel() {
         </button>
       </div>
 
+      <div className="chibi-modal-body">
       <div className="chibi-text-muted" style={{ fontSize: "0.78rem", marginTop: 6 }}>
         Buy houses & shops other players have listed. Gold is spent in-game; $BASE goes straight to the seller's wallet. Your gold: 🪙 {playerGold.toLocaleString()}
       </div>
@@ -164,7 +165,7 @@ export function HousingMarketPanel() {
         </div>
       )}
 
-      <div style={{ marginTop: 12, display: "grid", gap: 8, maxHeight: "56vh", overflowY: "auto" }}>
+      <div style={{ marginTop: 12, display: "grid", gap: 8 }}>
         {listings.length === 0 && (
           <div className="chibi-card" style={{ padding: "14px", textAlign: "center", fontSize: "0.82rem" }}>
             No properties are for sale right now.
@@ -212,6 +213,7 @@ export function HousingMarketPanel() {
             </div>
           );
         })}
+      </div>
       </div>
     </div>
   );

@@ -168,7 +168,7 @@ export function HousingPanel() {
   };
 
   return (
-    <div className="chibi-panel chibi-panel--floating chibi-anchor chibi-anchor--center" style={{ pointerEvents: "auto", maxWidth: 360 }}>
+    <div className="chibi-panel chibi-panel--floating chibi-panel--modal chibi-anchor chibi-anchor--center" style={{ pointerEvents: "auto", maxWidth: 360, width: "92vw" }}>
       <div className="chibi-close-row">
         <div className="chibi-title chibi-title--sm chibi-sparkle-title">🏠 Land Plot</div>
         <button type="button" className="chibi-btn chibi-btn--ghost" onClick={close} aria-label="Close">
@@ -176,6 +176,7 @@ export function HousingPanel() {
         </button>
       </div>
 
+      <div className="chibi-modal-body">
       {owned ? (
         <div className="chibi-card" style={{ marginTop: 12, padding: "12px 14px" }}>
           <div style={{ fontWeight: 800 }}>
@@ -435,6 +436,7 @@ export function HousingPanel() {
           {error}
         </div>
       )}
+      </div>
     </div>
   );
 }

@@ -105,8 +105,8 @@ export function PlayerShopPanel() {
 
   return (
     <div
-      className="chibi-panel chibi-panel--floating chibi-anchor chibi-anchor--center"
-      style={{ pointerEvents: "auto", maxWidth: 380, width: "92%" }}
+      className="chibi-panel chibi-panel--floating chibi-panel--modal chibi-anchor chibi-anchor--center"
+      style={{ pointerEvents: "auto", maxWidth: 380, width: "92vw" }}
     >
       <div className="chibi-close-row">
         <div className="chibi-title chibi-title--sm chibi-sparkle-title">
@@ -117,13 +117,14 @@ export function PlayerShopPanel() {
         </button>
       </div>
 
+      <div className="chibi-modal-body">
       {!isMine && (
         <div className="chibi-text-muted" style={{ marginTop: 6, fontSize: "0.78rem" }}>
           Your gold: <span style={{ color: "var(--chibi-gold-deep)", fontWeight: 800 }}>🪙 {playerGold}</span>
         </div>
       )}
 
-      <div style={{ marginTop: 10, display: "grid", gap: 6, maxHeight: 230, overflowY: "auto" }}>
+      <div style={{ marginTop: 10, display: "grid", gap: 6 }}>
         {listings.length === 0 && (
           <div className="chibi-text-muted" style={{ fontSize: "0.82rem", textAlign: "center", padding: "8px 0" }}>
             {isMine ? "Your shelves are empty — list something below." : "This shop has nothing for sale yet."}
@@ -331,6 +332,7 @@ export function PlayerShopPanel() {
           {error}
         </div>
       )}
+      </div>
     </div>
   );
 }
