@@ -3926,7 +3926,11 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       const p = sessionId ? room.state.players.get(sessionId) : undefined;
       const client = sessionId ? room.clients.find((c) => c.sessionId === sessionId) : undefined;
       if (p && client) {
-        room.playerGold.set(name, (room.playerGold.get(name) ?? STARTING_GOLD) + amount);
+        // Gold is keyed by pid (wallet since the identity migration), NOT by
+        // name — crediting the name key silently voided online payouts (job
+        // rewards, market sales) because nothing ever read it back.
+        const pid = room.pidOf(p);
+        room.playerGold.set(pid, (room.playerGold.get(pid) ?? STARTING_GOLD) + amount);
         room.sendProfile(client, p);
         void room.persistPlayer(p);
         return;
@@ -5180,8 +5184,9 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       return;
     }
 
+    // Soft-currency maps are pid-keyed (wallet), not name-keyed.
     const balances = this.softMap(offer.currency);
-    const have = balances.get(player.name) ?? 0;
+    const have = balances.get(this.pidOf(player)) ?? 0;
     if (have < offer.cost) {
       client.send("softShopResult", { ok: false, error: "You can't afford that yet." });
       return;
@@ -5194,7 +5199,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       return;
     }
 
-    balances.set(player.name, have - offer.cost);
+    balances.set(this.pidOf(player), have - offer.cost);
     this.inventories.set(this.pidOf(player), projected.inventory);
     this.sendInventory(client, player.name);
     this.sendProfile(client, player);
