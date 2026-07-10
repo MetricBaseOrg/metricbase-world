@@ -4,19 +4,24 @@ Spec for ALL files: **transparent PNG, 1024×1024** (Claude downscales + wires o
 fish set). Style: chibi-cozy, matching the existing props + fish art. World objects sit on an iso
 tile (front view, slight top-down tilt). Drop a batch → say so → it ships same day.
 
+> **Backgrounds:** transparent is ideal, but if a drop ships with a **baked-in background**
+> (a transparency checkerboard or flat gray saved as solid pixels), that's fine — it gets
+> auto-stripped on wire-in via a border flood-fill that keeps the subject (even white/gray
+> parts like scarves, silver armor, or a gray rock). Ground **tiles** are left opaque on purpose.
+
 **Marks:** ✅ = art file is in its folder · 🎨 = MISSING — draw this · (opt) = optional, covered
 by an existing file.
 
-**Folder layout:** source art lives in category subfolders — `tiles/`, `buildings/`, `nodes/`
-(the 52 done files), plus empty drop folders `mobs/`, `npcs/`, `items/`, `world/` for the new
-batches. Drop each new file into the folder named in its section header.
+**Folder layout:** source art lives in category subfolders — `tiles/`, `buildings/`, `nodes/`,
+`mobs/`, `npcs/`, `items/`, `characters/`, plus `world/` for interiors/farm/portal. Drop each new
+file into the folder named in its section header.
 
 ## 👉 START HERE
 
-Everything in the original list below is done except **3 files**: `sand.png` (→ `tiles/`),
-`rock.png` and `deep-pool.png` (→ `nodes/`). After those, the highest-impact batch is
-**Mobs (6) + NPCs (5)** — they're what players stare at all day and currently share 4 procedural
-blobs. Then item icons.
+The original list is **done**, and the first two big batches — **Mobs (6)** and **NPCs (5)** —
+plus a wave of **new buildings + tiles** and the first **boy character frames** all shipped.
+Next highest-impact: finish the **item icons** (fish/dishes + the 8 material icons below are done;
+~53 left) and the **girl character set** / remaining boy actions.
 
 ## Tiles (1x1 tile) and Decor props — `assets/tiles/`
 
@@ -27,7 +32,12 @@ blobs. Then item icons.
 - river.png ✅
 - soil.png ✅
 - empty.png ✅
-- sand.png 🎨
+- sand.png ✅
+- autumn-grass.png ✅ (new ground tile)
+- cave-floor.png ✅ (new ground tile)
+- swamp.png ✅ (new ground tile)
+- wood-floor.png ✅ (new ground tile)
+- farm-carrot.png ✅ (ground tile painted with growing carrots)
 - stone-path.png ✅
 - snow.png ✅
 - lava.png ✅
@@ -56,6 +66,17 @@ blobs. Then item icons.
 - fence.png ✅
 - gate.png ✅
 - bridge.png ✅
+- bakery.png ✅ (new)
+- bakery-stall.png ✅ (new, 2-tile footprint)
+- barn.png ✅ (new)
+- blacksmith.png ✅ (new)
+- church.png ✅ (new)
+- guard-tower.png ✅ (new)
+- library.png ✅ (new)
+- mosque.png ✅ (new)
+- stable.png ✅ (new)
+- tavern.png ✅ (new)
+- townhall.png ✅ (new)
 
 ## Resource nodes (1x1 tile) — `assets/nodes/`
 
@@ -76,9 +97,10 @@ blobs. Then item icons.
 - obsidian-gem.png ✅
 - king-crystal.png ✅
 - crates.png ✅
-- rock.png 🎨 (basic mining rock — Hub's copper rocks reuse copper-rock.png, this is the plain one)
+- rock.png ✅ (basic mining rock — the plain one; Hub's copper rocks reuse copper-rock.png)
+- sakura-tree.png ✅ (new decorative tree)
 - fish-pond.png ✅
-- deep-pool.png 🎨 (Deep Pool / Deep Grotto Pool — darker salmon waters)
+- deep-pool.png ✅ (Deep Pool / Deep Grotto Pool — darker salmon waters)
 - oak.png (opt — wild-oak ✅ + young-oak ✅ cover it)
 - berry-bush.png ✅
 - crop-field.png ✅
@@ -91,44 +113,46 @@ blobs. Then item icons.
 Already done elsewhere (skip): 12 fish species + 12 dishes (`client/public/assets/fish/`),
 login hero. Base zones (Hub/Wilderness/Grotto) will REUSE the node art above.
 
-## Mobs — drop in `assets/mobs/` 🔥 NEXT BATCH (all 🎨)
+## Mobs — `assets/mobs/` ✅ SHIPPED
 
-All monsters share 4 procedural canvas blobs today. One art per distinct mob:
+Each distinct mob now has its own art (was 4 procedural blobs):
 
-- mob-slime.png 🎨 (Wild Slime, green)
-- mob-slime-brute.png 🎨 (Slime Brute — bigger, meaner)
-- mob-ember-slime.png 🎨 (Ember Slime — fiery)
-- mob-void-brute.png 🎨 (Void Brute — dark/purple)
-- mob-charred-sentinel.png 🎨 (Charred Sentinel — burnt guardian)
-- mob-training-dummy.png 🎨 (Training Dummy — straw + wood post)
+- mob-slime.png ✅ (Wild Slime, green)
+- mob-slime-brute.png ✅ (Slime Brute — bigger, meaner)
+- mob-ember-slime.png ✅ (Ember Slime — fiery)
+- mob-void-brute.png ✅ (Void Brute — dark/purple; gray smoke effect kept)
+- mob-charred-sentinel.png ✅ (Charred Sentinel — burnt guardian)
+- mob-training-dummy.png ✅ (Training Dummy — straw + wood post)
 
-## NPCs — drop in `assets/npcs/` 🔥 NEXT BATCH (all 🎨)
+## NPCs — `assets/npcs/` ✅ SHIPPED
 
-Every NPC uses one generic villager texture:
+- npc-pip.png ✅ (Pip the merchant — the face of the game's economy)
+- npc-guide.png ✅ (Aria, Hub guide)
+- npc-smith.png ✅ (Brenna, blacksmith)
+- npc-warden.png ✅ (Warden, Wilderness outpost)
+- npc-rook.png ✅ (Rook, Grotto)
 
-- npc-pip.png 🎨 (Pip the merchant — the face of the game's economy)
-- npc-guide.png 🎨 (Aria, Hub guide)
-- npc-smith.png 🎨 (Brenna, blacksmith)
-- npc-warden.png 🎨 (Warden, Wilderness outpost)
-- npc-rook.png 🎨 (Rook, Grotto)
-
-## Item icons — drop in `assets/items/` (61 items, all 🎨; fish/dishes already done)
+## Item icons — drop in `assets/items/` (61 items; fish/dishes already done)
 
 Square icon look (like the fish art), must read at 34px. Filename = as listed
 (Claude maps to exact item ids on drop):
 
-- Consumables (2): health-potion, bread
-- Materials (20): training-scrap, wood, ore (copper ore), slime-gel, slime-core, wheat-seed,
-  wheat, carrot-seed, carrot, plank, copper-bar, iron-ore, iron-bar, hardwood, hardwood-plank,
-  steel-bar, amber, gemstone, pearl, lamp-oil
-- Weapons (4): rusty-blade, gel-knife, copper-dagger, gem-blade
-- Tools (11): copper-axe, iron-axe, steel-axe, copper-pickaxe, iron-pickaxe, steel-pickaxe,
-  fishing-rod, pro-rod, gilded-rod, abyssal-rod, harvest-net
-- Armor/accessories (18): copper-helm, copper-chest, copper-gloves, copper-boots, iron-helm,
-  iron-chest, iron-gloves, iron-boots, steel-helm, steel-chest, steel-gloves, steel-boots,
-  lucky-lure, angler-ring, angler-cap, gem-ring, pearl-amulet, traveler-cape
-- Mounts (3): pony, steed, dire-wolf
-- Pets (3): pet-cat, pet-slime, pet-owl
+- Consumables (2): health-potion 🎨, bread 🎨
+- Materials (20): training-scrap 🎨, wood 🎨, ore ✅ (copper ore), slime-gel 🎨, slime-core 🎨,
+  wheat-seed ✅, wheat ✅, carrot-seed ✅, carrot ✅, plank 🎨, copper-bar ✅, iron-ore ✅,
+  iron-bar ✅, hardwood 🎨, hardwood-plank 🎨, steel-bar 🎨, amber 🎨, gemstone 🎨, pearl 🎨,
+  lamp-oil 🎨
+- Weapons (4): rusty-blade 🎨, gel-knife 🎨, copper-dagger 🎨, gem-blade 🎨
+- Tools (11): copper-axe 🎨, iron-axe 🎨, steel-axe 🎨, copper-pickaxe 🎨, iron-pickaxe 🎨,
+  steel-pickaxe 🎨, fishing-rod 🎨, pro-rod 🎨, gilded-rod 🎨, abyssal-rod 🎨, harvest-net 🎨
+- Armor/accessories (18): copper-helm 🎨, copper-chest 🎨, copper-gloves 🎨, copper-boots 🎨,
+  iron-helm 🎨, iron-chest 🎨, iron-gloves 🎨, iron-boots 🎨, steel-helm 🎨, steel-chest 🎨,
+  steel-gloves 🎨, steel-boots 🎨, lucky-lure 🎨, angler-ring 🎨, angler-cap 🎨, gem-ring 🎨,
+  pearl-amulet 🎨, traveler-cape 🎨
+- Mounts (3): pony 🎨, steed 🎨, dire-wolf 🎨
+- Pets (3): pet-cat 🎨, pet-slime 🎨, pet-owl 🎨
+
+**Done so far (8):** ore, wheat-seed, wheat, carrot-seed, carrot, copper-bar, iron-ore, iron-bar.
 
 ## Housing interiors — drop in `assets/world/` (15, all 🎨)
 
@@ -150,11 +174,12 @@ Square icon look (like the fish art), must read at 34px. Filename = as listed
 - scenery-arcade.png 🎨 (arcade cabinet)
 - scenery-blackjack.png 🎨 (card table)
 
-## Farm plots, billboard, portal — drop in `assets/world/` (all 🎨)
+## Farm plots, billboard, portal — drop in `assets/world/`
 
 - plot-empty.png 🎨 (tilled empty soil plot)
 - plot-growing.png 🎨 (sprouting crop, generic)
-- crop-carrot.png 🎨 (ripe carrot plot — wheat done: crop-wheat.png ✅)
+- crop-carrot.png 🎨 (ripe carrot plot — **wired in `zoneAssets.ts` but the PNG is MISSING**, so
+  it 404s in-game; draw it or repoint the id to `farm-carrot`. wheat done: crop-wheat.png ✅)
 - billboard.png 🎨 (ad billboard frame — the creative renders inside it)
 - portal-gate.png 🎨 (zone portal / gate)
 
@@ -194,20 +219,24 @@ draw the bases with clean silhouettes so hats/capes/auras can layer on top).
 Plus per character: `boy-portrait.png`, `girl-portrait.png` (bust, 768×768 — HUD, login,
 profile card). **Total: 98 files.**
 
+**Boy progress (partial ✅):** front idle (2) + front chop (3); back idle (2) + back walk (4);
+right idle (2); tqright idle (2) + tqright walk (4). **Still 🎨:** front walk + attack + fish,
+back chop/fish/attack, right walk/chop/fish/attack, remaining tqright actions, `boy-portrait`,
+and the **entire girl set**.
+
 ### Full set (later polish, optional) — matches current engine frame counts
 
 idle 4 · walk 8 · chop 3 · fish 4 · attack 3 = 88 frames per character. Drop extra frames with
 the same naming (`…-walk-4.png` etc.) any time — the engine's per-action frame counts are
 tunable in `shared/src/avatar.ts`.
 
-Batch tip: start with ONE direction (`front`) of the boy across all actions (12 frames) and
-drop it — I'll wire it in-game so you can check the look/scale before drawing the other 86.
+Batch tip: finish ONE direction (`front`) of the boy across all actions first, then the other
+directions, before starting the girl.
 
 ## Priority order
 
-1. sand + rock + deep-pool (finish the original list — 3 files)
-2. Mobs (6) + NPCs (5) — folders are ready: `assets/mobs/`, `assets/npcs/`
-3. Item icons (61) — `assets/items/`
-4. Interiors + farm/billboard/portal (~20) — `assets/world/`
+1. ~~sand + rock + deep-pool~~ ✅ · ~~Mobs (6) + NPCs (5)~~ ✅ · ~~new buildings + tiles~~ ✅
+2. Item icons — ~53 left (`assets/items/`); highest UI impact
+3. Finish the **boy** frames, then the **girl** set (`assets/characters/`)
+4. Interiors + farm plots/billboard/portal (~18) — `assets/world/`
 5. Iso tiles + details (after template chat)
-6. Characters (separate project)
