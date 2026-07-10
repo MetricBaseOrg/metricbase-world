@@ -232,8 +232,11 @@ const GROUND_DETAILS = ["detail_flowers", "detail_mushroom", "detail_pebbles", "
  * them, as in player Worlds). Zones absent here keep the iso-cube tileset.
  */
 const ZONE_TILE_SKIN: Record<string, Record<number, string>> = {
+  // NOTE: resource-node art (trees/rocks) has a baked-in GREEN grass tile base,
+  // so grass terrain must stay green for nodes to sit flush (as in player Worlds).
+  // Themed variety therefore comes from the stone + water tiles, not the grass.
   zone_hub: { 0: "grass", 1: "stone-path", 2: "water", 3: "grass", 4: "stone-path" },
-  zone_wilderness: { 0: "autumn-grass", 1: "stone-path", 2: "water", 3: "autumn-grass", 4: "stone-path" },
+  zone_wilderness: { 0: "grass2", 1: "stone-path", 2: "water", 3: "grass2", 4: "stone-path" },
   zone_grotto: { 0: "grass2", 1: "cave-floor", 2: "water2", 3: "cave-floor", 4: "cave-floor" },
 };
 
