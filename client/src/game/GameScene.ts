@@ -164,10 +164,6 @@ interface RenderedLandPlot {
   /** "x,y" keys of the 3×3 footprint tiles, so a built structure can hide the
    *  skinned grass under it (which would draw over the building's front edge). */
   footprintKeys: string[];
-  /** "x,y" keys of the extra front-row tiles the building sprite's foundation
-   *  overhangs past the footprint (computed once the art's display size is
-   *  known). Hidden while owned; restored on sale. */
-  overhangKeys: string[];
 }
 
 interface RenderedNpc {
@@ -2612,16 +2608,6 @@ export class GameScene extends Phaser.Scene {
           if (!soilBase?.active) return;
           // ×2 so one soil tile spans the plot's 2×2 footprint.
           soilBase.setTexture(key).setScale(zoneAssetScale(this, "soil") * 2).setVisible(true);
-          // Hide the front-row grass the soil block's wall overhangs past the
-          // 2×2 footprint (the footprint tiles themselves are skipped in
-          // renderGround). Persistent — built-in plots always show soil.
-          const anchorY = getZoneAsset("soil")?.anchorY ?? 0.387;
-          const foot: string[] = [];
-          for (let dy = 0; dy < 2; dy++) for (let dx = 0; dx < 2; dx++) foot.push(`${plot.tileX + dx},${plot.tileY + dy}`);
-          for (const k of this.frontOverhangKeys(foot, soilBase.y, soilBase.displayHeight * (1 - anchorY))) {
-            this.hiddenGroundKeys.add(k);
-            this.skinGroundTiles.get(k)?.setVisible(false);
-          }
         };
         if (this.textures.exists(key)) applySoil();
         else {
@@ -2721,7 +2707,6 @@ export class GameScene extends Phaser.Scene {
         glow: null,
         structureProp: null,
         footprintKeys,
-        overhangKeys: [],
       });
     }
     this.applyHousingState(networkManager.getHousingState());
@@ -2735,36 +2720,6 @@ export class GameScene extends Phaser.Scene {
       plot.glow?.destroy();
     });
     this.renderedLandPlots.clear();
-  }
-
-  /**
-   * "x,y" keys of the skinned ground tiles a structure sprite's front wall
-   * overhangs past its footprint. In a re-skinned base zone the ground draws at
-   * worldY-2, so a grass tile a row or two IN FRONT of a building/soil base
-   * (higher worldY ⇒ higher depth) draws OVER the base's front edge — the
-   * "half-buried" look. From each footprint tile we step diagonally (+1,+1),
-   * which keeps the same screen column (screenX = (x-y)·32), so every tile stays
-   * directly under the structure's front wall. We stop once a tile sits below the
-   * sprite's foundation (worldY beyond `centerY + belowPx`). Hiding these is
-   * gap-free: the wall covers the top of each tile and the next (still-visible)
-   * grass row covers the bottom. `centerY` = the sprite's world Y (its depth
-   * reference); `belowPx` = how far the art extends below it.
-   */
-  private frontOverhangKeys(footprint: string[], centerY: number, belowPx: number): string[] {
-    const limit = centerY + belowPx;
-    const foot = new Set(footprint);
-    const keys = new Set<string>();
-    for (const t of footprint) {
-      const [fx, fy] = t.split(",").map(Number);
-      for (let k = 1; ; k++) {
-        const tx = fx + k;
-        const ty = fy + k;
-        if (tileToWorld(tx, ty).y > limit) break;
-        const key = `${tx},${ty}`;
-        if (!foot.has(key)) keys.add(key);
-      }
-    }
-    return [...keys];
   }
 
   private applyHousingState(payload: HousingStatePayload) {
@@ -2781,15 +2736,6 @@ export class GameScene extends Phaser.Scene {
         if (owned) this.hiddenGroundKeys.add(key);
         else this.hiddenGroundKeys.delete(key);
         this.skinGroundTiles.get(key)?.setVisible(!owned);
-      }
-      // A sold plot also restores any front-overhang tiles the previous
-      // structure had hidden (owned plots recompute them once art applies).
-      if (!owned) {
-        for (const key of plot.overhangKeys) {
-          this.hiddenGroundKeys.delete(key);
-          this.skinGroundTiles.get(key)?.setVisible(true);
-        }
-        plot.overhangKeys = [];
       }
       if (owned) {
         // Owned plots render the hand-drawn PNG house/shop (3×3, footprint-centred
@@ -2808,18 +2754,6 @@ export class GameScene extends Phaser.Scene {
             .setOrigin(0.5, asset.anchorY)
             .setScale(zoneAssetScale(this, prop))
             .setDepth(plot.worldY);
-          // Hide the front-row grass the building wall overhangs (skinned base
-          // zones only; skinGroundTiles is empty elsewhere).
-          for (const k of plot.overhangKeys) this.hiddenGroundKeys.delete(k);
-          plot.overhangKeys = this.frontOverhangKeys(
-            plot.footprintKeys,
-            plot.worldY,
-            plot.sprite.displayHeight * (1 - asset.anchorY),
-          );
-          for (const k of plot.overhangKeys) {
-            this.hiddenGroundKeys.add(k);
-            this.skinGroundTiles.get(k)?.setVisible(false);
-          }
         };
         if (this.textures.exists(key)) applyArt();
         else ensureZoneAssetLoaded(this, prop, applyArt);
