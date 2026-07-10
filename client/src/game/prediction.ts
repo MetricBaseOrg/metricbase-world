@@ -1,6 +1,10 @@
 import { PLAYER_SPEED } from "@metricbase/shared";
 
-const RECONCILE_THRESHOLD = 48;
+/**
+ * Beyond this the server moved us deliberately (portal, teleport, admin
+ * rescue) — snap instantly instead of easing.
+ */
+const SNAP_THRESHOLD = 150;
 
 export interface PredictedPosition {
   x: number;
@@ -26,15 +30,31 @@ export function stepPrediction(
   };
 }
 
+/**
+ * Pull the client prediction toward the authoritative server position without
+ * ever hard-snapping (except teleports). While moving, the server naturally
+ * trails the client by ~latency x speed, so leave a generous deadzone and only
+ * bleed off the excess gradually — the old hard snap at 48px is what knocked
+ * the character backward mid-run and made the following camera shake.
+ */
 export function reconcilePrediction(
   predicted: PredictedPosition,
   authoritative: PredictedPosition,
+  moving: boolean,
 ): PredictedPosition {
-  const drift = Math.hypot(predicted.x - authoritative.x, predicted.y - authoritative.y);
-  if (drift > RECONCILE_THRESHOLD) {
-    return { ...authoritative };
-  }
+  const dx = authoritative.x - predicted.x;
+  const dy = authoritative.y - predicted.y;
+  const drift = Math.hypot(dx, dy);
 
-  // Trust client prediction for small drift — constant blending caused visible jitter.
-  return predicted;
+  if (drift > SNAP_THRESHOLD) return { ...authoritative };
+
+  const deadzone = moving ? 40 : 6;
+  if (drift <= deadzone) return predicted;
+
+  const pull = moving ? 0.12 : 0.25;
+  const correction = ((drift - deadzone) / drift) * pull;
+  return {
+    x: predicted.x + dx * correction,
+    y: predicted.y + dy * correction,
+  };
 }

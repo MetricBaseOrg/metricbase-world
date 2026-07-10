@@ -359,11 +359,19 @@ export class GameScene extends Phaser.Scene {
   private chopKey: Phaser.Input.Keyboard.Key | null = null;
   private fishKey: Phaser.Input.Keyboard.Key | null = null;
   private lastSentInput = { dx: 0, dy: 0 };
+  /** Last wall-clock time movement input was non-zero (for reconcile grace). */
+  private lastMovingAt = 0;
   private currentZoneId: string | null = null;
   private localChoppingUntil = 0;
   private lastFootstepAt = 0;
   private chopHitTimer: Phaser.Time.TimerEvent | null = null;
-  private cameraFollowSprite: Phaser.GameObjects.Sprite | null = null;
+  /**
+   * Invisible camera anchor tracking the predicted position. The camera
+   * follows this instead of the avatar sprite so idle bob, pose swaps and
+   * reconcile corrections never feed into the viewport (the "shaky screen").
+   */
+  private cameraTarget: Phaser.GameObjects.Rectangle | null = null;
+  private cameraFollowing = false;
   private dayNightOverlay: Phaser.GameObjects.Rectangle | null = null;
   private lampKey: Phaser.Input.Keyboard.Key | null = null;
   private localLampGlow: Phaser.GameObjects.Image | null = null;
@@ -386,6 +394,8 @@ export class GameScene extends Phaser.Scene {
     this.cameras.main.setZoom(this.cameraZoom);
     this.cameras.main.roundPixels = true;
     this.cameras.main.useBounds = false;
+
+    this.cameraTarget = this.add.rectangle(0, 0, 2, 2, 0x000000, 0).setVisible(false);
 
     // Camera zoom: mouse wheel (desktop) + two-finger pinch (touch). Pinch is
     // handled in update(); a second pointer must be enabled for it.
@@ -922,6 +932,8 @@ export class GameScene extends Phaser.Scene {
         this.lastSentInput = { dx, dy };
       }
 
+      if (dx !== 0 || dy !== 0) this.lastMovingAt = Date.now();
+
       this.applyLocalPrediction(dx, dy, delta);
 
       if (dx !== 0 || dy !== 0) {
@@ -1306,9 +1318,9 @@ export class GameScene extends Phaser.Scene {
 
   private destroyLocalAvatar() {
     if (!this.localAvatar) return;
-    if (this.cameraFollowSprite === this.localAvatar.sprite) {
+    if (this.cameraFollowing) {
       this.cameras.main.stopFollow();
-      this.cameraFollowSprite = null;
+      this.cameraFollowing = false;
     }
     this.localAvatar.sprite.destroy();
     this.localAvatar.label.destroy();
@@ -1353,21 +1365,23 @@ export class GameScene extends Phaser.Scene {
 
     const local = this.findLocalPlayer();
 
-    if (local) {
-      // Use Phaser's built-in follow — it recenters every render with the
-      // current viewport, so the player stays centered through resizes and
-      // movement. Offset lifts the focus to the torso (origin is at the feet).
-      if (this.cameraFollowSprite !== local.sprite) {
-        this.cameraFollowSprite = local.sprite;
-        cam.startFollow(local.sprite, true, 0.25, 0.25);
+    if (local && this.cameraTarget) {
+      // Follow the invisible camera anchor (kept on the predicted position),
+      // not the avatar sprite — sprite-level bob and pose changes must never
+      // move the viewport. Offset lifts the focus to the torso (origin is at
+      // the feet).
+      if (!this.cameraFollowing) {
+        this.cameraFollowing = true;
+        this.cameraTarget.setPosition(local.predicted.x, local.predicted.y);
+        cam.startFollow(this.cameraTarget, true, 0.18, 0.18);
         cam.setFollowOffset(0, 18);
       }
       return;
     }
 
-    if (this.cameraFollowSprite) {
+    if (this.cameraFollowing) {
       cam.stopFollow();
-      this.cameraFollowSprite = null;
+      this.cameraFollowing = false;
     }
 
     const zoneId = this.currentZoneId ?? networkManager.zoneId;
@@ -1439,10 +1453,18 @@ export class GameScene extends Phaser.Scene {
       existing.appearance = player.appearance;
       existing.label.setText(nameplateText(player));
 
-      const moving = this.lastSentInput.dx !== 0 || this.lastSentInput.dy !== 0;
-      existing.predicted = moving
-        ? reconcilePrediction(existing.predicted, { x: player.x, y: player.y })
-        : { x: player.x, y: player.y };
+      // Keep a grace window after input stops: server patches in flight still
+      // show the position from ~latency ago, and snapping to them is what
+      // knocked the character backward on every stop.
+      const moving =
+        this.lastSentInput.dx !== 0 ||
+        this.lastSentInput.dy !== 0 ||
+        Date.now() - this.lastMovingAt < 400;
+      existing.predicted = reconcilePrediction(
+        existing.predicted,
+        { x: player.x, y: player.y },
+        moving,
+      );
       this.applyPet(existing, player.petId);
       return;
     }
@@ -4518,8 +4540,10 @@ export class GameScene extends Phaser.Scene {
         : stepPrediction(local.predicted, dx, dy, delta, this.localSpeedMult);
     }
 
-    const x = Math.round(local.predicted.x);
-    const y = Math.round(local.predicted.y);
+    // Sub-pixel positions: the camera has roundPixels, so rendering stays
+    // crisp while diagonal movement no longer staircases at high zoom.
+    const x = local.predicted.x;
+    const y = local.predicted.y;
     local.baseY = y;
     local.sprite.setPosition(x, y);
     local.sprite.setDepth(y + this.playerDepthLift());
@@ -4527,6 +4551,7 @@ export class GameScene extends Phaser.Scene {
     local.label.setDepth(y + 1);
     local.shadow.setPosition(x, y + 4);
     local.shadow.setDepth(y - 0.5);
+    this.cameraTarget?.setPosition(x, y);
     this.positionPet(local);
     this.drawMovePath(local.predicted);
   }
@@ -4564,9 +4589,9 @@ export class GameScene extends Phaser.Scene {
   private interpolateRemotePlayers() {
     const alpha = 0.25;
     for (const [, rendered] of this.renderedPlayers) {
-      const x = Math.round(Phaser.Math.Linear(rendered.sprite.x, rendered.targetX, alpha));
+      const x = Phaser.Math.Linear(rendered.sprite.x, rendered.targetX, alpha);
       // Lerp from the bob-free baseY so the idle bob never feeds back into motion.
-      const y = Math.round(Phaser.Math.Linear(rendered.baseY, rendered.targetY, alpha));
+      const y = Phaser.Math.Linear(rendered.baseY, rendered.targetY, alpha);
       rendered.baseY = y;
       rendered.sprite.setPosition(x, y);
       rendered.hpBar.setPosition(x, y - 40);
