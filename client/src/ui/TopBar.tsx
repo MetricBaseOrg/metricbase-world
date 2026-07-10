@@ -39,6 +39,35 @@ export function TopBar({ onLeave }: TopBarProps) {
   const setMenuOpen = useGameStore((s) => s.setSettingsOpen);
   const [soundOn, setSoundOn] = useState(isSoundEnabled);
   const [musicOn, setMusicOn] = useState(isMusicEnabled);
+  const [renaming, setRenaming] = useState(false);
+
+  // Show the outcome of a name change; the network layer reconnects on success.
+  useEffect(() => {
+    return networkManager.onRenameResult((res) => {
+      setRenaming(false);
+      if (res.ok && res.newName) {
+        useGameStore.getState().setPlayerName(res.newName);
+        useGameStore.getState().addNotification("✏️", `Your name is now "${res.newName}".`);
+      } else {
+        window.alert(res.error ?? "Rename failed.");
+      }
+    });
+  }, []);
+
+  const handleRename = () => {
+    const current = useGameStore.getState().playerName;
+    const input = window.prompt("Choose a new name (1–16 letters, numbers, underscore):", current);
+    if (input == null) return;
+    const name = input.trim();
+    if (name === current) return;
+    if (!/^[A-Za-z0-9_]{1,16}$/.test(name)) {
+      window.alert("Use 1–16 letters, numbers, or underscores.");
+      return;
+    }
+    setRenaming(true);
+    playSfx("ui_click");
+    networkManager.sendRename(name);
+  };
   const [minimized, setMinimized] = useState(() => {
     try {
       return localStorage.getItem("mb_hud_min") === "1";
@@ -293,6 +322,19 @@ export function TopBar({ onLeave }: TopBarProps) {
             <div style={{ marginBottom: 8 }}>
               <WalletConnectBar compact hint="Connect wallet to trade on the gold market." />
             </div>
+          )}
+
+          {walletAddress && (
+            <button
+              type="button"
+              className="chibi-btn chibi-btn--ghost"
+              style={{ width: "100%", marginBottom: 8, padding: "6px 10px", fontSize: "0.78rem" }}
+              disabled={renaming}
+              title="Change your display name (progress and items are kept)"
+              onClick={handleRename}
+            >
+              {renaming ? "⏳ Renaming…" : "✏️ Change Name"}
+            </button>
           )}
 
           <div className="chibi-topbar__menu-toggles">

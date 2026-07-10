@@ -328,6 +328,7 @@ export class NetworkManager {
   private shopResultListeners = new Set<ShopResultListener>();
   private marketResultListeners = new Set<MarketResultListener>();
   private walletLinkedListeners = new Set<WalletLinkedListener>();
+  private renameResultListeners = new Set<(p: { ok: boolean; newName?: string; error?: string }) => void>();
   private respawnResultListeners = new Set<RespawnResultListener>();
   private playerDamageListeners = new Set<PlayerDamageListener>();
   private resourceHealthListeners = new Set<ResourceHealthListener>();
@@ -551,6 +552,13 @@ export class NetworkManager {
   }
   sendBuyZonePass(zoneId: string) {
     this.room?.send("buyZonePass", { zoneId });
+  }
+  sendRename(newName: string) {
+    this.room?.send("renameCharacter", { newName });
+  }
+  onRenameResult(listener: (p: { ok: boolean; newName?: string; error?: string }) => void): () => void {
+    this.renameResultListeners.add(listener);
+    return () => this.renameResultListeners.delete(listener);
   }
   requestWorldsList() {
     this.room?.send("worldsList", {});
@@ -1856,6 +1864,19 @@ export class NetworkManager {
     this.room.onMessage("walletLinked", (payload: { ok: boolean; wallet?: string; error?: string }) => {
       for (const listener of this.walletLinkedListeners) {
         listener(payload);
+      }
+    });
+    this.room.onMessage("renameResult", (payload: { ok: boolean; newName?: string; error?: string }) => {
+      for (const listener of this.renameResultListeners) listener(payload);
+      // On success the server has renamed the character (and cascaded every
+      // reference). Reconnect under the new name so the session rebuilds — the
+      // server's wallet-keyed single-session enforcement supersedes this one.
+      if (payload.ok && payload.newName) {
+        const newName = payload.newName;
+        void (async () => {
+          await this.disconnect();
+          await this.connect(newName, this.accessToken, this.appearance);
+        })();
       }
     });
     this.room.onMessage("respawnResult", (payload: RespawnResultPayload) => {
