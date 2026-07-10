@@ -225,20 +225,17 @@ const GRASS_TINTS = [0xffffff, 0xf6f8e8, 0xeef3da, 0xfff3dc, 0xf2f3e0];
 const GROUND_DETAILS = ["detail_flowers", "detail_mushroom", "detail_pebbles", "detail_tuft", "detail_leaf"];
 
 /**
- * Re-skin base zones with hand-drawn flat ground art (per-zone theme) instead of
- * the procedural iso-cube tileset. Keys are the GroundLayer indices
- * (0 grass · 1 stone · 2 water · 3 wall · 4 portal); values are ground-tile asset
- * ids from zoneAssets. Walls render as the zone floor (collision still blocks
- * them, as in player Worlds). Zones absent here keep the iso-cube tileset.
+ * Per-zone flat-tile re-skin of base zones, keyed by GroundLayer index
+ * (0 grass · 1 stone · 2 water · 3 wall · 4 portal) → ground-tile asset id.
+ *
+ * DISABLED (empty): resource/prop art (trees, rocks, buildings) carries a TALL
+ * 3-D iso-cube grass/dirt base that only sits flush on the equally-tall iso-cube
+ * ground tileset — on thin FLAT tiles those bases stick up as raised pedestals.
+ * A proper flat re-skin needs the node/prop art redrawn with flat bases (or new
+ * iso-cube tile art per assets.md). Until then base zones keep the procedural
+ * iso-cube tileset so nodes stay flush. Add a zone entry here to re-enable.
  */
-const ZONE_TILE_SKIN: Record<string, Record<number, string>> = {
-  // NOTE: resource-node art (trees/rocks) has a baked-in GREEN grass tile base,
-  // so grass terrain must stay green for nodes to sit flush (as in player Worlds).
-  // Themed variety therefore comes from the stone + water tiles, not the grass.
-  zone_hub: { 0: "grass", 1: "stone-path", 2: "water", 3: "grass", 4: "stone-path" },
-  zone_wilderness: { 0: "grass2", 1: "stone-path", 2: "water", 3: "grass2", 4: "stone-path" },
-  zone_grotto: { 0: "grass2", 1: "cave-floor", 2: "water2", 3: "cave-floor", 4: "cave-floor" },
-};
+const ZONE_TILE_SKIN: Record<string, Record<number, string>> = {};
 
 export class GameScene extends Phaser.Scene {
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
