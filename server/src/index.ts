@@ -1,4 +1,4 @@
-// Deploy marker: 0.106.7 — Phase 2a: data-bearing session maps re-keyed by wallet (pidOf/pidForName).
+// Deploy marker: 0.106.8 — rename cascade + wallet-keyed single-session (Phase 3/4 server).
 import { Server } from "@colyseus/core";
 import { WebSocketTransport } from "@colyseus/ws-transport";
 import {

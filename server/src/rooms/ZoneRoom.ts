@@ -233,6 +233,7 @@ import {
   CharacterBindingError,
   loadCharacterByName,
   loadCharacterByWallet,
+  renameCharacter,
   resolveCharacterForJoin,
   saveCharacter,
 } from "../db/characters.js";
@@ -525,6 +526,10 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
    *  Used to prevent a stale onLeave from wiping in-memory state belonging to a
    *  new session. */
   private activePlayerSession = new Map<string, string>();
+  /** Tracks which session ID is "active" for each WALLET (pid). This is the
+   *  single-session guard for the wallet-keyed data maps — keyed on the immutable
+   *  wallet so a rename's reconnect supersedes the old session cleanly. */
+  private activeWalletSession = new Map<string, string>();
   /** name -> pid (wallet) for players currently in this room, so features that
    *  address an ONLINE player by display name can resolve their stable id. */
   private nameToPid = new Map<string, string>();
@@ -672,6 +677,9 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     });
     this.onProtectedMessage("zoneBuildSave", (client, message: { zoneId?: string; build?: unknown }) => {
       void this.handleZoneBuildSave(client, message.zoneId ?? "", message.build);
+    });
+    this.onProtectedMessage("renameCharacter", (client, message: { newName?: string }) => {
+      void this.handleRenameCharacter(client, String(message.newName ?? ""));
     });
     this.onProtectedMessage(
       "zoneMetaSet",
@@ -1314,20 +1322,23 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     this.playerBagLevel.set(this.pidOf(player), saved?.bagLevel ?? 0);
 
     this.state.players.set(client.sessionId, player);
-    // SINGLE-SESSION ENFORCEMENT: all in-memory player state (inventory, gold,
-    // skills, …) is keyed by character NAME, so two live sessions for the same
-    // name share those maps — and whichever leaves first deletes them, wiping
-    // the survivor's items. Before this session takes over, disconnect any prior
-    // live session for this name. It's marked `transferring` so its onLeave skips
-    // the persist (this session just loaded fresh state and now owns the maps),
-    // and because activePlayerSession points here it also skips the map deletion
-    // and (client-scoped) presence clear. Genuine reconnects reuse the same
+    const pid = this.pidOf(player);
+    // SINGLE-SESSION ENFORCEMENT: the data-bearing in-memory maps are keyed by
+    // WALLET (pid), so two live sessions for the same wallet share them — and
+    // whichever leaves first deletes them, wiping the survivor's items. Keying
+    // this on the WALLET (not the display name) also makes a RENAME safe: the
+    // reconnect under the new name is the same wallet, so it supersedes the old
+    // session instead of coexisting with it. Disconnect any prior live session
+    // for this wallet; it's marked `transferring` so its onLeave skips the
+    // persist, and since activeWalletSession now points here its onLeave also
+    // skips the wallet-keyed map deletion. Genuine reconnects reuse the same
     // sessionId, so they never trip this.
-    const priorSessionId = this.activePlayerSession.get(player.name);
+    const priorSessionId = this.activeWalletSession.get(pid);
+    this.activeWalletSession.set(pid, client.sessionId);
+    // Display-name -> session/pid for features that address an ONLINE player by
+    // name (mail/duel/party/messaging).
     this.activePlayerSession.set(player.name, client.sessionId);
-    // Map this online player's display name -> stable pid (wallet) so features
-    // that address them by name resolve to the wallet-keyed in-memory state.
-    this.nameToPid.set(player.name, this.pidOf(player));
+    this.nameToPid.set(player.name, pid);
     if (priorSessionId && priorSessionId !== client.sessionId) {
       this.transferring.add(priorSessionId);
       const priorClient = this.clients.find((entry) => entry.sessionId === priorSessionId);
@@ -1431,38 +1442,47 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     }
 
     if (player) {
-      // Only tear down per-player in-memory state if this session is still
-      // the active one for the player name.  A rapid reconnect (e.g. avatar
-      // change) can cause a new session's onJoin to run before the old
-      // session's onLeave finishes – without this guard the stale onLeave
-      // would delete the new session's gold, inventory, quest progress, etc.
-      const isActive = this.activePlayerSession.get(player.name) === client.sessionId;
-      if (isActive) {
+      // Only tear down per-player in-memory state if this session is still the
+      // active one — a rapid reconnect (avatar change, RENAME) can run a new
+      // session's onJoin before the old session's onLeave finishes; without this
+      // guard the stale onLeave would delete the new session's state. The
+      // WALLET-keyed data maps use the wallet guard (so a rename's new-name
+      // session, same wallet, is protected); the name-keyed transient maps use
+      // the name guard.
+      const pid = this.pidOf(player);
+      const isActiveWallet = this.activeWalletSession.get(pid) === client.sessionId;
+      const isActiveName = this.activePlayerSession.get(player.name) === client.sessionId;
+      if (isActiveWallet) {
+        this.activeWalletSession.delete(pid);
+      }
+      if (isActiveName) {
         this.activePlayerSession.delete(player.name);
         this.nameToPid.delete(player.name);
       }
       clearOnline(player.name, client);
-      if (isActive) {
-        this.questProgress.delete(this.pidOf(player));
-        this.inventories.delete(this.pidOf(player));
-        this.playerGold.delete(this.pidOf(player));
-        this.playerHp.delete(this.pidOf(player));
-        this.playerEquipment.delete(this.pidOf(player));
-        this.npcInteractAt.delete(this.pidOf(player));
-        this.mobGoldClaimed.delete(this.pidOf(player));
+      if (isActiveWallet) {
+        this.questProgress.delete(pid);
+        this.inventories.delete(pid);
+        this.playerGold.delete(pid);
+        this.playerHp.delete(pid);
+        this.playerEquipment.delete(pid);
+        this.npcInteractAt.delete(pid);
+        this.mobGoldClaimed.delete(pid);
+        this.playerStamina.delete(pid);
+        this.playerSkills.delete(pid);
+        this.playerPvpRating.delete(pid);
+        this.playerPvpKills.delete(pid);
+        this.playerPvpSeason.delete(pid);
+      }
+      if (isActiveName) {
         this.playerKnockedOutUntil.delete(player.name);
         this.playerLastCombatAt.delete(player.name);
         this.playerLastRegenAt.delete(player.name);
-        this.playerStamina.delete(this.pidOf(player));
         this.playerLastStaminaRegenAt.delete(player.name);
         this.playerLastHungerNoticeAt.delete(player.name);
         this.playerLastDarkNoticeAt.delete(player.name);
         this.playerLastRestAt.delete(player.name);
         this.craftingUntil.delete(player.name);
-        this.playerSkills.delete(this.pidOf(player));
-        this.playerPvpRating.delete(this.pidOf(player));
-        this.playerPvpKills.delete(this.pidOf(player));
-        this.playerPvpSeason.delete(this.pidOf(player));
       }
       // Leaving (or changing zone) mid-duel forfeits — the opponent wins.
       const duelOpponent = this.activeDuels.get(player.name);
@@ -3248,6 +3268,28 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   }
 
   /** Owner saves an edited build for one of their zones. */
+  /** Change a player's display name. Identity stays the immutable wallet, so this
+   *  persists the current session first (nothing in-flight is lost), cascades the
+   *  rename across every name reference in the DB, then tells the client — which
+   *  reconnects under the new name. Wallet-keyed single-session enforcement means
+   *  the reconnect cleanly supersedes this session (no shared-state wipe). */
+  private async handleRenameCharacter(client: Client, rawNewName: string) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const wallet = this.playerWallets.get(client.sessionId);
+    if (!wallet) {
+      return void client.send("renameResult", { ok: false, error: "Connect your wallet to change your name." });
+    }
+    // Save current in-memory state (gold/inventory/skills gained this session)
+    // under the wallet BEFORE renaming, so the reconnect reloads it intact.
+    await this.persistPlayer(player);
+    const result = await renameCharacter(wallet, rawNewName);
+    if (!result.ok) {
+      return void client.send("renameResult", { ok: false, error: result.error });
+    }
+    client.send("renameResult", { ok: true, newName: result.newName });
+  }
+
   private async handleZoneBuildSave(client: Client, zoneId: string, rawBuild: unknown) {
     const player = this.state.players.get(client.sessionId);
     if (!player) return;

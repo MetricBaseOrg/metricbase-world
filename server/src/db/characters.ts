@@ -236,6 +236,78 @@ export async function saveCharacter(record: CharacterRecord): Promise<void> {
   }
 }
 
+export type RenameResult =
+  | { ok: true; oldName: string; newName: string }
+  | { ok: false; error: string };
+
+/**
+ * Rename a character (display name only — identity stays the immutable wallet).
+ * Because a dozen tables reference players by the mutable name, this cascades
+ * every reference to the new name in ONE transaction, so nothing is orphaned:
+ * mail, jobs, guild leader + member/officer/request rosters, zone passes, world/
+ * land ownership, farm plots, asset inventory/listings, pending gold, daily
+ * state and market display. References are matched by the OLD name (unique,
+ * case-insensitive) so both pre- and post-backfill rows are caught; the wallet
+ * columns remain as the durable anchor. Callers MUST force the player to
+ * reconnect afterwards so in-memory (name-keyed transient) state rebuilds.
+ */
+export async function renameCharacter(wallet: string, rawNewName: string): Promise<RenameResult> {
+  const db = getPool();
+  if (!db) return { ok: false, error: "Database unavailable." };
+  const newName = rawNewName.trim();
+  if (newName.length < 1 || newName.length > 16) return { ok: false, error: "Name must be 1–16 characters." };
+  if (!/^[A-Za-z0-9_]+$/.test(newName)) return { ok: false, error: "Use only letters, numbers and underscores." };
+
+  const current = await loadCharacterByWallet(wallet);
+  if (!current) return { ok: false, error: "Character not found for this wallet." };
+  const oldName = current.name;
+  if (oldName === newName) return { ok: false, error: "That's already your name." };
+  const clash = await findExistingNameCI(newName);
+  if (clash && clash.toLowerCase() !== oldName.toLowerCase()) {
+    return { ok: false, error: `That name is taken (as "${clash}").` };
+  }
+
+  const client = await db.connect();
+  try {
+    await client.query("BEGIN");
+    // Identity row keyed by the immutable wallet.
+    await client.query("UPDATE characters SET name = $1, updated_at = NOW() WHERE wallet_address = $2", [newName, wallet]);
+    // Plain name-reference columns (match by the unique old name, case-insensitive).
+    const nameCols: Array<[string, string]> = [
+      ["mail", "recipient"], ["mail", "sender"],
+      ["jobs", "employer_name"], ["jobs", "worker_name"],
+      ["zone_passes", "holder_name"], ["player_zones", "owner_name"],
+      ["land_plots", "owner_name"], ["farm_plots", "planter_name"],
+      ["asset_inventory", "player_name"], ["asset_listings", "seller_name"],
+      ["pending_gold", "player_name"], ["daily_state", "player_name"],
+      ["market_orders", "player_name"], ["guilds", "leader_name"],
+    ];
+    for (const [table, col] of nameCols) {
+      await client.query(`UPDATE ${table} SET ${col} = $1 WHERE lower(${col}) = lower($2)`, [newName, oldName]);
+    }
+    // Guild JSON rosters: swap the old name for the new inside members/officers/join_requests.
+    await client.query(
+      `UPDATE guilds SET
+         members       = COALESCE((SELECT jsonb_agg(CASE WHEN e = to_jsonb($2::text) THEN to_jsonb($1::text) ELSE e END) FROM jsonb_array_elements(members) e), '[]'::jsonb),
+         officers      = COALESCE((SELECT jsonb_agg(CASE WHEN e = to_jsonb($2::text) THEN to_jsonb($1::text) ELSE e END) FROM jsonb_array_elements(officers) e), '[]'::jsonb),
+         join_requests = COALESCE((SELECT jsonb_agg(CASE WHEN e = to_jsonb($2::text) THEN to_jsonb($1::text) ELSE e END) FROM jsonb_array_elements(join_requests) e), '[]'::jsonb)
+       WHERE members @> to_jsonb(ARRAY[$2]::text[]) OR officers @> to_jsonb(ARRAY[$2]::text[]) OR join_requests @> to_jsonb(ARRAY[$2]::text[])`,
+      [newName, oldName],
+    );
+    await client.query("COMMIT");
+    return { ok: true, oldName, newName };
+  } catch (error) {
+    await client.query("ROLLBACK");
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error(`[characters] rename ${oldName} -> ${newName} failed:`, msg);
+    // A unique-violation almost always means a stale/orphan row already holds the
+    // target name in a PK table (asset_inventory/pending_gold/daily_state).
+    return { ok: false, error: "Rename failed — that name may conflict with old data. Try another." };
+  } finally {
+    client.release();
+  }
+}
+
 /**
  * Case-insensitive name probe — blocks visually-identical names ("pip" vs
  * "Pip") that would confuse mail, jobs, and pay-by-name flows. Returns the
