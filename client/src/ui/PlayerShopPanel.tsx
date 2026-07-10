@@ -105,7 +105,7 @@ export function PlayerShopPanel() {
 
   return (
     <div
-      className="chibi-panel chibi-panel--floating chibi-panel--modal chibi-anchor chibi-anchor--center"
+      className="chibi-panel chibi-panel--floating chibi-panel--sheet chibi-anchor chibi-anchor--center"
       style={{ pointerEvents: "auto", maxWidth: 380, width: "92vw" }}
     >
       <div className="chibi-close-row">

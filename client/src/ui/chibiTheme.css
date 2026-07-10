@@ -312,16 +312,17 @@ body {
   -webkit-overflow-scrolling: touch;
 }
 
-/* Mobile-friendly modal: the panel never exceeds the screen, its header (with the
-   ✕) stays pinned, and only the body scrolls. Pair with --floating + a max-width. */
-.chibi-panel--modal {
+/* Mobile-friendly sheet: the panel never exceeds the screen, its header (with the
+   ✕) stays pinned, and only the body scrolls. Pair with --floating + a max-width.
+   NOTE: distinct from .chibi-panel--modal (the big centred dialog) — do not merge. */
+.chibi-panel--sheet {
   display: flex;
   flex-direction: column;
   max-height: min(90dvh, calc(100dvh - 16px - var(--chibi-safe-top) - var(--chibi-safe-bottom)));
   padding: 0;
   overflow: hidden;
 }
-.chibi-panel--modal > .chibi-close-row {
+.chibi-panel--sheet > .chibi-close-row {
   flex: 0 0 auto;
   padding: 16px 18px 8px;
 }
