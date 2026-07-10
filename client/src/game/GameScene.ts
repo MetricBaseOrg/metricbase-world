@@ -3068,19 +3068,31 @@ export class GameScene extends Phaser.Scene {
       let resourceProp = resource.prop;
       if (!resourceProp) {
         if (resource.kind === "tree") {
+          // Prefer the loot item, then fall back to the display name — several
+          // built-in trees (e.g. Wilderness "Ironwood") loot plain item_wood, so
+          // the lootItemId checks miss and only the name identifies the species.
+          const lname = resource.name.toLowerCase();
           if (resource.woodcutting?.lootItemId === "item_hardwood") {
             resourceProp = "hardwood";
           } else if (resource.woodcutting?.lootItemId === "item_ironwood") {
             resourceProp = "ironwood";
           } else if (resource.woodcutting?.lootItemId === "item_ancient_hardwood") {
             resourceProp = "ancient-hardwood";
-          } else if (resource.name.toLowerCase().includes("sakura")) {
+          } else if (lname.includes("cavern")) {
+            resourceProp = "cavern-hardwood";
+          } else if (lname.includes("ancient")) {
+            resourceProp = "ancient-hardwood";
+          } else if (lname.includes("ironwood")) {
+            resourceProp = "ironwood";
+          } else if (lname.includes("hardwood")) {
+            resourceProp = "hardwood";
+          } else if (lname.includes("sakura")) {
             resourceProp = "sakura-tree";
-          } else if (resource.name.toLowerCase().includes("pine")) {
-            resourceProp = resource.name.toLowerCase().includes("small") ? "pine-small" : "pine";
-          } else if (resource.name.toLowerCase().includes("oak")) {
-            resourceProp = resource.name.toLowerCase().includes("young") ? "young-oak" : "wild-oak";
-          } else if (resource.name.toLowerCase().includes("sapling")) {
+          } else if (lname.includes("pine")) {
+            resourceProp = lname.includes("small") ? "pine-small" : "pine";
+          } else if (lname.includes("oak")) {
+            resourceProp = lname.includes("young") ? "young-oak" : "wild-oak";
+          } else if (lname.includes("sapling")) {
             resourceProp = "sapling";
           }
         } else if (resource.kind === "rock") {

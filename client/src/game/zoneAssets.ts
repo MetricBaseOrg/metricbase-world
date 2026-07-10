@@ -58,7 +58,7 @@ const ANCHOR: Record<string, number> = {
   ironwood: 0.729, hardwood: 0.729, "ancient-hardwood": 0.73, "cavern-hardwood": 0.73,
   "copper-rock": 0.496, "iron-deposit": 0.523, "iron-vein": 0.501, "gem-studded": 0.497,
   "obsidian-gem": 0.498, "fish-pond": 0.387, "berry-bush": 0.535, "crop-field": 0.496, "crop-wheat": 0.507,
-  "sakura-tree": 0.742, rock: 0.678, "deep-pool": 0.557, "crop-carrot": 0.5,
+  "sakura-tree": 0.742, rock: 0.678, "deep-pool": 0.387, "crop-carrot": 0.5,
   // decor (base surface); barrel has no baked tile so it anchors near its foot
   well: 0.711, lamp: 0.6, torch: 0.693, bench: 0.661, flowerbed: 0.571, fontain: 0.523,
   statue: 0.594, crates: 0.499, signpost: 0.799, hedge: 0.668, "king-crystal": 0.519, barrel: 0.9,
