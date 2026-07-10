@@ -71,7 +71,7 @@ function drawnDirection(direction: AvatarDirection): { dir: string; flip: boolea
  * On-screen size for a hand-drawn frame (square canvases; the character
  * stands ~600px on a 768px frame with feet at 87%). Tune on first art drop.
  */
-export const HD_DISPLAY_SIZE = 72;
+export const HD_DISPLAY_SIZE = 60;
 /** Feet baseline within the frame (matches the 87% art spec). */
 export const HD_ORIGIN_Y = 0.87;
 

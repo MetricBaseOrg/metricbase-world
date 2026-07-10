@@ -1530,6 +1530,13 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  /** Distance above the feet to place the nameplate, so it always clears the
+   *  head of whatever sprite is showing — the HD frames are taller than the
+   *  procedural doll, so a fixed offset would let the art cover the name. */
+  private nameplateOffset(rendered: RenderedPlayer): number {
+    return rendered.sprite.displayHeight * rendered.sprite.originY + 4;
+  }
+
   private createRenderedPlayerEntry(player: RemotePlayer, isLocal: boolean): RenderedPlayer {
     this.ensureContactShadowTexture();
     const shadow = this.add
@@ -4511,7 +4518,7 @@ export class GameScene extends Phaser.Scene {
     local.baseY = y;
     local.sprite.setPosition(x, y);
     local.sprite.setDepth(y + this.playerDepthLift());
-    local.label.setPosition(x, y - 42);
+    local.label.setPosition(x, y - this.nameplateOffset(local));
     local.label.setDepth(y + 1);
     local.shadow.setPosition(x, y + 4);
     local.shadow.setDepth(y - 0.5);
@@ -4560,7 +4567,7 @@ export class GameScene extends Phaser.Scene {
       rendered.hpBar.setPosition(x, y - 40);
       rendered.hpBar.setDepth(y + 1);
       rendered.sprite.setDepth(y + this.playerDepthLift());
-      rendered.label.setPosition(x, y - 42);
+      rendered.label.setPosition(x, y - this.nameplateOffset(rendered));
       rendered.label.setDepth(y + 1);
       rendered.shadow.setPosition(x, y + 4);
       rendered.shadow.setDepth(y - 0.5);
