@@ -1,4 +1,4 @@
-// Deploy marker: 0.106.8 — rename cascade + wallet-keyed single-session (Phase 3/4 server).
+// Deploy marker: 0.106.9 — move center Grotto deep pool to shore edge (was awkward to fish).
 import { Server } from "@colyseus/core";
 import { WebSocketTransport } from "@colyseus/ws-transport";
 import {

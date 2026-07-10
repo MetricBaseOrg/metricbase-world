@@ -803,7 +803,7 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
       {
         id: "grotto_fish_2",
         name: "Deep Grotto Pool",
-        tileX: 17,
+        tileX: 15,
         tileY: 16,
         kind: "fish",
         fishing: {
