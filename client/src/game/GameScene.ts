@@ -227,15 +227,14 @@ const GROUND_DETAILS = ["detail_flowers", "detail_mushroom", "detail_pebbles", "
 /**
  * Per-zone flat-tile re-skin of base zones, keyed by GroundLayer index
  * (0 grass · 1 stone · 2 water · 3 wall · 4 portal) → ground-tile asset id.
- *
- * DISABLED (empty): resource/prop art (trees, rocks, buildings) carries a TALL
- * 3-D iso-cube grass/dirt base that only sits flush on the equally-tall iso-cube
- * ground tileset — on thin FLAT tiles those bases stick up as raised pedestals.
- * A proper flat re-skin needs the node/prop art redrawn with flat bases (or new
- * iso-cube tile art per assets.md). Until then base zones keep the procedural
- * iso-cube tileset so nodes stay flush. Add a zone entry here to re-enable.
+ * Rendered at worldY-2 depth so the ground occludes resource/prop bases in front
+ * (embedded look). Grass stays green so node grass bases blend, as in Worlds.
  */
-const ZONE_TILE_SKIN: Record<string, Record<number, string>> = {};
+const ZONE_TILE_SKIN: Record<string, Record<number, string>> = {
+  zone_hub: { 0: "grass", 1: "stone-path", 2: "water", 3: "grass", 4: "stone-path" },
+  zone_wilderness: { 0: "grass2", 1: "stone-path", 2: "water", 3: "grass2", 4: "stone-path" },
+  zone_grotto: { 0: "grass2", 1: "cave-floor", 2: "water2", 3: "cave-floor", 4: "cave-floor" },
+};
 
 export class GameScene extends Phaser.Scene {
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
@@ -1622,8 +1621,10 @@ export class GameScene extends Phaser.Scene {
     const skin = playerZone ? undefined : ZONE_TILE_SKIN[zoneId];
 
     // Flat re-skin: render this base zone's ground with hand-drawn tile art
-    // (like a player World) instead of the iso-cube tileset. Depth stays on the
-    // x+y scheme the base-zone entities sort against.
+    // (like a player World) instead of the iso-cube tileset. Depth = worldY - 2
+    // (same as placeGroundTile) so ground tiles IN FRONT of a resource/prop
+    // occlude its base — the "embedded in the terrain" look that keeps nodes
+    // sitting flush instead of perched on a raised pedestal.
     if (skin) {
       for (let y = 0; y < MAP_HEIGHT; y++) {
         for (let x = 0; x < MAP_WIDTH; x++) {
@@ -1632,7 +1633,7 @@ export class GameScene extends Phaser.Scene {
           if (!asset) continue;
           const { x: worldX, y: worldY } = tileToWorld(x, y);
           const key = zoneAssetTextureKey(type);
-          const img = this.add.image(worldX, worldY, key).setOrigin(0.5, asset.anchorY).setDepth(x + y);
+          const img = this.add.image(worldX, worldY, key).setOrigin(0.5, asset.anchorY).setDepth(worldY - 2);
           const applyReady = () => {
             if (img.active) img.setTexture(key).setScale(zoneAssetScale(this, type)).setOrigin(0.5, asset.anchorY).setVisible(true);
           };
