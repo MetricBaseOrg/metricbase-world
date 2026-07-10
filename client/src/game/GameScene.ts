@@ -244,6 +244,8 @@ const ZONE_TILE_SKIN: Record<string, Record<number, string>> = {
   zone_hub: { 0: "grass", 1: "stone-path", 2: "water", 3: "grass", 4: "stone-path" },
   zone_wilderness: { 0: "grass2", 1: "stone-path", 2: "water", 3: "grass2", 4: "stone-path" },
   zone_grotto: { 0: "grass2", 1: "cave-floor", 2: "water2", 3: "cave-floor", 4: "cave-floor" },
+  // Obsidian Reach: scorched arena — obsidian floor everywhere, lava pools for the water hazard.
+  zone_black: { 0: "cave-floor", 1: "cave-floor", 2: "lava", 3: "cave-floor", 4: "cave-floor" },
 };
 
 export class GameScene extends Phaser.Scene {
