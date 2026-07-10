@@ -1,4 +1,4 @@
-// Deploy marker: 0.107.0 — move Wilderness south oak off the river; new-art props in base zones.
+// Deploy marker: 0.107.1 — hide skinned grass under base-zone houses/shops/soil (front-edge occlusion fix).
 import { Server } from "@colyseus/core";
 import { WebSocketTransport } from "@colyseus/ws-transport";
 import {

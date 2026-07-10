@@ -161,6 +161,9 @@ interface RenderedLandPlot {
    *  when the plot shows the procedural For-Sale marker. Guards async art loads
    *  against a structure change firing a stale texture swap. */
   structureProp: string | null;
+  /** "x,y" keys of the 3×3 footprint tiles, so a built structure can hide the
+   *  skinned grass under it (which would draw over the building's front edge). */
+  footprintKeys: string[];
 }
 
 interface RenderedNpc {
@@ -255,6 +258,14 @@ export class GameScene extends Phaser.Scene {
   private localAvatar: RenderedPlayer | null = null;
   private localSessionId: string | null = null;
   private mapTiles: Phaser.GameObjects.Image[] = [];
+  /** Skinned base-zone ground tiles indexed by "x,y", so owned land plots can
+   *  hide the grass under their footprint (which would otherwise draw over the
+   *  building's front edge). Only populated for re-skinned base zones. */
+  private skinGroundTiles = new Map<string, Phaser.GameObjects.Image>();
+  /** Ground-tile keys currently hidden under a built structure. Consulted by the
+   *  async tile-load callback so a late texture-ready doesn't re-show a tile the
+   *  housing state has hidden. */
+  private hiddenGroundKeys = new Set<string>();
   /** Animated glints drifting over water tiles. */
   private waterShimmers: { img: Phaser.GameObjects.Image; baseX: number; baseY: number; phase: number; speed: number }[] = [];
   private renderedPortals: Phaser.GameObjects.GameObject[] = [];
@@ -1633,16 +1644,32 @@ export class GameScene extends Phaser.Scene {
     // occlude its base — the "embedded in the terrain" look that keeps nodes
     // sitting flush instead of perched on a raised pedestal.
     if (skin) {
+      const config = resolveZoneConfig(zoneId);
+      // Built-in farm plots draw their own 2×2 soil PNG base, so hide the grass
+      // under their footprint (otherwise the front grass tile occludes the soil
+      // edge, the same way it would a building base).
+      const covered = new Set<string>();
+      for (const f of config.farmPlots ?? []) {
+        for (let dy = 0; dy < 2; dy++) for (let dx = 0; dx < 2; dx++) covered.add(`${f.tileX + dx},${f.tileY + dy}`);
+      }
       for (let y = 0; y < MAP_HEIGHT; y++) {
         for (let x = 0; x < MAP_WIDTH; x++) {
+          if (covered.has(`${x},${y}`)) continue;
           const type = skin[ground[y][x]] ?? skin[0];
           const asset = getZoneAsset(type);
           if (!asset) continue;
           const { x: worldX, y: worldY } = tileToWorld(x, y);
           const key = zoneAssetTextureKey(type);
+          const tileKey = `${x},${y}`;
           const img = this.add.image(worldX, worldY, key).setOrigin(0.5, asset.anchorY).setDepth(worldY - 2);
           const applyReady = () => {
-            if (img.active) img.setTexture(key).setScale(zoneAssetScale(this, type)).setOrigin(0.5, asset.anchorY).setVisible(true);
+            // Don't re-show a tile the housing state has hidden under a building.
+            if (img.active)
+              img
+                .setTexture(key)
+                .setScale(zoneAssetScale(this, type))
+                .setOrigin(0.5, asset.anchorY)
+                .setVisible(!this.hiddenGroundKeys.has(tileKey));
           };
           if (this.textures.exists(key)) applyReady();
           else {
@@ -1650,6 +1677,7 @@ export class GameScene extends Phaser.Scene {
             ensureZoneAssetLoaded(this, type, applyReady);
           }
           this.mapTiles.push(img);
+          this.skinGroundTiles.set(tileKey, img);
         }
       }
     }
@@ -2662,6 +2690,8 @@ export class GameScene extends Phaser.Scene {
         [plot.tileX + 1, plot.tileY + 1],
       ];
       const slotPositions = corners.map(([tx, ty]) => tileToWorld(tx, ty));
+      const footprintKeys: string[] = [];
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) footprintKeys.push(`${plot.tileX + dx},${plot.tileY + dy}`);
       this.renderedLandPlots.set(plot.id, {
         id: plot.id,
         sprite,
@@ -2674,6 +2704,7 @@ export class GameScene extends Phaser.Scene {
         lightOn: false,
         glow: null,
         structureProp: null,
+        footprintKeys,
       });
     }
     this.applyHousingState(networkManager.getHousingState());
@@ -2695,6 +2726,15 @@ export class GameScene extends Phaser.Scene {
       if (!plot) continue;
       const owned = state.structure !== "none";
       plot.lightOn = owned && Boolean(state.lightOn);
+      // Hide the skinned grass under a built structure's 3×3 footprint so the
+      // front-row ground tiles don't draw over the building's base (they render
+      // at worldY-2, ahead of the building's centre depth). For-sale plots keep
+      // their grass. No-op in non-skinned zones (map is empty there).
+      for (const key of plot.footprintKeys) {
+        if (owned) this.hiddenGroundKeys.add(key);
+        else this.hiddenGroundKeys.delete(key);
+        this.skinGroundTiles.get(key)?.setVisible(!owned);
+      }
       if (owned) {
         // Owned plots render the hand-drawn PNG house/shop (3×3, footprint-centred
         // on the plot's centre tile) so player structures match the new art in the
@@ -2799,6 +2839,8 @@ export class GameScene extends Phaser.Scene {
   private clearMap() {
     this.mapTiles.forEach((tile) => tile.destroy());
     this.mapTiles = [];
+    this.skinGroundTiles.clear();
+    this.hiddenGroundKeys.clear();
     this.waterShimmers.forEach((s) => s.img.destroy());
     this.waterShimmers = [];
   }
