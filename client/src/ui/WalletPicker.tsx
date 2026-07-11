@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import type { WalletConnector } from "../wallet/discovery";
 
 interface WalletPickerProps {
@@ -7,6 +8,14 @@ interface WalletPickerProps {
 }
 
 export function WalletPicker({ wallets, onSelect, onClose }: WalletPickerProps) {
+  // Touch screens can dispatch two clicks per tap; a second onSelect fires a
+  // second wallet permission request ("already pending" errors). Latch once.
+  const picked = useRef(false);
+  const pickOnce = (wallet: WalletConnector) => {
+    if (picked.current) return;
+    picked.current = true;
+    onSelect(wallet);
+  };
   return (
     <div
       className="chibi-overlay"
@@ -31,7 +40,7 @@ export function WalletPicker({ wallets, onSelect, onClose }: WalletPickerProps) 
               key={wallet.id}
               type="button"
               className="chibi-btn chibi-btn--secondary"
-              onClick={() => onSelect(wallet)}
+              onClick={() => pickOnce(wallet)}
               style={{
                 display: "flex",
                 alignItems: "center",

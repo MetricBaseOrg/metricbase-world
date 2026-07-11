@@ -50,16 +50,43 @@ export function resolveWalletConnector(preferredId?: string | null): WalletConne
   return pickWalletConnector(preferredId);
 }
 
+// One connection attempt at a time. On touch devices a single tap can dispatch
+// two click events before React disables the button, and firing connect()
+// twice makes wallets reject with "Request ... already pending" (MetaMask) or
+// stack prompts (Phantom). A second call simply joins the in-flight attempt.
+let inflightConnect: Promise<AuthVerifyResponse> | null = null;
+
 export async function connectAndVerifyWallet(
   wallet: WalletConnector,
 ): Promise<AuthVerifyResponse> {
+  if (inflightConnect) return inflightConnect;
+  inflightConnect = doConnectAndVerify(wallet).finally(() => {
+    inflightConnect = null;
+  });
+  return inflightConnect;
+}
+
+async function doConnectAndVerify(wallet: WalletConnector): Promise<AuthVerifyResponse> {
   setSelectedWalletId(wallet.id);
 
-  const walletAddress = await withTimeout(
-    wallet.connect(),
-    WALLET_CONNECT_TIMEOUT_MS,
-    "Wallet connection timed out. Open your wallet extension and approve the connection.",
-  );
+  let walletAddress: string;
+  try {
+    walletAddress = await withTimeout(
+      wallet.connect(),
+      WALLET_CONNECT_TIMEOUT_MS,
+      "Wallet connection timed out. Open your wallet extension and approve the connection.",
+    );
+  } catch (connectError) {
+    // A request stuck inside the wallet app (e.g. from an earlier tap or
+    // another tab) rejects every retry until the player deals with it there.
+    const msg = connectError instanceof Error ? connectError.message : String(connectError);
+    if (/already pending|already processing/i.test(msg)) {
+      throw new Error(
+        "Your wallet already has a connection request waiting. Open the wallet app, approve or dismiss it, then try again.",
+      );
+    }
+    throw connectError;
+  }
 
   const challengeResponse = await fetchWithTimeout(
     `${getHttpServerUrl()}/api/auth/challenge?wallet=${encodeURIComponent(walletAddress)}`,
