@@ -5033,6 +5033,18 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   ): Promise<number> {
     const current = this.inventories.get(this.pidForName(playerName)) ?? [];
     const { inventory, added } = addItemToInventory(current, itemId, quantity, this.bagCapOf(playerName));
+    // Never let loot vanish silently — a full bag used to eat the item while
+    // the XP still flowed, which read as "gathered but got nothing".
+    if (added < quantity) {
+      const lost = quantity - Math.max(0, added);
+      client.send(
+        "chat",
+        this.systemChat(
+          "Loot",
+          `🎒 Bag full — ${lost}× ${getItemDefinition(itemId).name} left behind! Free up space or expand your bag.`,
+        ),
+      );
+    }
     if (added <= 0) return 0;
 
     this.inventories.set(this.pidForName(playerName), inventory);
@@ -5234,6 +5246,12 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       if (result.added > 0) {
         gained.push(`${result.added}x ${ITEMS[part.itemId]?.name ?? part.itemId}`);
         recordProduced(part.itemId, result.added);
+      }
+      if (result.added < part.quantity) {
+        client.send(
+          "chat",
+          this.systemChat("Crafting", `🎒 Bag full — ${part.quantity - result.added}× ${ITEMS[part.itemId]?.name ?? part.itemId} was lost.`),
+        );
       }
     }
     this.inventories.set(this.pidOf(player), inventory);

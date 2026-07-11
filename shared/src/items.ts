@@ -19,6 +19,8 @@ export interface InventoryEntry {
 export interface InventoryStatePayload {
   items: InventoryEntry[];
   capacity: number;
+  /** Slots consumed — oversize stacks spill into extra slots (≥ items.length). */
+  used?: number;
   equippedWeaponId?: string | null;
 }
 
@@ -835,11 +837,11 @@ export function normalizeInventory(raw: InventoryEntry[] | null | undefined): In
 
   const items: InventoryEntry[] = [];
   for (const [itemId, quantity] of merged) {
-    const definition = ITEMS[itemId];
-    items.push({
-      itemId,
-      quantity: definition.stackable ? Math.min(quantity, definition.maxStack) : 1,
-    });
+    // Keep the full quantity: oversize stacks spill into extra bag slots (see
+    // slotsForEntry) and capacity is enforced when ADDING. Clamping here used
+    // to destroy items — a maxed stack ate all further loot, and a second copy
+    // of non-stackable gear vanished on the next load.
+    items.push({ itemId, quantity });
   }
 
   // Trim only at the absolute maximum: players with expanded bags keep their
@@ -877,6 +879,18 @@ export function removeItemFromInventory(
   return { inventory: next, removed };
 }
 
+/** Bag slots an entry occupies — quantity past maxStack spills into extra slots. */
+export function slotsForEntry(entry: InventoryEntry): number {
+  const def = ITEMS[entry.itemId];
+  const maxStack = Math.max(1, def?.stackable ? def.maxStack : 1);
+  return Math.max(1, Math.ceil(entry.quantity / maxStack));
+}
+
+/** Total bag slots an inventory consumes (each item keeps one merged entry). */
+export function usedSlots(inventory: InventoryEntry[]): number {
+  return inventory.reduce((sum, entry) => sum + slotsForEntry(entry), 0);
+}
+
 export function addItemToInventory(
   inventory: InventoryEntry[],
   itemId: string,
@@ -889,21 +903,24 @@ export function addItemToInventory(
   }
 
   const next = normalizeInventory(inventory);
+  const cap = Math.max(INVENTORY_CAPACITY, Math.min(MAX_INVENTORY_CAPACITY, capacity));
   const existing = next.find((entry) => entry.itemId === itemId);
+  const maxStack = Math.max(1, definition.stackable ? definition.maxStack : 1);
 
-  if (existing) {
-    const remaining = definition.maxStack - existing.quantity;
-    const added = Math.min(quantity, remaining);
-    existing.quantity += added;
-    return { inventory: next, added };
-  }
+  // A full stack overflows into free slots (each maxStack-sized chunk costs
+  // one slot) instead of silently refusing the loot — a maxed gemstone stack
+  // used to eat every further gem while the XP still flowed.
+  const otherSlots = next.reduce(
+    (sum, entry) => (entry === existing ? sum : sum + slotsForEntry(entry)),
+    0,
+  );
+  const roomForItem = Math.max(0, cap - otherSlots) * maxStack;
+  const current = existing?.quantity ?? 0;
+  const added = Math.max(0, Math.min(quantity, roomForItem - current));
+  if (added <= 0) return { inventory: next, added: 0 };
 
-  if (next.length >= Math.max(INVENTORY_CAPACITY, Math.min(MAX_INVENTORY_CAPACITY, capacity))) {
-    return { inventory: next, added: 0 };
-  }
-
-  const added = definition.stackable ? Math.min(quantity, definition.maxStack) : 1;
-  next.push({ itemId, quantity: added });
+  if (existing) existing.quantity += added;
+  else next.push({ itemId, quantity: added });
   return { inventory: next, added };
 }
 
@@ -912,9 +929,11 @@ export function buildInventoryPayload(
   equippedWeaponId: string | null = null,
   capacity = INVENTORY_CAPACITY,
 ): InventoryStatePayload {
+  const items = normalizeInventory(inventory);
   return {
-    items: normalizeInventory(inventory),
+    items,
     capacity: Math.max(INVENTORY_CAPACITY, Math.min(MAX_INVENTORY_CAPACITY, capacity)),
+    used: usedSlots(items),
     equippedWeaponId,
   };
 }

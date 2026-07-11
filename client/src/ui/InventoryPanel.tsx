@@ -582,17 +582,18 @@ export function InventoryPanel() {
                 ))}
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                {/* Oversize stacks spill into extra slots, so trust the server's count. */}
                 <span
                   className="chibi-capbar"
-                  title={`${inventory.items.length}/${inventory.capacity} slots used`}
+                  title={`${inventory.used ?? inventory.items.length}/${inventory.capacity} slots used`}
                 >
                   <span
-                    className={`chibi-capbar__fill${inventory.items.length >= inventory.capacity ? " full" : ""}`}
-                    style={{ display: "block", width: `${Math.min(100, Math.round((inventory.items.length / Math.max(1, inventory.capacity)) * 100))}%` }}
+                    className={`chibi-capbar__fill${(inventory.used ?? inventory.items.length) >= inventory.capacity ? " full" : ""}`}
+                    style={{ display: "block", width: `${Math.min(100, Math.round(((inventory.used ?? inventory.items.length) / Math.max(1, inventory.capacity)) * 100))}%` }}
                   />
                 </span>
                 <span className="chibi-text-muted" style={{ fontSize: "0.72rem" }}>
-                  {inventory.items.length}/{inventory.capacity}
+                  {inventory.used ?? inventory.items.length}/{inventory.capacity}
                 </span>
                 {(() => {
                   const step = BAG_EXPANSIONS.find((s) => s.slots > inventory.capacity);
