@@ -77,6 +77,8 @@ export const ITEM_ICONS: Record<string, string> = {
   item_wheat_seed: "🌱",
   item_carrot: "🥕",
   item_carrot_seed: "🌱",
+  item_carrot_soup: "🥣",
+  item_carrot_bread: "🥖",
   item_berries: "🫐",
   item_slime_gel: "🫧",
   item_slime_core: "💠",
@@ -256,6 +258,22 @@ export const ITEMS: Record<string, ItemDefinition> = {
     stackable: true,
     maxStack: 99,
     kind: "material",
+  },
+  item_carrot_soup: {
+    id: "item_carrot_soup",
+    name: "Carrot Soup",
+    description: "A warming bowl of carrots simmered with river fish (+45 HP, +40 energy).",
+    stackable: true,
+    maxStack: 20,
+    kind: "consumable",
+  },
+  item_carrot_bread: {
+    id: "item_carrot_bread",
+    name: "Carrot Bread",
+    description: "A sweet wheat-and-carrot loaf, still warm (+50 HP, +45 energy).",
+    stackable: true,
+    maxStack: 20,
+    kind: "consumable",
   },
   item_bread: {
     id: "item_bread",
@@ -769,6 +787,8 @@ export const CONSUMABLE_HEAL: Record<string, number> = {
   item_health_potion: 25,
   item_cooked_fish: 40,
   item_bread: 30,
+  item_carrot_soup: 45,
+  item_carrot_bread: 50,
   item_grilled_salmon: 60,
 };
 

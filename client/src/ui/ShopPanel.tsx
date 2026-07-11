@@ -1,4 +1,5 @@
 import {
+  ITEM_ICONS,
   buildShopOpenPayload,
   getCurrency,
   getShopDefinition,
@@ -400,7 +401,7 @@ export function ShopPanel() {
               {shop.buyOffers.map((offer) => (
                 <div key={offer.itemId} className="chibi-card" style={orderRowStyle()}>
                   <div>
-                    <div style={{ fontWeight: 800, fontSize: "0.85rem" }}>{offer.name}</div>
+                    <div style={{ fontWeight: 800, fontSize: "0.85rem" }}>{ITEM_ICONS[offer.itemId] ?? "📦"} {offer.name}</div>
                     <div style={{ fontSize: "0.8rem", color: "var(--chibi-gold-deep)", marginTop: 4 }}>{offer.price} gold</div>
                   </div>
                   <button type="button" className="chibi-btn chibi-btn--primary" disabled={pending || playerGold < offer.price} onClick={() => void handleBuy(offer.itemId, offer.price)} style={{ padding: "8px 12px", fontSize: "0.78rem" }}>Buy</button>
@@ -416,7 +417,7 @@ export function ShopPanel() {
               <div style={{ display: "grid", gap: 8 }}>
                 {shop.sellOffers.map((offer) => (
                   <div key={offer.itemId} className="chibi-card" style={orderRowStyle()}>
-                    <div><div style={{ fontWeight: 800, fontSize: "0.85rem" }}>{offer.name} x{offer.owned}</div><div className="chibi-text-muted" style={{ marginTop: 4 }}>{offer.price} gold each</div></div>
+                    <div><div style={{ fontWeight: 800, fontSize: "0.85rem" }}>{ITEM_ICONS[offer.itemId] ?? "📦"} {offer.name} x{offer.owned}</div><div className="chibi-text-muted" style={{ marginTop: 4 }}>{offer.price} gold each</div></div>
                     <button type="button" className="chibi-btn chibi-btn--secondary" disabled={pending} onClick={() => void handleSell(offer.itemId)} style={{ padding: "8px 12px", fontSize: "0.78rem" }}>Sell 1</button>
                   </div>
                 ))}

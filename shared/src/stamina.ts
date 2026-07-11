@@ -22,6 +22,8 @@ export const STAMINA_REGEN_INTERVAL_MS = 12_000;
 export const CONSUMABLE_STAMINA: Record<string, number> = {
   item_bread: 25,
   item_cooked_fish: 35,
+  item_carrot_soup: 40,
+  item_carrot_bread: 45,
   item_grilled_salmon: 55,
   // A health potion is medicine, not a meal — it heals HP but not hunger.
   item_health_potion: 0,

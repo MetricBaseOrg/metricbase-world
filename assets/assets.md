@@ -24,10 +24,10 @@ file into the folder named in its section header.
 ## 👉 START HERE
 
 The original list is **done**: all tiles, buildings, nodes, **Mobs (6)**, **NPCs (5)**, and most
-of both character sets shipped. **What's still missing, by impact (110 files):**
+of both character sets shipped. **What's still missing, by impact (112 files):**
 
 1. ~~`girl-front-walk-0..3`~~ ✅ v0.110.1 · ~~back-chop ×2~~ ✅ v0.111.0
-2. **Item icons (53)** — biggest UI surface (inventory/shop/market all show placeholder art).
+2. **Item icons (55)** — biggest UI surface (inventory/shop/market all show placeholder art).
 3. **Character gaps (38)** — portraits ×2, girl attack (16), boy+girl fish (16), boy
    back-attack (4) — exact file list in the character section.
 4. **Interiors (15) + farm/billboard/portal (4)** in `assets/world/` — `scenery-rug`,
@@ -142,12 +142,12 @@ Each distinct mob now has its own art (was 4 procedural blobs):
 - npc-warden.png ✅ (Warden, Wilderness outpost)
 - npc-rook.png ✅ (Rook, Grotto)
 
-## Item icons — drop in `assets/items/` (61 items; fish/dishes already done)
+## Item icons — drop in `assets/items/` (63 items; fish/dishes already done)
 
 Square icon look (like the fish art), must read at 34px. Filename = as listed
 (Claude maps to exact item ids on drop):
 
-- Consumables (2): health-potion 🎨, bread 🎨
+- Consumables (4): health-potion 🎨, bread 🎨, carrot-soup 🎨, carrot-bread 🎨 (new v0.113.0 dishes)
 - Materials (20): training-scrap 🎨, wood 🎨, ore ✅ (copper ore), slime-gel 🎨, slime-core 🎨,
   wheat-seed ✅, wheat ✅, carrot-seed ✅, carrot ✅, plank 🎨, copper-bar ✅, iron-ore ✅,
   iron-bar ✅, hardwood 🎨, hardwood-plank 🎨, steel-bar 🎨, amber 🎨, gemstone 🎨, pearl 🎨,

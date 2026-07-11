@@ -57,6 +57,28 @@ export const CRAFT_RECIPES: CraftRecipe[] = [
     goldCost: 2,
   },
   {
+    id: "craft_carrot_soup",
+    name: "Carrot Soup",
+    description: "Simmer carrots with river fish (+45 HP, +40 energy).",
+    inputs: [
+      { itemId: "item_carrot", quantity: 2 },
+      { itemId: "item_fish", quantity: 1 },
+    ],
+    output: { itemId: "item_carrot_soup", quantity: 1 },
+    goldCost: 2,
+  },
+  {
+    id: "craft_carrot_bread",
+    name: "Carrot Bread",
+    description: "Bake a sweet wheat-and-carrot loaf (+50 HP, +45 energy).",
+    inputs: [
+      { itemId: "item_wheat", quantity: 2 },
+      { itemId: "item_carrot", quantity: 2 },
+    ],
+    output: { itemId: "item_carrot_bread", quantity: 1 },
+    goldCost: 2,
+  },
+  {
     id: "craft_copper_dagger",
     name: "Copper Dagger",
     description: "Forge a keen blade. +18 attack when equipped.",
