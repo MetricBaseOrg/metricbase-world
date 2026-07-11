@@ -4,6 +4,11 @@ Spec for ALL files: **transparent PNG, 1024×1024** (Claude downscales + wires o
 fish set). Style: chibi-cozy, matching the existing props + fish art. World objects sit on an iso
 tile (front view, slight top-down tilt). Drop a batch → say so → it ships same day.
 
+> **Shipping pipeline (since v0.110.0):** the shipped copies in `client/public/assets` are
+> **WebP capped at 512px** — `node scripts/optimize-art.mjs` converts a dropped PNG batch and
+> deletes the shipped .png. Keep dropping 1024px PNGs here as before; Claude runs the script and
+> wires the `.webp` references.
+
 > **Backgrounds:** transparent is ideal, but if a drop ships with a **baked-in background**
 > (a transparency checkerboard or flat gray saved as solid pixels), that's fine — it gets
 > auto-stripped on wire-in via a border flood-fill that keeps the subject (even white/gray
@@ -18,10 +23,16 @@ file into the folder named in its section header.
 
 ## 👉 START HERE
 
-The original list is **done**, and the first two big batches — **Mobs (6)** and **NPCs (5)** —
-plus a wave of **new buildings + tiles** and the first **boy character frames** all shipped.
-Next highest-impact: finish the **item icons** (fish/dishes + the 8 material icons below are done;
-~53 left) and the **girl character set** / remaining boy actions.
+The original list is **done**: all tiles, buildings, nodes, **Mobs (6)**, **NPCs (5)**, and most
+of both character sets shipped. **What's still missing, by impact (122 files):**
+
+1. **`girl-front-walk-0..3` (4)** — manifest declares walk for girl, so walking *toward the
+   camera* falls back to the idle pose (visible slide-glide bug). Highest priority single batch.
+2. **Item icons (53)** — biggest UI surface (inventory/shop/market all show placeholder art).
+3. **Character gaps (46)** — portraits ×2, girl attack (16), boy+girl fish (16), back-chop ×2
+   and boy back-attack (12) — exact file list in the character section.
+4. **Interiors (15) + farm/billboard/portal (4)** in `assets/world/` — `scenery-rug`,
+   `scenery-fireplace`, `scenery-bookshelf` are already referenced by code and 404 today.
 
 ## Tiles (1x1 tile) and Decor props — `assets/tiles/`
 
@@ -158,9 +169,12 @@ Square icon look (like the fish art), must read at 34px. Filename = as listed
 
 (Outdoor decor reuses lamp/barrel/flowerbed/hedge/bench/crates above — only interiors needed.)
 
-- scenery-rug.png 🎨
-- scenery-fireplace.png 🎨
-- scenery-bookshelf.png 🎨
+The first three are already referenced by `BootScene.ts` and **404 in-game today** — draw those
+first within this set:
+
+- scenery-rug.png 🎨 (⚠️ code expects it)
+- scenery-fireplace.png 🎨 (⚠️ code expects it)
+- scenery-bookshelf.png 🎨 (⚠️ code expects it)
 - scenery-plant.png 🎨
 - scenery-table.png 🎨
 - scenery-chair.png 🎨
@@ -178,8 +192,7 @@ Square icon look (like the fish art), must read at 34px. Filename = as listed
 
 - plot-empty.png 🎨 (tilled empty soil plot)
 - plot-growing.png 🎨 (sprouting crop, generic)
-- crop-carrot.png 🎨 (ripe carrot plot — **wired in `zoneAssets.ts` but the PNG is MISSING**, so
-  it 404s in-game; draw it or repoint the id to `farm-carrot`. wheat done: crop-wheat.png ✅)
+- crop-carrot.png ✅ (shipped v0.107.x — renamed in from farm-carrot art; crop-wheat.png ✅ too)
 - billboard.png 🎨 (ad billboard frame — the creative renders inside it)
 - portal-gate.png 🎨 (zone portal / gate)
 
@@ -219,10 +232,28 @@ draw the bases with clean silhouettes so hats/capes/auras can layer on top).
 Plus per character: `boy-portrait.png`, `girl-portrait.png` (bust, 768×768 — HUD, login,
 profile card). **Total: 98 files.**
 
-**Boy progress (partial ✅):** front idle (2) + front chop (3); back idle (2) + back walk (4);
-right idle (2); tqright idle (2) + tqright walk (4). **Still 🎨:** front walk + attack + fish,
-back chop/fish/attack, right walk/chop/fish/attack, remaining tqright actions, `boy-portrait`,
-and the **entire girl set**.
+### Progress (live manifest: boy = idle 2 / walk 4 / chop 4 / attack 4 · girl = idle 2 / walk 4 / chop 4)
+
+**Boy ✅ (63/80 files):** idle + walk complete in all 4 directions; chop + attack complete in
+front/right/tqright. **Still 🎨 (17):**
+
+- `boy-back-chop-0..3` (4) · `boy-back-attack-0..3` (4)
+- `boy-<front|back|right|tqright>-fish-0..1` (8) — no fish frames exist yet for anyone
+- `boy-portrait.png` (1)
+
+**Girl ✅ (37/80 files):** idle complete; walk in back/right/tqright; chop in
+front/right/tqright. **Still 🎨 (33):**
+
+- `girl-front-walk-0..3` (4) — ⚠️ **draw first**: walk is declared in the manifest, so walking
+  toward the camera currently slides in the idle pose
+- `girl-back-chop-0..3` (4)
+- `girl-<front|back|right|tqright>-attack-0..3` (16) — match the boy's 4-frame attack
+- `girl-<front|back|right|tqright>-fish-0..1` (8)
+- `girl-portrait.png` (1)
+
+(Chop/attack shipped as 4-frame actions — new directions must match the manifest count for that
+action. Fish is new: 2+ frames, any count, it just goes in the manifest. Undrawn combos fall
+back to the HD idle pose, not the procedural doll, since v0.109.0.)
 
 ### Full set (later polish, optional) — matches current engine frame counts
 
@@ -235,8 +266,10 @@ directions, before starting the girl.
 
 ## Priority order
 
-1. ~~sand + rock + deep-pool~~ ✅ · ~~Mobs (6) + NPCs (5)~~ ✅ · ~~new buildings + tiles~~ ✅
-2. Item icons — ~53 left (`assets/items/`); highest UI impact
-3. Finish the **boy** frames, then the **girl** set (`assets/characters/`)
-4. Interiors + farm plots/billboard/portal (~18) — `assets/world/`
-5. Iso tiles + details (after template chat)
+1. ~~sand + rock + deep-pool~~ ✅ · ~~Mobs (6) + NPCs (5)~~ ✅ · ~~new buildings + tiles~~ ✅ ·
+   ~~boy idle/walk/chop/attack~~ ✅ · ~~girl idle/chop + most walk~~ ✅
+2. **`girl-front-walk-0..3`** — 4 files, fixes a visible in-game bug
+3. Item icons — 53 left (`assets/items/`); highest UI impact
+4. Character gaps — portraits, girl attack, fish, back-chop/attack (46 files, list above)
+5. Interiors (15, the 3 ⚠️ ones first) + farm plots/billboard/portal (4) — `assets/world/`
+6. Iso tiles + details (after template chat)
