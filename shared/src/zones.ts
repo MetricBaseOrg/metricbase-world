@@ -639,7 +639,9 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
       { id: "wild_plant_ne", tileX: 20, tileY: 3, prop: "plant" },
       { id: "wild_plant_sw", tileX: 3, tileY: 20, prop: "plant" },
       { id: "wild_plant_se", tileX: 20, tileY: 20, prop: "plant" },
-      { id: "wild_crate_1", tileX: 4, tileY: 18, prop: "crate" },
+      // (6,20): clear of wild_plot_1's 2×2 footprint (built-in plots span
+      // tileX..+1 × tileY..+1 — don't place scenery inside that square).
+      { id: "wild_crate_1", tileX: 6, tileY: 20, prop: "crate" },
       { id: "wild_crate_2", tileX: 18, tileY: 5, prop: "crate" },
       { id: "wild_hedge_3", tileX: 14, tileY: 17, prop: "hedge" },
       { id: "wild_hedge_4", tileX: 15, tileY: 17, prop: "hedge" },
@@ -837,7 +839,7 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
       { id: "grotto_lamp_2", tileX: 14, tileY: 10, prop: "lamppost" },
       { id: "grotto_lamp_3", tileX: 17, tileY: 13, prop: "lamppost" },
       // Cavern dressing: crates of ore, mossy plants, and a few lanterns.
-      { id: "grotto_crate_1", tileX: 9, tileY: 4, prop: "crate" },
+      { id: "grotto_crate_1", tileX: 11, tileY: 4, prop: "crate" }, // clear of grotto_plot_1's 2×2
       { id: "grotto_crate_2", tileX: 18, tileY: 5, prop: "crate" },
       { id: "grotto_plant_1", tileX: 3, tileY: 18, prop: "plant" },
       { id: "grotto_plant_2", tileX: 10, tileY: 17, prop: "plant" },
@@ -1014,7 +1016,7 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
       // Eerie braziers + scorched debris around the obsidian arena.
       { id: "black_lantern_1", tileX: 9, tileY: 5, prop: "lantern" },
       { id: "black_lantern_2", tileX: 15, tileY: 5, prop: "lantern" },
-      { id: "black_lantern_3", tileX: 9, tileY: 18, prop: "lantern" },
+      { id: "black_lantern_3", tileX: 8, tileY: 17, prop: "lantern" }, // was on the Ancient Hardwood's tile
       { id: "black_lantern_4", tileX: 15, tileY: 18, prop: "lantern" },
       { id: "black_crate_1", tileX: 5, tileY: 18, prop: "crate" },
       { id: "black_crate_2", tileX: 18, tileY: 6, prop: "crate" },
