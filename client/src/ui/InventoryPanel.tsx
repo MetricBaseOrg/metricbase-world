@@ -1,4 +1,5 @@
 import {
+  ITEM_ICONS,
   getItemDefinition,
   getGearStat,
   getFishSpecies,
@@ -70,76 +71,8 @@ const DOLL_SLOTS: EquipmentSlot[] = [
   "pet",
 ];
 
-export const ITEM_ICONS: Record<string, string> = {
-  // Consumables / food
-  item_health_potion: "🧪",
-  item_bread: "🍞",
-  item_cooked_fish: "🍤",
-  item_grilled_salmon: "🍣",
-  item_seared_bluegill: "🍳",
-  item_carp_stew: "🍲",
-  item_catfish_fry: "🍤",
-  item_golden_fillet: "🥮",
-  item_koi_sashimi: "🍣",
-  item_sturgeon_roast: "🍖",
-  item_pike_skewer: "🍢",
-  item_smoked_eel: "🍱",
-  item_stormray_steak: "🥩",
-  item_leviathan_feast: "🍽️",
-  item_lamp_oil: "🛢️",
-  // Raw resources
-  item_wood: "🪵",
-  item_hardwood: "🌳",
-  item_ore: "🪨",
-  item_iron_ore: "⛰️",
-  item_fish: "🐟",
-  item_salmon: "🐠",
-  item_bluegill: "🐠",
-  item_carp: "🐡",
-  item_catfish: "🐟",
-  item_golden_trout: "✨",
-  item_crystal_koi: "💎",
-  item_ancient_sturgeon: "🐉",
-  item_pike: "🐠",
-  item_ghostfin_eel: "🪸",
-  item_stormray: "⚡",
-  item_abyssal_leviathan: "🐙",
-  item_wheat: "🌾",
-  item_wheat_seed: "🌱",
-  item_slime_gel: "🫧",
-  item_slime_core: "💠",
-  item_training_scrap: "🔩",
-  // Refined materials
-  item_plank: "🟫",
-  item_hardwood_plank: "🟤",
-  item_copper_bar: "🟧",
-  item_iron_bar: "⬜",
-  item_steel_bar: "⚙️",
-  item_amber: "🟠",
-  item_gemstone: "💎",
-  item_pearl: "⚪",
-  item_harvest_net: "🕸️",
-  // Weapons
-  item_rusty_blade: "⚔️",
-  item_gel_knife: "🔪",
-  item_copper_dagger: "🗡️",
-  item_gem_blade: "🔱",
-  // Tools
-  item_copper_axe: "🪓",
-  item_iron_axe: "🪓",
-  item_steel_axe: "🪓",
-  item_copper_pickaxe: "⛏️",
-  item_iron_pickaxe: "⛏️",
-  item_steel_pickaxe: "⛏️",
-  item_fishing_rod: "🎣",
-  item_pro_rod: "🎣",
-  item_gilded_rod: "🎣",
-  item_abyssal_rod: "🎣",
-  // Mounts
-  item_pony: "🐴",
-  item_steed: "🐎",
-  item_dire_wolf: "🐺",
-};
+// Shared item emoji map — single source in @metricbase/shared (also used by /stats).
+export { ITEM_ICONS };
 
 /** Icon per gear slot kind (covers all armour + accessories). */
 const GEAR_KIND_ICONS: Record<string, string> = {

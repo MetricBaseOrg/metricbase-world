@@ -471,7 +471,7 @@ async function load(){
     // ---- Item prices (supply & demand) ----
     (function(){
       var items=s.itemPrices||[];
-      var KINDS={material:"🧱",consumable:"🍞",weapon:"⚔️",tool:"🪓",armor:"🛡️",mount:"🐴",pet:"🐾"};
+      var KINDS={material:"📦",consumable:"🍞",weapon:"⚔️",tool:"🪓",armor:"🛡️",mount:"🐴",pet:"🐾"};
       function pct(m){return Math.round((m-1)*100);}
       function trend(m){var p=pct(m);
         if(p>0)return '<span class="up">▲ +'+p+'%</span>';
@@ -481,16 +481,16 @@ async function load(){
       tb.innerHTML=items.map(function(it){
         var vendor=it.price>0?fmt(it.price)+'g <span class="base">('+fmt(it.base)+')</span>':'<span class="base">—</span>';
         var shop=it.buyPrice>0?fmt(it.buyPrice)+'g <span class="base">('+fmt(it.buyBase)+')</span>':'<span class="base">—</span>';
-        return '<tr><td class="nm">'+(KINDS[it.kind]||"📦")+' '+it.name+'</td><td>'+vendor+'</td><td>'+trend(it.mult)
+        return '<tr><td class="nm">'+(it.emoji||KINDS[it.kind]||"📦")+' '+it.name+'</td><td>'+vendor+'</td><td>'+trend(it.mult)
           +'</td><td>'+shop+'</td><td>'+fmt(it.produced7d)+'</td><td>'+fmt(it.consumed7d)+'</td></tr>';
       }).join("")||'<tr><td colspan="6" class="base">Nothing traded yet 🌱</td></tr>';
       var priced=items.filter(function(it){return it.price>0||it.buyPrice>0;});
       var up=priced.filter(function(it){return it.mult>1;}).sort(function(a,b){return b.mult-a.mult;}).slice(0,5);
       var dn=priced.filter(function(it){return it.mult<1;}).sort(function(a,b){return a.mult-b.mult;}).slice(0,5);
-      rows(el("priceUp"),up,function(it){return '<div class="row"><span>'+it.name+'</span><b class="up" style="color:#2f9e5e">+'+pct(it.mult)+'% · '+fmt(it.price||it.buyPrice)+'g</b></div>';});
-      rows(el("priceDown"),dn,function(it){return '<div class="row"><span>'+it.name+'</span><b style="color:#d85f4f">'+pct(it.mult)+'% · '+fmt(it.price||it.buyPrice)+'g</b></div>';});
+      rows(el("priceUp"),up,function(it){return '<div class="row"><span>'+(it.emoji?it.emoji+' ':'')+it.name+'</span><b class="up" style="color:#2f9e5e">+'+pct(it.mult)+'% · '+fmt(it.price||it.buyPrice)+'g</b></div>';});
+      rows(el("priceDown"),dn,function(it){return '<div class="row"><span>'+(it.emoji?it.emoji+' ':'')+it.name+'</span><b style="color:#d85f4f">'+pct(it.mult)+'% · '+fmt(it.price||it.buyPrice)+'g</b></div>';});
       var top=items.slice().sort(function(a,b){return b.produced7d-a.produced7d;}).filter(function(it){return it.produced7d>0;}).slice(0,5);
-      rows(el("flowTop"),top,function(it){return '<div class="row"><span>'+it.name+'</span><b>'+fmt(it.produced7d)+' made · '+fmt(it.consumed7d)+' used</b></div>';});
+      rows(el("flowTop"),top,function(it){return '<div class="row"><span>'+(it.emoji?it.emoji+' ':'')+it.name+'</span><b>'+fmt(it.produced7d)+' made · '+fmt(it.consumed7d)+' used</b></div>';});
     })();
 
     var ad=s.ads||{daily:{}};var adDaily=ad.daily||{};

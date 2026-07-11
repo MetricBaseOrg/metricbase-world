@@ -3,6 +3,7 @@ import {
   BLACK_ZONE_BURN_AMOUNT,
   GAME_VERSION,
   ITEMS,
+  ITEM_ICONS,
   SHOPS,
   getItemBaseValue,
   supplyDemandMultiplier,
@@ -72,6 +73,7 @@ export interface ItemPriceStat {
   itemId: string;
   name: string;
   kind: string;
+  emoji: string;
   /** Base vendor (sell-to-NPC) value; 0 when no vendor buys it. */
   base: number;
   /** Current vendor value after the supply/demand multiplier. */
@@ -107,6 +109,7 @@ function buildItemPrices(): ItemPriceStat[] {
       itemId,
       name: ITEMS[itemId]?.name ?? itemId,
       kind: ITEMS[itemId]?.kind ?? "material",
+      emoji: ITEM_ICONS[itemId] ?? "",
       base,
       price: base > 0 ? Math.max(1, Math.round(base * mult)) : 0,
       buyBase: offer?.price ?? 0,
