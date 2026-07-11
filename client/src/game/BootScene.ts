@@ -44,19 +44,19 @@ export class BootScene extends Phaser.Scene {
     this.createGroundDetailTextures();
 
     // Hand-drawn NPCs
-    this.load.image("npc-pip", "/assets/npcs/npc-pip.png");
-    this.load.image("npc-guide", "/assets/npcs/npc-guide.png");
-    this.load.image("npc-smith", "/assets/npcs/npc-smith.png");
-    this.load.image("npc-warden", "/assets/npcs/npc-warden.png");
-    this.load.image("npc-rook", "/assets/npcs/npc-rook.png");
+    this.load.image("npc-pip", "/assets/npcs/npc-pip.webp");
+    this.load.image("npc-guide", "/assets/npcs/npc-guide.webp");
+    this.load.image("npc-smith", "/assets/npcs/npc-smith.webp");
+    this.load.image("npc-warden", "/assets/npcs/npc-warden.webp");
+    this.load.image("npc-rook", "/assets/npcs/npc-rook.webp");
 
     // Hand-drawn Mobs
-    this.load.image("mob-slime", "/assets/mobs/mob-slime.png");
-    this.load.image("mob-slime-brute", "/assets/mobs/mob-slime-brute.png");
-    this.load.image("mob-ember-slime", "/assets/mobs/mob-ember-slime.png");
-    this.load.image("mob-void-brute", "/assets/mobs/mob-void-brute.png");
-    this.load.image("mob-charred-sentinel", "/assets/mobs/mob-charred-sentinel.png");
-    this.load.image("mob-training-dummy", "/assets/mobs/mob-training-dummy.png");
+    this.load.image("mob-slime", "/assets/mobs/mob-slime.webp");
+    this.load.image("mob-slime-brute", "/assets/mobs/mob-slime-brute.webp");
+    this.load.image("mob-ember-slime", "/assets/mobs/mob-ember-slime.webp");
+    this.load.image("mob-void-brute", "/assets/mobs/mob-void-brute.webp");
+    this.load.image("mob-charred-sentinel", "/assets/mobs/mob-charred-sentinel.webp");
+    this.load.image("mob-training-dummy", "/assets/mobs/mob-training-dummy.webp");
 
     // Hand-drawn World Scenery (Lodge)
     this.load.image("scenery_rug", "/assets/world/scenery-rug.png");

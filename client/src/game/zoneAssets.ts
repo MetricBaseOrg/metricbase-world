@@ -155,7 +155,7 @@ const PROP_W = 66; // 1×1 props: base ≈ one ground tile
 const buildingWidth = (footprint: number) => TILE_WIDTH * footprint;
 
 const g = (id: string, label: string, footprint = 1): ZoneAsset =>
-  ({ id, file: `${id}.png`, label, desc: desc(id), category: "ground", worldWidth: GROUND_W * footprint, anchorY: anchor(id, 0.44), footprint, clearsGround: false, bakedTile: true });
+  ({ id, file: `${id}.webp`, label, desc: desc(id), category: "ground", worldWidth: GROUND_W * footprint, anchorY: anchor(id, 0.44), footprint, clearsGround: false, bakedTile: true });
 const b = (
   id: string,
   label: string,
@@ -164,7 +164,7 @@ const b = (
   const footprint = opts.footprint ?? 3;
   return {
     id,
-    file: `${id}.png`,
+    file: `${id}.webp`,
     label,
     desc: desc(id),
     category: "structure",
@@ -178,9 +178,9 @@ const b = (
   };
 };
 const r = (id: string, label: string, kind: "tree" | "rock" | "fish", worldWidth = PROP_W): ZoneAsset =>
-  ({ id, file: `${id}.png`, label, desc: desc(id), category: "resource", worldWidth, anchorY: anchor(id, 0.7), footprint: 1, clearsGround: false, bakedTile: true, resourceKind: kind });
+  ({ id, file: `${id}.webp`, label, desc: desc(id), category: "resource", worldWidth, anchorY: anchor(id, 0.7), footprint: 1, clearsGround: false, bakedTile: true, resourceKind: kind });
 const d = (id: string, label: string, worldWidth = PROP_W, bakedTile = true): ZoneAsset =>
-  ({ id, file: `${id}.png`, label, desc: desc(id), category: "decor", worldWidth, anchorY: anchor(id, 0.7), footprint: 1, clearsGround: false, bakedTile });
+  ({ id, file: `${id}.webp`, label, desc: desc(id), category: "decor", worldWidth, anchorY: anchor(id, 0.7), footprint: 1, clearsGround: false, bakedTile });
 
 export const ZONE_ASSETS: ZoneAsset[] = [
   // Ground paint (1×1 tiles)

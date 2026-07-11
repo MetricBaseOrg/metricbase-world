@@ -46,7 +46,7 @@ export function hdReadyFor(character: HdCharacter): boolean {
 
 /** Portrait art URL for the character, or null while not declared. */
 export function hdPortraitUrl(character: HdCharacter): string | null {
-  return hdReadyFor(character) ? `/assets/characters/${character}-portrait.png` : null;
+  return hdReadyFor(character) ? `/assets/characters/${character}-portrait.webp` : null;
 }
 
 /** Drawn-direction (art file) + mirror flag for an engine direction. */
@@ -100,7 +100,7 @@ export function resolveHdPose(
     for (const [act, count] of Object.entries(counts)) {
       for (const d of ["front", "back", "right", "tqright"]) {
         for (let f = 0; f < (count ?? 0); f++) {
-          scene.load.image(`hd-${character}-${d}-${act}-${f}`, `/assets/characters/${character}-${d}-${act}-${f}.png`);
+          scene.load.image(`hd-${character}-${d}-${act}-${f}`, `/assets/characters/${character}-${d}-${act}-${f}.webp`);
         }
       }
     }

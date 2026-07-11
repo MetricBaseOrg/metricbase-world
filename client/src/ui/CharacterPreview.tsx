@@ -15,7 +15,7 @@ export function CharacterPreview({ appearance, width = 200, height = 240 }: Char
   // When hand-drawn art exists, show the front-idle frame over the scene
   // (fireflies/glow stay for atmosphere). Falls back to the drawn character.
   const character = hdCharacterFor(appearance);
-  const hdUrl = !artFailed && hdReadyFor(character) ? `/assets/characters/${character}-front-idle-0.png` : null;
+  const hdUrl = !artFailed && hdReadyFor(character) ? `/assets/characters/${character}-front-idle-0.webp` : null;
 
   useEffect(() => {
     const canvas = canvasRef.current;
