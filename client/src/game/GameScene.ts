@@ -2887,11 +2887,11 @@ export class GameScene extends Phaser.Scene {
   }
 
   /**
-   * Point the plot sprite at the right visual for its stage: hand-drawn crop
-   * art (wheat/carrot) when the planted crop has art — growing renders the
-   * same art smaller, so it reads as sprouting — else the procedural patch.
-   * Works for both built-in 2×2 plots (base zones) and soil-paint plots
-   * (player Worlds).
+   * Point the plot sprite at the right visual for its stage. Growing plots
+   * keep the procedural sprout art (seeds must LOOK like seeds — showing the
+   * ripe crop art early made plots read as harvestable at planting). Only a
+   * READY plot swaps to the hand-drawn crop art (wheat/carrot). Works for both
+   * built-in 2×2 plots (base zones) and soil-paint plots (player Worlds).
    */
   private applyPlotVisual(plot: RenderedFarmPlot) {
     const { sprite } = plot;
@@ -2899,7 +2899,7 @@ export class GameScene extends Phaser.Scene {
     // Soil-paint plots show the sprite only once something is planted.
     if (plot.hideWhenEmpty) sprite.setVisible(plot.stage !== "empty");
 
-    const assetId = plot.stage === "empty" ? null : this.plotCropAssetId(plot.cropId);
+    const assetId = plot.stage === "ready" ? this.plotCropAssetId(plot.cropId) : null;
     if (!assetId) {
       const texture =
         plot.stage === "ready" ? "plot_ready" : plot.stage === "growing" ? "plot_growing" : "plot_empty";
@@ -2908,17 +2908,15 @@ export class GameScene extends Phaser.Scene {
     }
 
     const key = zoneAssetTextureKey(assetId);
-    const stageWhenRequested = plot.stage;
     const apply = () => {
-      if (!sprite.active || plot.stage !== stageWhenRequested) return;
+      if (!sprite.active || plot.stage !== "ready") return;
       const asset = getZoneAsset(assetId);
-      const grown = plot.stage === "ready" ? 1 : 0.68;
       sprite
         .setTexture(key)
         .setOrigin(0.5, asset?.anchorY ?? 0.5)
         // Built-in plots span a 2×2 footprint (like their soil base), soil-paint
         // plots are single tiles.
-        .setScale(zoneAssetScale(this, assetId) * (soilPlot ? 1 : 2) * grown)
+        .setScale(zoneAssetScale(this, assetId) * (soilPlot ? 1 : 2))
         .setVisible(true);
     };
     if (this.textures.exists(key)) {
