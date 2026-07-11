@@ -322,6 +322,17 @@ export function App() {
       await waitForGameSceneReady();
       await networkManager.connect(name, token, appearance, inviteCode, spectate);
       setZoneName(networkManager.zoneName);
+      // Adopt the server's authoritative name: joins can be renamed (wallet
+      // bonded to a different character; spectators get a Guest#### handle).
+      // Retry once — the first state patch can land just after connect().
+      const adoptName = () => {
+        const authoritative = networkManager.getLocalPlayerFromState()?.name;
+        if (authoritative && authoritative !== useGameStore.getState().playerName) {
+          setPlayerName(authoritative);
+        }
+      };
+      adoptName();
+      window.setTimeout(adoptName, 1500);
     } catch (error) {
       setJoined(false);
       stopBackgroundMusic();

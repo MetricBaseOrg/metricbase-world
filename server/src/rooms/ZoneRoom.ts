@@ -1222,24 +1222,33 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   }
 
   async onJoin(client: Client, options: JoinOptions, auth?: JoinAuthData) {
-    const wallet = this.resolveJoinWallet(options, auth);
+    // Spectators are anonymous watchers: no wallet identity (a wallet here
+    // would kick the owner's PLAYING session via single-session-per-wallet),
+    // no character load/persist, and never a real character's name — the
+    // walletless name-protection rejected bonded names (which made spectating
+    // impossible), and borrowing one would let a watcher impersonate it in chat.
+    const wallet = options.spectate ? null : this.resolveJoinWallet(options, auth);
     let name = sanitizeName(options?.name);
-
-    if (wallet) {
-      const bonded = await loadCharacterByWallet(wallet);
-      if (bonded) {
-        name = bonded.name;
-      }
-    }
-
     let saved: Awaited<ReturnType<typeof resolveCharacterForJoin>> = null;
-    try {
-      saved = await resolveCharacterForJoin(wallet, name);
-    } catch (error) {
-      if (error instanceof CharacterBindingError) {
-        throw new ServerError(403, error.message);
+
+    if (options.spectate) {
+      name = `Guest${Math.floor(1000 + Math.random() * 9000)}`;
+    } else {
+      if (wallet) {
+        const bonded = await loadCharacterByWallet(wallet);
+        if (bonded) {
+          name = bonded.name;
+        }
       }
-      throw error;
+
+      try {
+        saved = await resolveCharacterForJoin(wallet, name);
+      } catch (error) {
+        if (error instanceof CharacterBindingError) {
+          throw new ServerError(403, error.message);
+        }
+        throw error;
+      }
     }
 
     // Player-owned zones gate entry: the owner is always welcome, free zones
