@@ -2,7 +2,10 @@ import {
   ITEM_ICONS,
   buildShopOpenPayload,
   getCurrency,
+  getItemDefinition,
   getShopDefinition,
+  type ItemKind,
+  type ShopCatalogItem,
   METRICBASE_TOKEN_MINT,
   normalizeMarketState,
   PAYMENT_CURRENCIES,
@@ -31,11 +34,15 @@ function refreshShopCatalog(
   market?: MarketStatePayload,
 ): ShopOpenPayload {
   const definition = getShopDefinition(shop.shopId);
-  // Preserve the current dynamic sell prices the server last sent, so a buy
-  // doesn't visually reset them to the base prices.
+  // Preserve the current dynamic prices the server last sent (both directions),
+  // so a trade doesn't visually reset the catalog to the base prices.
   const sellPriceOverrides: Record<string, number> = {};
   for (const offer of shop.sellOffers) {
     sellPriceOverrides[offer.itemId] = offer.price;
+  }
+  const buyPriceOverrides: Record<string, number> = {};
+  for (const offer of shop.buyOffers) {
+    buyPriceOverrides[offer.itemId] = offer.price;
   }
   return buildShopOpenPayload(
     definition,
@@ -45,8 +52,19 @@ function refreshShopCatalog(
     inventory.items,
     market ? normalizeMarketState(market) : shop.market,
     sellPriceOverrides,
+    buyPriceOverrides,
   );
 }
+
+const KIND_FILTERS: { id: "all" | ItemKind; label: string }[] = [
+  { id: "all", label: "All" },
+  { id: "consumable", label: "🍞 Food" },
+  { id: "material", label: "🧱 Materials" },
+  { id: "weapon", label: "⚔️ Weapons" },
+  { id: "tool", label: "🪓 Tools" },
+  { id: "armor", label: "🛡️ Armor" },
+  { id: "mount", label: "🐴 Mounts" },
+];
 
 function orderRowStyle(): React.CSSProperties {
   return {
@@ -97,11 +115,32 @@ export function ShopPanel() {
   const [askGold, setAskGold] = useState("100");
   const [askTokens, setAskTokens] = useState("60");
   const [currency, setCurrency] = useState("base");
+  // Catalog browsing: search + category filter + sort (85 items need it).
+  const [search, setSearch] = useState("");
+  const [kindFilter, setKindFilter] = useState<"all" | ItemKind>("all");
+  const [sortBy, setSortBy] = useState<"category" | "cheap" | "pricey" | "name">("category");
 
   if (!open || !shop) return null;
 
   const market = shop.market ? normalizeMarketState(shop.market) : undefined;
   const tokenMint = market?.mint ?? METRICBASE_TOKEN_MINT;
+
+  // Search + category filter + sort applied to both catalogs. "category"
+  // keeps the server's kind-grouped, cheapest-first order.
+  const filterCatalog = (offers: ShopCatalogItem[]): ShopCatalogItem[] => {
+    const query = search.trim().toLowerCase();
+    const list = offers.filter((offer) => {
+      if (query && !offer.name.toLowerCase().includes(query)) return false;
+      if (kindFilter !== "all" && getItemDefinition(offer.itemId).kind !== kindFilter) return false;
+      return true;
+    });
+    if (sortBy === "cheap") list.sort((a, b) => a.price - b.price || a.name.localeCompare(b.name));
+    else if (sortBy === "pricey") list.sort((a, b) => b.price - a.price || a.name.localeCompare(b.name));
+    else if (sortBy === "name") list.sort((a, b) => a.name.localeCompare(b.name));
+    return list;
+  };
+  const buyList = filterCatalog(shop.buyOffers);
+  const sellList = filterCatalog(shop.sellOffers);
 
   const applyMarketResult = (result: Awaited<ReturnType<typeof waitForMarketResult>>) => {
     if (result.gold !== undefined) setPlayerGold(result.gold);
@@ -395,27 +434,68 @@ export function ShopPanel() {
       {tab === "gold" ? (
         <>
           <div className="chibi-card chibi-card--gold" style={{ marginTop: 14, fontWeight: 800 }}>Your gold: 🪙 {playerGold}</div>
+
+          {/* Catalog browsing: search, category chips, sort. */}
+          <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
+            <input
+              className="chibi-input"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="🔍 Search items…"
+              style={{ flex: 1, fontSize: "0.82rem", padding: "8px 10px" }}
+            />
+            <select
+              className="chibi-input"
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+              aria-label="Sort catalog"
+              style={{ width: 130, fontSize: "0.78rem", padding: "8px 6px" }}
+            >
+              <option value="category">Category</option>
+              <option value="cheap">Price ↑</option>
+              <option value="pricey">Price ↓</option>
+              <option value="name">Name A–Z</option>
+            </select>
+          </div>
+          <div style={{ marginTop: 8, display: "flex", gap: 6, flexWrap: "wrap" }}>
+            {KIND_FILTERS.map((f) => (
+              <button
+                key={f.id}
+                type="button"
+                className={`chibi-btn chibi-btn--tab${kindFilter === f.id ? " active" : ""}`}
+                style={{ padding: "4px 10px", fontSize: "0.72rem" }}
+                onClick={() => { playSfx("ui_click"); setKindFilter(f.id); }}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+
           <div style={{ marginTop: 16 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>Buy</div>
-            <div style={{ display: "grid", gap: 8 }}>
-              {shop.buyOffers.map((offer) => (
-                <div key={offer.itemId} className="chibi-card" style={orderRowStyle()}>
-                  <div>
-                    <div style={{ fontWeight: 800, fontSize: "0.85rem" }}>{ITEM_ICONS[offer.itemId] ?? "📦"} {offer.name}</div>
-                    <div style={{ fontSize: "0.8rem", color: "var(--chibi-gold-deep)", marginTop: 4 }}>{offer.price} gold</div>
+            <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>Buy {buyList.length < shop.buyOffers.length ? `(${buyList.length}/${shop.buyOffers.length})` : ""}</div>
+            {buyList.length === 0 ? (
+              <div style={{ fontSize: 12, opacity: 0.6 }}>No items match your search.</div>
+            ) : (
+              <div style={{ display: "grid", gap: 8 }}>
+                {buyList.map((offer) => (
+                  <div key={offer.itemId} className="chibi-card" style={orderRowStyle()}>
+                    <div>
+                      <div style={{ fontWeight: 800, fontSize: "0.85rem" }}>{ITEM_ICONS[offer.itemId] ?? "📦"} {offer.name}</div>
+                      <div style={{ fontSize: "0.8rem", color: "var(--chibi-gold-deep)", marginTop: 4 }}>{offer.price} gold</div>
+                    </div>
+                    <button type="button" className="chibi-btn chibi-btn--primary" disabled={pending || playerGold < offer.price} onClick={() => void handleBuy(offer.itemId, offer.price)} style={{ padding: "8px 12px", fontSize: "0.78rem" }}>Buy</button>
                   </div>
-                  <button type="button" className="chibi-btn chibi-btn--primary" disabled={pending || playerGold < offer.price} onClick={() => void handleBuy(offer.itemId, offer.price)} style={{ padding: "8px 12px", fontSize: "0.78rem" }}>Buy</button>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
           <div style={{ marginTop: 16 }}>
             <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>Sell</div>
-            {shop.sellOffers.length === 0 ? (
-              <div style={{ fontSize: 12, opacity: 0.6 }}>No sellable items.</div>
+            {sellList.length === 0 ? (
+              <div style={{ fontSize: 12, opacity: 0.6 }}>{shop.sellOffers.length === 0 ? "No sellable items." : "No owned items match your search."}</div>
             ) : (
               <div style={{ display: "grid", gap: 8 }}>
-                {shop.sellOffers.map((offer) => (
+                {sellList.map((offer) => (
                   <div key={offer.itemId} className="chibi-card" style={orderRowStyle()}>
                     <div><div style={{ fontWeight: 800, fontSize: "0.85rem" }}>{ITEM_ICONS[offer.itemId] ?? "📦"} {offer.name} x{offer.owned}</div><div className="chibi-text-muted" style={{ marginTop: 4 }}>{offer.price} gold each</div></div>
                     <button type="button" className="chibi-btn chibi-btn--secondary" disabled={pending} onClick={() => void handleSell(offer.itemId)} style={{ padding: "8px 12px", fontSize: "0.78rem" }}>Sell 1</button>
