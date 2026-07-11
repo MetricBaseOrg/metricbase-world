@@ -1543,7 +1543,8 @@ export class GameScene extends Phaser.Scene {
     this.destroyLocalAvatar();
     const playerName = useGameStore.getState().playerName;
     for (const [sessionId, rendered] of [...this.renderedPlayers.entries()]) {
-      if (rendered.label.text === playerName || sessionId === networkManager.sessionId) {
+      // Match raw name too — the label carries a [GUILD] tag for guild members.
+      if (rendered.name === playerName || rendered.label.text === playerName || sessionId === networkManager.sessionId) {
         this.destroyRenderedPlayer(sessionId, rendered);
       }
     }

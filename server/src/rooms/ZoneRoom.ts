@@ -2242,10 +2242,36 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   }
 
   /** Equipment field name that holds a given wearable slot. */
+  /** True when this item id sits in any equipment slot (incl. mount/pet). */
+  private isItemEquipped(player: InstanceType<typeof PlayerSchema>, itemId: string): boolean {
+    const eq = this.playerEquipment.get(this.pidOf(player));
+    if (!eq) return false;
+    return [
+      eq.weaponId, eq.toolId, eq.helmetId, eq.chestId, eq.glovesId, eq.bootsId,
+      eq.ring1Id, eq.ring2Id, eq.necklaceId, eq.capeId, eq.offhandId, eq.mountId, eq.petId,
+    ].includes(itemId);
+  }
+
+  /**
+   * Guard for paths that remove items from the bag: taking the LAST copy of an
+   * equipped item would leave ghost equipment (the stats stay while the item is
+   * sold/stocked/delivered/dismantled away). Extra copies may leave freely.
+   */
+  private wouldStripEquipped(
+    player: InstanceType<typeof PlayerSchema>,
+    inventory: InventoryEntry[],
+    itemId: string,
+    removeQty: number,
+  ): boolean {
+    return this.isItemEquipped(player, itemId) && getItemQuantity(inventory, itemId) - removeQty < 1;
+  }
+
   private slotField(slot: EquipmentSlot): keyof PlayerEquipment & string {
     switch (slot) {
       case "weapon":
         return "weaponId";
+      case "tool":
+        return "toolId";
       case "helmet":
         return "helmetId";
       case "chest":
@@ -4144,6 +4170,9 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     }
     const remaining = job.qty - job.progress;
     const current = this.inventories.get(this.pidOf(player)) ?? [];
+    if (this.wouldStripEquipped(player, current, job.itemId, Math.min(remaining, getItemQuantity(current, job.itemId)))) {
+      return void client.send("jobResult", { ok: false, error: "That's equipped — unequip it first." });
+    }
     const { inventory, removed } = removeItemFromInventory(current, job.itemId, remaining);
     if (removed <= 0) {
       const itemName = getItemDefinition(job.itemId).name;
@@ -4964,6 +4993,10 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
     const sellQuantity = Math.max(1, Math.floor(quantity));
     const current = this.inventories.get(this.pidOf(player)) ?? [];
+    if (this.wouldStripEquipped(player, current, itemId, sellQuantity)) {
+      client.send("shopResult", { ok: false, error: "That's equipped — unequip it first." });
+      return;
+    }
     const { inventory, removed } = removeItemFromInventory(current, itemId, sellQuantity);
     if (removed <= 0) {
       client.send("shopResult", { ok: false, error: "You don't have that item." });
@@ -5234,6 +5267,10 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         error: "You don't have that item.",
         inventory: buildInventoryPayload(inventory, weaponId, this.bagCapOf(player.name)),
       });
+      return;
+    }
+    if (this.wouldStripEquipped(player, inventory, itemId, 1)) {
+      client.send("craftResult", { ok: false, error: "That's equipped — unequip it first." });
       return;
     }
 
@@ -6373,10 +6410,12 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
     const client = this.clients.find((entry) => entry.sessionId === sessionId);
     let haulValue = 0; // Pip value of what was actually banked (drives gather tax)
+    let bankedQty = 0; // what actually fit in the bag (drives the catch celebration)
     if (client) {
       // Each completed gather wears the equipped tool by one point.
       this.wearGear(client, player, ["tool"]);
       const grantedQty = await this.grantLoot(client, player.name, lootItemId, lootQuantity);
+      bankedQty = grantedQty;
       haulValue += getItemBaseValue(lootItemId) * grantedQty;
       recordProduced(lootItemId, grantedQty);
       if (rareItemId && (await this.grantLoot(client, player.name, rareItemId, 1)) > 0) {
@@ -6492,11 +6531,12 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       skillLevel: newLevel,
       playerName: session.playerName,
       ok: true,
-      ...(caughtSpecies
+      ...(caughtSpecies && bankedQty > 0
         ? {
             caughtItemId: caughtSpecies.itemId,
             caughtRarity: caughtSpecies.rarity,
-            caughtQuantity: lootQuantity,
+            // Celebrate what actually fit in the bag, not the attempted haul.
+            caughtQuantity: bankedQty,
           }
         : {}),
     });
@@ -6852,6 +6892,10 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     const inv = this.inventories.get(this.pidOf(player)) ?? [];
     if (getItemQuantity(inv, itemId) < quantity) {
       client.send("playerShopResult", { ok: false, plotId, error: "You don't have that many." });
+      return;
+    }
+    if (this.wouldStripEquipped(player, inv, itemId, quantity)) {
+      client.send("playerShopResult", { ok: false, plotId, error: "That's equipped — unequip it first." });
       return;
     }
     const listings = shop.listings.map((l) => ({ ...l }));
