@@ -152,30 +152,8 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
         dialogue:
           "The forge is hot, friend. Bring me iron, temper it into steel, and who knows — strike lucky and we'll set a gemstone in a real blade. Got the makings of a smith in you?",
       },
-      {
-        id: "wild_slime_1",
-        name: "Wild Slime",
-        tileX: 2,
-        tileY: 10,
-        dialogue: "Gloop! A squishy slime. Easier than the dummy, but still fights back.",
-        combat: { maxHp: 45, rewardXp: 20, respawnMs: 8_000 },
-      },
-      {
-        id: "wild_slime_2",
-        name: "Wild Slime",
-        tileX: 12,
-        tileY: 18,
-        dialogue: "Gloop! A squishy slime. Easier than the dummy, but still fights back.",
-        combat: { maxHp: 45, rewardXp: 20, respawnMs: 8_000 },
-      },
-      {
-        id: "wild_slime_3",
-        name: "Wild Slime",
-        tileX: 20,
-        tileY: 14,
-        dialogue: "Gloop! A squishy slime. Easier than the dummy, but still fights back.",
-        combat: { maxHp: 45, rewardXp: 20, respawnMs: 8_000 },
-      },
+      // Wild Slimes moved to Obsidian Reach (v0.116.0) — the Hub stays a
+      // combat-free starter town; first fights happen in the Wilderness.
     ],
     // Resources sit in themed regions: a NW forest, a W quarry, and the SE lake.
     resources: [
@@ -897,6 +875,32 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
         tileY: 16,
         dialogue: "An ember-cored slime hisses.",
         combat: { maxHp: 90, rewardXp: 45, respawnMs: 10_000 },
+      },
+      // Relocated from the Hub (v0.116.0): tiles validated walkable, free of
+      // entities/portals/capture points, and BFS-reachable from spawn.
+      {
+        id: "wild_slime_3",
+        name: "Wild Slime",
+        tileX: 10,
+        tileY: 3,
+        dialogue: "Gloop! A squishy slime. Easier than the dummy, but still fights back.",
+        combat: { maxHp: 45, rewardXp: 20, respawnMs: 8_000 },
+      },
+      {
+        id: "wild_slime_4",
+        name: "Wild Slime",
+        tileX: 4,
+        tileY: 17,
+        dialogue: "Gloop! A squishy slime. Easier than the dummy, but still fights back.",
+        combat: { maxHp: 45, rewardXp: 20, respawnMs: 8_000 },
+      },
+      {
+        id: "wild_slime_5",
+        name: "Wild Slime",
+        tileX: 19,
+        tileY: 18,
+        dialogue: "Gloop! A squishy slime. Easier than the dummy, but still fights back.",
+        combat: { maxHp: 45, rewardXp: 20, respawnMs: 8_000 },
       },
     ],
     // Black-zone resources — the richest in the world: clustered gemstone veins,
