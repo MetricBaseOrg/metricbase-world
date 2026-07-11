@@ -1,10 +1,13 @@
 // Per-item supply & demand ledger. Every unit PRODUCED (gathered, crafted,
-// mob/quest drops, bought from an NPC) and CONSUMED (craft inputs, food eaten,
-// seeds planted, oil burned) is recorded as a daily metric (prod.<itemId> /
-// cons.<itemId> in economy_daily via the metrics pipeline). A rolling 7-day
-// window drives each item's price multiplier — see supplyDemandMultiplier in
-// @metricbase/shared. Player-to-player transfers (jobs, markets, loot bags)
-// are NOT flows: the item merely changes hands.
+// mob/quest drops) and every DEMAND signal (craft inputs, food eaten, seeds
+// planted, oil burned, gear broken, repair materials — and NPC SHOP PURCHASES,
+// which reveal players wanting more than they have) is recorded as a daily
+// metric (prod.<itemId> / cons.<itemId> in economy_daily via the metrics
+// pipeline). A rolling 7-day window drives each item's price multiplier — see
+// supplyDemandMultiplier in @metricbase/shared. Player-to-player transfers
+// (jobs, markets, loot bags) are NOT flows: the item merely changes hands.
+// Selling TO an NPC is an oversupply signal handled by the short-term
+// sell-pressure decay, not the flow ledger.
 
 import { supplyDemandMultiplier } from "@metricbase/shared";
 import { getPool } from "../db/pool.js";

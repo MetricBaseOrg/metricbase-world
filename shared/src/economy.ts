@@ -37,11 +37,13 @@ export function dynamicSellPrice(basePrice: number, saturation: number): number 
 }
 
 // ---- Supply & demand price index -------------------------------------------
-// Every item PRODUCED (gathered, crafted, dropped, bought from an NPC) and
-// CONSUMED (craft inputs, food eaten, seeds planted, oil burned) is recorded
-// per day. Prices drift with the 7-day used/produced ratio: oversupplied items
-// get cheaper, in-demand items get more valuable. Selling to an NPC is neither
-// (it's a dump signal, already priced by the short-term sell-pressure decay).
+// Every item PRODUCED by gameplay (gathered, crafted, dropped) and every
+// DEMAND event (craft inputs, food eaten, seeds planted, oil burned, repairs,
+// breakage — and buying from an NPC shop, which reveals unmet demand) is
+// recorded per day. Prices drift with the 7-day demand/produced ratio:
+// oversupplied items get cheaper, in-demand items get more valuable. Selling
+// to an NPC is an oversupply dump signal, priced by the short-term
+// sell-pressure decay instead.
 
 /** Smoothing constant — keeps thin markets from swinging to the clamps. */
 export const SD_SMOOTHING = 30;

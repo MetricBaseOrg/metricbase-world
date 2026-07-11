@@ -3873,7 +3873,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       burnGold(cost);
       bumpMetric("buy.count", added);
       bumpMetric("buy.gold", cost);
-      recordProduced(market.seedItemId, added);
+      recordConsumed(market.seedItemId, added); // shop purchase = demand signal
       this.inventories.set(this.pidOf(player), next);
       this.sendProfile(client, player);
       this.sendInventory(client, player.name);
@@ -4941,7 +4941,10 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     burnGold(price);
     bumpMetric("buy.count", 1);
     bumpMetric("buy.gold", price);
-    recordProduced(itemId, 1); // NPC stock entering the player economy
+    // A shop purchase is a DEMAND signal (players want more than they have),
+    // so it pushes the price up — counting it as supply made popular items
+    // get cheaper the more people bought them, which read backwards.
+    recordConsumed(itemId, 1);
     this.inventories.set(this.pidOf(player), inventory);
     this.sendProfile(client, player);
     this.sendInventory(client, player.name);
@@ -5342,7 +5345,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     }
 
     balances.set(this.pidOf(player), have - offer.cost);
-    recordProduced(offer.itemId, projected.added); // Quartermaster stock entering the economy
+    recordConsumed(offer.itemId, projected.added); // shop purchase = demand signal
     this.inventories.set(this.pidOf(player), projected.inventory);
     this.sendInventory(client, player.name);
     this.sendProfile(client, player);

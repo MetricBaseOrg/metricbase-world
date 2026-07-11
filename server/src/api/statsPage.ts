@@ -200,7 +200,7 @@ export const STATS_PAGE_HTML = `<!doctype html>
       <div style="overflow-x:auto"><table class="ptable" id="priceTable"><thead><tr>
         <th>Item</th><th>Vendor pays</th><th>vs base</th><th>Shop price</th><th>7d produced</th><th>7d used</th>
       </tr></thead><tbody></tbody></table></div>
-      <div class="legend" style="margin-top:10px"><span>Prices drift with the 7-day <b>used ÷ produced</b> ratio (0.5×–2× of base): oversupplied items get cheaper, in-demand items get more valuable. Dumping a stack on a vendor also softens its price for a few minutes.</span></div>
+      <div class="legend" style="margin-top:10px"><span>Prices drift with the 7-day <b>demand ÷ produced</b> ratio (0.5×–2× of base). Demand = items used (eaten, planted, crafted with, repairs) <b>plus shop purchases</b>; produced = gathered, crafted &amp; dropped. Oversupplied items get cheaper, in-demand items get more valuable; dumping a stack on a vendor also softens its price for a few minutes.</span></div>
     </div>
   </section>
 
