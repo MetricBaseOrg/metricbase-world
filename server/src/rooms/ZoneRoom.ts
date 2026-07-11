@@ -284,7 +284,14 @@ import {
   fillAskOrder,
   placeMarketOrder,
 } from "../market/service.js";
-import { dynamicSellPrices, effectiveSellPrice, recordSale } from "../market/sellPressure.js";
+import {
+  dynamicBuyPrices,
+  dynamicSellPrices,
+  effectiveBuyPrice,
+  effectiveSellPrice,
+  recordSale,
+} from "../market/sellPressure.js";
+import { recordConsumed, recordProduced } from "../economy/itemFlows.js";
 import {
   anyPlotLit,
   buildLandPlotStates,
@@ -2025,7 +2032,11 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
           client.send("openBlackjack", { name: "Blackjack" });
           void this.sendCasinoState(client);
         } else if (market) {
-          client.send("openCropMarket", { market: market.propId });
+          client.send("openCropMarket", {
+            market: market.propId,
+            seedPrice: effectiveBuyPrice(market.seedItemId, market.seedPrice),
+            cropSellPrice: effectiveSellPrice(market.cropItemId, market.cropSellPrice),
+          });
         } else if (prop.prop === "shop-blue") {
           // A placed Shop building is a working general store — same stock,
           // prices, and price-pressure as Pip's in the Hub.
@@ -2198,7 +2209,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       }
 
       if (rewards?.lootItemId) {
-        await this.grantLoot(client, player.name, rewards.lootItemId, rewards.lootQuantity);
+        const got = await this.grantLoot(client, player.name, rewards.lootItemId, rewards.lootQuantity);
+        recordProduced(rewards.lootItemId, got);
       }
 
       // Gems: a rare premium drop from powerful foes (HUD-P4).
@@ -3772,12 +3784,13 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     if (action === "buySeed") {
       const { inventory: next, added } = addItemToInventory(inventory, market.seedItemId, qty, this.bagCapOf(player.name));
       if (added <= 0) return void client.send("cropMarketResult", { ok: false, error: "Inventory full." });
-      const cost = market.seedPrice * added;
+      const cost = effectiveBuyPrice(market.seedItemId, market.seedPrice) * added;
       if (gold < cost) return void client.send("cropMarketResult", { ok: false, error: "Not enough gold." });
       this.playerGold.set(this.pidOf(player), gold - cost);
       burnGold(cost);
       bumpMetric("buy.count", added);
       bumpMetric("buy.gold", cost);
+      recordProduced(market.seedItemId, added);
       this.inventories.set(this.pidOf(player), next);
       this.sendProfile(client, player);
       this.sendInventory(client, player.name);
@@ -3786,6 +3799,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         ok: true,
         market: marketId,
         message: `Bought ${added}× ${ITEMS[market.seedItemId]?.name ?? "seeds"} for ${cost.toLocaleString()}g.`,
+        seedPrice: effectiveBuyPrice(market.seedItemId, market.seedPrice),
+        cropSellPrice: effectiveSellPrice(market.cropItemId, market.cropSellPrice),
       });
     }
 
@@ -3799,7 +3814,9 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         });
       }
       const { inventory: next } = removeItemFromInventory(inventory, market.cropItemId, count);
-      const payout = market.cropSellPrice * count;
+      // Same dynamic pricing as Pip: supply/demand drift + dump saturation.
+      const payout = effectiveSellPrice(market.cropItemId, market.cropSellPrice) * count;
+      recordSale(market.cropItemId, count);
       this.playerGold.set(this.pidOf(player), gold + payout);
       mintGold(payout);
       bumpMetric("sell.count", count);
@@ -3813,6 +3830,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         ok: true,
         market: marketId,
         message: `Sold ${count}× ${ITEMS[market.cropItemId]?.name ?? "crops"} for ${payout.toLocaleString()}g.`,
+        seedPrice: effectiveBuyPrice(market.seedItemId, market.seedPrice),
+        cropSellPrice: effectiveSellPrice(market.cropItemId, market.cropSellPrice),
       });
     }
   }
@@ -4202,7 +4221,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     }
 
     if (quest.rewardItemId) {
-      await this.grantLoot(client, player.name, quest.rewardItemId, quest.rewardItemQuantity ?? 1);
+      const got = await this.grantLoot(client, player.name, quest.rewardItemId, quest.rewardItemQuantity ?? 1);
+      recordProduced(quest.rewardItemId, got);
     }
 
     this.broadcastChat({
@@ -4387,6 +4407,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         inventory,
         market,
         dynamicSellPrices(shop.sellPrices),
+        dynamicBuyPrices(shop.buyOffers),
       ),
     );
   }
@@ -4814,8 +4835,11 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       return;
     }
 
+    // Charge the current (supply/demand-adjusted) price — the same one the
+    // shop catalog displayed.
+    const price = effectiveBuyPrice(itemId, offer.price);
     const gold = this.playerGold.get(this.pidOf(player)) ?? STARTING_GOLD;
-    if (gold < offer.price) {
+    if (gold < price) {
       client.send("shopResult", { ok: false, error: "Not enough gold." });
       return;
     }
@@ -4827,10 +4851,11 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       return;
     }
 
-    this.playerGold.set(this.pidOf(player), gold - offer.price);
-    burnGold(offer.price);
+    this.playerGold.set(this.pidOf(player), gold - price);
+    burnGold(price);
     bumpMetric("buy.count", 1);
-    bumpMetric("buy.gold", offer.price);
+    bumpMetric("buy.gold", price);
+    recordProduced(itemId, 1); // NPC stock entering the player economy
     this.inventories.set(this.pidOf(player), inventory);
     this.sendProfile(client, player);
     this.sendInventory(client, player.name);
@@ -4841,7 +4866,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       channel: "system",
       senderId: "system",
       senderName: "Shop",
-      body: `${player.name} bought ${item.name} for ${offer.price} gold.`,
+      body: `${player.name} bought ${item.name} for ${price} gold.`,
       sentAt: Date.now(),
     });
 
@@ -5002,6 +5027,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       return;
     }
 
+    recordConsumed(itemId, 1);
     const healAmount = getConsumableHeal(itemId) || POTION_HEAL_AMOUNT;
     const maxHp = getPlayerMaxHp(player.level);
     const currentHp = this.playerHp.get(this.pidOf(player)) ?? maxHp;
@@ -5143,11 +5169,15 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     }
 
     inventory = removeItemFromInventory(inventory, itemId, 1).inventory;
+    recordConsumed(itemId, 1);
     const gained: string[] = [];
     for (const part of refund) {
       const result = addItemToInventory(inventory, part.itemId, part.quantity, this.bagCapOf(player.name));
       inventory = result.inventory;
-      if (result.added > 0) gained.push(`${result.added}x ${ITEMS[part.itemId]?.name ?? part.itemId}`);
+      if (result.added > 0) {
+        gained.push(`${result.added}x ${ITEMS[part.itemId]?.name ?? part.itemId}`);
+        recordProduced(part.itemId, result.added);
+      }
     }
     this.inventories.set(this.pidOf(player), inventory);
     this.sendInventory(client, player.name);
@@ -5200,6 +5230,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     }
 
     balances.set(this.pidOf(player), have - offer.cost);
+    recordProduced(offer.itemId, projected.added); // Quartermaster stock entering the economy
     this.inventories.set(this.pidOf(player), projected.inventory);
     this.sendInventory(client, player.name);
     this.sendProfile(client, player);
@@ -5744,8 +5775,10 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
     for (const input of recipe.inputs) {
       inventory = removeItemFromInventory(inventory, input.itemId, input.quantity).inventory;
+      recordConsumed(input.itemId, input.quantity);
     }
     inventory = addItemToInventory(inventory, recipe.output.itemId, recipe.output.quantity, this.bagCapOf(playerName)).inventory;
+    recordProduced(recipe.output.itemId, recipe.output.quantity);
     gold -= recipe.goldCost;
     this.playerGold.set(this.pidForName(playerName), gold);
     this.inventories.set(this.pidForName(playerName), inventory);
@@ -6268,8 +6301,10 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     if (client) {
       const grantedQty = await this.grantLoot(client, player.name, lootItemId, lootQuantity);
       haulValue += getItemBaseValue(lootItemId) * grantedQty;
+      recordProduced(lootItemId, grantedQty);
       if (rareItemId && (await this.grantLoot(client, player.name, rareItemId, 1)) > 0) {
         haulValue += getItemBaseValue(rareItemId);
+        recordProduced(rareItemId, 1);
         this.broadcastChat({
           id: crypto.randomUUID(),
           channel: "system",
@@ -6593,6 +6628,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         return;
       }
       inventory = removeItemFromInventory(inventory, crop.seedItemId, 1).inventory;
+      recordConsumed(crop.seedItemId, 1);
       this.inventories.set(this.pidOf(player), inventory);
       this.sendInventory(client, player.name);
       this.sendProfile(client, player);
@@ -6638,6 +6674,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     this.bumpDaily(player.name, "harvest", yieldQty);
     this.tickJobProgress(player.name, "harvest", yieldQty);
     const grantedCrop = await this.grantLoot(client, player.name, active.cropId, yieldQty);
+    recordProduced(active.cropId, grantedCrop);
     // Visitor gather tax: harvesting in someone else's World pays the owner a
     // percent of the crop's value, same rule as chopping/mining/fishing there.
     if (this.playerZone && this.playerZone.ownerName !== player.name) {
@@ -7033,6 +7070,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       return;
     }
 
+    recordConsumed(LIGHT_OIL_ITEM, 1);
     this.inventories.set(this.pidOf(player), nextInv);
     refuelPlot(plotId, LIGHT_REFUEL_AMOUNT);
     this.sendInventory(client, player.name);

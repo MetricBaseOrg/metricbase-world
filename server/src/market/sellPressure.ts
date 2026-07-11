@@ -1,5 +1,6 @@
-import { decaySaturation, dynamicSellPrice, type SaturationState } from "@metricbase/shared";
+import { decaySaturation, sellPriceMultiplier, type SaturationState } from "@metricbase/shared";
 import { loadSellPressure, saveSellPressure } from "../db/sellPressure.js";
+import { itemPriceMultiplier } from "../economy/itemFlows.js";
 
 // Process-global vendor sell pressure, shared across all zone rooms. Tracks how
 // much of each material has been sold to NPCs recently; the value decays over
@@ -15,9 +16,25 @@ export async function initSellPressure(): Promise<void> {
   }
 }
 
+/**
+ * Effective per-unit vendor price: base × long-term supply/demand multiplier
+ * (7-day produced vs used, both directions) × short-term sell-pressure decay
+ * (dump discount only, recovers in minutes).
+ */
 export function effectiveSellPrice(itemId: string, basePrice: number, now = Date.now()): number {
   const sat = decaySaturation(saturation.get(itemId), now);
-  return dynamicSellPrice(basePrice, sat);
+  return Math.max(1, Math.round(basePrice * itemPriceMultiplier(itemId) * sellPriceMultiplier(sat)));
+}
+
+/** Effective NPC price when players BUY: base × supply/demand multiplier. */
+export function effectiveBuyPrice(itemId: string, basePrice: number): number {
+  return Math.max(1, Math.round(basePrice * itemPriceMultiplier(itemId)));
+}
+
+export function dynamicBuyPrices(offers: { itemId: string; price: number }[]): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const offer of offers) out[offer.itemId] = effectiveBuyPrice(offer.itemId, offer.price);
+  return out;
 }
 
 export function recordSale(itemId: string, quantity: number, now = Date.now()): void {

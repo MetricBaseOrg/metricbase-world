@@ -140,6 +140,14 @@ export interface CropMarketResultPayload {
   market?: string;
   message?: string;
   error?: string;
+  /** Live (supply/demand-adjusted) prices after the trade. */
+  seedPrice?: number;
+  cropSellPrice?: number;
+}
+export interface OpenCropMarketPayload {
+  market: string;
+  seedPrice?: number;
+  cropSellPrice?: number;
 }
 export interface ZoneResultPayload {
   ok: boolean;
@@ -282,7 +290,7 @@ export class NetworkManager {
   private casinoStateListeners = new Set<(payload: CasinoStatePayload) => void>();
   private casinoResultListeners = new Set<(payload: CasinoActionResult) => void>();
   private openBlackjackListeners = new Set<(payload: { name: string }) => void>();
-  private openCropMarketListeners = new Set<(payload: { market: string }) => void>();
+  private openCropMarketListeners = new Set<(payload: OpenCropMarketPayload) => void>();
   private cropMarketResultListeners = new Set<(payload: CropMarketResultPayload) => void>();
   private dailyStateListeners = new Set<(payload: DailyStatePayload) => void>();
   private jobsStateListeners = new Set<(payload: JobsStatePayload) => void>();
@@ -827,7 +835,7 @@ export class NetworkManager {
     return () => this.openBlackjackListeners.delete(listener);
   }
 
-  onOpenCropMarket(listener: (payload: { market: string }) => void) {
+  onOpenCropMarket(listener: (payload: OpenCropMarketPayload) => void) {
     this.openCropMarketListeners.add(listener);
     return () => this.openCropMarketListeners.delete(listener);
   }
@@ -1731,7 +1739,7 @@ export class NetworkManager {
     this.room.onMessage("openBlackjack", (payload: { name: string }) => {
       for (const listener of this.openBlackjackListeners) listener(payload);
     });
-    this.room.onMessage("openCropMarket", (payload: { market: string }) => {
+    this.room.onMessage("openCropMarket", (payload: OpenCropMarketPayload) => {
       for (const listener of this.openCropMarketListeners) listener(payload);
     });
     this.room.onMessage("cropMarketResult", (payload: CropMarketResultPayload) => {

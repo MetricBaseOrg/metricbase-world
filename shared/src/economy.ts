@@ -36,6 +36,28 @@ export function dynamicSellPrice(basePrice: number, saturation: number): number 
   return Math.max(1, Math.round(basePrice * sellPriceMultiplier(saturation)));
 }
 
+// ---- Supply & demand price index -------------------------------------------
+// Every item PRODUCED (gathered, crafted, dropped, bought from an NPC) and
+// CONSUMED (craft inputs, food eaten, seeds planted, oil burned) is recorded
+// per day. Prices drift with the 7-day used/produced ratio: oversupplied items
+// get cheaper, in-demand items get more valuable. Selling to an NPC is neither
+// (it's a dump signal, already priced by the short-term sell-pressure decay).
+
+/** Smoothing constant — keeps thin markets from swinging to the clamps. */
+export const SD_SMOOTHING = 30;
+/** Price multiplier clamps. */
+export const SD_MULT_MIN = 0.5;
+export const SD_MULT_MAX = 2.0;
+/** Response curve — <1 softens the raw used/produced ratio. */
+export const SD_EXPONENT = 0.6;
+
+/** Price multiplier for an item given its 7-day produced/consumed volumes. */
+export function supplyDemandMultiplier(produced: number, consumed: number): number {
+  const ratio = (Math.max(0, consumed) + SD_SMOOTHING) / (Math.max(0, produced) + SD_SMOOTHING);
+  const mult = Math.pow(ratio, SD_EXPONENT);
+  return Math.min(SD_MULT_MAX, Math.max(SD_MULT_MIN, mult));
+}
+
 // Gold market fee — a cut of every completed gold trade is burned (removed from
 // the economy), acting as a gold sink and curbing wash-trading.
 export const MARKET_FEE_RATE = 0.04;

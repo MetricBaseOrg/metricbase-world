@@ -16,16 +16,21 @@ export function CropMarketPanel() {
   const inventory = useGameStore((s) => s.inventory);
   const [notice, setNotice] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  // Live (supply/demand-adjusted) prices from the server; static base prices
+  // are only the fallback for old servers.
+  const [livePrices, setLivePrices] = useState<{ seed?: number; crop?: number }>({});
 
   useEffect(() => {
-    const offOpen = networkManager.onOpenCropMarket(({ market }) => {
+    const offOpen = networkManager.onOpenCropMarket((payload) => {
       playSfx("ui_open");
       setNotice(null);
-      useGameStore.getState().setCropMarketOpen(market);
+      setLivePrices({ seed: payload.seedPrice, crop: payload.cropSellPrice });
+      useGameStore.getState().setCropMarketOpen(payload.market);
     });
     const offResult = networkManager.onCropMarketResult((r) => {
       setPending(false);
       setNotice(r.ok ? r.message ?? "Done." : r.error ?? "Trade failed.");
+      if (r.seedPrice || r.cropSellPrice) setLivePrices({ seed: r.seedPrice, crop: r.cropSellPrice });
     });
     return () => {
       offOpen();
@@ -36,6 +41,8 @@ export function CropMarketPanel() {
   if (!marketId) return null;
   const market = CROP_MARKETS[marketId];
   if (!market) return null;
+  const seedPrice = livePrices.seed ?? market.seedPrice;
+  const cropSellPrice = livePrices.crop ?? market.cropSellPrice;
 
   const qtyOf = (itemId: string) =>
     inventory.items.find((e) => e.itemId === itemId)?.quantity ?? 0;
@@ -84,14 +91,14 @@ export function CropMarketPanel() {
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontWeight: 700, fontSize: "0.85rem" }}>🌱 {seedName}</div>
             <div className="chibi-text-muted" style={{ fontSize: "0.7rem" }}>
-              {market.seedPrice}g each · you own {seedsOwned}
+              {seedPrice}g each · you own {seedsOwned}
             </div>
           </div>
           <button
             type="button"
             className="chibi-btn chibi-btn--gold"
             style={{ padding: "8px 12px" }}
-            disabled={pending || playerGold < market.seedPrice}
+            disabled={pending || playerGold < seedPrice}
             onClick={() => trade("buySeed", 1)}
           >
             Buy 1
@@ -100,7 +107,7 @@ export function CropMarketPanel() {
             type="button"
             className="chibi-btn chibi-btn--secondary"
             style={{ padding: "8px 10px" }}
-            disabled={pending || playerGold < market.seedPrice * 5}
+            disabled={pending || playerGold < seedPrice * 5}
             onClick={() => trade("buySeed", 5)}
           >
             ×5
@@ -114,7 +121,7 @@ export function CropMarketPanel() {
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontWeight: 700, fontSize: "0.85rem" }}>{emoji} {cropName}</div>
             <div className="chibi-text-muted" style={{ fontSize: "0.7rem" }}>
-              sells for {market.cropSellPrice}g each · you own {cropsOwned}
+              sells for {cropSellPrice}g each · you own {cropsOwned}
             </div>
           </div>
           <button

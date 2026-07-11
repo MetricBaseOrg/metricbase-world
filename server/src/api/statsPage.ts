@@ -105,6 +105,17 @@ export const STATS_PAGE_HTML = `<!doctype html>
   .tile .l{font-size:.68rem;color:var(--mut);text-transform:uppercase;letter-spacing:.4px;margin-top:2px;line-height:1.3;}
   .tile .e{font-size:.95rem;margin-right:4px;}
 
+  .ptable{width:100%;border-collapse:collapse;font-size:.8rem;font-variant-numeric:tabular-nums;}
+  .ptable th{text-align:right;font-size:.68rem;text-transform:uppercase;letter-spacing:.04em;color:var(--mut);
+    padding:6px 8px;border-bottom:2px solid var(--line);white-space:nowrap;}
+  .ptable th:first-child,.ptable td:first-child{text-align:left;}
+  .ptable td{padding:6px 8px;text-align:right;border-bottom:1px dashed var(--line);white-space:nowrap;}
+  .ptable tr:last-child td{border-bottom:none;}
+  .ptable .up{color:#2f9e5e;font-weight:800;}
+  .ptable .down{color:#d85f4f;font-weight:800;}
+  .ptable .flat{color:var(--mut);font-weight:700;}
+  .ptable .nm{font-weight:800;}
+  .ptable .base{color:var(--mut);font-size:.7rem;}
   svg{display:block;width:100%;height:auto;overflow:visible;touch-action:pan-y;}
   .tip{position:fixed;pointer-events:none;background:#4a3b2a;color:#fff7ea;border-radius:12px;border:2px solid #6b5335;
     padding:7px 11px;font-size:.76rem;box-shadow:0 5px 14px rgba(74,59,42,.3);opacity:0;transition:opacity .1s;white-space:nowrap;z-index:30;line-height:1.5;}
@@ -123,6 +134,7 @@ export const STATS_PAGE_HTML = `<!doctype html>
   <a href="#overview">🏠 Overview</a>
   <a href="#token">🪙 $BASE</a>
   <a href="#economy">💰 Economy</a>
+  <a href="#prices">🏷️ Prices</a>
   <a href="#activity">🛠️ Activity</a>
   <a href="#markets">⚖️ Markets</a>
   <a href="#ads">📣 Ads</a>
@@ -173,6 +185,22 @@ export const STATS_PAGE_HTML = `<!doctype html>
       <h2>💹 $BASE gold-market volume (last 14 days)</h2>
       <svg id="mktChart" viewBox="0 0 720 220" role="img" aria-label="Gold-market volume per day"></svg>
       <div class="legend"><span><span class="dot" style="background:var(--sell)"></span>Gold traded for $BASE per day</span></div>
+    </div>
+  </section>
+
+  <section id="prices">
+    <div class="sec"><span class="em">🏷️</span><h2>Item Prices — Supply &amp; Demand</h2></div>
+    <div class="grid" style="margin-bottom:14px">
+      <div class="card"><h2>📈 Biggest gainers</h2><div id="priceUp"></div></div>
+      <div class="card"><h2>📉 Biggest drops</h2><div id="priceDown"></div></div>
+      <div class="card"><h2>🔥 Most produced (7d)</h2><div id="flowTop"></div></div>
+    </div>
+    <div class="card wide">
+      <h2>🏷️ Live vendor prices — every tracked item</h2>
+      <div style="overflow-x:auto"><table class="ptable" id="priceTable"><thead><tr>
+        <th>Item</th><th>Vendor pays</th><th>vs base</th><th>Shop price</th><th>7d produced</th><th>7d used</th>
+      </tr></thead><tbody></tbody></table></div>
+      <div class="legend" style="margin-top:10px"><span>Prices drift with the 7-day <b>used ÷ produced</b> ratio (0.5×–2× of base): oversupplied items get cheaper, in-demand items get more valuable. Dumping a stack on a vendor also softens its price for a few minutes.</span></div>
     </div>
   </section>
 
@@ -439,6 +467,31 @@ async function load(){
       {k:"🗺️ Expanded Worlds",v:fmt(w.expanded||0)+" / "+fmt(w.total||0)}
     ],function(x){return '<div class="row"><span>'+x.k+'</span><b>'+x.v+'</b></div>';});
     rows(el("holders"),s.topHolders,function(x,i){return '<div class="row"><span><span class="rk">'+(i<3?["🥇","🥈","🥉"][i]:"#"+(i+1))+'</span>'+x.name+'</span><b>'+fmt(x.gold)+'g</b></div>';});
+
+    // ---- Item prices (supply & demand) ----
+    (function(){
+      var items=s.itemPrices||[];
+      var KINDS={material:"🧱",consumable:"🍞",weapon:"⚔️",tool:"🪓",armor:"🛡️",mount:"🐴",pet:"🐾"};
+      function pct(m){return Math.round((m-1)*100);}
+      function trend(m){var p=pct(m);
+        if(p>0)return '<span class="up">▲ +'+p+'%</span>';
+        if(p<0)return '<span class="down">▼ '+p+'%</span>';
+        return '<span class="flat">＝</span>';}
+      var tb=el("priceTable").querySelector("tbody");
+      tb.innerHTML=items.map(function(it){
+        var vendor=it.price>0?fmt(it.price)+'g <span class="base">('+fmt(it.base)+')</span>':'<span class="base">—</span>';
+        var shop=it.buyPrice>0?fmt(it.buyPrice)+'g <span class="base">('+fmt(it.buyBase)+')</span>':'<span class="base">—</span>';
+        return '<tr><td class="nm">'+(KINDS[it.kind]||"📦")+' '+it.name+'</td><td>'+vendor+'</td><td>'+trend(it.mult)
+          +'</td><td>'+shop+'</td><td>'+fmt(it.produced7d)+'</td><td>'+fmt(it.consumed7d)+'</td></tr>';
+      }).join("")||'<tr><td colspan="6" class="base">Nothing traded yet 🌱</td></tr>';
+      var priced=items.filter(function(it){return it.price>0||it.buyPrice>0;});
+      var up=priced.filter(function(it){return it.mult>1;}).sort(function(a,b){return b.mult-a.mult;}).slice(0,5);
+      var dn=priced.filter(function(it){return it.mult<1;}).sort(function(a,b){return a.mult-b.mult;}).slice(0,5);
+      rows(el("priceUp"),up,function(it){return '<div class="row"><span>'+it.name+'</span><b class="up" style="color:#2f9e5e">+'+pct(it.mult)+'% · '+fmt(it.price||it.buyPrice)+'g</b></div>';});
+      rows(el("priceDown"),dn,function(it){return '<div class="row"><span>'+it.name+'</span><b style="color:#d85f4f">'+pct(it.mult)+'% · '+fmt(it.price||it.buyPrice)+'g</b></div>';});
+      var top=items.slice().sort(function(a,b){return b.produced7d-a.produced7d;}).filter(function(it){return it.produced7d>0;}).slice(0,5);
+      rows(el("flowTop"),top,function(it){return '<div class="row"><span>'+it.name+'</span><b>'+fmt(it.produced7d)+' made · '+fmt(it.consumed7d)+' used</b></div>';});
+    })();
 
     var ad=s.ads||{daily:{}};var adDaily=ad.daily||{};
     setBig("adRevenue",ad.totalRevenue," $BASE");

@@ -134,6 +134,8 @@ export function buildShopOpenPayload(
   market?: MarketStatePayload,
   /** Effective (dynamic) per-unit sell prices; falls back to the base prices. */
   sellPriceOverrides?: Record<string, number>,
+  /** Effective (dynamic) per-unit buy prices; falls back to the base prices. */
+  buyPriceOverrides?: Record<string, number>,
 ): ShopOpenPayload {
   const normalized = normalizeInventory(inventory);
 
@@ -143,7 +145,7 @@ export function buildShopOpenPayload(
       itemId: offer.itemId,
       name: item.name,
       description: item.description,
-      price: offer.price,
+      price: buyPriceOverrides?.[offer.itemId] ?? offer.price,
       owned: getOwnedQuantity(normalized, offer.itemId),
     };
   });

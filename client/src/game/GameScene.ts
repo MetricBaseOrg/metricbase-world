@@ -769,6 +769,9 @@ export class GameScene extends Phaser.Scene {
       const kind = this.resourceKind(payload.resourceId);
       playSfx(kind === "rock" ? "mine_hit" : kind === "fish" ? "fish_cast" : "chop_swing");
       if (payload.playerName === useGameStore.getState().playerName) {
+        // A leftover click-to-move path would read as movement next frame and
+        // instantly cancel the gather we just started.
+        this.clearMoveTarget();
         this.startLocalChopHits(payload.endsAt, kind, payload.resourceId);
         if (kind === "fish") {
           useGameStore.getState().setFishing({ resourceId: payload.resourceId, endsAt: payload.endsAt });
@@ -919,7 +922,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     const chopping = Date.now() < this.localChoppingUntil;
-    const blocked = isUiTypingActive() || useGameStore.getState().knockedOut || chopping;
+    const blocked = isUiTypingActive() || useGameStore.getState().knockedOut;
 
     if (blocked && (this.lastSentInput.dx !== 0 || this.lastSentInput.dy !== 0)) {
       networkManager.sendInput(0, 0);
@@ -938,6 +941,22 @@ export class GameScene extends Phaser.Scene {
         if (moveAxis) {
           dx = moveAxis.dx;
           dy = moveAxis.dy;
+        }
+      }
+
+      // Walking off mid-gather cancels it. The server cancels on any movement
+      // input (reason "moved", no energy cost); clear the local lock right away
+      // so the character responds instantly instead of waiting for chopCancel.
+      // (Suppressing movement input while chopping made gathering un-cancelable.)
+      if (chopping && (dx !== 0 || dy !== 0)) {
+        this.localChoppingUntil = 0;
+        this.stopLocalChopHits();
+        useGameStore.getState().setFishing(null);
+        const local = this.findLocalPlayer();
+        if (local) {
+          local.actionUntil = 0;
+          local.displayAction = "idle";
+          local.poseStartedAt = Date.now();
         }
       }
 

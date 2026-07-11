@@ -1,8 +1,16 @@
 import { Router } from "express";
-import { BLACK_ZONE_BURN_AMOUNT, GAME_VERSION } from "@metricbase/shared";
+import {
+  BLACK_ZONE_BURN_AMOUNT,
+  GAME_VERSION,
+  ITEMS,
+  SHOPS,
+  getItemBaseValue,
+  supplyDemandMultiplier,
+} from "@metricbase/shared";
 import { getPool } from "../db/pool.js";
 import { ZoneRoom } from "../rooms/ZoneRoom.js";
 import { getDailySeries, getMetricTotals } from "../economy/metrics.js";
+import { getItemFlows } from "../economy/itemFlows.js";
 import { getPlayerHeldBase } from "../solana/playerHeldBase.js";
 import { adService, type AdPublicStats } from "../ads/adService.js";
 import { countOpenJobs } from "../jobs/jobRegistry.js";
@@ -56,6 +64,59 @@ interface EconomyStats {
   topHolders: { name: string; gold: number }[];
   activity: Record<string, number>;
   daily: { day: string; metric: string; value: number }[];
+  /** Live supply/demand item prices (vendor pays / shop charges). */
+  itemPrices: ItemPriceStat[];
+}
+
+export interface ItemPriceStat {
+  itemId: string;
+  name: string;
+  kind: string;
+  /** Base vendor (sell-to-NPC) value; 0 when no vendor buys it. */
+  base: number;
+  /** Current vendor value after the supply/demand multiplier. */
+  price: number;
+  /** Base / current NPC shop price when the item is sold BY a shop. */
+  buyBase: number;
+  buyPrice: number;
+  /** Supply/demand price multiplier (1 = neutral). */
+  mult: number;
+  /** Rolling 7-day flow volumes. */
+  produced7d: number;
+  consumed7d: number;
+}
+
+/** Every item with a price or any recorded flow, with its live price. */
+function buildItemPrices(): ItemPriceStat[] {
+  const flows = getItemFlows();
+  const buyOffers = SHOPS.pip_general.buyOffers;
+  const ids = new Set<string>([
+    ...Object.keys(ITEMS).filter((id) => getItemBaseValue(id) > 0),
+    ...buyOffers.map((o) => o.itemId),
+    ...flows.keys(),
+  ]);
+  const out: ItemPriceStat[] = [];
+  for (const itemId of ids) {
+    const f = flows.get(itemId);
+    const produced = f?.produced ?? 0;
+    const consumed = f?.consumed ?? 0;
+    const mult = supplyDemandMultiplier(produced, consumed);
+    const base = getItemBaseValue(itemId);
+    const offer = buyOffers.find((o) => o.itemId === itemId);
+    out.push({
+      itemId,
+      name: ITEMS[itemId]?.name ?? itemId,
+      kind: ITEMS[itemId]?.kind ?? "material",
+      base,
+      price: base > 0 ? Math.max(1, Math.round(base * mult)) : 0,
+      buyBase: offer?.price ?? 0,
+      buyPrice: offer ? Math.max(1, Math.round(offer.price * mult)) : 0,
+      mult: Math.round(mult * 100) / 100,
+      produced7d: produced,
+      consumed7d: consumed,
+    });
+  }
+  return out.sort((a, b) => b.price - a.price || b.produced7d - a.produced7d || a.name.localeCompare(b.name));
 }
 
 export async function buildStats(): Promise<EconomyStats> {
@@ -178,6 +239,7 @@ export async function buildStats(): Promise<EconomyStats> {
     topHolders,
     activity,
     daily,
+    itemPrices: buildItemPrices(),
   };
 }
 
