@@ -24,13 +24,12 @@ file into the folder named in its section header.
 ## 👉 START HERE
 
 The original list is **done**: all tiles, buildings, nodes, **Mobs (6)**, **NPCs (5)**, and most
-of both character sets shipped. **What's still missing, by impact (122 files):**
+of both character sets shipped. **What's still missing, by impact (118 files):**
 
-1. **`girl-front-walk-0..3` (4)** — manifest declares walk for girl, so walking *toward the
-   camera* falls back to the idle pose (visible slide-glide bug). Highest priority single batch.
+1. ~~`girl-front-walk-0..3`~~ ✅ shipped v0.110.1
 2. **Item icons (53)** — biggest UI surface (inventory/shop/market all show placeholder art).
 3. **Character gaps (46)** — portraits ×2, girl attack (16), boy+girl fish (16), back-chop ×2
-   and boy back-attack (12) — exact file list in the character section.
+   and boy back-attack (12) — exact file list in the character section. Girl walk done ✅.
 4. **Interiors (15) + farm/billboard/portal (4)** in `assets/world/` — `scenery-rug`,
    `scenery-fireplace`, `scenery-bookshelf` are already referenced by code and 404 today.
 
@@ -241,11 +240,9 @@ front/right/tqright. **Still 🎨 (17):**
 - `boy-<front|back|right|tqright>-fish-0..1` (8) — no fish frames exist yet for anyone
 - `boy-portrait.png` (1)
 
-**Girl ✅ (37/80 files):** idle complete; walk in back/right/tqright; chop in
-front/right/tqright. **Still 🎨 (33):**
+**Girl ✅ (41/80 files):** idle + walk complete in all 4 directions; chop in
+front/right/tqright. **Still 🎨 (29):**
 
-- `girl-front-walk-0..3` (4) — ⚠️ **draw first**: walk is declared in the manifest, so walking
-  toward the camera currently slides in the idle pose
 - `girl-back-chop-0..3` (4)
 - `girl-<front|back|right|tqright>-attack-0..3` (16) — match the boy's 4-frame attack
 - `girl-<front|back|right|tqright>-fish-0..1` (8)
@@ -267,9 +264,8 @@ directions, before starting the girl.
 ## Priority order
 
 1. ~~sand + rock + deep-pool~~ ✅ · ~~Mobs (6) + NPCs (5)~~ ✅ · ~~new buildings + tiles~~ ✅ ·
-   ~~boy idle/walk/chop/attack~~ ✅ · ~~girl idle/chop + most walk~~ ✅
-2. **`girl-front-walk-0..3`** — 4 files, fixes a visible in-game bug
-3. Item icons — 53 left (`assets/items/`); highest UI impact
-4. Character gaps — portraits, girl attack, fish, back-chop/attack (46 files, list above)
-5. Interiors (15, the 3 ⚠️ ones first) + farm plots/billboard/portal (4) — `assets/world/`
-6. Iso tiles + details (after template chat)
+   ~~boy idle/walk/chop/attack~~ ✅ · ~~girl idle/walk/chop~~ ✅
+2. Item icons — 53 left (`assets/items/`); highest UI impact
+3. Character gaps — portraits, girl attack, fish, back-chop/attack (46 files, list above)
+4. Interiors (15, the 3 ⚠️ ones first) + farm plots/billboard/portal (4) — `assets/world/`
+5. Iso tiles + details (after template chat)
