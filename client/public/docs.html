@@ -303,6 +303,9 @@
         </div>
         <div class="callout brand">Your character is tied to your wallet, so you can log back in
         from any device and pick up exactly where you left off.</div>
+        <div class="callout">👀 <strong>Just looking?</strong> Tap <em>Spectate World</em> on the
+        login screen to wander the world as an anonymous <strong>Guest</strong> — no wallet, no
+        tokens needed. Spectators can explore but can't fight, gather, or trade.</div>
       </section>
 
       <!-- 2 -->
@@ -369,7 +372,11 @@
         (fish). They sell for a lot, and a Gemstone can be forged into the best weapon in the game.</p>
         <div class="callout leaf">Equip a crafted <strong>tool</strong> (axe, pickaxe, fishing rod,
         or net) to gather faster — and steel-tier tools also have a chance to drop a bonus
-        resource each time. See <a href="#craft">Crafting &amp; Tools</a>.</div>
+        resource each time. Tools <strong>wear with use</strong> and need the smith now and then —
+        see <a href="#craft">Crafting &amp; Tools</a>.</div>
+        <div class="callout">🚶 <strong>Walk away to cancel</strong> a gather in progress — it's
+        free. And mind your bag: if it's full, the loot is <strong>left behind</strong> (you'll get
+        a clear warning in chat). Big stacks keep growing by spilling into extra bag slots.</div>
         <h3>🎣 Fishing is a minigame</h3>
         <p>Unlike trees and rocks, fish <strong>fight back</strong>. Cast at a fishing spot and:</p>
         <ul class="list">
@@ -495,8 +502,9 @@
         <ul class="list">
           <li><strong>Materials:</strong> Planks, Hardwood Planks, Copper / Iron / Steel Bars, and
           <strong>Lamp Oil</strong> (fuel for building lights).</li>
-          <li><strong>Food:</strong> Cooked Fish, Bread, Grilled Salmon — restore both HP and
-          <a href="#food">energy</a>.</li>
+          <li><strong>Food:</strong> Cooked Fish, Bread, <strong>Carrot Soup</strong> (2 carrots +
+          a fish), <strong>Carrot Bread</strong> (wheat + carrots), Grilled Salmon — restore both HP
+          and <a href="#food">energy</a>.</li>
           <li><strong>Weapons:</strong> Copper Dagger (+18), and the prestige <strong>Gemforged
           Blade</strong> (+30, needs a rare Gemstone).</li>
           <li><strong>Tools:</strong> three tiers that speed up gathering.</li>
@@ -512,6 +520,18 @@
         </table>
         <p>Equip a tool from your Inventory into the <strong>tool slot</strong> (separate from your
         weapon). It only helps the matching skill.</p>
+        <h3>🔧 Durability &amp; repairs</h3>
+        <p>Tools, weapons, and armor <strong>wear out</strong>: tools lose a point per gather
+        (a copper axe fells ~120 trees; steel lasts nearly triple), weapons and armor wear in
+        combat. At <strong>zero durability the item breaks and is destroyed</strong> — watch the
+        bars in your Inventory.</p>
+        <ul class="list">
+          <li><strong>Repair all gear</strong> from the Inventory panel: <strong>2g per durability
+          point</strong>, and any piece missing 30%+ also needs <strong>1× its tier material</strong>
+          (iron bars for iron gear, planks for rods, a gemstone for the Gemforged Blade…).</li>
+          <li>Light top-ups are gold-only — repair early, repair often.</li>
+          <li>Swapping gear doesn't reset the damage: an item remembers its wear when re-equipped.</li>
+        </ul>
         <h3>Fishing accessories</h3>
         <p>Craftable gear that boosts fishing while <em>worn</em> (stacks with your rod):</p>
         <ul class="list">
@@ -531,7 +551,8 @@
         <h2><span class="emoji">⚔️</span> 7. Combat &amp; Leveling</h2>
         <p>Approach a hostile creature (Training Dummy, Wild Slime, Slime Brute) and press
         <span class="kbd">Space</span> to attack. The server handles all damage fairly. Monsters
-        hit back, so watch your HP.</p>
+        hit back, so watch your HP. The Hub is a <strong>combat-free town</strong> — your first
+        fights are in the <strong>Wilderness</strong>, against the Training Dummy and Wild Slimes.</p>
         <div class="callout">⚠️ <strong>Monsters hit hard.</strong> Every creature counter-attacks
         when you trade blows, and they hit for serious damage — the <strong>Slime Brute</strong> in
         the Grotto can take down an under-levelled adventurer fast. Don't out-punch what you can't
@@ -688,12 +709,28 @@
       <!-- 9 -->
       <section id="economy">
         <h2><span class="emoji">💰</span> 9. Trade &amp; Economy</h2>
-        <h3>Pip's Provisions (Hub)</h3>
-        <p>Press <span class="kbd">E</span> near <strong>Pip</strong> to buy supplies (potions,
-        seeds, a starter blade) and sell your gathered &amp; crafted materials for gold.</p>
-        <div class="callout">Pip's buy prices are <strong>dynamic</strong>: the more of a material
-        is sold, the less he pays for it (prices recover over time). It keeps the economy from
-        flooding — sell a variety, not just one thing.</div>
+        <h3>Pip's Provisions (Hub &amp; every placed Shop)</h3>
+        <p>Press <span class="kbd">E</span> near <strong>Pip</strong> (or any placed 🏪 Shop
+        building in a World) to trade. Pip now <strong>buys and sells every item in the game</strong>
+        — materials, fish, dishes, seeds, weapons, tools, armor, even mounts. Only <strong>pets</strong>
+        stay exclusive to the Quartermaster's gem shop. Use the <strong>search box, category chips,
+        and sort picker</strong> to browse the full catalog.</p>
+        <h3>📈 Prices move with supply &amp; demand</h3>
+        <p>Every item's price drifts between <strong>0.5× and 2×</strong> of its base value,
+        following what players actually do over the last 7 days:</p>
+        <ul class="list">
+          <li><strong>Demand</strong> (price rises): eating food, planting seeds, using crafting
+          ingredients, repairing gear, gear breaking — and <strong>buying from a shop</strong>.</li>
+          <li><strong>Supply</strong> (price falls): gathering, crafting, harvesting, and monster
+          drops flooding the world with an item.</li>
+          <li><strong>Dumping</strong> a big stack on a vendor also softens its price for a few
+          minutes (it recovers on its own).</li>
+        </ul>
+        <div class="callout">🏷️ Live prices for every item — with 7-day made/used volumes, gainers
+        and drops — are public on the <a href="/stats" target="_blank" rel="noopener">/stats</a>
+        dashboard. Crafting is always cheaper than buying (~32% margin), and selling a crafted item
+        back never beats the cost of its materials — the smart gold is in gathering what's in
+        demand.</div>
         <h3>The open Gold Market</h3>
         <p>Pip's shop also hosts a player-to-player <strong>order book</strong> where you trade
         in-game <strong>gold</strong> for crypto. Pick your currency — <strong>$BASE, USDC, IDRX,
@@ -989,14 +1026,15 @@
         <p>Travel between zones through glowing <strong>portals</strong>. Each zone is themed:</p>
         <table>
           <tr><th>Zone</th><th>Danger</th><th>What's there</th></tr>
-          <tr><td><strong>MetricBase Hub</strong></td><td>🟢 Safe</td><td>The town square. Pip, Aria, Brenna, the
-          billboard, the lake, beginner gathering nodes, farms, and homesteads.</td></tr>
+          <tr><td><strong>MetricBase Hub</strong></td><td>🟢 Safe</td><td>The combat-free town square. Pip, Aria,
+          Brenna, the billboard, the lake, beginner gathering nodes, farms, and homesteads.</td></tr>
           <tr><td><strong>Wilderness</strong></td><td>🟡 Yellow</td><td>Rook, the Training Dummy, Wild Slimes,
           higher-tier trees/ore/fish, a river, a capture point — plus frontier farms &amp; housing.</td></tr>
           <tr><td><strong>Slime Grotto</strong></td><td>🔴 Red</td><td>A cave past the Wilderness with pools, Moss,
           the Slime Brute, rich nodes, a capture point, and the <strong>Black Gate</strong>.</td></tr>
           <tr><td><strong>Obsidian Reach</strong></td><td>⚫ Black</td><td>Burn-gated, full-loot end-game zone: the
-          best resources, two capture points, and the <strong>King Crystal</strong> siege.</td></tr>
+          best resources, roaming slimes that hunt at night, two capture points, and the
+          <strong>King Crystal</strong> siege.</td></tr>
           <tr><td><strong>Community Lodge</strong></td><td>🟢 Safe · VIP</td><td>A cosy VIP indoor space with the
           Base Rush arcade.</td></tr>
         </table>
