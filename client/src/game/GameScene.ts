@@ -134,6 +134,8 @@ interface RenderedFarmPlot {
   worldX: number;
   worldY: number;
   stage: "empty" | "growing" | "ready";
+  /** Item id of the planted crop (drives the hand-drawn crop art). */
+  cropId?: string;
   plantedAt?: number;
   readyAt?: number;
   /** Soil-paint plots: the painted soil art IS the empty state, so the plot
@@ -372,6 +374,7 @@ export class GameScene extends Phaser.Scene {
    */
   private cameraTarget: Phaser.GameObjects.Rectangle | null = null;
   private cameraFollowing = false;
+  private lastCameraShakeAt = 0;
   private dayNightOverlay: Phaser.GameObjects.Rectangle | null = null;
   private lampKey: Phaser.Input.Keyboard.Key | null = null;
   private localLampGlow: Phaser.GameObjects.Image | null = null;
@@ -582,10 +585,10 @@ export class GameScene extends Phaser.Scene {
       if (payload.defeated) {
         playSfx("attack_defeat");
         // Satisfying punch on a kill landed by the local player.
-        if (localAttacker) this.cameras.main.shake(140, 0.005);
+        if (localAttacker) this.shakeCamera(140, 0.005);
       } else {
         playSfx("attack_hit");
-        if (localAttacker && payload.crit) this.cameras.main.shake(90, 0.004);
+        if (localAttacker && payload.crit) this.shakeCamera(90, 0.004);
       }
 
       // Red damage flash on Mob
@@ -595,9 +598,10 @@ export class GameScene extends Phaser.Scene {
         this.time.delayedCall(150, () => npc.sprite.clearTint());
       }
 
-      // Trigger attack action on remote attacker
+      // Trigger attack action on remote attacker (renderedPlayers is keyed by
+      // sessionId — look the attacker up by name).
       if (payload.attackerName && payload.attackerName !== useGameStore.getState().playerName) {
-        const remote = this.renderedPlayers.get(payload.attackerName);
+        const remote = this.findRenderedPlayerByName(payload.attackerName);
         if (remote && npc) {
           const direction = directionTowardTarget(
             remote.sprite.x,
@@ -619,7 +623,7 @@ export class GameScene extends Phaser.Scene {
           attackerY = this.localAvatar.sprite.y;
         }
       } else if (payload.attackerName) {
-        const remote = this.renderedPlayers.get(payload.attackerName);
+        const remote = this.findRenderedPlayerByName(payload.attackerName);
         if (remote) {
           attackerX = remote.sprite.x;
           attackerY = remote.sprite.y;
@@ -642,7 +646,7 @@ export class GameScene extends Phaser.Scene {
       this.showPlayerDamageNumber(payload.amount);
       playSfx("player_hurt");
       // Camera shake scales with the size of the hit taken.
-      this.cameras.main.shake(110, Math.min(0.008, 0.002 + payload.amount * 0.00012));
+      this.shakeCamera(110, Math.min(0.008, 0.002 + payload.amount * 0.00012));
 
       // Red damage flash on local player
       if (this.localAvatar) {
@@ -687,7 +691,7 @@ export class GameScene extends Phaser.Scene {
       }
       const localName = useGameStore.getState().playerName;
       if (payload.attackerName === localName && payload.knockedOut) {
-        this.cameras.main.shake(140, 0.005);
+        this.shakeCamera(140, 0.005);
       }
       // Track my current opponent for the PvP target frame (duels manage
       // their own frame lifetime; hits keep it alive ~8s past the last blow).
@@ -2862,19 +2866,66 @@ export class GameScene extends Phaser.Scene {
       const plot = this.renderedFarmPlots.get(state.plotId);
       if (!plot) continue;
       plot.stage = state.stage;
+      plot.cropId = state.cropId;
       plot.plantedAt = state.plantedAt;
       plot.readyAt = state.readyAt;
-      const texture =
-        state.stage === "ready" ? "plot_ready" : state.stage === "growing" ? "plot_growing" : "plot_empty";
-      plot.sprite.setTexture(texture);
-      // Soil-paint plots show the sprite only once something is planted.
-      if (plot.hideWhenEmpty) plot.sprite.setVisible(state.stage !== "empty");
+      this.applyPlotVisual(plot);
       plot.label.setText(state.stage === "ready" ? "Ready!" : "Plot");
       plot.label.setVisible(state.stage === "ready");
       if (state.stage !== "growing") {
         plot.barBg.clear();
         plot.barFill.clear();
       }
+    }
+  }
+
+  /** Hand-drawn crop art per planted crop id; null falls back to procedural. */
+  private plotCropAssetId(cropId?: string): string | null {
+    if (cropId === "item_carrot") return "crop-carrot";
+    if (cropId === "item_wheat") return "crop-wheat";
+    return null;
+  }
+
+  /**
+   * Point the plot sprite at the right visual for its stage: hand-drawn crop
+   * art (wheat/carrot) when the planted crop has art — growing renders the
+   * same art smaller, so it reads as sprouting — else the procedural patch.
+   * Works for both built-in 2×2 plots (base zones) and soil-paint plots
+   * (player Worlds).
+   */
+  private applyPlotVisual(plot: RenderedFarmPlot) {
+    const { sprite } = plot;
+    const soilPlot = plot.id.startsWith("soil_");
+    // Soil-paint plots show the sprite only once something is planted.
+    if (plot.hideWhenEmpty) sprite.setVisible(plot.stage !== "empty");
+
+    const assetId = plot.stage === "empty" ? null : this.plotCropAssetId(plot.cropId);
+    if (!assetId) {
+      const texture =
+        plot.stage === "ready" ? "plot_ready" : plot.stage === "growing" ? "plot_growing" : "plot_empty";
+      sprite.setTexture(texture).setOrigin(0.5, 0.526).setScale(soilPlot ? 0.62 : 1);
+      return;
+    }
+
+    const key = zoneAssetTextureKey(assetId);
+    const stageWhenRequested = plot.stage;
+    const apply = () => {
+      if (!sprite.active || plot.stage !== stageWhenRequested) return;
+      const asset = getZoneAsset(assetId);
+      const grown = plot.stage === "ready" ? 1 : 0.68;
+      sprite
+        .setTexture(key)
+        .setOrigin(0.5, asset?.anchorY ?? 0.5)
+        // Built-in plots span a 2×2 footprint (like their soil base), soil-paint
+        // plots are single tiles.
+        .setScale(zoneAssetScale(this, assetId) * (soilPlot ? 1 : 2) * grown)
+        .setVisible(true);
+    };
+    if (this.textures.exists(key)) {
+      apply();
+    } else {
+      if (plot.hideWhenEmpty) sprite.setVisible(false);
+      ensureZoneAssetLoaded(this, assetId, apply);
     }
   }
 
@@ -2885,8 +2936,7 @@ export class GameScene extends Phaser.Scene {
       // Client-side flip to ready if the broadcast hasn't arrived yet.
       if (now >= plot.readyAt) {
         plot.stage = "ready";
-        plot.sprite.setTexture("plot_ready");
-        if (plot.hideWhenEmpty) plot.sprite.setVisible(true);
+        this.applyPlotVisual(plot);
         plot.label.setText("Ready!").setVisible(true);
         plot.barBg.clear();
         plot.barFill.clear();
@@ -3516,6 +3566,18 @@ export class GameScene extends Phaser.Scene {
       ease: "Cubic.easeOut",
       onComplete: () => text.destroy(),
     });
+  }
+
+  /**
+   * Combat camera shake, rate-limited: rapid hits (auto-attack, a slime pack
+   * piling on) each triggered a full shake, stacking into a constant tremor.
+   * One shake per 450ms is plenty to sell the impact.
+   */
+  private shakeCamera(duration: number, intensity: number) {
+    const now = Date.now();
+    if (now - this.lastCameraShakeAt < 450) return;
+    this.lastCameraShakeAt = now;
+    this.cameras.main.shake(duration, intensity);
   }
 
   private spawnSlashArc(x: number, y: number, angle: number) {
@@ -4418,18 +4480,9 @@ export class GameScene extends Phaser.Scene {
     const resource = this.renderedResources.find((entry) => entry.id === resourceId);
     const durationMs = Math.max(0, endsAt - Date.now());
 
-    let rendered: RenderedPlayer | null = null;
-    if (this.localAvatar?.label.text === playerName) {
-      rendered = this.localAvatar;
-    } else {
-      for (const [, r] of this.renderedPlayers) {
-        if (r.label.text === playerName) {
-          rendered = r;
-          break;
-        }
-      }
-    }
-
+    // Match by raw name — the nameplate label carries a [GUILD] tag, so
+    // comparing label.text left guild members stuck in the idle pose.
+    const rendered = this.findRenderedPlayerByName(playerName);
     if (!rendered) return;
 
     const direction = resource
