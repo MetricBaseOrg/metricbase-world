@@ -1072,7 +1072,20 @@ export class GameScene extends Phaser.Scene {
     const py = local.predicted.y;
     let target: { x: number; y: number; label: string } | null = null;
 
-    // Farm plots take priority (plant/harvest).
+    // Loot bags first — interact grabs them before anything else, but the
+    // hint never said so (mobile players had no idea ✨ picks up loot).
+    let bestBag: { x: number; y: number } | null = null;
+    let bestBagD = CHOP_RANGE;
+    for (const bag of this.renderedLootBags.values()) {
+      const d = Math.hypot(px - bag.x, py - bag.y);
+      if (d <= bestBagD) {
+        bestBag = bag;
+        bestBagD = d;
+      }
+    }
+    if (bestBag) target = { x: bestBag.x, y: bestBag.y - 34, label: "Grab loot" };
+
+    // Farm plots next (plant/harvest).
     let bestFarm: RenderedFarmPlot | null = null;
     let bestFarmD = FARM_RANGE;
     for (const plot of this.renderedFarmPlots.values()) {
@@ -1082,7 +1095,7 @@ export class GameScene extends Phaser.Scene {
         bestFarmD = d;
       }
     }
-    if (bestFarm) {
+    if (!target && bestFarm) {
       const verb = bestFarm.stage === "ready" ? "Harvest" : bestFarm.stage === "growing" ? null : "Plant seed";
       if (verb) target = { x: bestFarm.worldX, y: bestFarm.worldY - 36, label: verb };
     }
