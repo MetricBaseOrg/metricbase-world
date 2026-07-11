@@ -24,12 +24,12 @@ file into the folder named in its section header.
 ## 👉 START HERE
 
 The original list is **done**: all tiles, buildings, nodes, **Mobs (6)**, **NPCs (5)**, and most
-of both character sets shipped. **What's still missing, by impact (118 files):**
+of both character sets shipped. **What's still missing, by impact (110 files):**
 
-1. ~~`girl-front-walk-0..3`~~ ✅ shipped v0.110.1
+1. ~~`girl-front-walk-0..3`~~ ✅ v0.110.1 · ~~back-chop ×2~~ ✅ v0.111.0
 2. **Item icons (53)** — biggest UI surface (inventory/shop/market all show placeholder art).
-3. **Character gaps (46)** — portraits ×2, girl attack (16), boy+girl fish (16), back-chop ×2
-   and boy back-attack (12) — exact file list in the character section. Girl walk done ✅.
+3. **Character gaps (38)** — portraits ×2, girl attack (16), boy+girl fish (16), boy
+   back-attack (4) — exact file list in the character section.
 4. **Interiors (15) + farm/billboard/portal (4)** in `assets/world/` — `scenery-rug`,
    `scenery-fireplace`, `scenery-bookshelf` are already referenced by code and 404 today.
 
@@ -233,17 +233,15 @@ profile card). **Total: 98 files.**
 
 ### Progress (live manifest: boy = idle 2 / walk 4 / chop 4 / attack 4 · girl = idle 2 / walk 4 / chop 4)
 
-**Boy ✅ (63/80 files):** idle + walk complete in all 4 directions; chop + attack complete in
-front/right/tqright. **Still 🎨 (17):**
+**Boy ✅ (67/80 files):** idle + walk + chop complete in all 4 directions; attack in
+front/right/tqright. **Still 🎨 (13):**
 
-- `boy-back-chop-0..3` (4) · `boy-back-attack-0..3` (4)
+- `boy-back-attack-0..3` (4)
 - `boy-<front|back|right|tqright>-fish-0..1` (8) — no fish frames exist yet for anyone
 - `boy-portrait.png` (1)
 
-**Girl ✅ (41/80 files):** idle + walk complete in all 4 directions; chop in
-front/right/tqright. **Still 🎨 (29):**
+**Girl ✅ (45/80 files):** idle + walk + chop complete in all 4 directions. **Still 🎨 (25):**
 
-- `girl-back-chop-0..3` (4)
 - `girl-<front|back|right|tqright>-attack-0..3` (16) — match the boy's 4-frame attack
 - `girl-<front|back|right|tqright>-fish-0..1` (8)
 - `girl-portrait.png` (1)
@@ -266,6 +264,6 @@ directions, before starting the girl.
 1. ~~sand + rock + deep-pool~~ ✅ · ~~Mobs (6) + NPCs (5)~~ ✅ · ~~new buildings + tiles~~ ✅ ·
    ~~boy idle/walk/chop/attack~~ ✅ · ~~girl idle/walk/chop~~ ✅
 2. Item icons — 53 left (`assets/items/`); highest UI impact
-3. Character gaps — portraits, girl attack, fish, back-chop/attack (46 files, list above)
+3. Character gaps — portraits, girl attack, fish, boy back-attack (38 files, list above)
 4. Interiors (15, the 3 ⚠️ ones first) + farm plots/billboard/portal (4) — `assets/world/`
 5. Iso tiles + details (after template chat)

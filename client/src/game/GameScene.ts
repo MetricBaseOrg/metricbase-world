@@ -632,6 +632,10 @@ export class GameScene extends Phaser.Scene {
         const midY = (attackerY + npc.worldY) / 2 - 10;
         this.spawnSlashArc(midX, midY, angle);
       }
+      // Spark burst on the mob itself — gold + ring when it's a crit.
+      if (npc) {
+        this.spawnImpactBurst(npc.worldX, npc.worldY - 14, payload.crit ?? false);
+      }
     });
 
     const unsubscribePlayerDamage = networkManager.onPlayerDamage((payload) => {
@@ -674,6 +678,7 @@ export class GameScene extends Phaser.Scene {
         this.showWorldDamageNumber(victim.sprite.x, victim.sprite.y - 44, payload.damage, payload.crit);
         victim.sprite.setTint(0xff4444);
         this.time.delayedCall(150, () => victim.sprite.clearTint());
+        this.spawnImpactBurst(victim.sprite.x, victim.sprite.y - 16, payload.crit ?? false);
       }
       const attacker = this.findRenderedPlayerByName(payload.attackerName);
       if (attacker && victim) {
@@ -760,7 +765,7 @@ export class GameScene extends Phaser.Scene {
       const kind = this.resourceKind(payload.resourceId);
       playSfx(kind === "rock" ? "mine_hit" : kind === "fish" ? "fish_cast" : "chop_swing");
       if (payload.playerName === useGameStore.getState().playerName) {
-        this.startLocalChopHits(payload.endsAt, kind);
+        this.startLocalChopHits(payload.endsAt, kind, payload.resourceId);
         if (kind === "fish") {
           useGameStore.getState().setFishing({ resourceId: payload.resourceId, endsAt: payload.endsAt });
         }
@@ -829,6 +834,11 @@ export class GameScene extends Phaser.Scene {
       }
       if (payload.depleted) {
         playSfx("chop_fell");
+        // Node breaks: a bigger chip burst everyone in the zone can see.
+        const resource = this.renderedResources.find((entry) => entry.id === payload.resourceId);
+        if (resource) {
+          this.spawnGatherHitFx(resource.worldX, resource.worldY, resource.kind, true);
+        }
       }
     });
 
@@ -3530,6 +3540,88 @@ export class GameScene extends Phaser.Scene {
     graphics.setPosition(x, y);
   }
 
+  /**
+   * Wood chips / rock shards flying off a gathered node — one burst per hit,
+   * a bigger one on depletion. Fishing has its own splash FX, so skip it.
+   */
+  private spawnGatherHitFx(x: number, y: number, kind: "tree" | "rock" | "fish", big = false) {
+    if (kind === "fish") return;
+    const palette =
+      kind === "tree"
+        ? [0x8b5a2b, 0xa9713a, 0xc9955c, 0x4bc07f]
+        : [0x9a9a9a, 0x7c7c7c, 0xbfbfbf, 0xffffff];
+    const count = big ? 14 : 7;
+    for (let i = 0; i < count; i++) {
+      const chip = this.add.rectangle(
+        x + (Math.random() - 0.5) * 10,
+        y - 20 + (Math.random() - 0.5) * 10,
+        big ? 4 : 3,
+        big ? 3 : 2,
+        palette[i % palette.length],
+        0.95,
+      );
+      chip.setDepth(y + 12);
+      const ang = Math.random() * Math.PI * 2;
+      const dist = (big ? 26 : 16) + Math.random() * 14;
+      this.tweens.add({
+        targets: chip,
+        x: chip.x + Math.cos(ang) * dist,
+        // Horizontal spread squashed to the iso plane, plus a slight fall.
+        y: chip.y + Math.sin(ang) * dist * 0.6 + (big ? 14 : 10),
+        angle: (Math.random() - 0.5) * 240,
+        alpha: 0,
+        duration: (big ? 420 : 300) + Math.random() * 120,
+        ease: "Cubic.easeOut",
+        onComplete: () => chip.destroy(),
+      });
+    }
+  }
+
+  /** Brief wobble on the node being worked so hits feel like they connect. */
+  private wobbleResource(resourceId: string) {
+    const resource = this.renderedResources.find((entry) => entry.id === resourceId);
+    const sprite = resource?.sprite;
+    if (!sprite?.active) return;
+    this.tweens.add({
+      targets: sprite,
+      angle: { from: -1.6, to: 1.6 },
+      duration: 55,
+      yoyo: true,
+      repeat: 1,
+      onComplete: () => sprite.setAngle(0),
+    });
+  }
+
+  /** Radiating spark burst at an impact point; gold + ring on crits. */
+  private spawnImpactBurst(x: number, y: number, crit = false) {
+    const g = this.add.graphics();
+    g.setDepth(y + 11);
+    const color = crit ? 0xffd75e : 0xffffff;
+    const rays = crit ? 8 : 5;
+    g.lineStyle(2, color, 0.9);
+    for (let i = 0; i < rays; i++) {
+      const a = (Math.PI * 2 * i) / rays + Math.random() * 0.5;
+      g.beginPath();
+      g.moveTo(Math.cos(a) * 4, Math.sin(a) * 3);
+      g.lineTo(Math.cos(a) * (crit ? 14 : 10), Math.sin(a) * (crit ? 11 : 8));
+      g.strokePath();
+    }
+    if (crit) {
+      g.lineStyle(2, color, 0.7);
+      g.strokeCircle(0, 0, 7);
+    }
+    g.setPosition(x, y);
+    this.tweens.add({
+      targets: g,
+      alpha: 0,
+      scaleX: crit ? 1.9 : 1.5,
+      scaleY: crit ? 1.9 : 1.5,
+      duration: crit ? 220 : 170,
+      ease: "Cubic.easeOut",
+      onComplete: () => g.destroy(),
+    });
+  }
+
   private spawnDustPuff(x: number, y: number) {
     const graphics = this.add.graphics();
     graphics.setDepth(y - 0.2); // draw just above shadow, below feet
@@ -4292,11 +4384,11 @@ export class GameScene extends Phaser.Scene {
     return this.renderedResources.find((entry) => entry.id === resourceId)?.kind ?? "tree";
   }
 
-  private startLocalChopHits(endsAt: number, kind: "tree" | "rock" | "fish" = "tree") {
+  private startLocalChopHits(endsAt: number, kind: "tree" | "rock" | "fish" = "tree", resourceId?: string) {
     this.stopLocalChopHits();
     const hitSound = kind === "rock" ? "mine_hit" : kind === "fish" ? "fish_splash" : "chop_hit";
     const interval = kind === "fish" ? 900 : 360;
-    // Rhythmic impact sounds for the duration of the gather.
+    // Rhythmic impact sounds + chip burst for the duration of the gather.
     this.chopHitTimer = this.time.addEvent({
       delay: interval,
       loop: true,
@@ -4306,6 +4398,13 @@ export class GameScene extends Phaser.Scene {
           return;
         }
         playSfx(hitSound);
+        const resource = resourceId
+          ? this.renderedResources.find((entry) => entry.id === resourceId)
+          : undefined;
+        if (resource) {
+          this.spawnGatherHitFx(resource.worldX, resource.worldY, kind);
+          this.wobbleResource(resource.id);
+        }
       },
     });
   }
