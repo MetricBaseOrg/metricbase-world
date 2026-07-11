@@ -99,6 +99,10 @@ import {
   enhanceSuccessRate,
   fieldForGearSlot,
   maxDurabilityForSlot,
+  MAJOR_REPAIR_FRACTION,
+  repairMaterialFor,
+  restoreSlotWear,
+  stashSlotWear,
   armorReduction,
   rollHit,
   WEARABLE_SLOTS,
@@ -2291,10 +2295,13 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       const current = durability[slot] ?? max;
       const next = current - 1;
       if (next <= 0) {
-        // Gear breaks: remove it from the slot.
+        // Gear breaks: remove it from the slot. The item leaves the world —
+        // that's demand in the supply/demand economy.
         (equipment as unknown as Record<string, unknown>)[field] = null;
         delete durability[slot];
         broke = true;
+        recordConsumed(itemId, 1);
+        bumpMetric("gear.broken");
         const name = getItemDefinition(itemId).name;
         this.broadcastChat({
           id: crypto.randomUUID(),
@@ -2314,6 +2321,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
     if (broke) {
       player.weaponId = equipment.weaponId ?? "";
+      player.toolId = equipment.toolId ?? "";
       this.sendProfile(client, player);
       this.sendInventory(client, player.name);
       void this.persistPlayer(player);
@@ -2346,8 +2354,45 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       return;
     }
 
-    // 2 gold per durability point restored — a steady gold sink for fighters.
-    const cost = Math.max(5, Math.ceil(missing * 2));
+    // Major repairs (≥30% of max restored) also need the piece's tier material
+    // — the material demand keeps its price honest in the supply/demand economy.
+    // Pieces whose material is missing from the bag are skipped, not blocked.
+    let inventory = this.inventories.get(this.pidOf(player)) ?? [];
+    const repaired: [EquipmentSlot, number][] = [];
+    const materialsUsed = new Map<string, number>();
+    const skipped: string[] = [];
+    let cost = 0;
+    for (const [slot, max] of full) {
+      const itemId = equipment[this.slotField(slot)] as string | null;
+      if (!itemId) continue;
+      const current = durability[slot] ?? max;
+      const restore = max - current;
+      if (restore <= 0) continue;
+      if (restore / max >= MAJOR_REPAIR_FRACTION) {
+        const material = repairMaterialFor(itemId);
+        if (material) {
+          const used = materialsUsed.get(material) ?? 0;
+          if (getItemQuantity(inventory, material) - used < 1) {
+            skipped.push(`${getItemDefinition(itemId).name} (needs 1× ${getItemDefinition(material).name})`);
+            continue;
+          }
+          materialsUsed.set(material, used + 1);
+        }
+      }
+      // 2 gold per durability point restored — a steady gold sink.
+      cost += restore * 2;
+      repaired.push([slot, max]);
+    }
+
+    if (repaired.length === 0) {
+      client.send("inventoryResult", {
+        ok: false,
+        error: skipped.length ? `Missing repair materials: ${skipped.join(", ")}.` : "Your gear is already in good repair.",
+      });
+      return;
+    }
+
+    cost = Math.max(5, Math.ceil(cost));
     const gold = this.playerGold.get(this.pidOf(player)) ?? STARTING_GOLD;
     if (gold < cost) {
       client.send("inventoryResult", { ok: false, error: `Repair costs ${cost}g — not enough gold.` });
@@ -2355,18 +2400,30 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     }
 
     this.playerGold.set(this.pidOf(player), gold - cost);
-    for (const [slot, max] of full) durability[slot] = max;
+    burnGold(cost); // smith fee leaves the economy
+    bumpMetric("repair.count", repaired.length);
+    bumpMetric("repair.gold", cost);
+    for (const [material, qty] of materialsUsed) {
+      inventory = removeItemFromInventory(inventory, material, qty).inventory;
+      recordConsumed(material, qty);
+    }
+    this.inventories.set(this.pidOf(player), inventory);
+    for (const [slot, max] of repaired) durability[slot] = max;
     equipment.durability = durability;
     this.playerEquipment.set(this.pidOf(player), equipment);
 
+    const matNote = [...materialsUsed].map(([id, q]) => `${q}× ${getItemDefinition(id).name}`).join(", ");
     this.broadcastChat({
       id: crypto.randomUUID(),
       channel: "system",
       senderId: "system",
       senderName: "Smith",
-      body: `${player.name} repaired their gear for ${cost}g.`,
+      body: `${player.name} repaired their gear for ${cost}g${matNote ? ` + ${matNote}` : ""}.`,
       sentAt: Date.now(),
     });
+    if (skipped.length) {
+      client.send("chat", this.systemChat("Smith", `Skipped: ${skipped.join(", ")}.`));
+    }
 
     this.sendProfile(client, player);
     this.sendInventory(client, player.name);
@@ -5857,6 +5914,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       // Unequip the named slot (default weapon for older clients).
       const field = this.equipFieldForSlot(slot ?? "weapon") ?? "weaponId";
       const next = normalizeEquipment(current);
+      // Remember the damage on the departing item so re-equipping resumes it.
+      stashSlotWear(next, (slot ?? "weapon") as EquipmentSlot);
       (next as unknown as Record<string, unknown>)[field] = null;
       const normalized = normalizeEquipment(next);
       this.playerEquipment.set(this.pidOf(player), normalized);
@@ -5908,6 +5967,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       wearSlot = "weapon";
     } else if (item.kind === "tool") {
       field = "toolId";
+      wearSlot = "tool";
     } else if (item.kind === "mount") {
       field = "mountId";
     } else if (item.kind === "pet") {
@@ -5933,14 +5993,11 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     }
 
     const next = normalizeEquipment(current);
+    // Stash the outgoing item's damage, then resume any stashed damage on the
+    // incoming one — swapping gear can't launder wear into a free repair.
+    if (wearSlot) stashSlotWear(next, wearSlot);
     (next as unknown as Record<string, unknown>)[field] = itemId;
-    // Fresh gear starts at full durability.
-    if (wearSlot) {
-      const max = maxDurabilityForSlot(wearSlot, itemId);
-      if (Number.isFinite(max) && max > 0) {
-        next.durability = { ...(next.durability ?? {}), [wearSlot]: max };
-      }
-    }
+    if (wearSlot) restoreSlotWear(next, wearSlot, itemId);
     const normalized = normalizeEquipment(next);
     this.playerEquipment.set(this.pidOf(player), normalized);
     player.weaponId = normalized.weaponId ?? "";
@@ -6299,6 +6356,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     const client = this.clients.find((entry) => entry.sessionId === sessionId);
     let haulValue = 0; // Pip value of what was actually banked (drives gather tax)
     if (client) {
+      // Each completed gather wears the equipped tool by one point.
+      this.wearGear(client, player, ["tool"]);
       const grantedQty = await this.grantLoot(client, player.name, lootItemId, lootQuantity);
       haulValue += getItemBaseValue(lootItemId) * grantedQty;
       recordProduced(lootItemId, grantedQty);

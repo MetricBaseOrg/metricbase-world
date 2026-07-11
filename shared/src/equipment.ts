@@ -272,6 +272,24 @@ export const WEAPON_MAX_DURABILITY: Record<string, number> = {
   [ITEM_GEM_BLADE]: 220,
 };
 
+/**
+ * Max durability for tools — one point per completed gather, so a copper axe
+ * fells ~120 trees before it needs the smith. Higher tiers last longer.
+ */
+export const TOOL_MAX_DURABILITY: Record<string, number> = {
+  item_copper_axe: 120,
+  item_iron_axe: 200,
+  item_steel_axe: 320,
+  item_copper_pickaxe: 120,
+  item_iron_pickaxe: 200,
+  item_steel_pickaxe: 320,
+  item_fishing_rod: 100,
+  item_pro_rod: 180,
+  item_gilded_rod: 280,
+  item_abyssal_rod: 400,
+  item_harvest_net: 150,
+};
+
 export function getGearStat(itemId: string | null | undefined): GearStat | null {
   if (!itemId) return null;
   return GEAR_STATS[itemId] ?? null;
@@ -315,6 +333,13 @@ export interface PlayerEquipment {
   petId: string | null;
   /** Per-slot remaining durability for gear that wears (weapon + armor). */
   durability?: Partial<Record<EquipmentSlot, number>>;
+  /**
+   * Missing durability stashed by ITEM id when damaged gear is unequipped —
+   * re-equipping resumes the damage instead of resetting to max, so swapping
+   * gear can't launder wear into a free repair. (Copies of the same item id
+   * share this — an accepted approximation for a stack-based inventory.)
+   */
+  wear?: Record<string, number>;
   /** Per-slot enhancement level (+N) for combat gear. */
   enhance?: Partial<Record<EquipmentSlot, number>>;
 }
@@ -382,6 +407,7 @@ const GEAR_FIELD_TO_SLOT: Record<keyof PlayerEquipment & string, GearKindSlot | 
   mountId: null,
   petId: null,
   durability: null,
+  wear: null,
   enhance: null,
 };
 
@@ -401,6 +427,7 @@ export const ARMOR_FIELDS: (keyof PlayerEquipment & string)[] = [
 /** Equipment slots whose gear wears down in combat (weapon + armor, not jewelry). */
 export const WEARABLE_SLOTS: EquipmentSlot[] = [
   "weapon",
+  "tool",
   "helmet",
   "chest",
   "gloves",
@@ -412,6 +439,7 @@ export const WEARABLE_SLOTS: EquipmentSlot[] = [
 export function maxDurabilityForSlot(slot: EquipmentSlot, itemId: string | null): number {
   if (!itemId) return 0;
   if (slot === "weapon") return WEAPON_MAX_DURABILITY[itemId] ?? 0;
+  if (slot === "tool") return TOOL_MAX_DURABILITY[itemId] ?? 0;
   return GEAR_STATS[itemId]?.maxDurability ?? 0;
 }
 
@@ -457,6 +485,7 @@ export function normalizeEquipment(raw: Partial<PlayerEquipment> | null | undefi
     const dur: Partial<Record<EquipmentSlot, number>> = {};
     const slotPairs: [EquipmentSlot, string | null][] = [
       ["weapon", next.weaponId],
+      ["tool", next.toolId],
       ["helmet", next.helmetId],
       ["chest", next.chestId],
       ["gloves", next.glovesId],
@@ -473,6 +502,18 @@ export function normalizeEquipment(raw: Partial<PlayerEquipment> | null | undefi
       }
     }
     next.durability = dur;
+  }
+
+  // Preserve stashed wear (damage on unequipped gear, keyed by item id).
+  const rawWear = raw.wear;
+  if (rawWear && typeof rawWear === "object") {
+    const wear: Record<string, number> = {};
+    for (const [itemId, value] of Object.entries(rawWear as Record<string, unknown>)) {
+      if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+        wear[itemId] = Math.floor(value);
+      }
+    }
+    if (Object.keys(wear).length > 0) next.wear = wear;
   }
 
   // Preserve enhancement levels for slots that still hold an item.
@@ -572,6 +613,43 @@ const ALL_EQUIP_FIELDS: [keyof PlayerEquipment & string, EquipmentSlot][] = [
   ["mountId", "mount"],
   ["petId", "pet"],
 ];
+
+/** Equipment field holding the item for an equip slot. */
+export function fieldForEquipSlot(slot: EquipmentSlot): (keyof PlayerEquipment & string) | null {
+  for (const [field, s] of ALL_EQUIP_FIELDS) if (s === slot) return field;
+  return null;
+}
+
+/**
+ * Stash the missing durability of the item currently in `slot` under its item
+ * id (see PlayerEquipment.wear). Call BEFORE clearing/replacing the slot.
+ */
+export function stashSlotWear(eq: PlayerEquipment, slot: EquipmentSlot): void {
+  const field = fieldForEquipSlot(slot);
+  const itemId = field ? (eq[field] as string | null) : null;
+  if (!itemId) return;
+  const max = maxDurabilityForSlot(slot, itemId);
+  if (!Number.isFinite(max) || max <= 0) return;
+  const current = eq.durability?.[slot] ?? max;
+  const missing = Math.max(0, max - Math.max(0, current));
+  const wear = { ...(eq.wear ?? {}) };
+  if (missing > 0) wear[itemId] = Math.max(missing, wear[itemId] ?? 0);
+  else delete wear[itemId];
+  eq.wear = wear;
+}
+
+/** Set `slot` durability for a newly equipped item, resuming any stashed wear. */
+export function restoreSlotWear(eq: PlayerEquipment, slot: EquipmentSlot, itemId: string): void {
+  const max = maxDurabilityForSlot(slot, itemId);
+  if (!Number.isFinite(max) || max <= 0) return;
+  const stashed = eq.wear?.[itemId] ?? 0;
+  eq.durability = { ...(eq.durability ?? {}), [slot]: Math.max(1, max - stashed) };
+  if (stashed > 0 && eq.wear) {
+    const wear = { ...eq.wear };
+    delete wear[itemId];
+    eq.wear = wear;
+  }
+}
 
 /** Build the client-facing equipment snapshot (slots + durability + aggregate stats). */
 export function buildEquipmentState(raw: PlayerEquipment | null | undefined): EquipmentStatePayload {

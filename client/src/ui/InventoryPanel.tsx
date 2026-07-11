@@ -548,15 +548,20 @@ export function InventoryPanel() {
             </div>
 
             {needsRepair && (
-              <button
-                type="button"
-                className="chibi-btn chibi-btn--gold"
-                disabled={pending}
-                onClick={() => void handleRepair()}
-                style={{ width: "100%", padding: "6px 10px", fontSize: "0.76rem" }}
-              >
-                🔧 Repair all gear
-              </button>
+              <>
+                <button
+                  type="button"
+                  className="chibi-btn chibi-btn--gold"
+                  disabled={pending}
+                  onClick={() => void handleRepair()}
+                  style={{ width: "100%", padding: "6px 10px", fontSize: "0.76rem" }}
+                >
+                  🔧 Repair all gear
+                </button>
+                <div className="chibi-text-muted" style={{ fontSize: "0.66rem", marginTop: 4, lineHeight: 1.4 }}>
+                  2g per point · heavily worn gear also needs 1× its tier material (bars, planks…)
+                </div>
+              </>
             )}
           </section>
 

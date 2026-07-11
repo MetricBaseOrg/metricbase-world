@@ -190,6 +190,42 @@ export function getPipSellPrice(itemId: string): number {
   return SHOPS.pip_general.sellPrices[itemId] ?? 0;
 }
 
+// ---- Gear repair (both sinks: gold fee + tier material) --------------------
+
+/** A repair restoring at least this fraction of max durability needs a material. */
+export const MAJOR_REPAIR_FRACTION = 0.3;
+
+/** Repair materials for gear without a crafting recipe. */
+const REPAIR_MATERIAL_FALLBACK: Record<string, string> = {
+  item_rusty_blade: "item_training_scrap",
+  item_gel_knife: "item_slime_gel",
+};
+
+/**
+ * The material a smith needs for a major repair: the most valuable ingredient
+ * of the item's recipe (the "tier material" — iron bars for iron gear, planks
+ * for rods), or a themed fallback for non-crafted gear.
+ */
+export function repairMaterialFor(itemId: string): string | null {
+  const fallback = REPAIR_MATERIAL_FALLBACK[itemId];
+  if (fallback) return fallback;
+  const recipe = getRecipeForOutput(itemId);
+  if (!recipe || recipe.inputs.length === 0) return null;
+  // Upgrade recipes take the previous-tier gear as an input (pro rod → abyssal
+  // rod); repairs want the most valuable MATERIAL, never a whole piece of gear.
+  const isMaterial = (id: string) => {
+    const kind = ITEMS[id]?.kind;
+    return kind !== "tool" && kind !== "weapon" && kind !== "armor" && kind !== "mount";
+  };
+  const candidates = recipe.inputs.filter((input) => isMaterial(input.itemId));
+  const pool = candidates.length > 0 ? candidates : recipe.inputs;
+  let best = pool[0].itemId;
+  for (const input of pool) {
+    if (getItemBaseValue(input.itemId) > getItemBaseValue(best)) best = input.itemId;
+  }
+  return best;
+}
+
 export function getShopByNpcId(npcId: string): ShopDefinition | null {
   return Object.values(SHOPS).find((shop) => shop.npcId === npcId) ?? null;
 }
