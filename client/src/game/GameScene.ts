@@ -373,6 +373,8 @@ export class GameScene extends Phaser.Scene {
   /** Click-to-move stuck guard: last sampled position + timestamp. */
   private moveStuckPos = { x: 0, y: 0 };
   private moveStuckAt = 0;
+  /** Portal name labels (proximity-shown), tracked apart from the aura/sprite. */
+  private portalLabels: Array<{ text: Phaser.GameObjects.Text; x: number; y: number }> = [];
   /** Last wall-clock time movement input was non-zero (for reconcile grace). */
   private lastMovingAt = 0;
   private currentZoneId: string | null = null;
@@ -1038,7 +1040,43 @@ export class GameScene extends Phaser.Scene {
     this.updateInteractHint();
     this.updateTargetReticle();
     this.updateNpcMovement();
+    this.updateWorldLabelVisibility();
     this.updatePinchZoom();
+  }
+
+  /**
+   * Name tags are reserved for PLAYER characters and for things you can act
+   * on: world labels (resources, NPCs, portals, plot signs) only show within
+   * action distance of the character — or while that entity is mid-action
+   * (being gathered, in combat, or targeted). Keeps the map free of the
+   * wall-to-wall label clutter every zone used to render.
+   */
+  private updateWorldLabelVisibility() {
+    // Reference point: the local character; camera focus while spectating.
+    const local = this.findLocalPlayer();
+    const cam = this.cameras.main;
+    const refX = local ? local.predicted.x : cam.midPoint.x;
+    const refY = local ? local.predicted.y : cam.midPoint.y;
+    // ~5 tiles — names appear just before the interact prompt would.
+    const NEAR = 170;
+    const near = (x: number, y: number) => Math.hypot(x - refX, y - refY) <= NEAR;
+    const now = Date.now();
+
+    for (const resource of this.renderedResources) {
+      const gathering = (resource.chopEndsAt ?? 0) > now;
+      resource.label.setVisible(gathering || near(resource.worldX, resource.worldY));
+    }
+    for (const npc of this.renderedNpcs) {
+      const inCombat = npc.combat && npc.currentHp > 0 && npc.currentHp < npc.maxHp;
+      const targeted = this.selectedNpcId === npc.id;
+      npc.label.setVisible(inCombat || targeted || near(npc.worldX, npc.worldY));
+    }
+    for (const portal of this.portalLabels) {
+      portal.text.setVisible(near(portal.x, portal.y));
+    }
+    for (const plot of this.renderedLandPlots.values()) {
+      plot.label.setVisible(near(plot.worldX, plot.worldY));
+    }
   }
 
   /** Two-finger pinch zoom for touch devices. */
@@ -1879,12 +1917,14 @@ export class GameScene extends Phaser.Scene {
         .setDepth(y + 1);
 
       this.renderedPortals.push(aura, sprite, label);
+      this.portalLabels.push({ text: label, x, y });
     }
   }
 
   private clearPortals() {
     this.renderedPortals.forEach((obj) => obj.destroy());
     this.renderedPortals = [];
+    this.portalLabels = [];
   }
 
   /**
