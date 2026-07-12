@@ -782,6 +782,14 @@ export const ITEMS: Record<string, ItemDefinition> = {
     maxStack: 1,
     kind: "pet",
   },
+  item_pet_penguin: {
+    id: "item_pet_penguin",
+    name: "Bun the Penguin",
+    description: "A plucky little penguin named Bun who waddles at your side.",
+    stackable: false,
+    maxStack: 1,
+    kind: "pet",
+  },
 };
 
 /** HP restored by each consumable when used. */

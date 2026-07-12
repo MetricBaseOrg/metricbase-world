@@ -35,6 +35,11 @@ interface LoginOverlayProps {
   ) => Promise<void>;
 }
 
+// Deep-link auto-joins (/play?auto=1 from the dashboard's Play Now button,
+// /play?spectate=1 from the front door). Module-level guard: StrictMode
+// remounts the overlay in dev, and a second connect() would double-join.
+let autoJoinStarted = false;
+
 export function LoginOverlay({ onJoin }: LoginOverlayProps) {
   const playerName = useGameStore((state) => state.playerName);
   const setWalletAddress = useGameStore((state) => state.setWalletAddress);
@@ -79,6 +84,32 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
 
   useEffect(() => {
     void (async () => {
+      const params = new URLSearchParams(window.location.search);
+
+      // /play?spectate=1 — jump straight into the world as an anonymous
+      // spectator (the server hands out a Guest#### name).
+      if (params.get("spectate") === "1" && !autoJoinStarted) {
+        autoJoinStarted = true;
+        setBootstrapping(false);
+        setJoining(true);
+        try {
+          await onJoin(
+            "Guest",
+            null,
+            normalizeCharacterAppearance(DEFAULT_CHARACTER_APPEARANCE),
+            undefined,
+            true,
+          );
+        } catch (joinError) {
+          const message =
+            joinError instanceof Error ? joinError.message : "Could not connect to the game server.";
+          setError(message);
+        } finally {
+          setJoining(false);
+        }
+        return;
+      }
+
       try {
         const info = await fetchTokenGateInfo();
         setGateEnabled(info.enabled);
@@ -91,6 +122,31 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
           setWalletAddress(session.wallet);
           setTokenBalance(session.tokenBalance);
           await loadBondedCharacter(session.accessToken);
+
+          // /play?auto=1 — the dashboard's Play Now button: a signed session
+          // with a bonded character skips the form and enters the world.
+          if (params.get("auto") === "1" && !autoJoinStarted) {
+            const saved = await lookupBondedCharacter(session.accessToken);
+            if (saved.found && saved.bonded && saved.name) {
+              autoJoinStarted = true;
+              setJoining(true);
+              try {
+                await onJoin(
+                  saved.name,
+                  session.accessToken,
+                  defaultAppearanceForGender(saved.appearance),
+                );
+              } catch (joinError) {
+                const message =
+                  joinError instanceof Error
+                    ? joinError.message
+                    : "Could not connect to the game server.";
+                setError(message);
+              } finally {
+                setJoining(false);
+              }
+            }
+          }
         }
       } catch (bootstrapError) {
         clearStoredAccessToken();

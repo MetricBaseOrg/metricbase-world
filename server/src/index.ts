@@ -18,6 +18,7 @@ import express from "express";
 import { createServer } from "node:http";
 import { authRouter } from "./api/auth.js";
 import { characterRouter } from "./api/characters.js";
+import { dashboardRouter } from "./api/dashboard.js";
 import { tokenShopRouter } from "./api/tokenShop.js";
 import { invitationsRouter } from "./api/invitations.js";
 import { getPool, initDatabase } from "./db/pool.js";
@@ -62,6 +63,7 @@ app.get("/health", (_req, res) => {
 
 app.use("/api", authRouter);
 app.use("/api", characterRouter);
+app.use("/api", dashboardRouter);
 app.use("/api", tokenShopRouter);
 app.use("/api", invitationsRouter);
 app.use("/api", statsRouter);

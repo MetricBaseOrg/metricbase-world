@@ -4,6 +4,7 @@ import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import { getHttpServerUrl } from "./game/serverUrl";
 import { BrandPortal } from "./ui/BrandPortal";
+import { DashboardPage } from "./ui/DashboardPage";
 import { LandingPage } from "./ui/LandingPage";
 import "./ui/chibiTheme.css";
 import {
@@ -33,11 +34,13 @@ registerMwa({
 });
 
 // Path-based routing (Vercel SPA fallback serves index.html for all of these):
-//   /        → marketing landing page (front door)
-//   /play    → the game client
-//   /brands  → standalone advertiser portal (wallet-only, never boots the game)
+//   /           → marketing landing page (front door)
+//   /dashboard  → player dashboard (wallet sign-in lands here; Play Now → /play)
+//   /play       → the game client
+//   /brands     → standalone advertiser portal (wallet-only, never boots the game)
 const path = window.location.pathname.replace(/\/+$/, "");
 const isBrandPortal = path === "/brands";
+const isDashboard = path === "/dashboard";
 const isPlay = path === "/play";
 
 // /stats is a server-rendered page (proxied to the backend by vercel.json), not
@@ -52,7 +55,7 @@ if (path === "/stats") {
 } else {
   createRoot(document.getElementById("root")!).render(
     <StrictMode>
-      {isBrandPortal ? <BrandPortal /> : isPlay ? <App /> : <LandingPage />}
+      {isBrandPortal ? <BrandPortal /> : isDashboard ? <DashboardPage /> : isPlay ? <App /> : <LandingPage />}
     </StrictMode>,
   );
 }

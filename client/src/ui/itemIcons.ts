@@ -726,6 +726,7 @@ const ITEM_ART: Record<string, [Shape, keyof typeof MATS | "auto"]> = {
   item_pet_cat: [critter, "amber"],
   item_pet_owl: [critter, "hardwood"],
   item_pet_slime: [gel, "green"],
+  item_pet_penguin: [critter, "gray"],
 };
 
 /** True when we have a drawn icon for this item (otherwise callers fall back). */

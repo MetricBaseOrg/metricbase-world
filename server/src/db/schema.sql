@@ -46,6 +46,8 @@ ALTER TABLE characters ADD COLUMN IF NOT EXISTS guild_coin INTEGER NOT NULL DEFA
 ALTER TABLE characters ADD COLUMN IF NOT EXISTS gems INTEGER NOT NULL DEFAULT 0;
 -- Bag expansion steps purchased with $BASE burns (0 = base 16 slots).
 ALTER TABLE characters ADD COLUMN IF NOT EXISTS bag_level INTEGER NOT NULL DEFAULT 0;
+-- Player-set profile motto shown on the /dashboard page.
+ALTER TABLE characters ADD COLUMN IF NOT EXISTS motto VARCHAR(80) NOT NULL DEFAULT '';
 
 -- Casino: custodial per-currency balances (smallest units) + idempotent ledger.
 CREATE TABLE IF NOT EXISTS casino_balances (

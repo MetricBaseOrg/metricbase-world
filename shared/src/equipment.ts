@@ -202,7 +202,7 @@ export type EquipmentSlot =
   | "pet";
 
 /** Cosmetic companion pets that can be equipped in the pet slot. */
-export const PET_IDS = new Set<string>(["item_pet_cat", "item_pet_slime", "item_pet_owl"]);
+export const PET_IDS = new Set<string>(["item_pet_cat", "item_pet_slime", "item_pet_owl", "item_pet_penguin"]);
 
 /** Movement-speed multiplier granted by each equippable mount (1 = base speed). */
 export const MOUNT_SPEED: Record<string, number> = {

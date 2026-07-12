@@ -123,6 +123,7 @@ const PET_EMOJI: Record<string, string> = {
   item_pet_cat: "🐱",
   item_pet_slime: "🫧",
   item_pet_owl: "🦉",
+  item_pet_penguin: "🐧",
 };
 
 interface RenderedFarmPlot {

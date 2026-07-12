@@ -10,7 +10,10 @@ import "./landing.css";
  */
 
 const BUY_URL = `https://pump.fun/coin/${METRICBASE_TOKEN_MINT}`;
-const PLAY_URL = "/play";
+// Sign-in flow: Connect Wallet → sign → land on the player dashboard, whose
+// Play Now button enters the game. Spectate skips the wallet entirely.
+const DASHBOARD_URL = "/dashboard";
+const SPECTATE_URL = "/play?spectate=1";
 
 interface LiveStats {
   players: number;
@@ -92,13 +95,13 @@ export function LandingPage() {
           <span className="mb-live">● LIVE MMO</span>
         </a>
         <div className="mb-nav__links">
-          <a href={PLAY_URL}>Play</a>
+          <a href={DASHBOARD_URL}>Play</a>
           <a href="/docs">Wiki</a>
           <a href="/stats">Stats</a>
           <a href="/brands">Advertise</a>
         </div>
         <div className="mb-nav__cta">
-          <a className="mb-btn mb-btn--ghost" href={PLAY_URL}>Log in</a>
+          <a className="mb-btn mb-btn--ghost" href={DASHBOARD_URL}>Log in</a>
           <a className="mb-btn mb-btn--gold" href={BUY_URL} target="_blank" rel="noopener noreferrer">Buy $BASE</a>
         </div>
       </nav>
@@ -113,7 +116,8 @@ export function LandingPage() {
             <strong> $BASE</strong>. Every coin is earned — nothing is faked.
           </p>
           <div className="mb-hero__cta">
-            <a className="mb-btn mb-btn--play" href={PLAY_URL}>▶ Play Free</a>
+            <a className="mb-btn mb-btn--play" href={DASHBOARD_URL}>🔗 Connect Wallet & Play</a>
+            <a className="mb-btn mb-btn--ghost" href={SPECTATE_URL}>👀 Spectate</a>
             <a className="mb-btn mb-btn--gold" href={BUY_URL} target="_blank" rel="noopener noreferrer">Buy $BASE</a>
             <a className="mb-btn mb-btn--ghost" href="/docs">📖 How to Play</a>
           </div>
@@ -158,14 +162,14 @@ export function LandingPage() {
           ))}
         </div>
         <div className="mb-what__cta">
-          <a className="mb-btn mb-btn--play mb-btn--lg" href={PLAY_URL}>▶ Play in your browser</a>
+          <a className="mb-btn mb-btn--play mb-btn--lg" href={DASHBOARD_URL}>▶ Play in your browser</a>
         </div>
       </section>
 
       {/* ---- Footer ---- */}
       <footer className="mb-footer">
         <div className="mb-footer__links">
-          <a href={PLAY_URL}>Play</a>
+          <a href={DASHBOARD_URL}>Play</a>
           <a href="/docs">Wiki</a>
           <a href="/stats">Live Stats</a>
           <a href="/brands">Advertise</a>

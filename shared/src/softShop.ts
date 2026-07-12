@@ -33,6 +33,7 @@ export const SOFT_SHOP_OFFERS: SoftShopOffer[] = [
   { id: "gem_pet_slime", currency: "gems", cost: 8, itemId: "item_pet_slime", quantity: 1, blurb: "A bouncy companion." },
   { id: "gem_pet_cat", currency: "gems", cost: 12, itemId: "item_pet_cat", quantity: 1, blurb: "A cosy lodge kitten." },
   { id: "gem_pet_owl", currency: "gems", cost: 18, itemId: "item_pet_owl", quantity: 1, blurb: "A wise spirit owl." },
+  { id: "gem_pet_penguin", currency: "gems", cost: 15, itemId: "item_pet_penguin", quantity: 1, blurb: "Bun, the waddling wonder." },
 ];
 
 export function getSoftOffer(id: string): SoftShopOffer | undefined {
