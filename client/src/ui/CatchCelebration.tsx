@@ -69,8 +69,11 @@ export function CatchCelebration() {
   const big = rarity === "rare" || fancy;
 
   return (
+    // pointerEvents none: the celebration must never eat movement taps — a
+    // full-screen auto layer left mobile players unable to move (their first
+    // taps only dismissed the overlay) for the whole linger. Tap the banner
+    // itself to dismiss early; everything else auto-fades.
     <div
-      onPointerDown={() => useGameStore.getState().setLastCatch(null)}
       style={{
         position: "absolute",
         inset: 0,
@@ -78,7 +81,7 @@ export function CatchCelebration() {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        pointerEvents: "auto",
+        pointerEvents: "none",
         animation: `chibi-catch-fadeout ${FADE_MS}ms ease-in ${linger - FADE_MS}ms forwards`,
       }}
     >
@@ -200,8 +203,9 @@ export function CatchCelebration() {
           </div>
         </div>
 
-        {/* Rarity banner */}
+        {/* Rarity banner — the one tappable piece (dismisses early) */}
         <div
+          onPointerDown={() => useGameStore.getState().setLastCatch(null)}
           style={{
             position: "absolute",
             left: 0,
@@ -211,7 +215,8 @@ export function CatchCelebration() {
             maxWidth: "80vw",
             textAlign: "center",
             animation: "chibi-catch-banner 0.55s cubic-bezier(0.2, 1.4, 0.4, 1) 0.28s both",
-            pointerEvents: "none",
+            pointerEvents: "auto",
+            cursor: "pointer",
           }}
         >
           <div

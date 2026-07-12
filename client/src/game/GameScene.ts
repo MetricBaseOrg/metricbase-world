@@ -804,16 +804,18 @@ export class GameScene extends Phaser.Scene {
         chopEndsAt: undefined,
         chopDurationMs: undefined,
       });
+      // Release the chopper's pose (local or remote) — cancels arrive before
+      // the session's endsAt, and the pose lock would otherwise hold till then.
+      const cancelled = this.findRenderedPlayerByName(payload.playerName);
+      if (cancelled) {
+        cancelled.actionUntil = 0;
+        cancelled.displayAction = "idle";
+        cancelled.poseStartedAt = Date.now();
+      }
       if (payload.playerName === useGameStore.getState().playerName) {
         this.localChoppingUntil = 0;
         this.stopLocalChopHits();
         useGameStore.getState().setFishing(null);
-        const local = this.findLocalPlayer();
-        if (local) {
-          local.actionUntil = 0;
-          local.displayAction = "idle";
-          local.poseStartedAt = Date.now();
-        }
         playSfx("shop_fail");
       }
     });
@@ -830,6 +832,16 @@ export class GameScene extends Phaser.Scene {
       if (payload.ok === false) {
         playSfx("shop_fail");
         return;
+      }
+      // Release the chopper's locked gather pose NOW: it was set to hold until
+      // the session's endsAt, but the fishing minigame resolves EARLY — without
+      // this the character stayed frozen in the fishing stance (locked action +
+      // direction) until the stale deadline passed. Covers local AND remote.
+      const chopper = payload.playerName ? this.findRenderedPlayerByName(payload.playerName) : null;
+      if (chopper) {
+        chopper.actionUntil = 0;
+        chopper.displayAction = "idle";
+        chopper.poseStartedAt = Date.now();
       }
       const isLocalChopper = payload.playerName === useGameStore.getState().playerName;
       if (isLocalChopper) {
@@ -1563,11 +1575,13 @@ export class GameScene extends Phaser.Scene {
 
       // Keep a grace window after input stops: server patches in flight still
       // show the position from ~latency ago, and snapping to them is what
-      // knocked the character backward on every stop.
+      // knocked the character backward on every stop. 700ms covers mobile
+      // round-trips — with 400ms the server hadn't always settled before the
+      // idle pull kicked in, shoving the character at the end of a click-walk.
       const moving =
         this.lastSentInput.dx !== 0 ||
         this.lastSentInput.dy !== 0 ||
-        Date.now() - this.lastMovingAt < 400;
+        Date.now() - this.lastMovingAt < 700;
       existing.predicted = reconcilePrediction(
         existing.predicted,
         { x: player.x, y: player.y },

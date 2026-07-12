@@ -48,10 +48,13 @@ export function reconcilePrediction(
 
   if (drift > SNAP_THRESHOLD) return { ...authoritative };
 
-  const deadzone = moving ? 40 : 6;
+  // Idle deadzone/pull tuned soft: right after a stop the server can settle a
+  // few px away (it processes the stop ~latency later), and a strong pull read
+  // as the character being shoved forward at the end of click-to-move walks.
+  const deadzone = moving ? 40 : 10;
   if (drift <= deadzone) return predicted;
 
-  const pull = moving ? 0.12 : 0.25;
+  const pull = 0.12;
   const correction = ((drift - deadzone) / drift) * pull;
   return {
     x: predicted.x + dx * correction,
