@@ -172,6 +172,30 @@ export function isBuildTileBlocked(build: PlayerZoneBuild, x: number, y: number)
   return true;
 }
 
+/**
+ * The build's spawn tile, relocated to the nearest walkable tile when blocked.
+ * Save-time validation refuses blocked spawns, but older builds were saved
+ * when painted water didn't block — without this heal those Worlds would trap
+ * every visitor inside a flooded spawn. Ring-search outward; a fully-blocked
+ * build (pathological) falls back to the stored spawn unchanged.
+ */
+export function safeBuildSpawnTile(build: PlayerZoneBuild, gridSize: number): { x: number; y: number } {
+  const spawn = build.spawnTile;
+  if (!isBuildTileBlocked(build, spawn.x, spawn.y)) return spawn;
+  for (let radius = 1; radius < gridSize; radius++) {
+    for (let dy = -radius; dy <= radius; dy++) {
+      for (let dx = -radius; dx <= radius; dx++) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== radius) continue; // ring only
+        const x = spawn.x + dx;
+        const y = spawn.y + dy;
+        if (x < 0 || y < 0 || x >= gridSize || y >= gridSize) continue;
+        if (!isBuildTileBlocked(build, x, y)) return { x, y };
+      }
+    }
+  }
+  return spawn;
+}
+
 /** A fresh, empty build centred on a default spawn. */
 export function emptyPlayerZoneBuild(): PlayerZoneBuild {
   const mid = Math.floor(PLAYER_ZONE_GRID / 2);
@@ -276,7 +300,8 @@ export function playerZoneToConfig(record: PlayerZoneRecord): ZoneConfig {
     roomName: PLAYER_ZONE_ROOM,
     displayName: record.displayName,
     dangerTier: normalizePlayerZoneTier(record.dangerTier),
-    spawnTile: build.spawnTile,
+    // Heal legacy builds whose spawn sits on now-blocking paint (water).
+    spawnTile: safeBuildSpawnTile(build, gridSize),
     portals: [playerZoneExitPortal(gridSize)],
     npcs: mobs,
     resources: [...storedResources, ...legacyResources],

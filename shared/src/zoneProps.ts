@@ -48,8 +48,13 @@ export function isZonePropSolid(id: string): boolean {
 
 // ---- Ground paint ----------------------------------------------------------
 
-/** Painted ground types that block movement (a river needs a bridge to cross). */
-export const BLOCKING_GROUND_PAINT = new Set<string>(["river"]);
+/**
+ * Painted ground types that block movement (lay a Bridge to cross). Matches
+ * the built-in zones, where water is always solid. Owner builds saved before
+ * water blocked may have a flooded spawn — playerZoneToConfig heals that by
+ * relocating the spawn to the nearest walkable tile.
+ */
+export const BLOCKING_GROUND_PAINT = new Set<string>(["river", "water", "water2"]);
 
 export function isGroundPaintBlocking(type: string): boolean {
   return BLOCKING_GROUND_PAINT.has(type);

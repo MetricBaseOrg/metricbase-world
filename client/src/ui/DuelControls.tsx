@@ -56,21 +56,38 @@ export function DuelControls() {
   const canChallenge =
     !!selectedPlayer && selectedPlayer !== playerName && !duel && !knockedOut && !spectator;
 
+  const hasTarget = !!selectedPlayer && selectedPlayer !== playerName;
+
   return (
     <>
-      {/* Challenge button on the current target */}
-      {canChallenge && (
-        <button
-          type="button"
-          className="chibi-duel-challenge"
-          onPointerDown={(e) => e.preventDefault()}
-          onClick={() => {
-            networkManager.sendDuelChallenge(selectedPlayer!);
-            playSfx("ui_click");
-          }}
-        >
-          ⚔️ Duel {selectedPlayer}
-        </button>
+      {/* Action bar on the current target: duel challenge + profile stats */}
+      {hasTarget && (
+        <div className="chibi-target-actions">
+          {canChallenge && (
+            <button
+              type="button"
+              className="chibi-duel-challenge"
+              onPointerDown={(e) => e.preventDefault()}
+              onClick={() => {
+                networkManager.sendDuelChallenge(selectedPlayer!);
+                playSfx("ui_click");
+              }}
+            >
+              ⚔️ Duel {selectedPlayer}
+            </button>
+          )}
+          <button
+            type="button"
+            className="chibi-target-stats"
+            onPointerDown={(e) => e.preventDefault()}
+            onClick={() => {
+              playSfx("ui_open");
+              useGameStore.getState().setProfileFor(selectedPlayer!);
+            }}
+          >
+            👤 Stats
+          </button>
+        </div>
       )}
 
       {/* Incoming challenge */}

@@ -120,6 +120,23 @@ export function PvpOpponentFrame() {
           ) : (
             <span className="chibi-text-muted" style={{ fontSize: "0.7rem", marginLeft: "auto" }}>gone</span>
           )}
+          <button
+            type="button"
+            title="View profile"
+            style={{
+              pointerEvents: "auto",
+              cursor: "pointer",
+              border: "1.5px solid var(--chibi-outline-light)",
+              borderRadius: 999,
+              background: "var(--chibi-cream-deep, #ffefd6)",
+              fontSize: "0.72rem",
+              lineHeight: 1,
+              padding: "3px 7px",
+            }}
+            onClick={() => useGameStore.getState().setProfileFor(opponent.name)}
+          >
+            👤
+          </button>
         </div>
         {/* HP */}
         <div style={{ marginTop: 6, height: 10, borderRadius: 999, background: "#efe0c2", border: "1.5px solid #d9c49a", overflow: "hidden" }}>

@@ -3435,6 +3435,36 @@ a.chibi-btn {
 }
 
 /* ---- Duels ---- */
+/* Fixed action bar over the selected player target (duel + stats buttons). */
+.chibi-target-actions {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 128px;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.chibi-target-actions .chibi-duel-challenge {
+  position: static;
+  left: auto;
+  bottom: auto;
+  transform: none;
+}
+.chibi-target-stats {
+  padding: 7px 16px;
+  border: 2px solid var(--chibi-outline);
+  border-radius: var(--chibi-radius-pill, 999px);
+  background: linear-gradient(180deg, var(--chibi-cream, #fff9f0), var(--chibi-cream-deep, #ffefd6));
+  color: var(--chibi-ink);
+  font-family: var(--chibi-font-display);
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.22);
+}
+
 .chibi-duel-challenge {
   position: fixed;
   left: 50%;
