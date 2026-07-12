@@ -172,7 +172,14 @@ export function WorldsPanel() {
 
   const saveMeta = (
     w: MyWorldEntry,
-    patch: { displayName?: string; passPrice?: number; published?: boolean; gatherTax?: number; dangerTier?: DangerTier },
+    patch: {
+      displayName?: string;
+      passPrice?: number;
+      published?: boolean;
+      gatherTax?: number;
+      dangerTier?: DangerTier;
+      guildOnly?: boolean;
+    },
   ) => {
     playSfx("ui_click");
     setPending(true);
@@ -347,6 +354,7 @@ export function WorldsPanel() {
                   <br />
                   {w.passPrice > 0 ? `🎟️ ${w.passPrice.toLocaleString()}g pass` : "🆓 Free entry"}
                   {(w.gatherTax ?? 0) > 0 ? ` · 🌾 ${w.gatherTax}% gather tax` : ""}
+                  {w.guildOnly ? " · 🛡️ Guild only" : ""}
                   {w.dangerTier && w.dangerTier !== "safe" && (
                     <>
                       {" · "}
@@ -585,6 +593,16 @@ export function WorldsPanel() {
                     }
                   >
                     Save
+                  </button>
+                  <button
+                    type="button"
+                    className={`chibi-btn ${w.guildOnly ? "chibi-btn--gold" : "chibi-btn--secondary"}`}
+                    style={{ padding: "8px 10px", fontSize: "0.76rem" }}
+                    disabled={pending}
+                    title={w.guildOnly ? "Only your guild members may enter" : "Anyone may enter (pass rules still apply)"}
+                    onClick={() => saveMeta(w, { guildOnly: !w.guildOnly })}
+                  >
+                    {w.guildOnly ? "🛡️ Guild only" : "🌐 Everyone"}
                   </button>
                   <button
                     type="button"

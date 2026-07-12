@@ -16,6 +16,7 @@ import {
   type PlayerZoneBuild,
   type PlayerZoneRecord,
 } from "@metricbase/shared";
+import { getGuildForMember } from "../guild/guildRegistry.js";
 import {
   loadPlayerZones,
   loadZonePasses,
@@ -85,6 +86,7 @@ export function createPlayerZone(ownerName: string, ownerWallet: string | null):
     createdAt: Date.now(),
     expandLevel: 0,
     dangerTier: "safe",
+    guildOnly: false,
     build: emptyPlayerZoneBuild(),
   };
   zones.set(zoneId, record);
@@ -154,7 +156,14 @@ export function setZoneBuild(zoneId: string, build: PlayerZoneBuild): void {
 /** Update listing metadata (name/price/published/gather tax) on a zone. */
 export function setZoneMeta(
   zoneId: string,
-  patch: { displayName?: string; passPrice?: number; published?: boolean; gatherTax?: number; dangerTier?: DangerTier },
+  patch: {
+    displayName?: string;
+    passPrice?: number;
+    published?: boolean;
+    gatherTax?: number;
+    dangerTier?: DangerTier;
+    guildOnly?: boolean;
+  },
 ): void {
   const zone = zones.get(zoneId);
   if (!zone) return;
@@ -171,6 +180,7 @@ export function setZoneMeta(
     zone.dangerTier = normalizePlayerZoneTier(patch.dangerTier);
   }
   if (typeof patch.published === "boolean") zone.published = patch.published;
+  if (typeof patch.guildOnly === "boolean") zone.guildOnly = patch.guildOnly;
   void savePlayerZone(zone);
 }
 
@@ -234,12 +244,23 @@ export function grantZonePass(zoneId: string, holderName: string, expiresAt: num
   void saveZonePass(pass);
 }
 
-/** True if a player may currently enter a zone (owner, free, or valid pass). */
+/** True if a player may currently enter a zone (owner, guild, free, or valid pass). */
 export function canEnterZone(zoneId: string, playerName: string, now = Date.now()): boolean {
   const zone = zones.get(zoneId);
   if (!zone) return false;
   if (zone.ownerName === playerName) return true;
+  // Guild-only Worlds: visitors must share the owner's guild. The pass/tax
+  // rules still apply on top for guildmates (both restrictions are the
+  // owner's choice and they compose).
+  if (zone.guildOnly && !isZoneGuildmate(zone.ownerName, playerName)) return false;
   if (zone.passPrice <= 0) return true;
   const pass = passes.get(passKey(zoneId, playerName));
   return Boolean(pass && pass.expiresAt > now);
+}
+
+/** True when `playerName` is in the same guild as the World's owner. */
+export function isZoneGuildmate(ownerName: string, playerName: string): boolean {
+  const ownerGuild = getGuildForMember(ownerName);
+  if (!ownerGuild) return false;
+  return getGuildForMember(playerName)?.id === ownerGuild.id;
 }

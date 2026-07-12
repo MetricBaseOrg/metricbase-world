@@ -112,6 +112,8 @@ export interface WorldDirectoryEntry {
   online: number;
   gatherTax: number;
   dangerTier: DangerTier;
+  /** Entry restricted to the owner's guild. */
+  guildOnly?: boolean;
   /** Placed props + resource nodes — a rough "how built is it" signal. */
   props: number;
 }
@@ -124,6 +126,8 @@ export interface MyWorldEntry {
   visits: number;
   gatherTax: number;
   dangerTier: DangerTier;
+  /** Entry restricted to the owner's guild. */
+  guildOnly?: boolean;
   /** Lifetime analytics counters. */
   passesSold: number;
   passGold: number;
@@ -554,7 +558,14 @@ export class NetworkManager {
   }
   sendZoneMetaSet(
     zoneId: string,
-    patch: { displayName?: string; passPrice?: number; published?: boolean; gatherTax?: number; dangerTier?: DangerTier },
+    patch: {
+      displayName?: string;
+      passPrice?: number;
+      published?: boolean;
+      gatherTax?: number;
+      dangerTier?: DangerTier;
+      guildOnly?: boolean;
+    },
   ) {
     this.room?.send("zoneMetaSet", { zoneId, ...patch });
   }

@@ -119,6 +119,8 @@ export interface PlayerZoneMeta {
   expandLevel: number;
   /** PvP danger tier the owner set (safe/yellow/red/black; default safe). */
   dangerTier: DangerTier;
+  /** Entry restricted to members of the owner's guild (owner always enters). */
+  guildOnly: boolean;
 }
 
 /** Danger tiers an owner may set on their World, easiest → deadliest. */

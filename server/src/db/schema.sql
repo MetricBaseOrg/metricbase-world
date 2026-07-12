@@ -269,6 +269,7 @@ ALTER TABLE player_zones ADD COLUMN IF NOT EXISTS gather_tax INTEGER NOT NULL DE
 ALTER TABLE player_zones ADD COLUMN IF NOT EXISTS expand_level INTEGER NOT NULL DEFAULT 0;
 -- Owner-set PvP danger tier (safe/yellow/red/black; added later).
 ALTER TABLE player_zones ADD COLUMN IF NOT EXISTS danger_tier TEXT NOT NULL DEFAULT 'safe';
+ALTER TABLE player_zones ADD COLUMN IF NOT EXISTS guild_only BOOLEAN NOT NULL DEFAULT false;
 -- Owner analytics counters (added later): lifetime totals, never reset.
 ALTER TABLE player_zones ADD COLUMN IF NOT EXISTS passes_sold INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE player_zones ADD COLUMN IF NOT EXISTS pass_gold BIGINT NOT NULL DEFAULT 0;

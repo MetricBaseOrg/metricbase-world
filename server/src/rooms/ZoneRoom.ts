@@ -348,6 +348,7 @@ import {
   addZoneEarnings,
   addZoneTax,
   canEnterZone,
+  isZoneGuildmate,
   collectZoneEarnings,
   createPlayerZone,
   getPlayerZone,
@@ -726,7 +727,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       "zoneMetaSet",
       (
         client,
-        message: { zoneId?: string; displayName?: string; passPrice?: number; published?: boolean; gatherTax?: number; dangerTier?: DangerTier },
+        message: { zoneId?: string; displayName?: string; passPrice?: number; published?: boolean; gatherTax?: number; dangerTier?: DangerTier; guildOnly?: boolean },
       ) => {
         void this.handleZoneMetaSet(client, message.zoneId ?? "", message);
       },
@@ -1254,7 +1255,14 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     // Player-owned zones gate entry: the owner is always welcome, free zones
     // are open, and paid zones require an unexpired visitor pass.
     if (this.playerZone && !canEnterZone(this.playerZone.zoneId, name)) {
-      throw new ServerError(403, "You need a visitor pass to enter this World.");
+      const guildGated =
+        this.playerZone.guildOnly && !isZoneGuildmate(this.playerZone.ownerName, name);
+      throw new ServerError(
+        403,
+        guildGated
+          ? "This World is open to its owner's guild members only."
+          : "You need a visitor pass to enter this World.",
+      );
     }
     // Count the visit for the directory's popularity stats (dedup per day;
     // owner entries don't count).
@@ -3538,7 +3546,14 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   private async handleZoneMetaSet(
     client: Client,
     zoneId: string,
-    patch: { displayName?: string; passPrice?: number; published?: boolean; gatherTax?: number; dangerTier?: DangerTier },
+    patch: {
+      displayName?: string;
+      passPrice?: number;
+      published?: boolean;
+      gatherTax?: number;
+      dangerTier?: DangerTier;
+      guildOnly?: boolean;
+    },
   ) {
     const player = this.state.players.get(client.sessionId);
     if (!player) return;
@@ -3547,13 +3562,32 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       return void client.send("zoneResult", { ok: false, error: "You don't own that World." });
     }
     const tierChanged = patch.dangerTier !== undefined && patch.dangerTier !== zone.dangerTier;
+    const accessChanged = typeof patch.guildOnly === "boolean" && patch.guildOnly !== zone.guildOnly;
     setZoneMeta(zoneId, {
       displayName: patch.displayName,
       passPrice: patch.passPrice,
       published: patch.published,
       gatherTax: patch.gatherTax,
       dangerTier: patch.dangerTier,
+      guildOnly: patch.guildOnly,
     });
+    // Access changes only gate NEW entries — visitors already inside are told,
+    // not ejected (matches how pass expiry behaves).
+    if (accessChanged) {
+      for (const room of ZoneRoom.activeRooms) {
+        if (room.zoneConfig.id === zoneId) {
+          room.broadcast(
+            "chat",
+            room.systemChat(
+              "Worlds",
+              patch.guildOnly
+                ? "🛡️ This World is now open to the owner's guild only."
+                : "🌐 This World is now open to everyone.",
+            ),
+          );
+        }
+      }
+    }
     // A tier change rewrites the PvP rules — push the fresh config to everyone
     // currently inside so their client (and this room's combat checks) update
     // without a rejoin.
@@ -3953,6 +3987,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         online: ZoneRoom.zoneOnlineCount(z.zoneId),
         gatherTax: z.gatherTax,
         dangerTier: normalizePlayerZoneTier(z.dangerTier),
+        guildOnly: Boolean(z.guildOnly),
         props: z.build.scenery.length + z.build.resources.length,
       })),
     });
@@ -3976,6 +4011,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         visits: z.visits,
         gatherTax: z.gatherTax,
         dangerTier: normalizePlayerZoneTier(z.dangerTier),
+        guildOnly: Boolean(z.guildOnly),
         passesSold: z.passesSold,
         passGold: z.passGold,
         taxGold: z.taxGold,
