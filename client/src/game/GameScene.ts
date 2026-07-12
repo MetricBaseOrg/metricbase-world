@@ -430,7 +430,11 @@ export class GameScene extends Phaser.Scene {
           this.selectedPlayerName = null;
           useGameStore.getState().setSelectedPlayer(null);
         } else if (this.selectPlayerAtPointer(pointer)) {
-          // Targeted a player for PvP.
+          // Targeted a player for PvP — also pop their public profile card
+          // (level, skills, PvP record) like clicking their name in chat.
+          if (this.selectedPlayerName) {
+            useGameStore.getState().setProfileFor(this.selectedPlayerName);
+          }
         } else if (this.tryClickCrystal(pointer)) {
           // Struck the King Crystal during a siege.
         } else {
