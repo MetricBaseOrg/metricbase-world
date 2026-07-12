@@ -14,6 +14,10 @@ import {
   createDefaultWalletNotFoundHandler,
 } from "@solana-mobile/wallet-standard-mobile";
 
+// Signal the index.html self-heal watchdog that the bundle booted — without
+// this flag it assumes a stale service-worker shell and clears caches.
+(window as Window & { __MB_BOOTED?: boolean }).__MB_BOOTED = true;
+
 // Solana web3.js / spl-token reference Node's Buffer global, which the browser
 // doesn't provide. Polyfill it before any wallet/market code runs.
 const globalScope = globalThis as typeof globalThis & { Buffer?: typeof Buffer };

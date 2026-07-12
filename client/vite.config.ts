@@ -8,13 +8,16 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: "autoUpdate",
-      workbox: {
-        // The SPA index.html is the SPA navigation fallback, but these routes
-        // are server-rendered / proxied (see vercel.json) — /stats and /docs are
-        // real server pages and /api/* is JSON. Without this denylist the service
-        // worker serves index.html (the landing page) for them from cache, so
-        // /stats "redirected to the marketing page" once the PWA/TWA shipped.
-        navigateFallbackDenylist: [/^\/stats/, /^\/api/, /^\/docs/],
+      // Custom worker (src/sw.ts): navigations are network-first (deploys show
+      // up immediately on PWA/TWA instead of one stale session later) with the
+      // precached shell as the offline fallback; hashed assets stay precached.
+      // The /stats,/api,/docs denylist lives in sw.ts.
+      strategies: "injectManifest",
+      srcDir: "src",
+      filename: "sw.ts",
+      injectManifest: {
+        globPatterns: ["**/*.{js,css,html}"],
+        maximumFileSizeToCacheInBytes: 3_000_000,
       },
       manifest: {
         name: "MetricBase World",
