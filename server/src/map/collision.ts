@@ -3,6 +3,7 @@ import {
   getZoneConfig,
   isBlockingTile,
   isGroundPaintBlocking,
+  isResourceNodeBlocking,
   isZonePropSolid,
   PLAYER_ZONE_PREFIX,
   playerZoneToConfig,
@@ -23,10 +24,10 @@ import { getPlayerZone } from "../zones/zoneRegistry.js";
 const collisionCache = new Map<string, number[][]>();
 
 /** Resolve a zone's config from the static table or the player-zone registry. */
-function resolveConfig(zoneId: string): Pick<ZoneConfig, "landPlots" | "scenery" | "tiles"> {
+function resolveConfig(zoneId: string): Pick<ZoneConfig, "landPlots" | "scenery" | "tiles" | "resources"> {
   if (zoneId.startsWith(PLAYER_ZONE_PREFIX)) {
     const record = getPlayerZone(zoneId);
-    return record ? playerZoneToConfig(record) : { landPlots: [], scenery: [], tiles: [] };
+    return record ? playerZoneToConfig(record) : { landPlots: [], scenery: [], tiles: [], resources: [] };
   }
   return getZoneConfig(zoneId);
 }
@@ -93,6 +94,11 @@ function getCollisionGrid(zoneId: string): number[][] {
       if (!WALKWAY_ZONE_PROPS.has(node.prop)) continue;
       const n = zonePropFootprint(node.prop);
       for (let dy = 0; dy < n; dy++) for (let dx = 0; dx < n; dx++) unblock(node.tileX + dx, node.tileY + dy);
+    }
+    // Fishing nodes (ponds/pools) are water: their tile blocks, fish from
+    // the shore. After the walkway pass so a bridge can't clear a pond.
+    for (const node of config.resources ?? []) {
+      if (isResourceNodeBlocking(node)) block(node.tileX, node.tileY);
     }
   }
 

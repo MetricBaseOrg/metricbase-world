@@ -2,6 +2,7 @@ import {
   buildZoneMap,
   isBlockingTile,
   isGroundPaintBlocking,
+  isResourceNodeBlocking,
   isZonePropSolid,
   PLAYER_SPEED,
   TILE_WATER,
@@ -55,6 +56,11 @@ export function buildCollisionGrid(zoneId: string, builtLandPlots: Set<string> =
       if (!WALKWAY_ZONE_PROPS.has(node.prop)) continue;
       const n = zonePropFootprint(node.prop);
       for (let dy = 0; dy < n; dy++) for (let dx = 0; dx < n; dx++) clear(node.tileX + dx, node.tileY + dy);
+    }
+    // Fishing nodes (ponds/pools) are water: their tile blocks, fish from
+    // the shore. After the walkway pass so a bridge can't clear a pond.
+    for (const node of config.resources ?? []) {
+      if (isResourceNodeBlocking(node)) stamp(node.tileX, node.tileY);
     }
   }
   for (const node of config.scenery ?? []) {

@@ -49,16 +49,16 @@ const EVENTS: Array<{ title: string; body: string }> = [
 /** Recent release highlights (keep the top three fresh when shipping). */
 const UPDATES: Array<{ title: string; body: string }> = [
   {
+    title: "v0.122 — Smoother Movement & Real Water",
+    body: "Water, ponds, and pools now block walking in player Worlds (bridges cross!). Movement and animations are smoother on every screen, and click-to-move no longer walks into walls.",
+  },
+  {
+    title: "v0.121 — Player Stats on Click",
+    body: "Click any player to target them — the action bar now offers a Stats button with their profile, skills, and PvP record.",
+  },
+  {
     title: "v0.119 — Bun the Penguin & Player Dashboard",
     body: "A plucky penguin companion waddles into the gem shop, and this dashboard is now the front door after connecting your wallet.",
-  },
-  {
-    title: "v0.117 — Guild-only Worlds",
-    body: "World owners can gate entry to their guild — a private build space and staging ground for guild life.",
-  },
-  {
-    title: "v0.116 — Economy, Durability & Spectate",
-    body: "Gear durability and repairs, carrot dishes, zone changes (Wild Slimes moved to Obsidian Reach), and anonymous spectate mode.",
   },
 ];
 

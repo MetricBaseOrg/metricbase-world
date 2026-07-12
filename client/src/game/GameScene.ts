@@ -66,6 +66,7 @@ import {
   getCropMarket,
   isBuildTileBlocked,
   isGroundPaintBlocking,
+  isResourceNodeBlocking,
   isZonePropSolid,
   makePlayerZoneResource,
   PLAYER_ZONE_GRID,
@@ -76,7 +77,7 @@ import {
 } from "@metricbase/shared";
 import { buildZoneMap } from "./mapData";
 import { PredictedPosition, reconcilePrediction, stepPrediction } from "./prediction";
-import { buildCollisionGrid, collisionStep, findPath, type CollisionGrid } from "./pathfind";
+import { buildCollisionGrid, collisionStep, findPath, isWorldWalkable, type CollisionGrid } from "./pathfind";
 
 interface RenderedPlayer {
   name: string;
@@ -362,6 +363,16 @@ export class GameScene extends Phaser.Scene {
   private chopKey: Phaser.Input.Keyboard.Key | null = null;
   private fishKey: Phaser.Input.Keyboard.Key | null = null;
   private lastSentInput = { dx: 0, dy: 0 };
+  /**
+   * Last frame's delta (ms), clamped so tab-refocus spikes don't teleport
+   * smoothed values. All interpolation uses dt-corrected alphas via
+   * smoothAlpha() — fixed per-frame lerp factors made remote players crawl
+   * and rubber-band at 30fps and snap at 120–165Hz.
+   */
+  private frameDelta = 16.7;
+  /** Click-to-move stuck guard: last sampled position + timestamp. */
+  private moveStuckPos = { x: 0, y: 0 };
+  private moveStuckAt = 0;
   /** Last wall-clock time movement input was non-zero (for reconcile grace). */
   private lastMovingAt = 0;
   private currentZoneId: string | null = null;
@@ -903,6 +914,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   update(_time: number, delta: number) {
+    this.frameDelta = Math.min(Math.max(delta, 1), 100);
     // While an object is held with the Move tool, its ghost snaps to the tile
     // under the cursor and turns red where it can't be dropped.
     const heldGhost = this.editHeld?.ghost;
@@ -962,7 +974,13 @@ export class GameScene extends Phaser.Scene {
         }
       }
 
-      if (dx !== this.lastSentInput.dx || dy !== this.lastSentInput.dy) {
+      // Epsilon compare: click-to-move produces a float unit vector that
+      // wiggles a hair every frame, which used to re-send input 60×/second
+      // for the whole walk. ~1° of drift is invisible; start/stop always
+      // differ by far more than the epsilon so they always send.
+      const inputChanged =
+        Math.abs(dx - this.lastSentInput.dx) > 0.015 || Math.abs(dy - this.lastSentInput.dy) > 0.015;
+      if (inputChanged) {
         networkManager.sendInput(dx, dy);
         this.lastSentInput = { dx, dy };
       }
@@ -979,12 +997,16 @@ export class GameScene extends Phaser.Scene {
         }
       }
 
-      this.interpolateRemotePlayers();
       this.tryInteract();
       this.tryAttack();
       this.tryChop();
       this.tryFish();
     }
+
+    // Always interpolate remote players — inside the !blocked branch they froze
+    // mid-step whenever the local player typed in chat (or was knocked out),
+    // then teleported to their live position when the input unblocked.
+    this.interpolateRemotePlayers();
 
     if (!this.localSessionId && networkManager.sessionId) {
       this.localSessionId = networkManager.sessionId;
@@ -1700,10 +1722,11 @@ export class GameScene extends Phaser.Scene {
   /** Trail the companion a little behind/beside its owner each frame. */
   private positionPet(entry: RenderedPlayer) {
     if (!entry.pet) return;
+    const petAlpha = this.smoothAlpha(0.18);
     const targetX = entry.sprite.x - 16;
     const targetY = entry.sprite.y - 6;
-    entry.petX = Phaser.Math.Linear(entry.petX, targetX, 0.18);
-    entry.petY = Phaser.Math.Linear(entry.petY, targetY, 0.18);
+    entry.petX = Phaser.Math.Linear(entry.petX, targetX, petAlpha);
+    entry.petY = Phaser.Math.Linear(entry.petY, targetY, petAlpha);
     entry.pet.setPosition(Math.round(entry.petX), Math.round(entry.petY));
     entry.pet.setDepth(entry.sprite.depth - 1);
   }
@@ -2457,6 +2480,10 @@ export class GameScene extends Phaser.Scene {
       if (!isZonePropSolid(s.prop)) continue;
       const n = zonePropFootprint(s.prop);
       for (let dy = 0; dy < n; dy++) for (let dx = 0; dx < n; dx++) fillTile(s.tileX + dx, s.tileY + dy, 0xff5a5a);
+    }
+    // Fishing nodes (ponds/pools) block their tile like water.
+    for (const r of draft.resources) {
+      if (isResourceNodeBlocking(r)) fillTile(r.tileX, r.tileY, 0x5a97e0);
     }
     fillTile(draft.spawnTile.x, draft.spawnTile.y, 0x4be08a);
   }
@@ -3933,14 +3960,34 @@ export class GameScene extends Phaser.Scene {
   /** Set a click/tap-to-move destination and pop a marker there. */
   private setMoveTarget(worldX: number, worldY: number) {
     this.moveTarget = { x: worldX, y: worldY };
+    this.moveStuckAt = 0;
     // Route around obstacles with A* over the collision grid; fall back to a
     // straight line if there's no grid or no path.
     const local = this.findLocalPlayer();
+    const clickWalkable = !this.collisionGrid || isWorldWalkable(this.collisionGrid, worldX, worldY);
     if (this.collisionGrid && local) {
       const path = findPath(this.collisionGrid, local.predicted, { x: worldX, y: worldY });
-      // Replace the final waypoint with the exact click point for a precise stop.
-      if (path.length) path[path.length - 1] = { x: worldX, y: worldY };
-      this.movePath = path;
+      if (path.length) {
+        if (clickWalkable) {
+          // Steer the final leg to the exact click point for a precise stop.
+          path[path.length - 1] = { x: worldX, y: worldY };
+        } else {
+          // Clicked water/a prop: A* already routed to the nearest walkable
+          // tile — stop THERE. Aiming the last leg at the blocked click point
+          // left the character grinding against the obstacle forever.
+          const last = path[path.length - 1];
+          this.moveTarget = { x: last.x, y: last.y };
+        }
+        this.movePath = path;
+      } else {
+        this.movePath = [];
+        // No route (same tile, or unreachable). A straight line toward a
+        // blocked point would grind against the obstacle — don't start.
+        if (!clickWalkable) {
+          this.clearMoveTarget();
+          return;
+        }
+      }
     } else {
       this.movePath = [];
     }
@@ -3951,7 +3998,8 @@ export class GameScene extends Phaser.Scene {
     marker.strokeCircle(0, 0, 9);
     marker.lineStyle(2, 0xffffff, 0.8);
     marker.strokeCircle(0, 0, 4);
-    marker.setPosition(worldX, worldY);
+    // The marker sits on the actual destination (redirected off blocked tiles).
+    marker.setPosition(this.moveTarget.x, this.moveTarget.y);
     marker.setAlpha(1);
     marker.setScale(1);
     marker.setVisible(true);
@@ -4238,6 +4286,23 @@ export class GameScene extends Phaser.Scene {
     if (!local) {
       this.clearMoveTarget();
       return null;
+    }
+    // Stuck guard: if we've made no real progress for ~600ms (server collision
+    // disagreeing with the client grid, a mob body-block, a moved prop), give
+    // up instead of walking against the obstacle forever.
+    const nowMs = Date.now();
+    if (this.moveStuckAt === 0) {
+      this.moveStuckAt = nowMs;
+      this.moveStuckPos = { x: local.predicted.x, y: local.predicted.y };
+    } else if (nowMs - this.moveStuckAt >= 600) {
+      const progressed =
+        Math.hypot(local.predicted.x - this.moveStuckPos.x, local.predicted.y - this.moveStuckPos.y) > 4;
+      if (!progressed) {
+        this.clearMoveTarget();
+        return null;
+      }
+      this.moveStuckAt = nowMs;
+      this.moveStuckPos = { x: local.predicted.x, y: local.predicted.y };
     }
     // Advance past any path waypoints we've reached.
     while (this.movePath.length) {
@@ -4573,10 +4638,13 @@ export class GameScene extends Phaser.Scene {
       } else {
         const vx = rendered.sprite.x - rendered.prevSpriteX;
         const vy = rendered.baseY - rendered.prevSpriteY;
-        const speed = Math.hypot(vx, vy);
-        if (speed > 0.8) {
+        // px/second, not px/frame: per-frame thresholds tuned at 60fps kept
+        // remote players stuck in idle on 120–165Hz displays (a walking
+        // player moves <1px per frame there) and flickered walk/idle at 90Hz.
+        const speed = Math.hypot(vx, vy) / (this.frameDelta / 1000);
+        if (speed > 45) {
           rendered.remoteMoving = true;
-        } else if (speed < 0.15) {
+        } else if (speed < 9) {
           rendered.remoteMoving = false;
         }
 
@@ -4771,8 +4839,17 @@ export class GameScene extends Phaser.Scene {
     return isPlayerZoneId(zone) || ZONE_TILE_SKIN[zone] ? 16 : 0;
   }
 
+  /**
+   * Frame-rate-corrected lerp factor: `base` is the per-frame alpha the game
+   * was tuned at (60fps); this converts it to the equivalent strength for the
+   * actual frame time so smoothing feels identical at 30, 60, or 165Hz.
+   */
+  private smoothAlpha(base: number): number {
+    return 1 - Math.pow(1 - base, this.frameDelta / 16.667);
+  }
+
   private interpolateRemotePlayers() {
-    const alpha = 0.25;
+    const alpha = this.smoothAlpha(0.25);
     for (const [, rendered] of this.renderedPlayers) {
       const x = Phaser.Math.Linear(rendered.sprite.x, rendered.targetX, alpha);
       // Lerp from the bob-free baseY so the idle bob never feeds back into motion.
@@ -4791,7 +4868,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private updateNpcMovement() {
-    const alpha = 0.22;
+    const alpha = this.smoothAlpha(0.22);
     for (const npc of this.renderedNpcs) {
       if (npc.targetX === undefined || npc.targetY === undefined) {
         continue;

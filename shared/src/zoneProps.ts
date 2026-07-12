@@ -72,6 +72,19 @@ export function zoneGroundFootprint(type: string): number {
 /** Walkable structures that clear blocking ground beneath their footprint. */
 export const WALKWAY_ZONE_PROPS = new Set<string>(["bridge"]);
 
+/**
+ * Fishing-water props — placed ponds/pools players fish FROM THE SHORE, so
+ * their tile blocks walking (like base-zone fishing spots sitting on water).
+ * Blocking checks match resources by kind ("fish") or prop id; this set also
+ * catches legacy builds that stored ponds as plain scenery.
+ */
+export const WATER_RESOURCE_PROPS = new Set<string>(["fish-pond", "deep-pool"]);
+
+/** True when a placed resource node blocks walking (water/fishing nodes). */
+export function isResourceNodeBlocking(node: { kind?: string; prop?: string | null }): boolean {
+  return node.kind === "fish" || WATER_RESOURCE_PROPS.has(node.prop ?? "");
+}
+
 // ---- Resource props --------------------------------------------------------
 // Which placeable props are gather nodes, and what they yield. Used to derive
 // real resource nodes from LEGACY builds that stored them as scenery (early

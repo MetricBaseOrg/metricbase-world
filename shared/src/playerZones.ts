@@ -4,9 +4,11 @@ import { makePlayerZoneResource, type ZoneResourceNode } from "./resources.js";
 import type { DangerTier, SceneryNode, ZoneConfig, ZonePortal } from "./zones.js";
 import {
   isGroundPaintBlocking,
+  isResourceNodeBlocking,
   isZonePropSolid,
   RESOURCE_PROPS,
   WALKWAY_ZONE_PROPS,
+  WATER_RESOURCE_PROPS,
   zoneGroundFootprint,
   zonePropFootprint,
 } from "./zoneProps.js";
@@ -156,7 +158,12 @@ export interface PlayerZoneRecord extends PlayerZoneMeta {
 export function isBuildTileBlocked(build: PlayerZoneBuild, x: number, y: number): boolean {
   const covers = (tileX: number, tileY: number, n: number) => x >= tileX && x < tileX + n && y >= tileY && y < tileY + n;
   for (const s of build.scenery) {
-    if (isZonePropSolid(s.prop) && covers(s.tileX, s.tileY, zonePropFootprint(s.prop))) return true;
+    // Solid props, plus fishing water stored as scenery by legacy builds.
+    if ((isZonePropSolid(s.prop) || WATER_RESOURCE_PROPS.has(s.prop)) && covers(s.tileX, s.tileY, zonePropFootprint(s.prop))) return true;
+  }
+  // Fishing nodes (ponds/pools) are water — fish from the shore.
+  for (const r of build.resources) {
+    if (isResourceNodeBlocking(r) && covers(r.tileX, r.tileY, 1)) return true;
   }
   let inRiver = false;
   for (const t of build.tiles) {
