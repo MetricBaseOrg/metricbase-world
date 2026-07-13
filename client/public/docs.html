@@ -1008,6 +1008,28 @@
         <p>Expanding also raises your build caps proportionally — a maxed World holds 2.25× the
         props of a fresh one. The resize happens live for everyone standing inside.</p>
 
+        <h3>📐 Build caps — how much fits in a World</h3>
+        <p>Every World has hard limits per category (they keep builds fair and fast to render).
+        Caps scale with your World's area, so each expansion raises all of them:</p>
+        <table>
+          <tr><th>Size</th><th>⛏️ Resource nodes</th><th>🌳 Props &amp; decor</th><th>🏠 Building plots</th><th>🌾 Farm plots</th></tr>
+          <tr><td>24×24 (base)</td><td>24</td><td>120</td><td>12</td><td>16</td></tr>
+          <tr><td>28×28</td><td>32</td><td>163</td><td>16</td><td>21</td></tr>
+          <tr><td>32×32</td><td>42</td><td>213</td><td>21</td><td>28</td></tr>
+          <tr><td>36×36 (max)</td><td>54</td><td>270</td><td>27</td><td>36</td></tr>
+        </table>
+        <ul class="list">
+          <li><strong>Resource nodes</strong> (trees, rocks, fishing spots) are the binding limit
+          for gather-farm Worlds — plan them first. Mob dens, buildings, markets, and decorations
+          all count as <strong>props</strong>.</li>
+          <li><strong>Ground paint</strong> (grass, water, soil, paths) has no practical cap — you
+          can paint every tile. Painted <strong>soil counts as farm plots for gameplay</strong> but
+          not against the farm-plot cap (only placed plot assets do).</li>
+          <li>Hitting a cap shows "Too many … (max N)" on save — remove pieces from that category
+          (they return to your asset inventory) or <a href="#worlds">expand your World</a> to raise
+          every cap.</li>
+        </ul>
+
         <h3>📊 Discovery &amp; analytics</h3>
         <ul class="list">
           <li>The <strong>Explore</strong> tab ranks published Worlds by 🔥 Popular (real visits,
