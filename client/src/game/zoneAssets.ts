@@ -109,7 +109,7 @@ const DESC: Record<string, string> = {
   "slime-den": "Spawns a real Wild Slime visitors can fight — XP + slime gel (no gold).",
   "brute-den": "Spawns a Slime Brute — a tough fight for XP + a slime core (no gold).",
   "berry-bush": "Berry bush — quick gather node.",
-  "crop-field": "Planted field visitors can harvest.",
+  "crop-field": "Planted field — each gather yields a random seed to plant.",
   "crop-wheat": "Golden wheat patch — gather Wheat Seeds to plant.",
   "crop-carrot": "Ripe carrot patch — gather Carrot Seeds to plant.",
   "sakura-tree": "Cherry blossom sakura tree Woodcutting node.",

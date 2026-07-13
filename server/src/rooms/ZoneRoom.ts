@@ -6481,6 +6481,10 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     // Fishing: roll WHICH species this catch was. Common rolls keep the node's
     // base loot (River Fish / Salmon), rarer rolls upgrade the whole catch.
     let lootItemId = gather.lootItemId;
+    // Mixed-yield nodes (crop-field) roll one item from their pool per gather.
+    if (gather.lootPool?.length) {
+      lootItemId = gather.lootPool[Math.floor(Math.random() * gather.lootPool.length)];
+    }
     let caughtSpecies: FishSpecies | null = null;
     if (gather.skill === "fishing") {
       const waters = fishWatersForLoot(gather.lootItemId);
@@ -6673,6 +6677,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         respawnMs: f.respawnMs,
         lootItemId: f.lootItemId,
         lootQuantity: f.lootQuantity,
+        lootPool: undefined as string[] | undefined,
         durationMs: (lvl: number) => computeFishDurationMs(f.spotLevel, lvl),
       };
     }
@@ -6688,6 +6693,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         respawnMs: m.respawnMs,
         lootItemId: m.lootItemId,
         lootQuantity: m.lootQuantity,
+        lootPool: undefined as string[] | undefined,
         durationMs: (lvl: number) => computeMineDurationMs(m.rockLevel, lvl),
       };
     }
@@ -6708,6 +6714,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       respawnMs: w.respawnMs,
       lootItemId: w.lootItemId,
       lootQuantity: w.lootQuantity,
+      lootPool: w.lootPool,
       durationMs: (lvl: number) => computeChopDurationMs(w.treeLevel, lvl),
     };
   }

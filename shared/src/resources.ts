@@ -5,6 +5,9 @@ export interface WoodcuttingConfig {
   respawnMs: number;
   lootItemId: string;
   lootQuantity: number;
+  /** Mixed-yield nodes: each gather grants ONE random item from this pool
+   *  instead of lootItemId (which stays as the fallback for stale clients). */
+  lootPool?: string[];
 }
 
 export interface MiningConfig {
@@ -57,7 +60,10 @@ const PROP_MINING_YIELD: Record<string, Pick<MiningConfig, "rockLevel" | "requir
   "obsidian-gem": { rockLevel: 8, requiredLevel: 8, skillXp: 60, respawnMs: 75_000, lootItemId: "item_gemstone" },
 };
 
-const PROP_WOODCUTTING_YIELD: Record<string, Pick<WoodcuttingConfig, "treeLevel" | "requiredLevel" | "skillXp" | "respawnMs" | "lootItemId">> = {
+const PROP_WOODCUTTING_YIELD: Record<
+  string,
+  Pick<WoodcuttingConfig, "treeLevel" | "requiredLevel" | "skillXp" | "respawnMs" | "lootItemId" | "lootPool">
+> = {
   hardwood: { treeLevel: 3, requiredLevel: 3, skillXp: 26, respawnMs: 40_000, lootItemId: "item_hardwood" },
   "ancient-hardwood": { treeLevel: 6, requiredLevel: 6, skillXp: 42, respawnMs: 55_000, lootItemId: "item_hardwood" },
   "cavern-hardwood": { treeLevel: 8, requiredLevel: 8, skillXp: 55, respawnMs: 70_000, lootItemId: "item_hardwood" },
@@ -67,7 +73,15 @@ const PROP_WOODCUTTING_YIELD: Record<string, Pick<WoodcuttingConfig, "treeLevel"
   // farming loop — plant the seed, grow it, harvest — instead of bypassing it.
   "crop-carrot": { treeLevel: 1, requiredLevel: 1, skillXp: 8, respawnMs: 20_000, lootItemId: "item_carrot_seed" },
   "crop-wheat": { treeLevel: 1, requiredLevel: 1, skillXp: 8, respawnMs: 20_000, lootItemId: "item_wheat_seed" },
-  "crop-field": { treeLevel: 1, requiredLevel: 1, skillXp: 8, respawnMs: 20_000, lootItemId: "item_wheat" },
+  // The generic planted field is a grab-bag: a random seed type per gather.
+  "crop-field": {
+    treeLevel: 1,
+    requiredLevel: 1,
+    skillXp: 8,
+    respawnMs: 20_000,
+    lootItemId: "item_wheat_seed",
+    lootPool: ["item_wheat_seed", "item_carrot_seed"],
+  },
 };
 
 /** Per-prop fishing yields so a placed Deep Pool lands salmon like the wild one. */
