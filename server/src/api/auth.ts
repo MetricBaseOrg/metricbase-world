@@ -7,6 +7,7 @@ import { Router } from "express";
 import { createAccessToken, verifyAccessToken } from "../auth/accessToken.js";
 import { consumeChallenge, createChallenge } from "../auth/challenges.js";
 import { getTokenGateInfo, isTokenGateEnabled } from "../auth/tokenGate.js";
+import { isWalletBanned } from "../db/bans.js";
 import { getWalletTokenBalance } from "../solana/tokenBalance.js";
 import { verifyWalletSignature } from "../solana/verifySignature.js";
 
@@ -61,6 +62,11 @@ authRouter.post("/auth/verify", async (req, res) => {
 
   if (!verifyWalletSignature(wallet, message, signature)) {
     res.status(401).json({ error: "Invalid wallet signature" });
+    return;
+  }
+
+  if (await isWalletBanned(wallet)) {
+    res.status(403).json({ error: "This account has been banned." });
     return;
   }
 

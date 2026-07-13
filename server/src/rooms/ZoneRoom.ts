@@ -245,6 +245,7 @@ import {
   saveCharacter,
 } from "../db/characters.js";
 import { isInvitationSystemActive, validateAndUseInviteCode, getInvitedCount } from "../db/invitations.js";
+import { isWalletBanned } from "../db/bans.js";
 import { isWalkable, blockPlotFootprint, clearCollisionCache } from "../map/collision.js";
 import { checkWalletTokenGate, getWalletTokenBalance } from "../solana/tokenBalance.js";
 import { verifyTokenBurn } from "../solana/verifyTokenBurn.js";
@@ -1264,6 +1265,10 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     // walletless name-protection rejected bonded names (which made spectating
     // impossible), and borrowing one would let a watcher impersonate it in chat.
     const wallet = options.spectate ? null : this.resolveJoinWallet(options, auth);
+    // Banned wallets can't enter even with a still-valid access token.
+    if (wallet && (await isWalletBanned(wallet))) {
+      throw new ServerError(403, "This account has been banned.");
+    }
     let name = sanitizeName(options?.name);
     let saved: Awaited<ReturnType<typeof resolveCharacterForJoin>> = null;
 

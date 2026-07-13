@@ -382,6 +382,16 @@ CREATE TABLE IF NOT EXISTS invitations (
 CREATE INDEX IF NOT EXISTS invitations_inviter_wallet_idx ON invitations (inviter_wallet);
 CREATE INDEX IF NOT EXISTS invitations_invitee_wallet_idx ON invitations (invitee_wallet);
 
+-- Banned accounts, keyed by wallet (the canonical identity). Enforced at JWT
+-- issuance (/auth/verify) and at room join, so a ban survives renames and
+-- outstanding access tokens.
+CREATE TABLE IF NOT EXISTS banned_players (
+  wallet_address VARCHAR(44) PRIMARY KEY,
+  name VARCHAR(16),
+  reason TEXT NOT NULL DEFAULT '',
+  banned_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 -- Daily player net-worth snapshots (one row per player per UTC day, last
 -- capture of the day wins). Powers the /stats richest leaderboard's
 -- day-over-day change; season is stamped so the board resets each season.
