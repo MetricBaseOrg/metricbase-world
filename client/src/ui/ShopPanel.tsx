@@ -12,6 +12,8 @@ import {
   type MarketOrderView,
   type MarketResultPayload,
   type MarketStatePayload,
+  type P2PMarketListing,
+  type PlayerShopResultPayload,
   type ShopOpenPayload,
   type ShopResultPayload,
 } from "@metricbase/shared";
@@ -25,7 +27,7 @@ import { sendMetricbaseTokenPayment } from "../wallet/tokenPayment";
 import { GoldMarketChart } from "./GoldMarketChart";
 import { WalletConnectBar } from "./WalletConnectBar";
 
-type ShopTab = "gold" | "market";
+type ShopTab = "gold" | "market" | "p2p";
 
 function refreshShopCatalog(
   shop: ShopOpenPayload,
@@ -86,6 +88,29 @@ function formatTradeTime(time: number): string {
   return `${Math.floor(hours / 24)}d ago`;
 }
 
+async function waitForP2pMarket() {
+  return new Promise<P2PMarketListing[]>((resolve) => {
+    const timeout = window.setTimeout(() => resolve([]), 10000);
+    const unsubscribe = networkManager.onP2pMarket((payload) => {
+      window.clearTimeout(timeout);
+      unsubscribe();
+      resolve(payload.listings);
+    });
+    networkManager.requestP2pMarket();
+  });
+}
+
+async function waitForPlayerShopResult() {
+  return new Promise<PlayerShopResultPayload>((resolve) => {
+    const timeout = window.setTimeout(() => resolve({ ok: false, error: "Shop request timed out." }), 8000);
+    const unsubscribe = networkManager.onPlayerShopResult((payload) => {
+      window.clearTimeout(timeout);
+      unsubscribe();
+      resolve(payload);
+    });
+  });
+}
+
 async function waitForMarketResult() {
   return new Promise<MarketResultPayload>((resolve) => {
     const timeout = window.setTimeout(() => resolve({ ok: false, error: "Market request timed out." }), 30000);
@@ -101,6 +126,7 @@ export function ShopPanel() {
   const shop = useGameStore((state) => state.shop);
   const open = useGameStore((state) => state.shopOpen);
   const playerGold = useGameStore((state) => state.playerGold);
+  const playerName = useGameStore((state) => state.playerName);
   const walletAddress = useGameStore((state) => state.walletAddress);
   const inventory = useGameStore((state) => state.inventory);
   const setShop = useGameStore((state) => state.setShop);
@@ -119,6 +145,10 @@ export function ShopPanel() {
   const [search, setSearch] = useState("");
   const [kindFilter, setKindFilter] = useState<"all" | ItemKind>("all");
   const [sortBy, setSortBy] = useState<"category" | "cheap" | "pricey" | "name">("category");
+  // P2P market: items stocked in player-run shops across all zones. null = not
+  // loaded yet (fetched when the tab opens).
+  const [p2pListings, setP2pListings] = useState<P2PMarketListing[] | null>(null);
+  const [p2pSearch, setP2pSearch] = useState("");
 
   if (!open || !shop) return null;
 
@@ -232,6 +262,31 @@ export function ShopPanel() {
     } else {
       setShop(refreshShopCatalog(shop, nextGold, useGameStore.getState().inventory, market));
     }
+  };
+
+  const refreshP2pMarket = () => {
+    void waitForP2pMarket().then(setP2pListings);
+  };
+
+  const handleP2pBuy = async (listing: P2PMarketListing) => {
+    if (playerGold < listing.price) {
+      setError("Not enough gold.");
+      return;
+    }
+    setPending(true);
+    setError(null);
+    networkManager.sendShopBuyListing(listing.plotId, listing.itemId, 1);
+    const result = await waitForPlayerShopResult();
+    setPending(false);
+    if (!result.ok) {
+      playSfx("shop_fail");
+      setError(result.error ?? "Purchase failed.");
+      return;
+    }
+    playSfx("shop_buy");
+    if (result.gold !== undefined) setPlayerGold(result.gold);
+    setStatus(`Bought ${getItemDefinition(listing.itemId).name} from ${listing.ownerName}'s shop.`);
+    refreshP2pMarket();
   };
 
   const handlePlaceOrder = async (side: "bid" | "ask") => {
@@ -428,6 +483,7 @@ export function ShopPanel() {
 
       <div className="chibi-tabs">
         <button type="button" className={`chibi-btn chibi-btn--tab${tab === "gold" ? " active" : ""}`} onClick={() => { playSfx("ui_click"); setTab("gold"); }}>🪙 Gold Shop</button>
+        <button type="button" className={`chibi-btn chibi-btn--tab${tab === "p2p" ? " active" : ""}`} onClick={() => { playSfx("ui_click"); setTab("p2p"); refreshP2pMarket(); }}>🤝 P2P Market</button>
         <button type="button" className={`chibi-btn chibi-btn--tab${tab === "market" ? " active" : ""}`} onClick={() => { playSfx("ui_click"); setTab("market"); refreshMarket(currency); }}>📈 Gold Market</button>
       </div>
 
@@ -504,6 +560,90 @@ export function ShopPanel() {
               </div>
             )}
           </div>
+        </>
+      ) : tab === "p2p" ? (
+        <>
+          <div className="chibi-card chibi-card--info" style={{ marginTop: 14, fontSize: "0.85rem" }}>
+            <div style={{ fontWeight: 800, marginBottom: 6 }}>Player-to-player market</div>
+            <div style={{ fontSize: 12, opacity: 0.8 }}>
+              Items stocked in player-run shops across every world. Buying here pays the shop owner directly.
+            </div>
+          </div>
+
+          <div className="chibi-card chibi-card--gold" style={{ marginTop: 12, fontWeight: 800 }}>Your gold: 🪙 {playerGold}</div>
+
+          <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
+            <input
+              className="chibi-input"
+              value={p2pSearch}
+              onChange={(e) => setP2pSearch(e.target.value)}
+              placeholder="🔍 Search items or sellers…"
+              style={{ flex: 1, fontSize: "0.82rem", padding: "8px 10px" }}
+            />
+            <button
+              type="button"
+              className="chibi-btn chibi-btn--secondary"
+              onClick={() => { playSfx("ui_click"); refreshP2pMarket(); }}
+              style={{ padding: "6px 12px", fontSize: "0.76rem" }}
+            >
+              ↻ Refresh
+            </button>
+          </div>
+
+          {p2pListings === null ? (
+            <div style={{ marginTop: 16, fontSize: 13, opacity: 0.7 }}>Loading listings…</div>
+          ) : (() => {
+            const query = p2pSearch.trim().toLowerCase();
+            const list = p2pListings.filter((listing) => {
+              if (!query) return true;
+              const item = getItemDefinition(listing.itemId);
+              return (
+                item.name.toLowerCase().includes(query) ||
+                listing.ownerName.toLowerCase().includes(query) ||
+                (listing.shopName ?? "").toLowerCase().includes(query) ||
+                listing.zoneName.toLowerCase().includes(query)
+              );
+            });
+            if (list.length === 0) {
+              return (
+                <div style={{ marginTop: 16, fontSize: 13, opacity: 0.7 }}>
+                  {p2pListings.length === 0
+                    ? "No player shops have items for sale yet. Build a Shop on a land plot and stock it!"
+                    : "No listings match your search."}
+                </div>
+              );
+            }
+            return (
+              <div style={{ marginTop: 16, display: "grid", gap: 8 }}>
+                {list.map((listing) => {
+                  const item = getItemDefinition(listing.itemId);
+                  const mine = listing.ownerName === playerName;
+                  return (
+                    <div key={`${listing.plotId}-${listing.itemId}`} className="chibi-card" style={orderRowStyle()}>
+                      <div>
+                        <div style={{ fontWeight: 800, fontSize: "0.85rem" }}>
+                          {ITEM_ICONS[listing.itemId] ?? "📦"} {item.name} <span className="chibi-text-muted">x{listing.quantity}</span>
+                        </div>
+                        <div style={{ fontSize: "0.8rem", color: "var(--chibi-gold-deep)", marginTop: 4 }}>{listing.price} gold each</div>
+                        <div className="chibi-text-muted" style={{ fontSize: "0.72rem", marginTop: 2 }}>
+                          {listing.shopName ?? `${listing.ownerName}'s Shop`} · {listing.ownerName} · {listing.zoneName}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        className="chibi-btn chibi-btn--primary"
+                        disabled={pending || mine || playerGold < listing.price}
+                        onClick={() => void handleP2pBuy(listing)}
+                        style={{ padding: "8px 12px", fontSize: "0.78rem" }}
+                      >
+                        {mine ? "Yours" : "Buy 1"}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
         </>
       ) : (
         <>

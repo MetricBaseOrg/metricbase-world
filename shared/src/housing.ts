@@ -217,6 +217,24 @@ export interface ShopListing {
 /** Max distinct items a player shop can list at once. */
 export const MAX_SHOP_LISTINGS = 8;
 
+/** One item stocked in a player-run shop anywhere in the world, annotated for
+ *  the global P2P market browser at Pip's. */
+export interface P2PMarketListing {
+  plotId: string;
+  zoneId: string;
+  zoneName: string;
+  /** Owner-set shop sign, or null for the default "<owner>'s Shop". */
+  shopName: string | null;
+  ownerName: string;
+  itemId: string;
+  quantity: number;
+  price: number;
+}
+
+export interface P2PMarketPayload {
+  listings: P2PMarketListing[];
+}
+
 export interface PlayerShopResultPayload {
   ok: boolean;
   error?: string;

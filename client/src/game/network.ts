@@ -40,6 +40,7 @@ import {
   HousingStatePayload,
   HousingResultPayload,
   HousingMarketListing,
+  P2PMarketPayload,
   GuildStatePayload,
   GuildResultPayload,
   PartyStatePayload,
@@ -320,6 +321,7 @@ export class NetworkManager {
   private housingResultListeners = new Set<HousingResultListener>();
   private housingMarketListeners = new Set<(payload: { listings: HousingMarketListing[] }) => void>();
   private housingMarketChangedListeners = new Set<() => void>();
+  private p2pMarketListeners = new Set<(payload: P2PMarketPayload) => void>();
   private worldsListListeners = new Set<(worlds: WorldDirectoryEntry[]) => void>();
   private myWorldsListeners = new Set<(worlds: MyWorldEntry[]) => void>();
   private zoneResultListeners = new Set<(result: ZoneResultPayload) => void>();
@@ -1022,6 +1024,15 @@ export class NetworkManager {
   onHousingMarketChanged(listener: () => void) {
     this.housingMarketChangedListeners.add(listener);
     return () => this.housingMarketChangedListeners.delete(listener);
+  }
+
+  requestP2pMarket() {
+    this.room?.send("p2pMarket", {});
+  }
+
+  onP2pMarket(listener: (payload: P2PMarketPayload) => void) {
+    this.p2pMarketListeners.add(listener);
+    return () => this.p2pMarketListeners.delete(listener);
   }
 
   sendGuildCreate(name: string, tag: string) {
@@ -1856,6 +1867,9 @@ export class NetworkManager {
     });
     this.room.onMessage("housingMarketChanged", () => {
       for (const listener of this.housingMarketChangedListeners) listener();
+    });
+    this.room.onMessage("p2pMarket", (payload: P2PMarketPayload) => {
+      for (const listener of this.p2pMarketListeners) listener(payload);
     });
     this.room.onMessage("emote", (payload: EmotePayload) => {
       for (const listener of this.emoteListeners) {

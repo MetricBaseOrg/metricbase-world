@@ -91,6 +91,13 @@ export function getForSalePlots(): StoredLandPlot[] {
   return [...plots.values()].filter((p) => (p.saleGold ?? null) !== null || (p.saleBase ?? null) !== null);
 }
 
+/** Every player-run shop that currently has at least one item on its shelves. */
+export function getStockedShopPlots(): StoredLandPlot[] {
+  return [...plots.values()].filter(
+    (p) => p.structure === "shop" && p.listings.some((l) => l.quantity > 0),
+  );
+}
+
 /** Switch a plot's building light on/off, settling its drained energy. */
 export function setPlotLight(plotId: string, on: boolean, now = Date.now()): void {
   const record = plots.get(plotId);

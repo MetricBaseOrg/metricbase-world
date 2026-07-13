@@ -65,6 +65,7 @@ import {
   sanitizeSalePrice,
   structureLabel,
   type HousingMarketListing,
+  type P2PMarketListing,
   GUILD_CREATE_COST,
   sanitizeGuildName,
   sanitizeGuildTag,
@@ -303,6 +304,7 @@ import {
   getForSalePlots,
   getPlotLight,
   getPlotOwner,
+  getStockedShopPlots,
   refuelPlot,
   setPlotDecor,
   setPlotLight,
@@ -451,6 +453,36 @@ function getHousingMarketListings(): HousingMarketListing[] {
       saleBase: plot.saleBase ?? null,
     };
   });
+}
+
+/** Build the global P2P item market: every item stocked in any player-run shop
+ *  across all zones, annotated for the browser tab in Pip's Market. */
+function getP2pMarketListings(): P2PMarketListing[] {
+  const out: P2PMarketListing[] = [];
+  for (const plot of getStockedShopPlots()) {
+    let zoneName = plot.zoneId;
+    try {
+      zoneName = getZoneConfig(plot.zoneId)?.displayName ?? plot.zoneId;
+    } catch {
+      /* unknown/unloaded zone — fall back to the id */
+    }
+    for (const listing of plot.listings) {
+      if (listing.quantity <= 0) continue;
+      out.push({
+        plotId: plot.plotId,
+        zoneId: plot.zoneId,
+        zoneName,
+        shopName: plot.sign ?? null,
+        ownerName: plot.ownerName,
+        itemId: listing.itemId,
+        quantity: listing.quantity,
+        price: listing.price,
+      });
+    }
+  }
+  // Cheapest first per item so bargains surface; stable for equal prices.
+  out.sort((a, b) => a.itemId.localeCompare(b.itemId) || a.price - b.price);
+  return out;
 }
 
 /** Count each placeable asset used in a build (ground paint + scenery + nodes). */
@@ -1029,6 +1061,9 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     });
     this.onMessage("housingMarket", (client) => {
       client.send("housingMarket", { listings: getHousingMarketListings() });
+    });
+    this.onMessage("p2pMarket", (client) => {
+      client.send("p2pMarket", { listings: getP2pMarketListings() });
     });
     this.onProtectedMessage("housingBuyResale", (client, message: { plotId?: string }) => {
       void this.handleHousingBuyResaleGold(client, message.plotId ?? "");
