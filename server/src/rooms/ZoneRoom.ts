@@ -7070,6 +7070,16 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     const nextGold = gold - cost;
     this.inventories.set(this.pidOf(player), inventory);
     this.playerGold.set(this.pidOf(player), nextGold);
+    // A player-shop purchase is a demand signal like an NPC-shop buy, but
+    // weighted by the gold actually paid vs the item's base value — otherwise
+    // near-free self-listings bought back by an alt could pump an item's price
+    // multiplier for nothing. Paying full value credits full demand.
+    const baseValue = getItemBaseValue(itemId);
+    if (baseValue > 0) {
+      recordConsumed(itemId, Math.min(added, Math.floor(cost / baseValue)));
+    }
+    bumpMetric("pshop.sold", added);
+    bumpMetric("pshop.saleGold", cost);
     listing.quantity -= added;
     const remaining = listings.filter((l) => l.quantity > 0);
     updatePlotShop(plotId, remaining, owned.earnings + cost);

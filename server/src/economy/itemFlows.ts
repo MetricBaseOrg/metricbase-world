@@ -5,7 +5,10 @@
 // metric (prod.<itemId> / cons.<itemId> in economy_daily via the metrics
 // pipeline). A rolling 7-day window drives each item's price multiplier — see
 // supplyDemandMultiplier in @metricbase/shared. Player-to-player transfers
-// (jobs, markets, loot bags) are NOT flows: the item merely changes hands.
+// (jobs, gold market, loot bags) are NOT flows: the item merely changes hands.
+// Exception: buying from a PLAYER SHOP is a demand signal like an NPC-shop
+// buy, but credited only in proportion to the gold paid vs the item's base
+// value (see handleShopBuyListing) so self-dealing can't pump prices for free.
 // Selling TO an NPC is an oversupply signal handled by the short-term
 // sell-pressure decay, not the flow ledger.
 
