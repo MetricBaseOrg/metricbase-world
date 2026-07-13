@@ -6704,10 +6704,12 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       lootItemId: "item_wood",
       lootQuantity: 1,
     };
+    // Crop patches carry a skill override — harvesting them trains Farming.
+    const wSkill = (w.skill ?? "woodcutting") as GatherSkill;
     return {
-      skill: "woodcutting" as GatherSkill,
-      label: "Woodcutting",
-      verb: "felled",
+      skill: wSkill,
+      label: wSkill === "farming" ? "Farming" : "Woodcutting",
+      verb: wSkill === "farming" ? "harvested" : "felled",
       requiredLevel: w.requiredLevel ?? 1,
       nodeLevel: w.treeLevel,
       skillXp: w.skillXp,

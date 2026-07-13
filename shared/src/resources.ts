@@ -8,6 +8,8 @@ export interface WoodcuttingConfig {
   /** Mixed-yield nodes: each gather grants ONE random item from this pool
    *  instead of lootItemId (which stays as the fallback for stale clients). */
   lootPool?: string[];
+  /** Skill credited for the gather (crop nodes train Farming, not Woodcutting). */
+  skill?: "woodcutting" | "farming";
 }
 
 export interface MiningConfig {
@@ -62,7 +64,7 @@ const PROP_MINING_YIELD: Record<string, Pick<MiningConfig, "rockLevel" | "requir
 
 const PROP_WOODCUTTING_YIELD: Record<
   string,
-  Pick<WoodcuttingConfig, "treeLevel" | "requiredLevel" | "skillXp" | "respawnMs" | "lootItemId" | "lootPool">
+  Pick<WoodcuttingConfig, "treeLevel" | "requiredLevel" | "skillXp" | "respawnMs" | "lootItemId" | "lootPool" | "skill">
 > = {
   hardwood: { treeLevel: 3, requiredLevel: 3, skillXp: 26, respawnMs: 40_000, lootItemId: "item_hardwood" },
   "ancient-hardwood": { treeLevel: 6, requiredLevel: 6, skillXp: 42, respawnMs: 55_000, lootItemId: "item_hardwood" },
@@ -71,8 +73,23 @@ const PROP_WOODCUTTING_YIELD: Record<
   "berry-bush": { treeLevel: 1, requiredLevel: 1, skillXp: 8, respawnMs: 20_000, lootItemId: "item_berries" },
   // Crop patches yield SEEDS (not the crop itself) so World nodes feed the
   // farming loop — plant the seed, grow it, harvest — instead of bypassing it.
-  "crop-carrot": { treeLevel: 1, requiredLevel: 1, skillXp: 8, respawnMs: 20_000, lootItemId: "item_carrot_seed" },
-  "crop-wheat": { treeLevel: 1, requiredLevel: 1, skillXp: 8, respawnMs: 20_000, lootItemId: "item_wheat_seed" },
+  // They also train FARMING, not Woodcutting: nothing is being chopped.
+  "crop-carrot": {
+    treeLevel: 1,
+    requiredLevel: 1,
+    skillXp: 8,
+    respawnMs: 20_000,
+    lootItemId: "item_carrot_seed",
+    skill: "farming",
+  },
+  "crop-wheat": {
+    treeLevel: 1,
+    requiredLevel: 1,
+    skillXp: 8,
+    respawnMs: 20_000,
+    lootItemId: "item_wheat_seed",
+    skill: "farming",
+  },
   // The generic planted field is a grab-bag: a random seed type per gather.
   "crop-field": {
     treeLevel: 1,
@@ -81,6 +98,7 @@ const PROP_WOODCUTTING_YIELD: Record<
     respawnMs: 20_000,
     lootItemId: "item_wheat_seed",
     lootPool: ["item_wheat_seed", "item_carrot_seed"],
+    skill: "farming",
   },
 };
 
