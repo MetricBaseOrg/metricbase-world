@@ -63,8 +63,10 @@ const PROP_WOODCUTTING_YIELD: Record<string, Pick<WoodcuttingConfig, "treeLevel"
   "cavern-hardwood": { treeLevel: 8, requiredLevel: 8, skillXp: 55, respawnMs: 70_000, lootItemId: "item_hardwood" },
   // Crop / forage nodes gather their edible produce, not logs.
   "berry-bush": { treeLevel: 1, requiredLevel: 1, skillXp: 8, respawnMs: 20_000, lootItemId: "item_berries" },
-  "crop-carrot": { treeLevel: 1, requiredLevel: 1, skillXp: 8, respawnMs: 20_000, lootItemId: "item_carrot" },
-  "crop-wheat": { treeLevel: 1, requiredLevel: 1, skillXp: 8, respawnMs: 20_000, lootItemId: "item_wheat" },
+  // Crop patches yield SEEDS (not the crop itself) so World nodes feed the
+  // farming loop — plant the seed, grow it, harvest — instead of bypassing it.
+  "crop-carrot": { treeLevel: 1, requiredLevel: 1, skillXp: 8, respawnMs: 20_000, lootItemId: "item_carrot_seed" },
+  "crop-wheat": { treeLevel: 1, requiredLevel: 1, skillXp: 8, respawnMs: 20_000, lootItemId: "item_wheat_seed" },
   "crop-field": { treeLevel: 1, requiredLevel: 1, skillXp: 8, respawnMs: 20_000, lootItemId: "item_wheat" },
 };
 
