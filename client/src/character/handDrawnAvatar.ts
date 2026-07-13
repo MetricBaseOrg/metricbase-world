@@ -44,11 +44,6 @@ export function hdReadyFor(character: HdCharacter): boolean {
   return !!manifest && !!manifest[character];
 }
 
-/** Portrait art URL for the character, or null while not declared. */
-export function hdPortraitUrl(character: HdCharacter): string | null {
-  return hdReadyFor(character) ? `/assets/characters/${character}-portrait.webp` : null;
-}
-
 /** Drawn-direction (art file) + mirror flag for an engine direction. */
 function drawnDirection(direction: AvatarDirection): { dir: string; flip: boolean } {
   switch (direction) {

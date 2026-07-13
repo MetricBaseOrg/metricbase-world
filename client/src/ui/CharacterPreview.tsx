@@ -1,7 +1,7 @@
 import { type CharacterAppearance } from "@metricbase/shared";
 import { useEffect, useRef, useState } from "react";
 import { drawCharacter } from "../character/characterArt";
-import { hdCharacterFor, hdReadyFor } from "../character/handDrawnAvatar";
+import { hdCharacterFor } from "../character/handDrawnAvatar";
 
 interface CharacterPreviewProps {
   appearance: CharacterAppearance;
@@ -12,10 +12,12 @@ interface CharacterPreviewProps {
 export function CharacterPreview({ appearance, width = 200, height = 240 }: CharacterPreviewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [artFailed, setArtFailed] = useState(false);
-  // When hand-drawn art exists, show the front-idle frame over the scene
-  // (fireflies/glow stay for atmosphere). Falls back to the drawn character.
+  // Show the standing front-idle frame over the scene (fireflies/glow stay
+  // for atmosphere). Tried directly — no manifest wait, which left /dashboard
+  // (where the manifest fetch never ran) on the procedural doll. Falls back
+  // to the drawn character if the art 404s.
   const character = hdCharacterFor(appearance);
-  const hdUrl = !artFailed && hdReadyFor(character) ? `/assets/characters/${character}-front-idle-0.webp` : null;
+  const hdUrl = !artFailed ? `/assets/characters/${character}-front-idle-0.webp` : null;
 
   useEffect(() => {
     const canvas = canvasRef.current;

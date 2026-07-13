@@ -1,4 +1,5 @@
 import {
+  DASHBOARD_UPDATES,
   ITEMS,
   MOTTO_MAX_LENGTH,
   type DashboardResponse,
@@ -46,21 +47,8 @@ const EVENTS: Array<{ title: string; body: string }> = [
   },
 ];
 
-/** Recent release highlights (keep the top three fresh when shipping). */
-const UPDATES: Array<{ title: string; body: string }> = [
-  {
-    title: "v0.122 — Smoother Movement & Real Water",
-    body: "Water, ponds, and pools now block walking in player Worlds (bridges cross!). Movement and animations are smoother on every screen, and click-to-move no longer walks into walls.",
-  },
-  {
-    title: "v0.121 — Player Stats on Click",
-    body: "Click any player to target them — the action bar now offers a Stats button with their profile, skills, and PvP record.",
-  },
-  {
-    title: "v0.119 — Bun the Penguin & Player Dashboard",
-    body: "A plucky penguin companion waddles into the gem shop, and this dashboard is now the front door after connecting your wallet.",
-  },
-];
+// Recent release highlights live in shared/src/dashboard.ts (DASHBOARD_UPDATES)
+// right next to GAME_VERSION, so every release updates them in one place.
 
 type Status = "loading" | "signedOut" | "connecting" | "ready" | "error";
 
@@ -396,7 +384,7 @@ export function DashboardPage() {
               <section className="chibi-panel mb-dash-card">
                 <h2>Recent Updates</h2>
                 <div className="mb-dash-news">
-                  {UPDATES.map((update) => (
+                  {DASHBOARD_UPDATES.map((update) => (
                     <div key={update.title} className="mb-dash-news__item">
                       <div className="mb-dash-news__title">{update.title}</div>
                       <div className="mb-dash-news__body">{update.body}</div>

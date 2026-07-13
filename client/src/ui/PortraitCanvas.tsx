@@ -1,9 +1,10 @@
 import { type CharacterAppearance } from "@metricbase/shared";
 import { useEffect, useRef, useState } from "react";
 import { drawCharacter } from "../character/characterArt";
-import { hdCharacterFor, hdPortraitUrl } from "../character/handDrawnAvatar";
+import { hdCharacterFor } from "../character/handDrawnAvatar";
 
-/** A small framed avatar portrait: hand-drawn art when it exists, else drawn. */
+/** A small framed avatar: the character's standing front-idle art when it
+ *  exists (tried directly — no manifest wait), else the drawn fallback. */
 export function PortraitCanvas({
   appearance,
   size = 60,
@@ -13,7 +14,8 @@ export function PortraitCanvas({
 }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const [artFailed, setArtFailed] = useState(false);
-  const artUrl = appearance && !artFailed ? hdPortraitUrl(hdCharacterFor(appearance)) : null;
+  const artUrl =
+    appearance && !artFailed ? `/assets/characters/${hdCharacterFor(appearance)}-front-idle-0.webp` : null;
 
   useEffect(() => {
     if (artUrl) return;

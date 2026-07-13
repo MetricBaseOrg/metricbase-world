@@ -4,6 +4,34 @@ import type { InventoryEntry } from "./items.js";
 /** Longest motto a player can save on their dashboard profile. */
 export const MOTTO_MAX_LENGTH = 80;
 
+/**
+ * "Recent Updates" entries shown on the /dashboard page, newest first.
+ * KEEP THIS CURRENT: whenever a player-facing release ships (any GAME_VERSION
+ * bump in index.ts), add its highlight here and trim the list to ~5 entries.
+ */
+export const DASHBOARD_UPDATES: Array<{ title: string; body: string }> = [
+  {
+    title: "v0.134 — Farming Tools & Gear",
+    body: "Forge copper, iron and steel hoes: tend crop patches up to 50% faster and planted crops mature up to 35% sooner. Weave a Farmer's Sun Hat or craft a Grower's Ring for bonus crops and Farming XP.",
+  },
+  {
+    title: "v0.129–0.131 — Farming Loop in Worlds",
+    body: "Crop patches in player Worlds now yield seeds (the Crop Field gives a random one) and train your Farming skill — gather a seed, plant it, grow it, harvest it.",
+  },
+  {
+    title: "v0.128 — Richest Players on /stats",
+    body: "The public stats page now ranks the wealthiest players by full net worth with day-over-day change. The board resets every 90-day season.",
+  },
+  {
+    title: "v0.127 — Net-Worth Leaderboard",
+    body: "The in-game Richest board now counts everything you own — gold, items, build assets, your Worlds, houses and shops — not just gold on hand.",
+  },
+  {
+    title: "v0.122 — Smoother Movement & Real Water",
+    body: "Water, ponds, and pools now block walking in player Worlds (bridges cross!). Movement and animations are smoother on every screen.",
+  },
+];
+
 /** GET /api/dashboard/me — everything the player dashboard page renders. */
 export interface DashboardResponse {
   /** False when the wallet has no bonded character yet (dashboard shows a "create your hero" prompt). */
