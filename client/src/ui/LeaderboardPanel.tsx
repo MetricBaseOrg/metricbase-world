@@ -84,6 +84,11 @@ export function LeaderboardPanel() {
               PvP
             </button>
           </div>
+          {tab === "gold" && (
+            <div className="chibi-text-muted" style={{ fontSize: "0.68rem", textAlign: "center", marginBottom: 4 }}>
+              Net worth · gold + items + property
+            </div>
+          )}
           {tab === "pvp" && (
             <div className="chibi-text-muted" style={{ fontSize: "0.68rem", textAlign: "center", marginBottom: 4 }}>
               Season {(data?.season ?? 0) + 1} · top by rating
@@ -108,7 +113,7 @@ export function LeaderboardPanel() {
                 {tab === "level"
                   ? `Lv ${entry.level}`
                   : tab === "gold"
-                    ? `🪙 ${entry.gold.toLocaleString()}`
+                    ? `🪙 ${(entry.netWorth ?? entry.gold).toLocaleString()}`
                     : tab === "skill"
                       ? `⛏️ ${entry.skill ?? 0}`
                       : `⚔️ ${entry.rating ?? 0} · ${entry.rank ?? "Bronze"}`}

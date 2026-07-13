@@ -150,8 +150,9 @@ authoritative server and rendered by the client.
   (`server/src/solana/holderCount.ts`, `getProgramAccounts`, cached) + players
   online, pushed via `worldStats`.
 - **Leaderboard** (`shared/src/leaderboard.ts`, `server/src/db/leaderboard.ts`):
-  `requestLeaderboard` → top-10 by Level, gold (Richest), and total gather
-  Skills. DB query cached 60s; deploy/health-probe accounts filtered.
+  `requestLeaderboard` → top-10 by Level, net worth (Richest — gold + inventory
+  + owned Worlds/plots/build assets, valued in `server/src/db/networth.ts`), and
+  total gather Skills. DB query cached 60s; deploy/health-probe accounts filtered.
 
 ## Key conventions
 

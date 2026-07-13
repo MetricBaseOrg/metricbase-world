@@ -6,6 +6,7 @@ import {
   type LeaderboardEntry,
   type LeaderboardPayload,
 } from "@metricbase/shared";
+import { fetchExternalWealth, inventoryValue } from "./networth.js";
 import { getPool } from "./pool.js";
 
 const TTL_MS = 60_000;
@@ -17,6 +18,8 @@ interface Row {
   level: number;
   gold: number | null;
   skills?: unknown;
+  inventory?: unknown;
+  wallet_address?: string | null;
   pvp_rating?: number | null;
   pvp_kills?: number | null;
 }
@@ -35,7 +38,7 @@ const toEntry = (row: Row): LeaderboardEntry => ({
   gold: row.gold ?? 0,
 });
 
-/** Top players by level and by gold, cached for a minute to spare the DB. */
+/** Top players by level, net worth, skill, and PvP; cached a minute to spare the DB. */
 export async function getLeaderboard(): Promise<LeaderboardPayload> {
   const now = Date.now();
   if (cache && now - cachedAt < TTL_MS) return cache;
@@ -49,21 +52,37 @@ export async function getLeaderboard(): Promise<LeaderboardPayload> {
   const season = getPvpSeason(now);
 
   try {
-    const [byLevel, byGold, all, byPvp] = await Promise.all([
+    const [byLevel, all, byPvp, wealth] = await Promise.all([
       pool.query<Row>(
         `SELECT name, level, gold FROM characters ${FILTER} ORDER BY level DESC, xp DESC LIMIT 10`,
       ),
-      pool.query<Row>(`SELECT name, level, gold FROM characters ${FILTER} ORDER BY gold DESC LIMIT 10`),
-      pool.query<Row>(`SELECT name, level, gold, skills FROM characters ${FILTER}`),
+      pool.query<Row>(
+        `SELECT name, level, gold, skills, inventory, wallet_address FROM characters ${FILTER}`,
+      ),
       // Only rank players whose rating belongs to the current season.
       pool.query<Row>(
         `SELECT name, level, gold, pvp_rating, pvp_kills FROM characters ${FILTER} AND pvp_season = $1 ORDER BY pvp_rating DESC, pvp_kills DESC LIMIT 10`,
         [season],
       ),
+      fetchExternalWealth(pool),
     ]);
     const topSkill = all.rows
       .map((row) => ({ ...toEntry(row), skill: totalSkillLevel(normalizeSkills(row.skills as never)) }))
       .sort((a, b) => b.skill - a.skill || b.level - a.level)
+      .slice(0, 10);
+    // Richest = net worth: gold + inventory + Worlds/plots/assets owned. Rows
+    // in `wealth` were credited by wallet when present, else by name, so
+    // summing both lookups never double counts.
+    const topRich = all.rows
+      .map((row) => ({
+        ...toEntry(row),
+        netWorth:
+          (row.gold ?? 0) +
+          inventoryValue(row.inventory) +
+          (row.wallet_address ? (wealth.byWallet.get(row.wallet_address) ?? 0) : 0) +
+          (wealth.byName.get(row.name) ?? 0),
+      }))
+      .sort((a, b) => b.netWorth - a.netWorth || (b.gold ?? 0) - (a.gold ?? 0))
       .slice(0, 10);
     const topPvp = byPvp.rows.map((row) => {
       const rating = row.pvp_rating ?? 1000;
@@ -71,7 +90,7 @@ export async function getLeaderboard(): Promise<LeaderboardPayload> {
     });
     cache = {
       topLevel: byLevel.rows.map(toEntry),
-      topGold: byGold.rows.map(toEntry),
+      topGold: topRich,
       topSkill,
       topPvp,
       season,
