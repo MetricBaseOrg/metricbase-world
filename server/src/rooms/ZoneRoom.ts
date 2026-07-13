@@ -178,6 +178,7 @@ import {
   getToolSpeedMultiplier,
   getGatherPerks,
   getToolYieldBonus,
+  getFarmGrowthMultiplier,
   rollRareGatherDrop,
   rollFishSpecies,
   FISHING_CAST_GOLD,
@@ -6929,13 +6930,15 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       this.inventories.set(this.pidOf(player), inventory);
       this.sendInventory(client, player.name);
       this.sendProfile(client, player);
+      // A better hoe makes the planted crop mature sooner (locked in at plant).
+      const growMult = getFarmGrowthMultiplier(this.playerEquipment.get(this.pidOf(player))?.toolId);
       plantFarmPlot({
         plotId,
         zoneId: this.zoneConfig.id,
         cropId: crop.cropItemId,
         seedId: crop.seedItemId,
         plantedAt: now,
-        readyAt: now + crop.growMs,
+        readyAt: now + Math.round(crop.growMs * growMult),
         planterName: player.name,
       });
       this.broadcastFarmState();
@@ -6966,7 +6969,13 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     }
     this.sendProfile(client, player);
     const crop = getFarmCropBySeed(active.seedId);
-    const yieldQty = crop?.yield ?? 1;
+    // Farming gear pays off at the plot too: hoe/hat can add a bonus crop,
+    // and hat/ring boost the harvest XP.
+    const farmEq = this.playerEquipment.get(this.pidOf(player));
+    const farmPerks = getGatherPerks(farmEq, "farming");
+    const bonusCrop =
+      Math.random() < getToolYieldBonus(farmEq?.toolId, "farming") + farmPerks.yieldBonus ? 1 : 0;
+    const yieldQty = (crop?.yield ?? 1) + bonusCrop;
     bumpMetric("farm.harvest", yieldQty);
     this.bumpDaily(player.name, "harvest", yieldQty);
     this.tickJobProgress(player.name, "harvest", yieldQty);
@@ -6985,7 +6994,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         this.sendProfile(client, player);
       }
     }
-    const skillXp = crop?.skillXp ?? 10;
+    const skillXp = Math.round((crop?.skillXp ?? 10) * (1 + farmPerks.xpBonus));
     const { newLevel, leveledUp } = this.grantSkillXp(player.name, "farming", skillXp);
     this.sendSkillState(client, player.name);
     harvestFarmPlot(plotId);

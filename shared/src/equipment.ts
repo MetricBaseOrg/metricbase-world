@@ -28,6 +28,9 @@ export const ITEM_STEEL_PICKAXE = "item_steel_pickaxe";
 export const ITEM_HARVEST_NET = "item_harvest_net";
 export const ITEM_GILDED_ROD = "item_gilded_rod";
 export const ITEM_ABYSSAL_ROD = "item_abyssal_rod";
+export const ITEM_COPPER_HOE = "item_copper_hoe";
+export const ITEM_IRON_HOE = "item_iron_hoe";
+export const ITEM_STEEL_HOE = "item_steel_hoe";
 
 export interface ToolGatherBonus {
   /** Which gather skill this tool accelerates. */
@@ -54,6 +57,10 @@ export const TOOL_GATHER: Record<string, ToolGatherBonus> = {
   [ITEM_STEEL_AXE]: { skill: "woodcutting", speedMultiplier: 0.5, yieldBonus: 0.4 },
   [ITEM_STEEL_PICKAXE]: { skill: "mining", speedMultiplier: 0.5, yieldBonus: 0.4 },
   [ITEM_HARVEST_NET]: { skill: "fishing", speedMultiplier: 0.5, yieldBonus: 0.4 },
+  // Farming hoes: speed up tending crop patches (and see TOOL_GROWTH below).
+  [ITEM_COPPER_HOE]: { skill: "farming", speedMultiplier: 0.7 },
+  [ITEM_IRON_HOE]: { skill: "farming", speedMultiplier: 0.5 },
+  [ITEM_STEEL_HOE]: { skill: "farming", speedMultiplier: 0.5, yieldBonus: 0.4 },
   // Master fishing tier: faster still, bonus catches, and real skill-XP gains.
   [ITEM_GILDED_ROD]: { skill: "fishing", speedMultiplier: 0.4, yieldBonus: 0.5, xpBonus: 0.25 },
   [ITEM_ABYSSAL_ROD]: {
@@ -78,7 +85,26 @@ export const GATHER_ACCESSORY: Record<string, GatherAccessoryPerk> = {
   item_lucky_lure: { skill: "fishing", rareBonus: 0.05 },
   item_angler_ring: { skill: "fishing", xpBonus: 0.25 },
   item_angler_cap: { skill: "fishing", xpBonus: 0.1, yieldBonus: 0.1 },
+  // Farming accessories — stack with the equipped hoe; also apply to
+  // farm-plot harvests, not just crop-patch gathers.
+  item_farmer_hat: { skill: "farming", xpBonus: 0.1, yieldBonus: 0.1 },
+  item_grower_ring: { skill: "farming", xpBonus: 0.25 },
 };
+
+/**
+ * Crop growth-time multiplier from the equipped farming tool, applied when a
+ * seed is PLANTED (0.85 = ready 15% sooner). 1 when no hoe is equipped.
+ */
+export const TOOL_GROWTH: Record<string, number> = {
+  [ITEM_COPPER_HOE]: 0.85,
+  [ITEM_IRON_HOE]: 0.75,
+  [ITEM_STEEL_HOE]: 0.65,
+};
+
+export function getFarmGrowthMultiplier(toolId: string | null | undefined): number {
+  if (!toolId) return 1;
+  return TOOL_GROWTH[toolId] ?? 1;
+}
 
 export interface GatherPerks {
   xpBonus: number;
@@ -262,6 +288,9 @@ export const GEAR_STATS: Record<string, GearStat> = {
   item_lucky_lure: { slot: "necklace", rarity: "rare", armor: 4, maxDurability: Infinity },
   item_angler_ring: { slot: "ring", rarity: "rare", maxDurability: Infinity },
   item_angler_cap: { slot: "helmet", rarity: "uncommon", armor: 10, maxDurability: 120 },
+  // Farming accessories (gather perks live in GATHER_ACCESSORY).
+  item_farmer_hat: { slot: "helmet", rarity: "uncommon", armor: 10, maxDurability: 120 },
+  item_grower_ring: { slot: "ring", rarity: "rare", maxDurability: Infinity },
 };
 
 /** Max durability for wearable weapons (jewelry/none excluded). */
@@ -288,6 +317,9 @@ export const TOOL_MAX_DURABILITY: Record<string, number> = {
   item_gilded_rod: 280,
   item_abyssal_rod: 400,
   item_harvest_net: 150,
+  item_copper_hoe: 120,
+  item_iron_hoe: 200,
+  item_steel_hoe: 320,
 };
 
 export function getGearStat(itemId: string | null | undefined): GearStat | null {

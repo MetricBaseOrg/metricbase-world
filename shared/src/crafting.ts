@@ -123,6 +123,61 @@ export const CRAFT_RECIPES: CraftRecipe[] = [
     goldCost: 25,
   },
   {
+    id: "craft_copper_hoe",
+    name: "Copper Hoe",
+    description: "Forge a field hoe. Tends crops 30% faster; planted crops grow 15% sooner.",
+    inputs: [
+      { itemId: "item_plank", quantity: 2 },
+      { itemId: "item_copper_bar", quantity: 2 },
+    ],
+    output: { itemId: "item_copper_hoe", quantity: 1 },
+    goldCost: 25,
+  },
+  {
+    id: "craft_iron_hoe",
+    name: "Iron Hoe",
+    description: "Forge a hardened hoe. Tends crops 50% faster; planted crops grow 25% sooner.",
+    inputs: [
+      { itemId: "item_plank", quantity: 2 },
+      { itemId: "item_iron_bar", quantity: 3 },
+    ],
+    output: { itemId: "item_iron_hoe", quantity: 1 },
+    goldCost: 60,
+  },
+  {
+    id: "craft_steel_hoe",
+    name: "Steel Hoe",
+    description: "Forge a master hoe. Tends 50% faster, bonus harvests, crops grow 35% sooner.",
+    inputs: [
+      { itemId: "item_hardwood_plank", quantity: 1 },
+      { itemId: "item_steel_bar", quantity: 3 },
+    ],
+    output: { itemId: "item_steel_hoe", quantity: 1 },
+    goldCost: 110,
+  },
+  {
+    id: "craft_farmer_hat",
+    name: "Farmer's Sun Hat",
+    description: "Weave a wide straw hat. +10% Farming XP and sometimes a bonus crop.",
+    inputs: [
+      { itemId: "item_wheat", quantity: 10 },
+      { itemId: "item_carrot", quantity: 5 },
+    ],
+    output: { itemId: "item_farmer_hat", quantity: 1 },
+    goldCost: 60,
+  },
+  {
+    id: "craft_grower_ring",
+    name: "Grower's Ring",
+    description: "Set amber beside a gemstone in a band. +25% Farming XP while worn.",
+    inputs: [
+      { itemId: "item_amber", quantity: 1 },
+      { itemId: "item_gemstone", quantity: 1 },
+    ],
+    output: { itemId: "item_grower_ring", quantity: 1 },
+    goldCost: 180,
+  },
+  {
     id: "craft_iron_bar",
     name: "Iron Bar",
     description: "Smelt iron ore into a workable bar.",
