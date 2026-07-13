@@ -16,45 +16,12 @@ import {
   type PipGoldInfoPayload,
   type WorldDirectoryEntry,
 } from "../game/network";
-import { sendMetricbaseTokenPayment } from "../wallet/tokenPayment";
 import { burnMetricbaseToken } from "../wallet/tokenBurn";
 import { useGameStore } from "../store/gameStore";
+import { PipGoldDesk } from "./PipGoldDesk";
 
 type Tab = "directory" | "mine";
 type DirSort = "popular" | "new";
-
-// Paid-but-uncredited Pip gold purchases are stashed locally so the payment is
-// never lost: if verification is slow, the tab reloads, or the connection drops
-// mid-credit, the client re-submits the SAME signature until the (idempotent)
-// server credits it.
-const UNCLAIMED_KEY = "pipUnclaimedGold";
-type UnclaimedBuy = { signature: string; amount: number };
-
-function loadUnclaimed(): UnclaimedBuy[] {
-  try {
-    const raw = JSON.parse(localStorage.getItem(UNCLAIMED_KEY) ?? "[]");
-    return Array.isArray(raw) ? raw.filter((x) => x && typeof x.signature === "string") : [];
-  } catch {
-    return [];
-  }
-}
-function saveUnclaimed(list: UnclaimedBuy[]) {
-  try {
-    localStorage.setItem(UNCLAIMED_KEY, JSON.stringify(list));
-  } catch {
-    /* storage unavailable — best effort */
-  }
-}
-function addUnclaimed(buy: UnclaimedBuy) {
-  const list = loadUnclaimed();
-  if (!list.some((x) => x.signature === buy.signature)) {
-    list.push(buy);
-    saveUnclaimed(list);
-  }
-}
-function removeUnclaimed(signature: string) {
-  saveUnclaimed(loadUnclaimed().filter((x) => x.signature !== signature));
-}
 
 export function WorldsPanel() {
   const open = useGameStore((state) => state.worldsOpen);
@@ -66,7 +33,6 @@ export function WorldsPanel() {
   const [tab, setTab] = useState<Tab>("directory");
   const [dirSort, setDirSort] = useState<DirSort>("popular");
   const [pipInfo, setPipInfo] = useState<PipGoldInfoPayload | null>(null);
-  const [buyGold, setBuyGold] = useState("");
   const [directory, setDirectory] = useState<WorldDirectoryEntry[]>([]);
   const [mine, setMine] = useState<MyWorldEntry[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
@@ -93,32 +59,14 @@ export function WorldsPanel() {
       networkManager.requestMyWorlds();
       networkManager.requestWorldsList();
     });
+    // pipInfo is still needed here for World expansion burns; the gold desk
+    // itself (purchase + payment recovery) lives in PipGoldDesk.
     const offPipInfo = networkManager.onPipGoldInfo(setPipInfo);
-    const offPipResult = networkManager.onPipGoldResult((r) => {
-      setPending(false);
-      if (r.ok) {
-        if (r.signature) removeUnclaimed(r.signature);
-        setNotice(
-          r.viaPending
-            ? `Bought ${(r.gold ?? 0).toLocaleString()} gold — it'll appear on your next relog.`
-            : `Bought ${(r.gold ?? 0).toLocaleString()} gold from Pip!`,
-        );
-        return;
-      }
-      // Failure: keep the signature stashed for another try UNLESS it's terminal
-      // (already credited, or an on-chain rejection that will never succeed).
-      const terminal =
-        !!r.error &&
-        (/already/i.test(r.error) || (r.retryable === false && /(on-chain|too few|did not send|failed)/i.test(r.error)));
-      if (r.signature && terminal) removeUnclaimed(r.signature);
-      setNotice(r.error ?? "Purchase failed.");
-    });
     return () => {
       offDir();
       offMine();
       offResult();
       offPipInfo();
-      offPipResult();
     };
   }, []);
 
@@ -131,17 +79,6 @@ export function WorldsPanel() {
       setNotice(null);
     }
   }, [open]);
-
-  // Recover any paid-but-uncredited Pip purchases: re-submit each stashed
-  // signature. The server is idempotent, so this safely finishes a purchase that
-  // failed to credit earlier (slow confirmation, reload, or a dropped socket).
-  useEffect(() => {
-    if (!open || !walletAddress) return;
-    const unclaimed = loadUnclaimed();
-    if (unclaimed.length === 0) return;
-    setNotice("Recovering a previous $BASE payment…");
-    for (const buy of unclaimed) networkManager.sendBuyGoldFromPip(buy.signature, buy.amount);
-  }, [open, walletAddress]);
 
   if (!open) return null;
 
@@ -214,33 +151,6 @@ export function WorldsPanel() {
     } catch (err) {
       setPending(false);
       setNotice(err instanceof Error ? err.message : "Burn was cancelled.");
-    }
-  };
-
-  const buyGoldFromPip = async () => {
-    const amount = Number(buyGold) || 0;
-    if (!walletAddress) return setNotice("Connect your wallet first.");
-    if (!pipInfo?.enabled || !pipInfo.treasury) return setNotice("Pip's gold desk is closed right now.");
-    if (amount <= 0) return setNotice("Enter how much gold to buy.");
-    playSfx("ui_click");
-    setPending(true);
-    try {
-      const signature = await sendMetricbaseTokenPayment({
-        payerWallet: walletAddress,
-        recipientWallet: pipInfo.treasury,
-        mint: pipInfo.mint,
-        uiAmount: amount,
-        decimals: pipInfo.decimals,
-        rpcUrl: pipInfo.rpcUrl,
-      });
-      // Record the paid signature BEFORE asking the server to credit it, so a
-      // reload or dropped connection can't lose a real payment.
-      addUnclaimed({ signature, amount });
-      networkManager.sendBuyGoldFromPip(signature, amount);
-      setBuyGold("");
-    } catch (err) {
-      setPending(false);
-      setNotice(err instanceof Error ? err.message : "Payment was cancelled.");
     }
   };
 
@@ -401,33 +311,7 @@ export function WorldsPanel() {
             You have {playerGold.toLocaleString()}g.
           </div>
 
-          {/* Pip's currency desk: buy gold 1:1 with $BASE. */}
-          <div className="chibi-card" style={{ marginTop: 10, padding: "10px 12px" }}>
-            <div className="chibi-label" style={{ marginBottom: 4 }}>💰 Buy gold from Pip (1 gold = 1 $BASE)</div>
-            <div style={{ display: "flex", gap: 6 }}>
-              <input
-                className="chibi-input"
-                inputMode="numeric"
-                placeholder="Gold amount"
-                value={buyGold}
-                style={{ flex: 1 }}
-                onChange={(e) => setBuyGold(e.target.value.replace(/[^0-9]/g, ""))}
-              />
-              <button
-                type="button"
-                className="chibi-btn chibi-btn--gold"
-                disabled={pending || !pipInfo?.enabled || !walletAddress}
-                onClick={() => void buyGoldFromPip()}
-              >
-                Buy
-              </button>
-            </div>
-            {!walletAddress && (
-              <div className="chibi-text-muted" style={{ fontSize: "0.68rem", marginTop: 4 }}>
-                Connect your wallet to buy gold.
-              </div>
-            )}
-          </div>
+          <PipGoldDesk />
 
           {mine.map((w) => {
             const draft = drafts[w.zoneId] ?? { displayName: w.displayName, passPrice: String(w.passPrice), gatherTax: String(w.gatherTax), dangerTier: w.dangerTier ?? "safe" };

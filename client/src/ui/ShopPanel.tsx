@@ -25,6 +25,7 @@ import { sendSolPayment } from "../wallet/solPayment";
 import { sendMetricbaseTokenPayment } from "../wallet/tokenPayment";
 
 import { GoldMarketChart } from "./GoldMarketChart";
+import { PipGoldDesk } from "./PipGoldDesk";
 import { WalletConnectBar } from "./WalletConnectBar";
 
 type ShopTab = "gold" | "market" | "p2p";
@@ -490,6 +491,8 @@ export function ShopPanel() {
       {tab === "gold" ? (
         <>
           <div className="chibi-card chibi-card--gold" style={{ marginTop: 14, fontWeight: 800 }}>Your gold: 🪙 {playerGold}</div>
+
+          <PipGoldDesk />
 
           {/* Catalog browsing: search, category chips, sort. */}
           <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
