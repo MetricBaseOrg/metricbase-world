@@ -65,6 +65,10 @@ interface GameStore {
   dailyOpen: boolean;
   /** Player-to-player job board. */
   jobsOpen: boolean;
+  /** Admin moderation panel (ban/unban). Only reachable for admin wallets. */
+  adminOpen: boolean;
+  /** Whether this session's wallet is a server-verified admin (drives UI only). */
+  isAdmin: boolean;
   /** The mobile chat SHEET (desktop's corner chat panel never sets this). */
   chatOpen: boolean;
   /** The ⚙️ TopBar settings dropdown. */
@@ -155,6 +159,8 @@ interface GameStore {
   setCropMarketOpen: (market: string | null) => void;
   setDailyOpen: (open: boolean) => void;
   setJobsOpen: (open: boolean) => void;
+  setAdminOpen: (open: boolean) => void;
+  setIsAdmin: (isAdmin: boolean) => void;
   setChatOpen: (open: boolean) => void;
   setSettingsOpen: (open: boolean) => void;
   setFishing: (fishing: { resourceId: string; endsAt: number } | null) => void;
@@ -205,7 +211,8 @@ export function isAnyPanelOpen(s: GameStore): boolean {
     s.shopOpen ||
     s.invitationsOpen ||
     s.cropMarketOpen !== null ||
-    s.profileFor !== null
+    s.profileFor !== null ||
+    s.adminOpen
   );
 }
 
@@ -259,6 +266,8 @@ export const useGameStore = create<GameStore>((set) => ({
   cropMarketOpen: null,
   dailyOpen: false,
   jobsOpen: false,
+  adminOpen: false,
+  isAdmin: false,
   chatOpen: false,
   settingsOpen: false,
   fishing: null,
@@ -371,6 +380,8 @@ export const useGameStore = create<GameStore>((set) => ({
   setCropMarketOpen: (cropMarketOpen) => set({ cropMarketOpen }),
   setDailyOpen: (dailyOpen) => set({ dailyOpen }),
   setJobsOpen: (jobsOpen) => set({ jobsOpen }),
+  setAdminOpen: (adminOpen) => set({ adminOpen }),
+  setIsAdmin: (isAdmin) => set({ isAdmin }),
   setChatOpen: (chatOpen) => set({ chatOpen }),
   setSettingsOpen: (settingsOpen) => set({ settingsOpen }),
   setFishing: (fishing) => set({ fishing }),

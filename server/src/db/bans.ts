@@ -37,3 +37,41 @@ export async function banWallet(wallet: string, name: string | null, reason: str
   );
   cache.add(wallet);
 }
+
+export async function unbanWallet(wallet: string): Promise<void> {
+  const pool = getPool();
+  if (!pool) throw new Error("Database is not configured.");
+  await pool.query("DELETE FROM banned_players WHERE wallet_address = $1", [wallet]);
+  cache.delete(wallet);
+}
+
+export interface BanRecord {
+  wallet: string;
+  name: string | null;
+  reason: string;
+  bannedAt: number;
+}
+
+export async function listBans(): Promise<BanRecord[]> {
+  const pool = getPool();
+  if (!pool) return [];
+  const res = await pool.query(
+    "SELECT wallet_address, name, reason, banned_at FROM banned_players ORDER BY banned_at DESC",
+  );
+  return res.rows.map((r) => ({
+    wallet: r.wallet_address as string,
+    name: (r.name as string | null) ?? null,
+    reason: (r.reason as string) ?? "",
+    bannedAt: new Date(r.banned_at as string).getTime(),
+  }));
+}
+
+/** Erase a banned bot's character row + its net-worth snapshots. Trade/mail
+ *  history rows are deliberately kept as audit trail. */
+export async function deleteCharacterTraces(wallet: string, name: string): Promise<number> {
+  const pool = getPool();
+  if (!pool) throw new Error("Database is not configured.");
+  const del = await pool.query("DELETE FROM characters WHERE wallet_address = $1 OR name = $2", [wallet, name]);
+  await pool.query("DELETE FROM net_worth_daily WHERE player_key IN ($1, $2)", [wallet, name]);
+  return del.rowCount ?? 0;
+}

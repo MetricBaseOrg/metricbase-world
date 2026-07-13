@@ -39,6 +39,7 @@ import { BlackZoneModal } from "./ui/BlackZoneModal";
 import { CropMarketPanel } from "./ui/CropMarketPanel";
 import { DailyPanel } from "./ui/DailyPanel";
 import { JobsPanel } from "./ui/JobsPanel";
+import { AdminPanel } from "./ui/AdminPanel";
 import { CatchCelebration } from "./ui/CatchCelebration";
 import { FishingMinigame } from "./ui/FishingMinigame";
 import { DuelControls } from "./ui/DuelControls";
@@ -333,6 +334,9 @@ export function App() {
       };
       adoptName();
       window.setTimeout(adoptName, 1500);
+      // Learn whether this wallet is an admin (server-verified); the reply
+      // sets store.isAdmin via AdminPanel's listener and unlocks the 🛡️ menu.
+      if (!spectate) networkManager.requestAdminBanList();
     } catch (error) {
       setJoined(false);
       stopBackgroundMusic();
@@ -414,6 +418,7 @@ export function App() {
       {joined && <CropMarketPanel />}
       {joined && <DailyPanel />}
       {joined && <JobsPanel />}
+      {joined && <AdminPanel />}
       {joined && <FishingMinigame />}
       {joined && <CatchCelebration />}
       {joined && !worldEditing && !panelOpen && <PvpFlagButton />}

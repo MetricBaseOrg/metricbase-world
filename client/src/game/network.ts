@@ -30,6 +30,8 @@ import {
   type AdCampaign,
   type AdAdminDashboardPayload,
   type AdTransparencyPayload,
+  type AdminBanListPayload,
+  type AdminActionResultPayload,
   CraftResultPayload,
   type DailyStatePayload,
   type JobsStatePayload,
@@ -308,6 +310,8 @@ export class NetworkManager {
   private adServingListeners = new Set<(payload: AdServingPayload) => void>();
   private adBrandListeners = new Set<(payload: BrandDashboardPayload) => void>();
   private adAdminListeners = new Set<(payload: { campaigns: AdCampaign[] }) => void>();
+  private adminBanListListeners = new Set<(payload: AdminBanListPayload) => void>();
+  private adminActionResultListeners = new Set<(payload: AdminActionResultPayload) => void>();
   private adAdminDashboardListeners = new Set<(payload: AdAdminDashboardPayload) => void>();
   private adTransparencyListeners = new Set<(payload: AdTransparencyPayload) => void>();
   private adProgramListeners = new Set<(payload: AdProgramPayload) => void>();
@@ -773,6 +777,23 @@ export class NetworkManager {
   }
   requestAdAdminList() {
     this.room?.send("adAdminList", {});
+  }
+  requestAdminBanList() {
+    this.room?.send("adminBanList", {});
+  }
+  sendAdminBan(name: string, reason: string, deleteCharacter: boolean) {
+    this.room?.send("adminBan", { name, reason, deleteCharacter });
+  }
+  sendAdminUnban(wallet: string) {
+    this.room?.send("adminUnban", { wallet });
+  }
+  onAdminBanList(listener: (p: AdminBanListPayload) => void) {
+    this.adminBanListListeners.add(listener);
+    return () => this.adminBanListListeners.delete(listener);
+  }
+  onAdminActionResult(listener: (p: AdminActionResultPayload) => void) {
+    this.adminActionResultListeners.add(listener);
+    return () => this.adminActionResultListeners.delete(listener);
   }
   requestAdAdminDashboard() {
     this.room?.send("adAdminDashboard", {});
@@ -1799,6 +1820,12 @@ export class NetworkManager {
     });
     this.room.onMessage("adAdminList", (payload: { campaigns: AdCampaign[] }) => {
       for (const listener of this.adAdminListeners) listener(payload);
+    });
+    this.room.onMessage("adminBanList", (payload: AdminBanListPayload) => {
+      for (const listener of this.adminBanListListeners) listener(payload);
+    });
+    this.room.onMessage("adminActionResult", (payload: AdminActionResultPayload) => {
+      for (const listener of this.adminActionResultListeners) listener(payload);
     });
     this.room.onMessage("adAdminDashboard", (payload: AdAdminDashboardPayload) => {
       for (const listener of this.adAdminDashboardListeners) listener(payload);

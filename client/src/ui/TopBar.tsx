@@ -37,6 +37,7 @@ export function TopBar({ onLeave }: TopBarProps) {
   const mobileLayout = useMobileLayout();
   const menuOpen = useGameStore((s) => s.settingsOpen);
   const setMenuOpen = useGameStore((s) => s.setSettingsOpen);
+  const isAdmin = useGameStore((s) => s.isAdmin);
   const [soundOn, setSoundOn] = useState(isSoundEnabled);
   const [musicOn, setMusicOn] = useState(isMusicEnabled);
   const [renaming, setRenaming] = useState(false);
@@ -390,6 +391,13 @@ export function TopBar({ onLeave }: TopBarProps) {
             onClick={() => { playSfx("ui_open"); setInvitationsOpen(true); setMenuOpen(false); }}>
             ✉️ Invite Friends
           </button>
+
+          {isAdmin && (
+            <button type="button" className="chibi-btn chibi-btn--danger" style={{ width: "100%", marginTop: 8, padding: "8px 10px" }}
+              onClick={() => { playSfx("ui_open"); useGameStore.getState().setAdminOpen(true); setMenuOpen(false); }}>
+              🛡️ Admin
+            </button>
+          )}
 
           <button type="button" className="chibi-btn chibi-btn--secondary" style={{ width: "100%", marginTop: 10, padding: "8px 10px" }}
             onClick={() => { playSfx("ui_close"); onLeave(); }}>

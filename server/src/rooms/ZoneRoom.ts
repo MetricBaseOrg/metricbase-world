@@ -245,7 +245,7 @@ import {
   saveCharacter,
 } from "../db/characters.js";
 import { isInvitationSystemActive, validateAndUseInviteCode, getInvitedCount } from "../db/invitations.js";
-import { isWalletBanned } from "../db/bans.js";
+import { banWallet, deleteCharacterTraces, isWalletBanned, listBans, unbanWallet } from "../db/bans.js";
 import { isWalkable, blockPlotFootprint, clearCollisionCache } from "../map/collision.js";
 import { checkWalletTokenGate, getWalletTokenBalance } from "../solana/tokenBalance.js";
 import { verifyTokenBurn } from "../solana/verifyTokenBurn.js";
@@ -394,7 +394,7 @@ import {
 } from "../jobs/jobRegistry.js";
 import { getTerritoryOwner, setTerritoryOwner } from "../territory/territoryRegistry.js";
 import { getSovereign, setSovereign } from "../siege/siegeRegistry.js";
-import { clearOnline, isOnline, sendToPlayer, sendToPlayers, setOnline } from "../social/presence.js";
+import { clearOnline, isOnline, kickPlayer, sendToPlayer, sendToPlayers, setOnline } from "../social/presence.js";
 import {
   acceptInvite,
   buildPartyStatePayload,
@@ -971,6 +971,19 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       const wallet = this.playerWallets.get(client.sessionId);
       if (!adService.isAdmin(wallet ?? null)) return void client.send("adActionResult", { ok: false, error: "Not authorized." });
       void adService.getAdminDashboard().then((d) => client.send("adAdminDashboard", d));
+    });
+    // ---- Admin moderation (treasury/ADMIN_WALLETS only; re-checked per message) ----
+    this.onProtectedMessage("adminBanList", (client) => {
+      void this.handleAdminBanList(client);
+    });
+    this.onProtectedMessage(
+      "adminBan",
+      (client, m: { name?: string; reason?: string; deleteCharacter?: boolean }) => {
+        void this.handleAdminBan(client, m);
+      },
+    );
+    this.onProtectedMessage("adminUnban", (client, m: { wallet?: string }) => {
+      void this.handleAdminUnban(client, String(m.wallet ?? ""));
     });
     this.onProtectedMessage("adReview", (client, m: { id?: string; status?: string; note?: string }) => {
       void this.handleAdReview(client, m.id ?? "", m.status ?? "", m.note);
@@ -5757,6 +5770,76 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     client.send("adActionResult", res);
     client.send("adBrandDashboard", adService.getBrandDashboard(wallet));
     this.broadcast("adServing", adService.getServing());
+  }
+
+  // ---- Admin moderation: ban / unban / list --------------------------------
+
+  private isAdminClient(client: Client): boolean {
+    return adService.isAdmin(this.playerWallets.get(client.sessionId) ?? null);
+  }
+
+  private async sendAdminBanList(client: Client) {
+    client.send("adminBanList", {
+      ok: true,
+      isAdmin: true,
+      bans: (await listBans()).map((b) => ({
+        wallet: b.wallet,
+        name: b.name,
+        reason: b.reason,
+        bannedAt: b.bannedAt,
+      })),
+    });
+  }
+
+  private async handleAdminBanList(client: Client) {
+    if (!this.isAdminClient(client)) {
+      return void client.send("adminBanList", { ok: false, isAdmin: false, bans: [] });
+    }
+    await this.sendAdminBanList(client);
+  }
+
+  private async handleAdminBan(
+    client: Client,
+    m: { name?: string; reason?: string; deleteCharacter?: boolean },
+  ) {
+    const fail = (error: string) => void client.send("adminActionResult", { ok: false, error });
+    if (!this.isAdminClient(client)) return fail("Not authorized.");
+    const name = String(m.name ?? "").trim();
+    if (!name) return fail("Player name is required.");
+    try {
+      const target = await loadCharacterByName(name);
+      if (!target) return fail(`No character named "${name}".`);
+      const wallet = target.walletAddress;
+      if (!wallet) return fail(`"${target.name}" has no bonded wallet — nothing durable to ban.`);
+      if (adService.isAdmin(wallet)) return fail("You can't ban an admin account.");
+      const reason = String(m.reason ?? "").trim() || `Banned by admin ${new Date().toISOString().slice(0, 10)}`;
+      await banWallet(wallet, target.name, reason);
+      const kicked = kickPlayer(target.name);
+      let deleted = 0;
+      if (m.deleteCharacter) deleted = await deleteCharacterTraces(wallet, target.name);
+      client.send("adminActionResult", {
+        ok: true,
+        message: `${target.name} banned${kicked ? " and kicked" : ""}${deleted ? ", character deleted" : ""}.`,
+      });
+      await this.sendAdminBanList(client);
+    } catch (error) {
+      console.warn("[admin] ban failed:", error);
+      fail("Ban failed — check the server logs.");
+    }
+  }
+
+  private async handleAdminUnban(client: Client, wallet: string) {
+    const fail = (error: string) => void client.send("adminActionResult", { ok: false, error });
+    if (!this.isAdminClient(client)) return fail("Not authorized.");
+    if (!wallet) return fail("Wallet is required.");
+    try {
+      await unbanWallet(wallet);
+      client.send("adminActionResult", { ok: true, message: "Unbanned — they can play again." });
+      await this.sendAdminBanList(client);
+    } catch (error) {
+      console.warn("[admin] unban failed:", error);
+      fail("Unban failed — check the server logs.");
+    }
   }
 
   private async handleAdReview(client: Client, id: string, status: string, note?: string) {

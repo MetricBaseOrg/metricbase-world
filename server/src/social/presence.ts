@@ -38,6 +38,18 @@ export function sendToPlayer(name: string, type: string, payload: unknown): bool
   return true;
 }
 
+/** Force-disconnect one online player (admin ban). Returns false if offline. */
+export function kickPlayer(name: string): boolean {
+  const entry = online.get(name);
+  if (!entry) return false;
+  try {
+    (entry.client as { leave?: (code?: number) => void }).leave?.(4402);
+  } catch {
+    /* connection already closing */
+  }
+  return true;
+}
+
 /** Send a message to every online player in `names`. Returns how many got it. */
 export function sendToPlayers(names: Iterable<string>, type: string, payload: unknown): number {
   let delivered = 0;
