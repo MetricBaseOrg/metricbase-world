@@ -11,6 +11,10 @@ export const MOTTO_MAX_LENGTH = 80;
  */
 export const DASHBOARD_UPDATES: Array<{ title: string; body: string }> = [
   {
+    title: "v0.136 — Level Cap Raised to 99",
+    body: "The grind goes on: combat level and every gathering skill (Woodcutting, Mining, Fishing, Farming) now climb all the way to 99. Existing XP counts — you may level up the moment you log in.",
+  },
+  {
     title: "v0.134 — Farming Tools & Gear",
     body: "Forge copper, iron and steel hoes: tend crop patches up to 50% faster and planted crops mature up to 35% sooner. Weave a Farmer's Sun Hat or craft a Grower's Ring for bonus crops and Farming XP.",
   },
@@ -25,10 +29,6 @@ export const DASHBOARD_UPDATES: Array<{ title: string; body: string }> = [
   {
     title: "v0.127 — Net-Worth Leaderboard",
     body: "The in-game Richest board now counts everything you own — gold, items, build assets, your Worlds, houses and shops — not just gold on hand.",
-  },
-  {
-    title: "v0.122 — Smoother Movement & Real Water",
-    body: "Water, ponds, and pools now block walking in player Worlds (bridges cross!). Movement and animations are smoother on every screen.",
   },
 ];
 

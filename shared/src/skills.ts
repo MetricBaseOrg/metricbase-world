@@ -40,7 +40,7 @@ export function computeFishDurationMs(spotLevel: number, fishingLevel: number): 
 
 /** Cumulative woodcutting XP required to reach each level (index = level - 1). */
 /** Highest level a gather skill (woodcutting/mining/fishing/farming) can reach. */
-export const MAX_SKILL_LEVEL = 50;
+export const MAX_SKILL_LEVEL = 99;
 
 /**
  * Cumulative XP per gather-skill level. The first eleven levels keep their

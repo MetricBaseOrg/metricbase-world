@@ -4,7 +4,7 @@ export const NPC_INTERACT_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 export const NPC_INTERACT_RANGE = 80;
 
 /** The highest combat level a player can reach. */
-export const MAX_LEVEL = 50;
+export const MAX_LEVEL = 99;
 
 /**
  * Cumulative XP required to reach each level (index = level - 1). The first ten
