@@ -6,7 +6,7 @@ import {
   type LeaderboardEntry,
   type LeaderboardPayload,
 } from "@metricbase/shared";
-import { fetchExternalWealth, inventoryValue } from "./networth.js";
+import { fetchExternalWealth, resolveNetWorth, PROBE_FILTER } from "./networth.js";
 import { getPool } from "./pool.js";
 
 const TTL_MS = 60_000;
@@ -48,7 +48,7 @@ export async function getLeaderboard(): Promise<LeaderboardPayload> {
 
   // Exclude deploy/health-probe accounts (names like __healthcheck__,
   // DeployCheck, WSProbe) so they don't clutter the boards.
-  const FILTER = "WHERE name !~ '^__' AND name NOT IN ('DeployCheck', 'WSProbe')";
+  const FILTER = `WHERE ${PROBE_FILTER}`;
   const season = getPvpSeason(now);
 
   try {
@@ -76,11 +76,7 @@ export async function getLeaderboard(): Promise<LeaderboardPayload> {
     const topRich = all.rows
       .map((row) => ({
         ...toEntry(row),
-        netWorth:
-          (row.gold ?? 0) +
-          inventoryValue(row.inventory) +
-          (row.wallet_address ? (wealth.byWallet.get(row.wallet_address) ?? 0) : 0) +
-          (wealth.byName.get(row.name) ?? 0),
+        netWorth: resolveNetWorth(wealth, row.wallet_address, row.name, row.gold ?? 0, row.inventory),
       }))
       .sort((a, b) => b.netWorth - a.netWorth || (b.gold ?? 0) - (a.gold ?? 0))
       .slice(0, 10);

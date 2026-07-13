@@ -22,6 +22,7 @@ import { dashboardRouter } from "./api/dashboard.js";
 import { tokenShopRouter } from "./api/tokenShop.js";
 import { invitationsRouter } from "./api/invitations.js";
 import { getPool, initDatabase } from "./db/pool.js";
+import { captureNetWorthSnapshot } from "./db/networth.js";
 import { initSellPressure } from "./market/sellPressure.js";
 import { initLandRegistry } from "./housing/landRegistry.js";
 import { initZoneRegistry } from "./zones/zoneRegistry.js";
@@ -164,6 +165,11 @@ await adService.init();
 // Warm + periodically refresh the live $BASE holder count for the billboard.
 void getBaseHolderCount();
 setInterval(() => void getBaseHolderCount(), 5 * 60 * 1000).unref();
+
+// Daily net-worth snapshots for the /stats richest board: capture on boot and
+// hourly — the day's row is upserted, so the last capture converges on EOD.
+void captureNetWorthSnapshot();
+setInterval(() => void captureNetWorthSnapshot(), 60 * 60 * 1000).unref();
 
 httpServer.listen(PORT, () => {
   console.log(`MetricBase game server listening on ws://localhost:${PORT}`);

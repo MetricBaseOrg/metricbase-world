@@ -382,6 +382,19 @@ CREATE TABLE IF NOT EXISTS invitations (
 CREATE INDEX IF NOT EXISTS invitations_inviter_wallet_idx ON invitations (inviter_wallet);
 CREATE INDEX IF NOT EXISTS invitations_invitee_wallet_idx ON invitations (invitee_wallet);
 
+-- Daily player net-worth snapshots (one row per player per UTC day, last
+-- capture of the day wins). Powers the /stats richest leaderboard's
+-- day-over-day change; season is stamped so the board resets each season.
+CREATE TABLE IF NOT EXISTS net_worth_daily (
+  day DATE NOT NULL,
+  player_key VARCHAR(64) NOT NULL,
+  name VARCHAR(16) NOT NULL,
+  season INTEGER NOT NULL,
+  net_worth BIGINT NOT NULL,
+  PRIMARY KEY (day, player_key)
+);
+CREATE INDEX IF NOT EXISTS net_worth_daily_season_idx ON net_worth_daily (season, player_key, day DESC);
+
 -- Territory Control (Phase 4): which guild owns each capture point.
 CREATE TABLE IF NOT EXISTS territories (
   point_id VARCHAR(64) PRIMARY KEY,

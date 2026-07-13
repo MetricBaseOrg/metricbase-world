@@ -132,6 +132,7 @@ export const STATS_PAGE_HTML = `<!doctype html>
 
 <nav>
   <a href="#overview">🏠 Overview</a>
+  <a href="#richest">👑 Richest</a>
   <a href="#token">🪙 $BASE</a>
   <a href="#economy">💰 Economy</a>
   <a href="#prices">🏷️ Prices</a>
@@ -149,6 +150,17 @@ export const STATS_PAGE_HTML = `<!doctype html>
       <div class="card"><h2>🪙 Circulating gold</h2><div class="big gold" id="circulating">—</div><div class="sub">held by all players</div></div>
       <div class="card"><h2>🌍 Player Worlds</h2><div class="big mint" id="worlds">—</div><div class="sub"><span id="worldsPub">—</span> published</div></div>
       <div class="card"><h2>🏛️ Treasury (burned)</h2><div class="big burn" id="treasury">—</div><div class="sub">gold removed from circulation</div></div>
+    </div>
+  </section>
+
+  <section id="richest">
+    <div class="sec"><span class="em">👑</span><h2>Richest Players</h2></div>
+    <div class="card wide">
+      <h2>👑 Net-worth leaderboard · <span id="richMeta">—</span></h2>
+      <div style="overflow-x:auto"><table class="ptable" id="richTable"><thead><tr>
+        <th>Player</th><th>Net worth</th><th>Today</th>
+      </tr></thead><tbody></tbody></table></div>
+      <div class="legend" style="margin-top:10px"><span>Net worth = gold on hand + inventory items + build assets + player Worlds, houses &amp; shops, all at their gold value. <b>Today</b> = change since the previous daily snapshot. The board resets every 90-day season; days count from game launch.</span></div>
     </div>
   </section>
 
@@ -467,6 +479,21 @@ async function load(){
       {k:"🗺️ Expanded Worlds",v:fmt(w.expanded||0)+" / "+fmt(w.total||0)}
     ],function(x){return '<div class="row"><span>'+x.k+'</span><b>'+x.v+'</b></div>';});
     rows(el("holders"),s.topHolders,function(x,i){return '<div class="row"><span><span class="rk">'+(i<3?["🥇","🥈","🥉"][i]:"#"+(i+1))+'</span>'+x.name+'</span><b>'+fmt(x.gold)+'g</b></div>';});
+
+    // ---- Richest players (net worth + daily change, seasonal) ----
+    (function(){
+      var r=s.richest||{season:1,day:1,entries:[]};
+      set("richMeta","Season "+fmt(r.season)+" · Day "+fmt(r.day));
+      var tb=el("richTable").querySelector("tbody");
+      tb.innerHTML=(r.entries||[]).map(function(x,i){
+        var rk=i<3?["🥇","🥈","🥉"][i]:"#"+(i+1);
+        var ch=x.change==null?'<span class="flat">— new</span>'
+          :x.change>0?'<span class="up">▲ +'+kfmt(x.change)+'g</span>'
+          :x.change<0?'<span class="down">▼ −'+kfmt(-x.change)+'g</span>'
+          :'<span class="flat">＝</span>';
+        return '<tr><td class="nm"><span class="rk">'+rk+'</span>'+x.name+'</td><td title="'+fmt(x.netWorth)+'g">'+fmt(x.netWorth)+'g</td><td>'+ch+'</td></tr>';
+      }).join("")||'<tr><td colspan="3" class="base">Nothing here yet 🌱</td></tr>';
+    })();
 
     // ---- Item prices (supply & demand) ----
     (function(){

@@ -9,6 +9,7 @@ import {
   supplyDemandMultiplier,
 } from "@metricbase/shared";
 import { getPool } from "../db/pool.js";
+import { getRichestBoard, type RichestBoard } from "../db/networth.js";
 import { ZoneRoom } from "../rooms/ZoneRoom.js";
 import { getDailySeries, getMetricTotals } from "../economy/metrics.js";
 import { getItemFlows } from "../economy/itemFlows.js";
@@ -63,6 +64,8 @@ interface EconomyStats {
   jobs: { openNow: number; posted: number; completed: number; goldPaid: number; escrowGold: number };
   ads: AdPublicStats;
   topHolders: { name: string; gold: number }[];
+  /** Richest players by net worth with day-over-day change; resets each season. */
+  richest: RichestBoard;
   activity: Record<string, number>;
   daily: { day: string; metric: string; value: number }[];
   /** Live supply/demand item prices (vendor pays / shop charges). */
@@ -178,6 +181,7 @@ export async function buildStats(): Promise<EconomyStats> {
 
   const playerHeld = await getPlayerHeldBase();
   const ads = await adService.getPublicStats();
+  const richest = await getRichestBoard();
   const activity = getMetricTotals();
   const daily = await getDailySeries(14);
   // Fold in the $BASE gold-market volume per day from market_trades.
@@ -240,6 +244,7 @@ export async function buildStats(): Promise<EconomyStats> {
     },
     ads,
     topHolders,
+    richest,
     activity,
     daily,
     itemPrices: buildItemPrices(),

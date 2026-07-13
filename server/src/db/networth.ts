@@ -10,14 +10,20 @@
 
 import {
   getItemBaseValue,
+  getPvpSeason,
   zoneAssetPrice,
   zoneBuildCost,
   PLOT_PRICE,
+  SEASON_EPOCH_MS,
   ZONE_SLOT_COST,
   type PlayerZoneBuild,
   type ShopListing,
 } from "@metricbase/shared";
 import type pg from "pg";
+import { getPool } from "./pool.js";
+
+/** Excludes deploy/health-probe accounts from any characters scan. */
+export const PROBE_FILTER = "name !~ '^__' AND name NOT IN ('DeployCheck', 'WSProbe')";
 
 /** Assets owned outside the character row, keyed by wallet or (walletless) name. */
 export interface ExternalWealth {
@@ -110,4 +116,133 @@ export async function fetchExternalWealth(pool: pg.Pool): Promise<ExternalWealth
   }
 
   return { byWallet, byName };
+}
+
+/** A character's total net worth given the shared external-wealth maps. */
+export function resolveNetWorth(
+  wealth: ExternalWealth,
+  wallet: string | null | undefined,
+  name: string,
+  gold: number,
+  inventory: unknown,
+): number {
+  return (
+    gold +
+    inventoryValue(inventory) +
+    (wallet ? (wealth.byWallet.get(wallet) ?? 0) : 0) +
+    (wealth.byName.get(name) ?? 0)
+  );
+}
+
+// ===== Daily snapshots + /stats richest board ================================
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** 1-based day counter since game launch (the season epoch = launch day). */
+export function daysSinceLaunch(now: number): number {
+  return Math.max(1, Math.floor((now - SEASON_EPOCH_MS) / DAY_MS) + 1);
+}
+
+interface NetWorthRow {
+  /** Stable snapshot identity: wallet when bonded, else the display name. */
+  key: string;
+  name: string;
+  netWorth: number;
+}
+
+/** Every real player's current net worth (probe accounts excluded). */
+async function computeAllNetWorth(pool: pg.Pool): Promise<NetWorthRow[]> {
+  const [chars, wealth] = await Promise.all([
+    pool.query(`SELECT name, wallet_address, gold, inventory FROM characters WHERE ${PROBE_FILTER}`),
+    fetchExternalWealth(pool),
+  ]);
+  return chars.rows.map((row) => ({
+    key: row.wallet_address || row.name,
+    name: row.name,
+    netWorth: resolveNetWorth(wealth, row.wallet_address, row.name, Number(row.gold) || 0, row.inventory),
+  }));
+}
+
+/**
+ * Upsert today's (UTC) net-worth snapshot for every player. Idempotent — the
+ * last capture of the day wins, so the stored row converges on end-of-day.
+ */
+export async function captureNetWorthSnapshot(): Promise<void> {
+  const pool = getPool();
+  if (!pool) return;
+  try {
+    const season = getPvpSeason(Date.now());
+    const rows = await computeAllNetWorth(pool);
+    for (const row of rows) {
+      await pool.query(
+        `INSERT INTO net_worth_daily (day, player_key, name, season, net_worth)
+         VALUES ((now() AT TIME ZONE 'utc')::date, $1, $2, $3, $4)
+         ON CONFLICT (day, player_key) DO UPDATE SET name = $2, season = $3, net_worth = $4`,
+        [row.key, row.name, season, row.netWorth],
+      );
+    }
+  } catch (error) {
+    console.warn("[networth] snapshot failed:", error);
+  }
+}
+
+export interface RichestEntry {
+  name: string;
+  netWorth: number;
+  /** Change vs the latest prior-day snapshot this season; null = no baseline yet. */
+  change: number | null;
+}
+
+export interface RichestBoard {
+  /** Display season number (1-based). Baselines reset each season. */
+  season: number;
+  /** Display day number, 1-based since game launch. */
+  day: number;
+  entries: RichestEntry[];
+}
+
+const BOARD_TTL_MS = 60_000;
+let boardCache: RichestBoard | null = null;
+let boardCachedAt = 0;
+
+/** Top players by live net worth with day-over-day change, cached a minute. */
+export async function getRichestBoard(limit = 10): Promise<RichestBoard> {
+  const now = Date.now();
+  if (boardCache && now - boardCachedAt < BOARD_TTL_MS) return boardCache;
+  const season = getPvpSeason(now);
+  const empty: RichestBoard = { season: season + 1, day: daysSinceLaunch(now), entries: [] };
+  const pool = getPool();
+  if (!pool) return boardCache ?? empty;
+  try {
+    const rows = await computeAllNetWorth(pool);
+    rows.sort((a, b) => b.netWorth - a.netWorth);
+    const top = rows.slice(0, limit);
+    // Baseline = each player's most recent snapshot BEFORE today, this season
+    // only — a new season starts everyone from "no baseline" (the reset).
+    const baseline = new Map<string, number>();
+    try {
+      const base = await pool.query(
+        `SELECT DISTINCT ON (player_key) player_key, net_worth FROM net_worth_daily
+         WHERE season = $1 AND day < (now() AT TIME ZONE 'utc')::date
+         ORDER BY player_key, day DESC`,
+        [season],
+      );
+      for (const r of base.rows) baseline.set(r.player_key as string, Number(r.net_worth));
+    } catch {
+      /* table may not exist yet — every entry just shows "new" */
+    }
+    boardCache = {
+      season: season + 1,
+      day: daysSinceLaunch(now),
+      entries: top.map((row) => {
+        const prev = baseline.get(row.key);
+        return { name: row.name, netWorth: row.netWorth, change: prev === undefined ? null : row.netWorth - prev };
+      }),
+    };
+    boardCachedAt = now;
+    return boardCache;
+  } catch (error) {
+    console.warn("[networth] richest board failed:", error);
+    return boardCache ?? empty;
+  }
 }
