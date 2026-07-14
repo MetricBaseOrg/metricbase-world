@@ -19,6 +19,7 @@ import { createServer } from "node:http";
 import { authRouter } from "./api/auth.js";
 import { characterRouter } from "./api/characters.js";
 import { dashboardRouter } from "./api/dashboard.js";
+import { daoRouter } from "./api/dao.js";
 import { tokenShopRouter } from "./api/tokenShop.js";
 import { invitationsRouter } from "./api/invitations.js";
 import { getPool, initDatabase } from "./db/pool.js";
@@ -69,6 +70,7 @@ app.use("/api", tokenShopRouter);
 app.use("/api", invitationsRouter);
 app.use("/api", statsRouter);
 app.use("/api", brandsRouter);
+app.use("/api", daoRouter);
 // /stats is server-rendered with the live headline numbers baked into the
 // initial HTML (JS then keeps them fresh). Crawlers and game-discovery agents
 // (e.g. solgames.buzz) see real player counts instead of "—" placeholders.

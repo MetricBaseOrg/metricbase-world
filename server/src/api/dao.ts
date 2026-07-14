@@ -1,0 +1,206 @@
+// MetricBase DAO API (see shared/src/dao.ts for the governance design).
+// Off-chain, gasless token-weighted polls: creation gated at 10M $BASE,
+// voting at 1M; a vote's weight is the wallet's live balance when cast.
+
+import {
+  DAO_DESCRIPTION_MAX,
+  DAO_MAX_DURATION_DAYS,
+  DAO_MAX_OPEN_POLLS_PER_WALLET,
+  DAO_MAX_OPTIONS,
+  DAO_MIN_CREATE_BALANCE,
+  DAO_MIN_DURATION_DAYS,
+  DAO_MIN_OPTIONS,
+  DAO_MIN_VOTE_BALANCE,
+  DAO_OPTION_MAX,
+  DAO_TITLE_MAX,
+  type DaoActionResponse,
+  type DaoPoll,
+  type DaoPollsResponse,
+} from "@metricbase/shared";
+import { randomUUID } from "node:crypto";
+import { Router } from "express";
+import { getWalletFromAuthHeader, requireAuth, type AuthenticatedRequest } from "../auth/requireAuth.js";
+import { getPool } from "../db/pool.js";
+import { getWalletTokenBalance } from "../solana/tokenBalance.js";
+
+export const daoRouter = Router();
+
+interface PollRow {
+  id: string;
+  creator_wallet: string;
+  title: string;
+  description: string;
+  options: string[];
+  created_at: Date;
+  ends_at: Date;
+}
+
+const clean = (raw: string, max: number): string =>
+  raw
+    .replace(/[\u0000-\u001f\u007f]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, max);
+
+async function buildPolls(rows: PollRow[], wallet: string | null): Promise<DaoPoll[]> {
+  const pool = getPool();
+  if (!pool || rows.length === 0) return [];
+  const ids = rows.map((r) => r.id);
+  const votes = await pool.query(
+    `SELECT poll_id, option_index, SUM(weight) weight, COUNT(*) voters FROM dao_votes
+     WHERE poll_id = ANY($1) GROUP BY poll_id, option_index`,
+    [ids],
+  );
+  const mine = wallet
+    ? await pool.query(
+        "SELECT poll_id, option_index, weight FROM dao_votes WHERE wallet = $1 AND poll_id = ANY($2)",
+        [wallet, ids],
+      )
+    : null;
+  const myByPoll = new Map<string, { option: number; weight: number }>(
+    (mine?.rows ?? []).map((r) => [r.poll_id as string, { option: Number(r.option_index), weight: Number(r.weight) }]),
+  );
+  return rows.map((row) => {
+    const options = Array.isArray(row.options) ? row.options.map(String) : [];
+    const totals = options.map(() => 0);
+    let voters = 0;
+    for (const v of votes.rows.filter((v) => v.poll_id === row.id)) {
+      const idx = Number(v.option_index);
+      if (idx >= 0 && idx < totals.length) totals[idx] = Number(v.weight) || 0;
+      voters += Number(v.voters) || 0;
+    }
+    const my = myByPoll.get(row.id);
+    return {
+      id: row.id,
+      creatorWallet: row.creator_wallet,
+      title: row.title,
+      description: row.description,
+      options,
+      createdAt: row.created_at.getTime(),
+      endsAt: row.ends_at.getTime(),
+      totals,
+      voters,
+      ...(my ? { myVote: my.option, myWeight: my.weight } : {}),
+    };
+  });
+}
+
+/** All polls (open first, newest first), with the caller's vote + live balance. */
+daoRouter.get("/dao/polls", async (req, res) => {
+  const pool = getPool();
+  if (!pool) return void res.status(503).json({ error: "Database unavailable" });
+  const wallet = getWalletFromAuthHeader(req.headers.authorization);
+  try {
+    const rows = await pool.query<PollRow>(
+      `SELECT id, creator_wallet, title, description, options, created_at, ends_at
+       FROM dao_polls ORDER BY (ends_at > NOW()) DESC, created_at DESC LIMIT 100`,
+    );
+    const polls = await buildPolls(rows.rows, wallet);
+    const payload: DaoPollsResponse = { polls };
+    if (wallet) {
+      try {
+        payload.balance = await getWalletTokenBalance(wallet);
+      } catch {
+        /* RPC hiccup — the page just hides the balance chip */
+      }
+    }
+    res.json(payload);
+  } catch (error) {
+    console.warn("[dao] poll list failed:", error);
+    res.status(500).json({ error: "Failed to load polls." });
+  }
+});
+
+/** Create a poll. Requires a signed-in wallet holding ≥ 10M $BASE. */
+daoRouter.post("/dao/polls", requireAuth, async (req, res) => {
+  const wallet = (req as AuthenticatedRequest).authWallet;
+  const pool = getPool();
+  if (!pool) return void res.status(503).json({ ok: false, error: "Database unavailable" });
+
+  const title = clean(String(req.body?.title ?? ""), DAO_TITLE_MAX);
+  const description = clean(String(req.body?.description ?? ""), DAO_DESCRIPTION_MAX);
+  const rawOptions = Array.isArray(req.body?.options) ? (req.body.options as unknown[]) : [];
+  const options = rawOptions.map((o) => clean(String(o ?? ""), DAO_OPTION_MAX)).filter(Boolean);
+  const days = Math.round(Number(req.body?.durationDays ?? 0));
+
+  const fail = (status: number, error: string) =>
+    void res.status(status).json({ ok: false, error } satisfies DaoActionResponse);
+  if (!title) return fail(400, "A poll title is required.");
+  if (options.length < DAO_MIN_OPTIONS || options.length > DAO_MAX_OPTIONS) {
+    return fail(400, `Polls need ${DAO_MIN_OPTIONS}–${DAO_MAX_OPTIONS} options.`);
+  }
+  if (new Set(options.map((o) => o.toLowerCase())).size !== options.length) {
+    return fail(400, "Poll options must be distinct.");
+  }
+  if (!Number.isFinite(days) || days < DAO_MIN_DURATION_DAYS || days > DAO_MAX_DURATION_DAYS) {
+    return fail(400, `Poll duration must be ${DAO_MIN_DURATION_DAYS}–${DAO_MAX_DURATION_DAYS} days.`);
+  }
+
+  try {
+    const open = await pool.query(
+      "SELECT COUNT(*)::int n FROM dao_polls WHERE creator_wallet = $1 AND ends_at > NOW()",
+      [wallet],
+    );
+    if (Number(open.rows[0]?.n ?? 0) >= DAO_MAX_OPEN_POLLS_PER_WALLET) {
+      return fail(429, `You already have ${DAO_MAX_OPEN_POLLS_PER_WALLET} open polls — wait for one to close.`);
+    }
+    const balance = await getWalletTokenBalance(wallet);
+    if (balance < DAO_MIN_CREATE_BALANCE) {
+      return fail(403, `Creating a poll requires ${DAO_MIN_CREATE_BALANCE.toLocaleString()} $BASE (you hold ${Math.floor(balance).toLocaleString()}).`);
+    }
+    const id = randomUUID();
+    const inserted = await pool.query<PollRow>(
+      `INSERT INTO dao_polls (id, creator_wallet, title, description, options, ends_at)
+       VALUES ($1, $2, $3, $4, $5, NOW() + make_interval(days => $6))
+       RETURNING id, creator_wallet, title, description, options, created_at, ends_at`,
+      [id, wallet, title, description, JSON.stringify(options), days],
+    );
+    const [poll] = await buildPolls(inserted.rows, wallet);
+    res.json({ ok: true, poll } satisfies DaoActionResponse);
+  } catch (error) {
+    console.warn("[dao] poll create failed:", error);
+    fail(500, "Failed to create the poll.");
+  }
+});
+
+/** Cast a vote. Requires ≥ 1M $BASE; weight = live balance; one vote, final. */
+daoRouter.post("/dao/polls/:id/vote", requireAuth, async (req, res) => {
+  const wallet = (req as AuthenticatedRequest).authWallet;
+  const pool = getPool();
+  if (!pool) return void res.status(503).json({ ok: false, error: "Database unavailable" });
+  const pollId = String(req.params.id ?? "");
+  const optionIndex = Math.round(Number(req.body?.optionIndex ?? -1));
+  const fail = (status: number, error: string) =>
+    void res.status(status).json({ ok: false, error } satisfies DaoActionResponse);
+
+  try {
+    const found = await pool.query<PollRow>(
+      `SELECT id, creator_wallet, title, description, options, created_at, ends_at
+       FROM dao_polls WHERE id = $1`,
+      [pollId],
+    );
+    const row = found.rows[0];
+    if (!row) return fail(404, "Poll not found.");
+    if (row.ends_at.getTime() <= Date.now()) return fail(400, "This poll has ended.");
+    const optionCount = Array.isArray(row.options) ? row.options.length : 0;
+    if (optionIndex < 0 || optionIndex >= optionCount) return fail(400, "Pick a valid option.");
+
+    const balance = await getWalletTokenBalance(wallet);
+    if (balance < DAO_MIN_VOTE_BALANCE) {
+      return fail(403, `Voting requires ${DAO_MIN_VOTE_BALANCE.toLocaleString()} $BASE (you hold ${Math.floor(balance).toLocaleString()}).`);
+    }
+    // One vote per wallet, final — ON CONFLICT DO NOTHING + rowCount tells us
+    // whether this was a duplicate without a read-then-write race.
+    const insert = await pool.query(
+      `INSERT INTO dao_votes (poll_id, wallet, option_index, weight)
+       VALUES ($1, $2, $3, $4) ON CONFLICT (poll_id, wallet) DO NOTHING`,
+      [pollId, wallet, optionIndex, balance],
+    );
+    if ((insert.rowCount ?? 0) === 0) return fail(409, "You already voted on this poll — votes are final.");
+    const [poll] = await buildPolls([row], wallet);
+    res.json({ ok: true, poll } satisfies DaoActionResponse);
+  } catch (error) {
+    console.warn("[dao] vote failed:", error);
+    fail(500, "Failed to record the vote.");
+  }
+});

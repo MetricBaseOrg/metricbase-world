@@ -382,6 +382,27 @@ CREATE TABLE IF NOT EXISTS invitations (
 CREATE INDEX IF NOT EXISTS invitations_inviter_wallet_idx ON invitations (inviter_wallet);
 CREATE INDEX IF NOT EXISTS invitations_invitee_wallet_idx ON invitations (invitee_wallet);
 
+-- MetricBase DAO: $BASE-holder polls + token-weighted votes (see shared/dao.ts).
+CREATE TABLE IF NOT EXISTS dao_polls (
+  id VARCHAR(40) PRIMARY KEY,
+  creator_wallet VARCHAR(44) NOT NULL,
+  title VARCHAR(100) NOT NULL,
+  description TEXT NOT NULL DEFAULT '',
+  options JSONB NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  ends_at TIMESTAMPTZ NOT NULL
+);
+CREATE INDEX IF NOT EXISTS dao_polls_ends_idx ON dao_polls (ends_at DESC);
+-- One vote per wallet per poll; weight = the wallet's $BASE balance when cast.
+CREATE TABLE IF NOT EXISTS dao_votes (
+  poll_id VARCHAR(40) NOT NULL REFERENCES dao_polls(id) ON DELETE CASCADE,
+  wallet VARCHAR(44) NOT NULL,
+  option_index INTEGER NOT NULL,
+  weight DOUBLE PRECISION NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (poll_id, wallet)
+);
+
 -- Banned accounts, keyed by wallet (the canonical identity). Enforced at JWT
 -- issuance (/auth/verify) and at room join, so a ban survives renames and
 -- outstanding access tokens.
