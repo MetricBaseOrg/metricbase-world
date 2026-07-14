@@ -11,16 +11,20 @@ import {
   DAO_MIN_DURATION_DAYS,
   DAO_MIN_OPTIONS,
   DAO_MIN_VOTE_BALANCE,
+  DAO_MAX_DELEGATORS_COUNTED,
   DAO_OPTION_MAX,
   DAO_TITLE_MAX,
   type DaoActionResponse,
+  type DaoDelegationStatus,
   type DaoPoll,
   type DaoPollsResponse,
 } from "@metricbase/shared";
 import { randomUUID } from "node:crypto";
 import { Router } from "express";
 import { getWalletFromAuthHeader, requireAuth, type AuthenticatedRequest } from "../auth/requireAuth.js";
+import { loadCharacterByWallet } from "../db/characters.js";
 import { getPool } from "../db/pool.js";
+import { getGuildForMember } from "../guild/guildRegistry.js";
 import { getWalletTokenBalance } from "../solana/tokenBalance.js";
 
 export const daoRouter = Router();
@@ -53,12 +57,15 @@ async function buildPolls(rows: PollRow[], wallet: string | null): Promise<DaoPo
   );
   const mine = wallet
     ? await pool.query(
-        "SELECT poll_id, option_index, weight FROM dao_votes WHERE wallet = $1 AND poll_id = ANY($2)",
+        "SELECT poll_id, option_index, weight, via_delegation FROM dao_votes WHERE wallet = $1 AND poll_id = ANY($2)",
         [wallet, ids],
       )
     : null;
-  const myByPoll = new Map<string, { option: number; weight: number }>(
-    (mine?.rows ?? []).map((r) => [r.poll_id as string, { option: Number(r.option_index), weight: Number(r.weight) }]),
+  const myByPoll = new Map<string, { option: number; weight: number; viaDelegation: boolean }>(
+    (mine?.rows ?? []).map((r) => [
+      r.poll_id as string,
+      { option: Number(r.option_index), weight: Number(r.weight), viaDelegation: !!r.via_delegation },
+    ]),
   );
   return rows.map((row) => {
     const options = Array.isArray(row.options) ? row.options.map(String) : [];
@@ -80,9 +87,17 @@ async function buildPolls(rows: PollRow[], wallet: string | null): Promise<DaoPo
       endsAt: row.ends_at.getTime(),
       totals,
       voters,
-      ...(my ? { myVote: my.option, myWeight: my.weight } : {}),
+      ...(my ? { myVote: my.option, myWeight: my.weight, myViaDelegation: my.viaDelegation } : {}),
     };
   });
+}
+
+/** The wallet's character's guild (via the in-memory guild registry), if any. */
+async function guildFor(wallet: string) {
+  const character = await loadCharacterByWallet(wallet);
+  if (!character) return null;
+  const guild = getGuildForMember(character.name);
+  return guild ? { guild, characterName: character.name } : null;
 }
 
 /** All polls (open first, newest first), with the caller's vote + live balance. */
@@ -163,6 +178,67 @@ daoRouter.post("/dao/polls", requireAuth, async (req, res) => {
   }
 });
 
+/** The signed-in wallet's guild-delegation state. */
+daoRouter.get("/dao/delegation", requireAuth, async (req, res) => {
+  const wallet = (req as AuthenticatedRequest).authWallet;
+  const pool = getPool();
+  if (!pool) return void res.status(503).json({ error: "Database unavailable" });
+  try {
+    const membership = await guildFor(wallet);
+    if (!membership) {
+      return void res.json({ inGuild: false, delegated: false } satisfies DaoDelegationStatus);
+    }
+    const { guild, characterName } = membership;
+    const isLeader = guild.leaderName === characterName;
+    const mine = await pool.query("SELECT guild_id FROM dao_delegations WHERE wallet = $1", [wallet]);
+    const status: DaoDelegationStatus = {
+      inGuild: true,
+      guildName: guild.name,
+      guildTag: guild.tag,
+      isLeader,
+      delegated: mine.rows[0]?.guild_id === guild.id,
+    };
+    if (isLeader) {
+      const count = await pool.query("SELECT COUNT(*)::int n FROM dao_delegations WHERE guild_id = $1", [guild.id]);
+      status.delegators = Number(count.rows[0]?.n ?? 0);
+    }
+    res.json(status);
+  } catch (error) {
+    console.warn("[dao] delegation status failed:", error);
+    res.status(500).json({ error: "Failed to load delegation." });
+  }
+});
+
+/** Delegate (or revoke) the wallet's voting power to its guild. */
+daoRouter.post("/dao/delegation", requireAuth, async (req, res) => {
+  const wallet = (req as AuthenticatedRequest).authWallet;
+  const pool = getPool();
+  if (!pool) return void res.status(503).json({ ok: false, error: "Database unavailable" });
+  const delegate = !!req.body?.delegate;
+  try {
+    if (!delegate) {
+      await pool.query("DELETE FROM dao_delegations WHERE wallet = $1", [wallet]);
+      return void res.json({ ok: true } satisfies DaoActionResponse);
+    }
+    const membership = await guildFor(wallet);
+    if (!membership) {
+      return void res.status(400).json({ ok: false, error: "Join a guild in-game first — delegation hands your voting power to your guild." });
+    }
+    if (membership.guild.leaderName === membership.characterName) {
+      return void res.status(400).json({ ok: false, error: "You lead this guild — your vote already speaks for it. Guildmates delegate to you." });
+    }
+    await pool.query(
+      `INSERT INTO dao_delegations (wallet, guild_id) VALUES ($1, $2)
+       ON CONFLICT (wallet) DO UPDATE SET guild_id = $2, created_at = NOW()`,
+      [wallet, membership.guild.id],
+    );
+    res.json({ ok: true } satisfies DaoActionResponse);
+  } catch (error) {
+    console.warn("[dao] delegation change failed:", error);
+    res.status(500).json({ ok: false, error: "Failed to update delegation." });
+  }
+});
+
 /** Cast a vote. Requires ≥ 1M $BASE; weight = live balance; one vote, final. */
 daoRouter.post("/dao/polls/:id/vote", requireAuth, async (req, res) => {
   const wallet = (req as AuthenticatedRequest).authWallet;
@@ -185,6 +261,18 @@ daoRouter.post("/dao/polls/:id/vote", requireAuth, async (req, res) => {
     const optionCount = Array.isArray(row.options) ? row.options.length : 0;
     if (optionIndex < 0 || optionIndex >= optionCount) return fail(400, "Pick a valid option.");
 
+    // A wallet that delegated to its guild votes through its leader, not
+    // directly (stale delegations — left the guild — are cleaned up here).
+    const membership = await guildFor(wallet);
+    const myDelegation = await pool.query("SELECT guild_id FROM dao_delegations WHERE wallet = $1", [wallet]);
+    const delegatedGuildId = myDelegation.rows[0]?.guild_id as string | undefined;
+    if (delegatedGuildId) {
+      if (membership && membership.guild.id === delegatedGuildId) {
+        return fail(403, `You've delegated your voting power to ${membership.guild.name} — its leader votes for you. Revoke the delegation to vote yourself.`);
+      }
+      await pool.query("DELETE FROM dao_delegations WHERE wallet = $1", [wallet]);
+    }
+
     const balance = await getWalletTokenBalance(wallet);
     if (balance < DAO_MIN_VOTE_BALANCE) {
       return fail(403, `Voting requires ${DAO_MIN_VOTE_BALANCE.toLocaleString()} $BASE (you hold ${Math.floor(balance).toLocaleString()}).`);
@@ -197,8 +285,45 @@ daoRouter.post("/dao/polls/:id/vote", requireAuth, async (req, res) => {
       [pollId, wallet, optionIndex, balance],
     );
     if ((insert.rowCount ?? 0) === 0) return fail(409, "You already voted on this poll — votes are final.");
+
+    // Guild leader: also cast each delegator's live balance for the same
+    // option, as that delegator's own vote row — voter counts stay honest and
+    // the (poll, wallet) primary key makes double-counting impossible.
+    let delegatesCounted = 0;
+    if (membership && membership.guild.leaderName === membership.characterName) {
+      const delegations = await pool.query(
+        "SELECT wallet FROM dao_delegations WHERE guild_id = $1 AND wallet <> $2 LIMIT $3",
+        [membership.guild.id, wallet, DAO_MAX_DELEGATORS_COUNTED],
+      );
+      const delegatorWallets = delegations.rows.map((r) => r.wallet as string);
+      if (delegatorWallets.length > 0) {
+        // Still-a-member check in one query: wallet -> character name.
+        const chars = await pool.query(
+          "SELECT wallet_address, name FROM characters WHERE wallet_address = ANY($1)",
+          [delegatorWallets],
+        );
+        const memberNames = new Set(membership.guild.members);
+        for (const c of chars.rows) {
+          if (!memberNames.has(c.name as string)) continue;
+          try {
+            const w = c.wallet_address as string;
+            const delegatorBalance = await getWalletTokenBalance(w);
+            if (delegatorBalance <= 0) continue;
+            const cast = await pool.query(
+              `INSERT INTO dao_votes (poll_id, wallet, option_index, weight, via_delegation)
+               VALUES ($1, $2, $3, $4, true) ON CONFLICT (poll_id, wallet) DO NOTHING`,
+              [pollId, w, optionIndex, delegatorBalance],
+            );
+            if ((cast.rowCount ?? 0) > 0) delegatesCounted++;
+          } catch {
+            /* one delegator's RPC hiccup shouldn't sink the leader's vote */
+          }
+        }
+      }
+    }
+
     const [poll] = await buildPolls([row], wallet);
-    res.json({ ok: true, poll } satisfies DaoActionResponse);
+    res.json({ ok: true, poll, delegatesCounted } satisfies DaoActionResponse);
   } catch (error) {
     console.warn("[dao] vote failed:", error);
     fail(500, "Failed to record the vote.");

@@ -42,6 +42,8 @@ export interface DaoPoll {
   myVote?: number;
   /** The weight the requesting wallet's vote was recorded with. */
   myWeight?: number;
+  /** True when the wallet's vote was cast by its guild leader via delegation. */
+  myViaDelegation?: boolean;
 }
 
 export interface DaoPollsResponse {
@@ -54,6 +56,25 @@ export interface DaoActionResponse {
   ok: boolean;
   error?: string;
   poll?: DaoPoll;
+  /** On a guild leader's vote: how many delegators' power was cast alongside. */
+  delegatesCounted?: number;
+}
+
+/** Most delegators counted per leader vote (bounds the per-vote RPC fan-out). */
+export const DAO_MAX_DELEGATORS_COUNTED = 50;
+
+/** GET /api/dao/delegation — the signed-in wallet's guild-delegation state. */
+export interface DaoDelegationStatus {
+  /** Wallet has a character that's currently in a guild. */
+  inGuild: boolean;
+  guildName?: string;
+  guildTag?: string;
+  /** The wallet's character leads that guild (leaders vote FOR the guild). */
+  isLeader?: boolean;
+  /** This wallet has delegated its voting power to its guild. */
+  delegated: boolean;
+  /** For leaders: how many wallets currently delegate to their guild. */
+  delegators?: number;
 }
 
 export function isDaoPollOpen(poll: Pick<DaoPoll, "endsAt">, now: number): boolean {

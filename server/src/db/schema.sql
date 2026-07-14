@@ -402,6 +402,18 @@ CREATE TABLE IF NOT EXISTS dao_votes (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   PRIMARY KEY (poll_id, wallet)
 );
+-- Set when the vote was cast BY the guild leader on the wallet's behalf
+-- (delegated voting) rather than by the wallet itself.
+ALTER TABLE dao_votes ADD COLUMN IF NOT EXISTS via_delegation BOOLEAN NOT NULL DEFAULT false;
+-- DAO vote delegation: a wallet hands its voting power to its guild — the
+-- guild LEADER's vote then also casts each delegator's live balance for the
+-- same option (as that delegator's own vote row). Void if they leave the guild.
+CREATE TABLE IF NOT EXISTS dao_delegations (
+  wallet VARCHAR(44) PRIMARY KEY,
+  guild_id VARCHAR(64) NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS dao_delegations_guild_idx ON dao_delegations (guild_id);
 
 -- Banned accounts, keyed by wallet (the canonical identity). Enforced at JWT
 -- issuance (/auth/verify) and at room join, so a ban survives renames and

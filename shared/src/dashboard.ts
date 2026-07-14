@@ -11,6 +11,10 @@ export const MOTTO_MAX_LENGTH = 80;
  */
 export const DASHBOARD_UPDATES: Array<{ title: string; body: string }> = [
   {
+    title: "v0.139 — DAO Guild Delegation",
+    body: "Guild members can now delegate their DAO voting power to their guild — when the leader votes, every delegator's $BASE is cast alongside. Small holders, big voice.",
+  },
+  {
     title: "v0.137 — MetricBase DAO",
     body: "Govern the world at /dao: $BASE holders create polls (10M+) and vote (1M+) with power weighted by their holdings. Off-chain and gasless — just sign in with your wallet.",
   },
@@ -25,14 +29,6 @@ export const DASHBOARD_UPDATES: Array<{ title: string; body: string }> = [
   {
     title: "v0.129–0.131 — Farming Loop in Worlds",
     body: "Crop patches in player Worlds now yield seeds (the Crop Field gives a random one) and train your Farming skill — gather a seed, plant it, grow it, harvest it.",
-  },
-  {
-    title: "v0.128 — Richest Players on /stats",
-    body: "The public stats page now ranks the wealthiest players by full net worth with day-over-day change. The board resets every 90-day season.",
-  },
-  {
-    title: "v0.127 — Net-Worth Leaderboard",
-    body: "The in-game Richest board now counts everything you own — gold, items, build assets, your Worlds, houses and shops — not just gold on hand.",
   },
 ];
 

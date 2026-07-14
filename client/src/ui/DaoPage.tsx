@@ -11,6 +11,7 @@ import {
   DAO_TITLE_MAX,
   isDaoPollOpen,
   type DaoActionResponse,
+  type DaoDelegationStatus,
   type DaoPoll,
   type DaoPollsResponse,
 } from "@metricbase/shared";
@@ -63,6 +64,8 @@ export function DaoPage() {
   const [walletPickerOpen, setWalletPickerOpen] = useState(false);
   const [detectedWallets, setDetectedWallets] = useState<WalletConnector[]>([]);
   const [busyPoll, setBusyPoll] = useState<string | null>(null);
+  const [delegation, setDelegation] = useState<DaoDelegationStatus | null>(null);
+  const [delegBusy, setDelegBusy] = useState(false);
   // Create-poll form
   const [creating, setCreating] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
@@ -97,6 +100,18 @@ export function DaoPage() {
     const body = (await response.json()) as DaoPollsResponse;
     setPolls(body.polls);
     setBalance(typeof body.balance === "number" ? body.balance : null);
+    if (token) void loadDelegation(token);
+  };
+
+  const loadDelegation = async (token: string) => {
+    try {
+      const response = await fetchWithTimeout(`${getHttpServerUrl()}/api/dao/delegation`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (response.ok) setDelegation((await response.json()) as DaoDelegationStatus);
+    } catch {
+      /* delegation card just stays hidden */
+    }
   };
 
   useEffect(() => {
@@ -172,7 +187,26 @@ export function DaoPage() {
       return;
     }
     setPolls((prev) => (prev ?? []).map((p) => (p.id === result.poll!.id ? result.poll! : p)));
-    setNotice(`✅ Vote recorded with ${kfmt(result.poll.myWeight ?? 0)} $BASE weight.`);
+    const delegates = result.delegatesCounted ?? 0;
+    setNotice(
+      delegates > 0
+        ? `✅ Vote recorded with ${kfmt(result.poll.myWeight ?? 0)} $BASE — plus ${delegates} guildmate${delegates === 1 ? "'s" : "s'"} delegated power.`
+        : `✅ Vote recorded with ${kfmt(result.poll.myWeight ?? 0)} $BASE weight.`,
+    );
+  };
+
+  const handleDelegate = async (delegate: boolean) => {
+    if (!accessToken) return;
+    setDelegBusy(true);
+    setError(null);
+    const result = await post("/api/dao/delegation", { delegate });
+    setDelegBusy(false);
+    if (!result.ok) {
+      setError(result.error ?? "Failed to update delegation.");
+      return;
+    }
+    setNotice(delegate ? "✅ Voting power delegated to your guild." : "✅ Delegation revoked — you vote for yourself again.");
+    void loadDelegation(accessToken);
   };
 
   const handleCreate = async () => {
@@ -232,7 +266,12 @@ export function DaoPage() {
               <div key={option} style={{ marginTop: 8 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: "0.82rem", alignItems: "center" }}>
                   <span style={{ fontWeight: isLeading ? 800 : 600 }}>
-                    {option} {isMine && <span title="Your vote">🗳️</span>}
+                    {option}{" "}
+                    {isMine && (
+                      <span title={poll.myViaDelegation ? "Your vote — cast by your guild leader via delegation" : "Your vote"}>
+                        {poll.myViaDelegation ? "🛡️🗳️" : "🗳️"}
+                      </span>
+                    )}
                   </span>
                   <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
                     <span style={{ color: "var(--chibi-ink-soft, #9c8a6d)", fontSize: "0.74rem" }}>
@@ -321,6 +360,52 @@ export function DaoPage() {
           </div>
         )}
 
+        {wallet && delegation?.inGuild && (
+          <section className="chibi-panel mb-dash-card" style={{ marginTop: 14 }}>
+            <h2 style={{ marginTop: 0 }}>
+              🛡️ Guild voting power — [{delegation.guildTag}] {delegation.guildName}
+            </h2>
+            {delegation.isLeader ? (
+              <p style={{ fontSize: "0.82rem", margin: "6px 0 0" }}>
+                You lead this guild. <strong>{delegation.delegators ?? 0}</strong> guildmate
+                {(delegation.delegators ?? 0) === 1 ? " has" : "s have"} delegated their voting power to
+                you — when you vote, their live $BASE balances are cast for your option too.
+              </p>
+            ) : delegation.delegated ? (
+              <>
+                <p style={{ fontSize: "0.82rem", margin: "6px 0 8px" }}>
+                  Your voting power is <strong>delegated to your guild</strong> — the guild leader's
+                  vote casts your balance with theirs. You can't vote directly while delegated.
+                </p>
+                <button
+                  type="button"
+                  className="chibi-btn chibi-btn--ghost"
+                  disabled={delegBusy}
+                  onClick={() => void handleDelegate(false)}
+                >
+                  {delegBusy ? "⏳…" : "↩️ Revoke delegation"}
+                </button>
+              </>
+            ) : (
+              <>
+                <p style={{ fontSize: "0.82rem", margin: "6px 0 8px" }}>
+                  Hand your voting power to your guild: when the leader votes on a poll, your live
+                  $BASE balance is cast alongside theirs (no minimum needed — pooling is the point).
+                  Revoke any time; it applies to future votes only.
+                </p>
+                <button
+                  type="button"
+                  className="chibi-btn chibi-btn--primary"
+                  disabled={delegBusy}
+                  onClick={() => void handleDelegate(true)}
+                >
+                  {delegBusy ? "⏳…" : "🛡️ Delegate to guild"}
+                </button>
+              </>
+            )}
+          </section>
+        )}
+
         {formOpen && (
           <section className="chibi-panel mb-dash-card" style={{ marginTop: 14 }}>
             <h2 style={{ marginTop: 0 }}>📜 New poll</h2>
@@ -406,7 +491,8 @@ export function DaoPage() {
 
         <footer style={{ textAlign: "center", fontSize: "0.72rem", marginTop: 24, color: "var(--chibi-ink-soft, #9c8a6d)", lineHeight: 1.6 }}>
           Votes are off-chain and gasless: sign in with your wallet and your live $BASE balance becomes your vote
-          weight, frozen the moment you vote. One vote per wallet per poll — votes are final.
+          weight, frozen the moment you vote. One vote per wallet per poll — votes are final. Guild members can
+          delegate their power to their guild; the leader's vote then casts every delegator's balance too.
           <br />
           <a href="/">Home</a> · <a href="/dashboard">Dashboard</a> · <a href="/stats">Stats</a> ·{" "}
           <a href="/docs">Wiki</a>
