@@ -14,6 +14,7 @@ export function WhoPanel() {
   const mobileLayout = useMobileLayout();
   const [open, setOpen] = useState(false);
   const [players, setPlayers] = useState<RosterEntry[]>([]);
+  const [globalOnline, setGlobalOnline] = useState(() => networkManager.getWorldStats().online);
 
   useEffect(() => {
     const unsubscribe = networkManager.onPlayersChange((list, localId) => {
@@ -23,17 +24,25 @@ export function WhoPanel() {
           .sort((a, b) => b.level - a.level || a.name.localeCompare(b.name)),
       );
     });
+    const unsubscribeStats = networkManager.onWorldStats((payload) => {
+      setGlobalOnline(payload.online);
+    });
     return () => {
       unsubscribe();
+      unsubscribeStats();
     };
   }, []);
+
+  // Global count across every zone; the zone roster is the floor while the
+  // first worldStats broadcast is still in flight.
+  const onlineCount = Math.max(globalOnline, players.length);
 
   return (
     <div className="chibi-who">
       <button
         type="button"
         className={`chibi-who-toggle${open ? " active" : ""}${mobileLayout ? " chibi-who-toggle--fab" : ""}`}
-        aria-label={`Who's online (${players.length})`}
+        aria-label={`Who's online (${onlineCount})`}
         onPointerDown={(event) => event.preventDefault()}
         onClick={() => {
           playSfx(open ? "ui_close" : "ui_open");
@@ -43,12 +52,12 @@ export function WhoPanel() {
         {mobileLayout ? (
           <>
             👥
-            {players.length > 0 && (
-              <span className="chibi-chat-fab__badge">{players.length}</span>
+            {onlineCount > 0 && (
+              <span className="chibi-chat-fab__badge">{onlineCount}</span>
             )}
           </>
         ) : (
-          <>👥 {players.length} online</>
+          <>👥 {onlineCount} online</>
         )}
       </button>
       {open && (
