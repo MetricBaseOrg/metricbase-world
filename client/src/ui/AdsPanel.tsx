@@ -36,6 +36,7 @@ export function AdsPanel() {
 
   // Campaign form + deposit amount.
   const [depositAmt, setDepositAmt] = useState("");
+  const [adminCreditAmt, setAdminCreditAmt] = useState("");
   const [recoverTx, setRecoverTx] = useState("");
   const [name, setName] = useState("");
   const [imageUrl, setImageUrl] = useState("");
@@ -449,6 +450,38 @@ export function AdsPanel() {
                     ⚠️ Player earnings owed exceed the house balance — top up the house wallet. New earnings are paused until it's covered.
                   </div>
                 )}
+
+                <div className="chibi-ads__sub">Add ad credit (from the admin wallet's $BASE)</div>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <input
+                    className="chibi-input"
+                    style={{ flex: 1 }}
+                    type="number"
+                    min={1}
+                    placeholder="$BASE amount"
+                    value={adminCreditAmt}
+                    onChange={(e) => setAdminCreditAmt(e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    className="chibi-btn chibi-btn--gold"
+                    disabled={busy || !(Number(adminCreditAmt) > 0)}
+                    onClick={() => {
+                      setBusy(true);
+                      setError(null);
+                      setNotice("Crediting from the admin wallet…");
+                      networkManager.sendAdAdminCredit(Number(adminCreditAmt));
+                      setAdminCreditAmt("");
+                      window.setTimeout(() => networkManager.requestAdAdminDashboard(), 800);
+                    }}
+                  >
+                    💳 Credit
+                  </button>
+                </div>
+                <div className="chibi-text-muted" style={{ fontSize: "0.68rem" }}>
+                  No transfer needed — the credit is backed by tokens already held in the admin
+                  wallet (checked on-chain) and funds your campaigns like a normal deposit.
+                </div>
 
                 <div className="chibi-ads__sub">Slots (by impression volume)</div>
                 <div className="chibi-ads__table">

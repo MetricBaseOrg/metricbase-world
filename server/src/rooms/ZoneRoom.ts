@@ -973,6 +973,9 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       if (!adService.isAdmin(wallet ?? null)) return void client.send("adActionResult", { ok: false, error: "Not authorized." });
       void adService.getAdminDashboard().then((d) => client.send("adAdminDashboard", d));
     });
+    this.onProtectedMessage("adAdminCredit", (client, m: { amount?: number }) => {
+      void this.handleAdAdminCredit(client, Number(m.amount ?? 0));
+    });
     // ---- Admin moderation (treasury/ADMIN_WALLETS only; re-checked per message) ----
     this.onProtectedMessage("adminBanList", (client) => {
       void this.handleAdminBanList(client);
@@ -5692,6 +5695,38 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     }
     const serving = adService.getServing();
     if (serving.creatives.length > 0) this.broadcast("adServing", serving);
+  }
+
+  /** Admin-only: credit ad balance directly from the tokens already sitting in
+   *  the admin (house) wallet. Normal brands deposit by transferring $BASE to
+   *  the house wallet — the admin can't transfer to itself, so its held
+   *  balance backs the credit instead (verified live on-chain, so the admin
+   *  can't credit more than the wallet actually holds). */
+  private async handleAdAdminCredit(client: Client, amount: number) {
+    const wallet = this.playerWallets.get(client.sessionId);
+    if (!wallet || !adService.isAdmin(wallet)) {
+      return void client.send("adActionResult", { ok: false, error: "Not authorized." });
+    }
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return void client.send("adActionResult", { ok: false, error: "Enter a positive $BASE amount." });
+    }
+    try {
+      const held = await getWalletTokenBalance(wallet);
+      if (held < amount) {
+        return void client.send("adActionResult", {
+          ok: false,
+          error: `The admin wallet holds ${Math.floor(held).toLocaleString()} $BASE — can't credit ${Math.floor(amount).toLocaleString()}.`,
+        });
+      }
+      // Unique synthetic signature keeps the idempotent deposit ledger honest
+      // (each credit is its own auditable ledger row, kind "deposit").
+      await adService.creditDeposit(wallet, amount, `admin-credit-${crypto.randomUUID()}`);
+      client.send("adBrandDashboard", adService.getBrandDashboard(wallet));
+      client.send("adActionResult", { ok: true });
+    } catch (error) {
+      console.warn("[ads] admin credit failed:", error);
+      client.send("adActionResult", { ok: false, error: "Credit failed — check the server logs." });
+    }
   }
 
   private async handleAdDeposit(client: Client, signature: string, claimedWallet?: string) {

@@ -798,6 +798,9 @@ export class NetworkManager {
   requestAdAdminDashboard() {
     this.room?.send("adAdminDashboard", {});
   }
+  sendAdAdminCredit(amount: number) {
+    this.room?.send("adAdminCredit", { amount });
+  }
   requestAdTransparency() {
     this.room?.send("adTransparency", {});
   }
