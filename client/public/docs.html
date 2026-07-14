@@ -249,6 +249,7 @@
           <li><a href="#worlds">12. Player Worlds 🌍</a></li>
           <li><a href="#world">13. The World</a></li>
           <li><a href="#base">14. $BASE Utility &amp; Transparency</a></li>
+          <li><a href="#dao">14b. MetricBase DAO 🏛️</a></li>
           <li><a href="#tips">15. Tips</a></li>
         </ul>
       </nav>
@@ -354,13 +355,14 @@
       <!-- 4 -->
       <section id="gather">
         <h2><span class="emoji">⛏️</span> 4. Gathering</h2>
-        <p>Walk up to a resource node, face it, and press the gather key. There are three gathering
+        <p>Walk up to a resource node, face it, and press the gather key. There are four gathering
         skills, each with its own XP and levels:</p>
         <table>
           <tr><th>Skill</th><th>Node</th><th>Key</th><th>Yields</th></tr>
           <tr><td>Woodcutting</td><td>Trees</td><td><span class="kbd">F</span></td><td>Wood, Hardwood</td></tr>
           <tr><td>Mining</td><td>Rocks &amp; deposits</td><td><span class="kbd">F</span></td><td>Copper Ore, Iron Ore</td></tr>
           <tr><td>Fishing</td><td>Fishing spots (on water)</td><td><span class="kbd">G</span></td><td>12 fish species across 5 rarities</td></tr>
+          <tr><td>Farming</td><td>Crop patches (in <a href="#worlds">Player Worlds</a>) + <a href="#farm">farm plots</a></td><td><span class="kbd">F</span></td><td>Wheat &amp; Carrot <strong>Seeds</strong> (patches), crops (plots)</td></tr>
         </table>
         <h3>Tiers &amp; requirements</h3>
         <p>Higher-tier nodes need a higher skill level — e.g. <strong>Iron Deposits</strong> and
@@ -456,10 +458,26 @@
           <li>Crops grow in <strong>real time</strong>, even while you're away or offline.</li>
           <li>Return when it's ripe to harvest + Farming XP; bake wheat into <strong>Bread</strong>
           at the workbench.</li>
+          <li>Besides buying seeds, you can <strong>gather them free</strong>: crop patches placed
+          in <a href="#worlds">Player Worlds</a> yield <strong>Wheat / Carrot Seeds</strong> (the
+          generic Crop Field gives a random one) and train your <strong>Farming</strong> skill.</li>
           <li>In <a href="#worlds">Player Worlds</a>, every painted <strong>soil tile is a farm
           plot</strong> — and <strong>Crop Markets</strong> placed there buy your harvest and sell
           seeds on the spot. Harvesting in someone else's World pays the owner's gather tax.</li>
         </ul>
+        <h3>⚒️ Farming tools &amp; gear</h3>
+        <p>Forge a <strong>hoe</strong> and dress for the fields — farming gear pays off both on
+        crop patches and at farm plots:</p>
+        <table>
+          <tr><th>Item</th><th>Effect</th></tr>
+          <tr><td>⚒️ Copper Hoe</td><td>Tends crop patches 30% faster · crops you plant grow <strong>15% sooner</strong></td></tr>
+          <tr><td>⚒️ Iron Hoe</td><td>50% faster · crops grow <strong>25% sooner</strong></td></tr>
+          <tr><td>⚒️ Steel Hoe</td><td>50% faster · 40% bonus-harvest chance · crops grow <strong>35% sooner</strong></td></tr>
+          <tr><td>👒 Farmer's Sun Hat (helmet)</td><td>+10% Farming XP · sometimes a bonus crop. Craft: 10 Wheat + 5 Carrots</td></tr>
+          <tr><td>💍 Grower's Ring (ring)</td><td>+25% Farming XP. Craft: 1 Amber + 1 Gemstone</td></tr>
+        </table>
+        <p>The growth boost locks in <strong>when you plant</strong> — whatever hoe is equipped at
+        planting decides how fast that crop matures.</p>
       </section>
 
       <!-- 5b -->
@@ -512,9 +530,9 @@
         <h3>Tool tiers</h3>
         <table>
           <tr><th>Tier</th><th>Speed</th><th>Bonus</th></tr>
-          <tr><td>Copper (axe / pickaxe / rod)</td><td>30% faster</td><td>—</td></tr>
-          <tr><td>Iron / Pro (axe / pickaxe / rod)</td><td>50% faster</td><td>—</td></tr>
-          <tr><td>Steel (axe / pickaxe / Trawler's Net)</td><td>50% faster</td><td>40% chance of a bonus drop</td></tr>
+          <tr><td>Copper (axe / pickaxe / rod / hoe)</td><td>30% faster</td><td>hoe: crops grow 15% sooner</td></tr>
+          <tr><td>Iron / Pro (axe / pickaxe / rod / hoe)</td><td>50% faster</td><td>hoe: crops grow 25% sooner</td></tr>
+          <tr><td>Steel (axe / pickaxe / hoe / Trawler's Net)</td><td>50% faster</td><td>40% chance of a bonus drop · steel hoe: crops grow 35% sooner</td></tr>
           <tr><td>🎣 Gilded Rod (fishing)</td><td>60% faster</td><td>50% bonus catch · <strong>+25% fishing XP</strong></td></tr>
           <tr><td>🎣 Abyssal Rod (fishing)</td><td>65% faster</td><td>60% bonus catch · <strong>+50% fishing XP</strong> · pearls surface far more often</td></tr>
         </table>
@@ -532,14 +550,17 @@
           <li>Light top-ups are gold-only — repair early, repair often.</li>
           <li>Swapping gear doesn't reset the damage: an item remembers its wear when re-equipped.</li>
         </ul>
-        <h3>Fishing accessories</h3>
-        <p>Craftable gear that boosts fishing while <em>worn</em> (stacks with your rod):</p>
+        <h3>Fishing &amp; farming accessories</h3>
+        <p>Craftable gear that boosts a skill while <em>worn</em> (stacks with your tool):</p>
         <ul class="list">
           <li><strong>📿 Lucky Lure Pendant</strong> (necklace) — rare catches (pearls) surface much
           more often. Craft: 2 Pearls + 1 Iron Bar.</li>
           <li><strong>💍 Angler's Ring</strong> (ring) — +25% fishing XP. Craft: 1 Pearl + 1 Gemstone.</li>
           <li><strong>👒 Angler's Straw Cap</strong> (helmet) — +10% fishing XP and sometimes an extra
           catch. Craft: 10 Wheat + 5 Fish — a great first goal for new anglers.</li>
+          <li><strong>👒 Farmer's Sun Hat</strong> (helmet) — +10% Farming XP and sometimes a bonus
+          crop. Craft: 10 Wheat + 5 Carrots.</li>
+          <li><strong>💍 Grower's Ring</strong> (ring) — +25% Farming XP. Craft: 1 Amber + 1 Gemstone.</li>
         </ul>
         <p>The Gilded Rod is crafted from planks, steel and rare Amber; the <strong>Abyssal Rod</strong>
         upgrades a Gilded Rod with 3 Pearls — the ultimate fishing setup also widens the catch
@@ -562,7 +583,7 @@
           <li>Equip a <strong>weapon</strong> for more damage per hit.</li>
           <li>Earn <strong>XP</strong> and <strong>gold</strong> from defeating monsters (and quests),
           which raises your combat <strong>Level</strong> and max HP — all the way to <strong>level
-          50</strong>. Your gathering skills climb to <strong>50</strong> too.</li>
+          99</strong>. Your gathering skills climb to <strong>99</strong> too.</li>
           <li>Out of combat, your HP slowly <strong>regenerates</strong> — or eat food to heal fast.</li>
         </ul>
         <h3>Knockout &amp; respawn</h3>
@@ -1109,8 +1130,35 @@
         <h3>📊 The transparency dashboard</h3>
         <p>Everything above is publicly auditable at
         <a href="https://world.metricbase.org/stats">world.metricbase.org/stats</a> — live players,
-        gold minted vs burned, $BASE burned by sink, player Worlds economy, markets, ads, and daily
-        activity charts. Hit <strong>𝕏 Share the numbers</strong> there to post the live stats.</p>
+        gold minted vs burned, $BASE burned by sink, player Worlds economy, markets, ads, daily
+        activity charts, and the <strong>👑 Richest Players</strong> board: top players by full
+        <strong>net worth</strong> (gold + items + build assets + Worlds, houses and shops) with
+        day-over-day change, resetting each 90-day season. Hit <strong>𝕏 Share the numbers</strong>
+        there to post the live stats.</p>
+      </section>
+
+      <!-- 14b -->
+      <section id="dao">
+        <h2><span class="emoji">🏛️</span> 14b. MetricBase DAO</h2>
+        <p>$BASE holders govern the world at
+        <a href="https://world.metricbase.org/dao">world.metricbase.org/dao</a> — a standalone
+        page where the community creates polls and votes with the weight of its holdings. No game
+        account needed: just connect your wallet.</p>
+        <table>
+          <tr><th>Action</th><th>Requirement</th></tr>
+          <tr><td>🗳️ Vote on a poll</td><td>Hold <strong>1,000,000+ $BASE</strong></td></tr>
+          <tr><td>📜 Create a poll</td><td>Hold <strong>10,000,000+ $BASE</strong> (max 3 open polls per wallet)</td></tr>
+        </table>
+        <ul class="list">
+          <li><strong>Token-weighted:</strong> your voting power equals your $BASE balance — one
+          wallet, one vote per poll.</li>
+          <li><strong>Gasless:</strong> voting is off-chain — you sign in with your wallet and the
+          server reads your live on-chain balance. No transaction, no fees.</li>
+          <li><strong>Final:</strong> your vote's weight is frozen the moment you cast it, and
+          votes can't be changed.</li>
+          <li>Polls run <strong>1–14 days</strong> with 2–6 options; results show live weighted
+          bars, voter counts, and total $BASE weight.</li>
+        </ul>
       </section>
 
       <!-- 15 -->
