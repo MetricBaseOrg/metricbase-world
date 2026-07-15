@@ -15,6 +15,8 @@ export interface StoredShareHolding {
   holderName: string;
   holderWallet: string | null;
   shares: number;
+  /** Total gold outlay for the current position (for unrealised P/L). */
+  costBasis: number;
 }
 
 export interface StoredShareTrade {
@@ -95,12 +97,14 @@ export async function loadShareHoldings(): Promise<StoredShareHolding[]> {
       holder_name: string;
       holder_wallet: string | null;
       shares: number;
-    }>("SELECT company_id, holder_name, holder_wallet, shares FROM share_holdings WHERE shares > 0");
+      cost_basis: string | number | null;
+    }>("SELECT company_id, holder_name, holder_wallet, shares, cost_basis FROM share_holdings WHERE shares > 0");
     return res.rows.map((r) => ({
       companyId: r.company_id,
       holderName: r.holder_name,
       holderWallet: r.holder_wallet ?? null,
       shares: Math.max(0, Math.floor(r.shares)),
+      costBasis: Math.max(0, Math.floor(Number(r.cost_basis ?? 0))),
     }));
   } catch (error) {
     console.warn("[exchange] load holdings failed:", error);
@@ -121,11 +125,12 @@ export async function saveShareHolding(h: StoredShareHolding): Promise<void> {
       return;
     }
     await pool.query(
-      `INSERT INTO share_holdings (company_id, holder_name, holder_wallet, shares)
-       VALUES ($1,$2,$3,$4)
+      `INSERT INTO share_holdings (company_id, holder_name, holder_wallet, shares, cost_basis)
+       VALUES ($1,$2,$3,$4,$5)
        ON CONFLICT (company_id, holder_name) DO UPDATE SET
-         shares = EXCLUDED.shares, holder_wallet = COALESCE(EXCLUDED.holder_wallet, share_holdings.holder_wallet)`,
-      [h.companyId, h.holderName, h.holderWallet, h.shares],
+         shares = EXCLUDED.shares, cost_basis = EXCLUDED.cost_basis,
+         holder_wallet = COALESCE(EXCLUDED.holder_wallet, share_holdings.holder_wallet)`,
+      [h.companyId, h.holderName, h.holderWallet, h.shares, h.costBasis],
     );
   } catch (error) {
     console.warn("[exchange] save holding failed:", error);

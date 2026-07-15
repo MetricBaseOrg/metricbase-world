@@ -141,8 +141,12 @@ export interface ShareHoldingView {
   shares: number;
   /** Current marginal price per share. */
   price: number;
-  /** Marketable value if sold now (net of fees), best-effort. */
+  /** Marketable value if sold now (liquidation down the curve). */
   value: number;
+  /** Total gold outlay for this position. */
+  costBasis: number;
+  /** Unrealised profit/loss = value − costBasis. */
+  pnl: number;
 }
 
 export interface ShareholderView {
@@ -156,6 +160,8 @@ export interface CompanyMarketDetail {
   summary: ShareMarketSummary;
   /** The viewer's holding in this company. */
   myShares: number;
+  /** The viewer's gold outlay for the current position (for P/L). */
+  myCostBasis: number;
   topHolders: ShareholderView[];
   recentTrades: ShareTradeView[];
 }

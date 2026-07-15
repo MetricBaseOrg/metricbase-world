@@ -5,6 +5,7 @@ import {
   SHARE_TRADE_FEE_RATE,
   quoteBuy,
   quoteSell,
+  shareSellProceeds,
   type CompanyMarketDetail,
   type ExchangeStatePayload,
   type ShareMarketSummary,
@@ -194,7 +195,12 @@ function MarketBoard({ state, onOpen }: { state: ExchangeStatePayload; onOpen: (
               <div style={{ width: 26, height: 26, borderRadius: 7, display: "grid", placeItems: "center", background: colorCss(h.color), fontSize: 14 }}>{h.emblem}</div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 700, fontSize: "0.8rem" }}>{h.ticker} · {h.name}</div>
-                <div className="chibi-text-muted" style={{ fontSize: "0.68rem" }}>{h.shares.toLocaleString()} shares · ~{h.value.toLocaleString()}g</div>
+                <div className="chibi-text-muted" style={{ fontSize: "0.68rem" }}>
+                  {h.shares.toLocaleString()} shares · ~{h.value.toLocaleString()}g ·{" "}
+                  <span style={{ color: h.pnl >= 0 ? "#2f9e5e" : "#c0392b" }}>
+                    {h.pnl >= 0 ? "+" : ""}{h.pnl.toLocaleString()}g
+                  </span>
+                </div>
               </div>
               <div style={{ fontWeight: 700, fontSize: "0.8rem", color: "#b8860b" }}>{h.price.toFixed(2)}g</div>
             </button>
@@ -305,6 +311,18 @@ function MarketDetailView({
         <div className="chibi-text-muted" style={{ fontSize: "0.7rem", marginTop: 8 }}>
           You hold <b>{detail.myShares.toLocaleString()}</b> shares · You have <b>{gold.toLocaleString()}g</b>
         </div>
+        {detail.myShares > 0 && (() => {
+          const posValue = shareSellProceeds(m.circulatingShares, Math.min(detail.myShares, m.circulatingShares), m.basePrice, m.slope);
+          const pnl = posValue - detail.myCostBasis;
+          return (
+            <div className="chibi-text-muted" style={{ fontSize: "0.68rem", marginTop: 2 }}>
+              worth ~{posValue.toLocaleString()}g · cost {detail.myCostBasis.toLocaleString()}g ·{" "}
+              <span style={{ color: pnl >= 0 ? "#2f9e5e" : "#c0392b", fontWeight: 700 }}>
+                {pnl >= 0 ? "+" : ""}{pnl.toLocaleString()}g P/L
+              </span>
+            </div>
+          );
+        })()}
         <input
           className="chibi-input"
           style={{ width: "100%", marginTop: 6 }}

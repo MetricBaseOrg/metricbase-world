@@ -547,15 +547,19 @@ CREATE TABLE IF NOT EXISTS share_markets (
   slope DOUBLE PRECISION NOT NULL                     -- bonding-curve k at listing
 );
 
--- Per-holder share balances (the shareholder registry).
+-- Per-holder share balances (the shareholder registry). cost_basis is the total
+-- gold outlay (net of proportional reductions on sells) for the current
+-- position, so the client can show unrealised profit/loss.
 CREATE TABLE IF NOT EXISTS share_holdings (
   company_id VARCHAR(64) NOT NULL,
   holder_name VARCHAR(16) NOT NULL,
   holder_wallet VARCHAR(44),
   shares INTEGER NOT NULL DEFAULT 0,
+  cost_basis BIGINT NOT NULL DEFAULT 0,
   PRIMARY KEY (company_id, holder_name)
 );
 CREATE INDEX IF NOT EXISTS share_holdings_holder_idx ON share_holdings (holder_name);
+ALTER TABLE share_holdings ADD COLUMN IF NOT EXISTS cost_basis BIGINT NOT NULL DEFAULT 0;
 
 -- Trade tape: every executed trade, for the feed, volume, 24h change + charts.
 CREATE TABLE IF NOT EXISTS share_trades (
