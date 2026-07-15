@@ -17,6 +17,16 @@ export interface StoredShareHolding {
   shares: number;
   /** Total gold outlay for the current position (for unrealised P/L). */
   costBasis: number;
+  /** Holder's preferred dividend % (their share-weighted vote); null = unset. */
+  preferredPct: number | null;
+}
+
+export interface StoredShareDividend {
+  companyId: string;
+  week: string;
+  total: number;
+  perShare: number;
+  at: number;
 }
 
 export interface StoredShareTrade {
@@ -98,13 +108,15 @@ export async function loadShareHoldings(): Promise<StoredShareHolding[]> {
       holder_wallet: string | null;
       shares: number;
       cost_basis: string | number | null;
-    }>("SELECT company_id, holder_name, holder_wallet, shares, cost_basis FROM share_holdings WHERE shares > 0");
+      preferred_payout_pct: number | null;
+    }>("SELECT company_id, holder_name, holder_wallet, shares, cost_basis, preferred_payout_pct FROM share_holdings WHERE shares > 0");
     return res.rows.map((r) => ({
       companyId: r.company_id,
       holderName: r.holder_name,
       holderWallet: r.holder_wallet ?? null,
       shares: Math.max(0, Math.floor(r.shares)),
       costBasis: Math.max(0, Math.floor(Number(r.cost_basis ?? 0))),
+      preferredPct: r.preferred_payout_pct == null ? null : Math.max(0, Math.floor(r.preferred_payout_pct)),
     }));
   } catch (error) {
     console.warn("[exchange] load holdings failed:", error);
@@ -125,12 +137,13 @@ export async function saveShareHolding(h: StoredShareHolding): Promise<void> {
       return;
     }
     await pool.query(
-      `INSERT INTO share_holdings (company_id, holder_name, holder_wallet, shares, cost_basis)
-       VALUES ($1,$2,$3,$4,$5)
+      `INSERT INTO share_holdings (company_id, holder_name, holder_wallet, shares, cost_basis, preferred_payout_pct)
+       VALUES ($1,$2,$3,$4,$5,$6)
        ON CONFLICT (company_id, holder_name) DO UPDATE SET
          shares = EXCLUDED.shares, cost_basis = EXCLUDED.cost_basis,
+         preferred_payout_pct = EXCLUDED.preferred_payout_pct,
          holder_wallet = COALESCE(EXCLUDED.holder_wallet, share_holdings.holder_wallet)`,
-      [h.companyId, h.holderName, h.holderWallet, h.shares, h.costBasis],
+      [h.companyId, h.holderName, h.holderWallet, h.shares, h.costBasis, h.preferredPct],
     );
   } catch (error) {
     console.warn("[exchange] save holding failed:", error);
@@ -186,6 +199,51 @@ export async function loadRecentShareTrades(perCompany = 200): Promise<StoredSha
     }));
   } catch (error) {
     console.warn("[exchange] load recent trades failed:", error);
+    return [];
+  }
+}
+
+export async function insertShareDividend(d: StoredShareDividend): Promise<void> {
+  const pool = getPool();
+  if (!pool) return;
+  try {
+    await pool.query(
+      `INSERT INTO share_dividends (company_id, week, total, per_share, at)
+       VALUES ($1,$2,$3,$4,$5) ON CONFLICT (company_id, week) DO NOTHING`,
+      [d.companyId, d.week, d.total, d.perShare, d.at],
+    );
+  } catch (error) {
+    console.warn("[exchange] insert dividend failed:", error);
+  }
+}
+
+/** Recent dividend distributions per company (for history display). */
+export async function loadRecentShareDividends(perCompany = 12): Promise<StoredShareDividend[]> {
+  const pool = getPool();
+  if (!pool) return [];
+  try {
+    const res = await pool.query<{
+      company_id: string;
+      week: string;
+      total: number;
+      per_share: number;
+      at: string | number;
+    }>(
+      `SELECT company_id, week, total, per_share, at FROM (
+         SELECT *, ROW_NUMBER() OVER (PARTITION BY company_id ORDER BY at DESC) AS rn
+         FROM share_dividends
+       ) d WHERE rn <= $1`,
+      [perCompany],
+    );
+    return res.rows.map((r) => ({
+      companyId: r.company_id,
+      week: r.week,
+      total: Math.floor(r.total),
+      perShare: r.per_share,
+      at: Number(r.at),
+    }));
+  } catch (error) {
+    console.warn("[exchange] load dividends failed:", error);
     return [];
   }
 }

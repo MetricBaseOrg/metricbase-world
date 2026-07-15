@@ -37,6 +37,12 @@ export interface StoredCompany {
   stats: CompanyStats;
   /** UTC day (yyyy-mm-dd) of the last completed payout, or null. */
   lastPayoutDay: string | null;
+  /** Cumulative revenue snapshot at the last weekly dividend close. */
+  weekAnchorRevenue: number;
+  /** Cumulative operating expenses (salaries + member dividends) at last close. */
+  weekAnchorOpex: number;
+  /** Week key of the last share-dividend payout, or null. */
+  lastDividendWeek: string | null;
   /** Epoch ms of creation (for age/reputation). */
   createdAt: number;
 }
@@ -107,6 +113,7 @@ function normalizeStats(value: unknown): CompanyStats {
   if (raw.paidOut && typeof raw.paidOut === "object") {
     base.paidOut.salaries = Math.max(0, Math.floor(raw.paidOut.salaries ?? 0));
     base.paidOut.dividends = Math.max(0, Math.floor(raw.paidOut.dividends ?? 0));
+    base.paidOut.shareDividends = Math.max(0, Math.floor(raw.paidOut.shareDividends ?? 0));
   }
   base.contractsCompleted = Math.max(0, Math.floor(raw.contractsCompleted ?? 0));
   if (raw.contrib && typeof raw.contrib === "object") {
@@ -147,11 +154,15 @@ export async function loadCompanies(): Promise<StoredCompany[]> {
       salaries: unknown;
       stats: unknown;
       last_payout_day: string | null;
+      week_anchor_revenue: string | number | null;
+      week_anchor_opex: string | number | null;
+      last_dividend_week: string | null;
       created_at: Date | null;
     }>(
       `SELECT id, name, owner_name, owner_wallet, emblem, color, company_type, motd,
               treasury, revenue_share, dividend_rate, members, managers, trainees,
-              join_requests, warehouse, salaries, stats, last_payout_day, created_at
+              join_requests, warehouse, salaries, stats, last_payout_day,
+              week_anchor_revenue, week_anchor_opex, last_dividend_week, created_at
        FROM companies`,
     );
     return res.rows.map((row) => ({
@@ -174,6 +185,9 @@ export async function loadCompanies(): Promise<StoredCompany[]> {
       salaries: normalizeSalaries(row.salaries),
       stats: normalizeStats(row.stats),
       lastPayoutDay: row.last_payout_day ?? null,
+      weekAnchorRevenue: Math.max(0, Math.floor(Number(row.week_anchor_revenue ?? 0))),
+      weekAnchorOpex: Math.max(0, Math.floor(Number(row.week_anchor_opex ?? 0))),
+      lastDividendWeek: row.last_dividend_week ?? null,
       createdAt: row.created_at ? row.created_at.getTime() : Date.now(),
     }));
   } catch (error) {
@@ -189,8 +203,9 @@ export async function saveCompany(company: StoredCompany): Promise<void> {
     await pool.query(
       `INSERT INTO companies (id, name, owner_name, owner_wallet, emblem, color, company_type,
                               motd, treasury, revenue_share, dividend_rate, members, managers,
-                              trainees, join_requests, warehouse, salaries, stats, last_payout_day)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
+                              trainees, join_requests, warehouse, salaries, stats, last_payout_day,
+                              week_anchor_revenue, week_anchor_opex, last_dividend_week)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
        ON CONFLICT (id) DO UPDATE SET
          name = EXCLUDED.name, owner_name = EXCLUDED.owner_name, owner_wallet = EXCLUDED.owner_wallet,
          emblem = EXCLUDED.emblem, color = EXCLUDED.color, company_type = EXCLUDED.company_type,
@@ -198,7 +213,8 @@ export async function saveCompany(company: StoredCompany): Promise<void> {
          dividend_rate = EXCLUDED.dividend_rate, members = EXCLUDED.members, managers = EXCLUDED.managers,
          trainees = EXCLUDED.trainees, join_requests = EXCLUDED.join_requests,
          warehouse = EXCLUDED.warehouse, salaries = EXCLUDED.salaries, stats = EXCLUDED.stats,
-         last_payout_day = EXCLUDED.last_payout_day`,
+         last_payout_day = EXCLUDED.last_payout_day, week_anchor_revenue = EXCLUDED.week_anchor_revenue,
+         week_anchor_opex = EXCLUDED.week_anchor_opex, last_dividend_week = EXCLUDED.last_dividend_week`,
       [
         company.id,
         company.name,
@@ -219,6 +235,9 @@ export async function saveCompany(company: StoredCompany): Promise<void> {
         JSON.stringify(company.salaries),
         JSON.stringify(company.stats),
         company.lastPayoutDay,
+        company.weekAnchorRevenue,
+        company.weekAnchorOpex,
+        company.lastDividendWeek,
       ],
     );
   } catch (error) {

@@ -504,6 +504,10 @@ CREATE TABLE IF NOT EXISTS companies (
   last_payout_day VARCHAR(10),                        -- idempotency key (UTC yyyy-mm-dd)
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+-- Weekly financial close anchors + idempotency for share dividends (Phase 2b).
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS week_anchor_revenue BIGINT NOT NULL DEFAULT 0;
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS week_anchor_opex BIGINT NOT NULL DEFAULT 0;
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS last_dividend_week VARCHAR(16);
 
 -- Contracts posted BY outsiders TO a company; reward gold escrowed at posting.
 CREATE TABLE IF NOT EXISTS company_contracts (
@@ -560,6 +564,8 @@ CREATE TABLE IF NOT EXISTS share_holdings (
 );
 CREATE INDEX IF NOT EXISTS share_holdings_holder_idx ON share_holdings (holder_name);
 ALTER TABLE share_holdings ADD COLUMN IF NOT EXISTS cost_basis BIGINT NOT NULL DEFAULT 0;
+-- Each holder's preferred dividend % (their share-weighted vote); NULL = unset.
+ALTER TABLE share_holdings ADD COLUMN IF NOT EXISTS preferred_payout_pct SMALLINT;
 
 -- Trade tape: every executed trade, for the feed, volume, 24h change + charts.
 CREATE TABLE IF NOT EXISTS share_trades (
@@ -574,4 +580,15 @@ CREATE TABLE IF NOT EXISTS share_trades (
   at BIGINT NOT NULL                                   -- epoch ms
 );
 CREATE INDEX IF NOT EXISTS share_trades_company_at_idx ON share_trades (company_id, at DESC);
+
+-- Weekly share-dividend distributions (history + payout idempotency backstop).
+CREATE TABLE IF NOT EXISTS share_dividends (
+  company_id VARCHAR(64) NOT NULL,
+  week VARCHAR(16) NOT NULL,
+  total INTEGER NOT NULL DEFAULT 0,
+  per_share DOUBLE PRECISION NOT NULL DEFAULT 0,
+  at BIGINT NOT NULL,
+  PRIMARY KEY (company_id, week)
+);
+CREATE INDEX IF NOT EXISTS share_dividends_company_idx ON share_dividends (company_id, at DESC);
 CREATE INDEX IF NOT EXISTS asset_inventory_player_wallet_idx ON asset_inventory (player_wallet);

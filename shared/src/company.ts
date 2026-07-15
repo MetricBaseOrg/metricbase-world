@@ -236,6 +236,8 @@ export interface CompanyStats {
   paidOut: {
     salaries: number;
     dividends: number;
+    /** Gold paid to shareholders via the stock-exchange weekly dividend. */
+    shareDividends: number;
   };
   contractsCompleted: number;
   contrib: Record<string, CompanyContribution>;
@@ -244,7 +246,7 @@ export interface CompanyStats {
 export function emptyCompanyStats(): CompanyStats {
   return {
     revenue: { skim: 0, vendor: 0, contracts: 0, deposits: 0, shares: 0 },
-    paidOut: { salaries: 0, dividends: 0 },
+    paidOut: { salaries: 0, dividends: 0, shareDividends: 0 },
     contractsCompleted: 0,
     contrib: {},
   };

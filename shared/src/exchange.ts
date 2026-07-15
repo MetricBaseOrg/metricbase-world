@@ -37,6 +37,49 @@ export const SHARE_MAX_TRADE = 100_000;
 /** Per-player, per-company trade cooldown (anti-spam / anti-wash). */
 export const SHARE_TRADE_COOLDOWN_MS = 3_000;
 
+// --- Dividends + governance (Phase 2b) ---
+
+/** Max share-dividend payout as a % of a week's net profit. */
+export const SHARE_DIVIDEND_MAX_PCT = 50;
+/** Payout % a share votes at when its holder hasn't set a preference. */
+export const SHARE_DIVIDEND_DEFAULT_PCT = 30;
+/** Ownership fraction that grants hard control (CEO) of a company. */
+export const SHARE_CONTROL_THRESHOLD = 0.5;
+/** How often share dividends are distributed. */
+export const SHARE_DIVIDEND_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000;
+
+/** UTC week bucket for a timestamp (the idempotency key for weekly payouts). */
+export function shareWeekKey(at: number): string {
+  return String(Math.floor(at / SHARE_DIVIDEND_INTERVAL_MS));
+}
+
+/**
+ * The company's effective share-dividend % = the share-weighted average of every
+ * shareholder's preferred %, where a holder who hasn't voted contributes their
+ * shares at the default %. Every share therefore votes; a majority holder's
+ * preference dominates (this is the "share-weighted vote" and the takeover lever
+ * in one). Result is clamped to [0, SHARE_DIVIDEND_MAX_PCT].
+ */
+export function effectiveDividendPct(
+  holders: Array<{ shares: number; preferredPct: number | null }>,
+): number {
+  let weighted = 0;
+  let total = 0;
+  for (const h of holders) {
+    if (h.shares <= 0) continue;
+    const pref = h.preferredPct == null ? SHARE_DIVIDEND_DEFAULT_PCT : h.preferredPct;
+    weighted += h.shares * clampPct(pref);
+    total += h.shares;
+  }
+  if (total <= 0) return SHARE_DIVIDEND_DEFAULT_PCT;
+  return Math.round(weighted / total);
+}
+
+export function clampPct(pct: number): number {
+  if (!Number.isFinite(pct)) return 0;
+  return Math.max(0, Math.min(SHARE_DIVIDEND_MAX_PCT, Math.round(pct)));
+}
+
 // ---------------------------------------------------------------------------
 // Bonding-curve maths (pure). Computed in float, rounded at the boundary so the
 // reserve is always solvent.
@@ -156,6 +199,29 @@ export interface ShareholderView {
   pct: number;
 }
 
+/** A company's income summary (weekly cadence) for financial reporting. */
+export interface CompanyFinancialsView {
+  /** Revenue booked so far in the current week, by source. */
+  weekRevenue: number;
+  /** Operating expenses (salaries + member dividends) so far this week. */
+  weekExpenses: number;
+  /** weekRevenue − weekExpenses (can be negative). */
+  weekNetProfit: number;
+  /** Lifetime totals for the balance-sheet view. */
+  lifetimeRevenue: number;
+  lifetimeExpenses: number;
+  /** Company assets: treasury gold + warehouse value. */
+  treasury: number;
+  warehouseValue: number;
+}
+
+export interface DividendRecordView {
+  week: string;
+  total: number;
+  perShare: number;
+  at: number;
+}
+
 export interface CompanyMarketDetail {
   summary: ShareMarketSummary;
   /** The viewer's holding in this company. */
@@ -164,6 +230,21 @@ export interface CompanyMarketDetail {
   myCostBasis: number;
   topHolders: ShareholderView[];
   recentTrades: ShareTradeView[];
+  // --- governance + dividends ---
+  /** Largest shareholder (the CEO), or null if no shares are held. */
+  ceo: string | null;
+  /** The CEO's ownership fraction (0–1). */
+  ceoPct: number;
+  /** True when the CEO holds a controlling (>threshold) stake. */
+  controlled: boolean;
+  /** Effective share-weighted dividend % applied at the weekly payout. */
+  dividendPct: number;
+  /** The viewer's own preferred % (their vote), or null if unset. */
+  myDividendVote: number | null;
+  /** Company income summary. */
+  financials: CompanyFinancialsView;
+  /** Recent share-dividend distributions (newest first). */
+  dividendHistory: DividendRecordView[];
 }
 
 export interface ExchangeStatePayload {

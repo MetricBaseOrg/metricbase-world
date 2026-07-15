@@ -35,7 +35,7 @@ import { initItemFlows } from "./economy/itemFlows.js";
 import { initFarmRegistry } from "./farming/farmRegistry.js";
 import { initGuildRegistry } from "./guild/guildRegistry.js";
 import { initCompanyRegistry, runCompanyDailyPayouts } from "./company/companyRegistry.js";
-import { initExchangeRegistry } from "./exchange/exchangeRegistry.js";
+import { initExchangeRegistry, runWeeklyShareDividends } from "./exchange/exchangeRegistry.js";
 import { initTerritoryRegistry } from "./territory/territoryRegistry.js";
 import { initSiegeRegistry } from "./siege/siegeRegistry.js";
 import { adService } from "./ads/adService.js";
@@ -196,6 +196,17 @@ setInterval(
   () => runCompanyDailyPayouts((name, amount) => ZoneRoom.creditPlayerGlobal(name, amount)),
   60 * 60 * 1000,
 ).unref();
+
+// Weekly share dividends: pay shareholders a share-weighted % of each listed
+// company's weekly net profit from its treasury. Runs hourly + on boot; each
+// company closes its books at most once per week (idempotent).
+const runShareDividends = () => {
+  if (runWeeklyShareDividends((name, amount) => ZoneRoom.creditPlayerGlobal(name, amount))) {
+    ZoneRoom.notifyExchangeChanged();
+  }
+};
+runShareDividends();
+setInterval(runShareDividends, 60 * 60 * 1000).unref();
 
 httpServer.listen(PORT, () => {
   console.log(`MetricBase game server listening on ws://localhost:${PORT}`);

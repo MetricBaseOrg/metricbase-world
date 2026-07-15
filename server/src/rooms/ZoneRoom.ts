@@ -403,6 +403,7 @@ import {
   applyBuy as applyShareBuy,
   applySell as applyShareSell,
   settleDelisting,
+  setDividendVote,
   buildExchangeState,
   buildMarketDetail,
 } from "../exchange/exchangeRegistry.js";
@@ -1324,6 +1325,9 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       if (!player || !m.companyId) return;
       const detail = buildMarketDetail(m.companyId, player.name);
       if (detail) client.send("marketDetail", detail);
+    });
+    this.onProtectedMessage("exchangeVote", (client, m: { companyId?: string; pct?: number | null }) => {
+      this.handleExchangeVote(client, m.companyId ?? "", m.pct ?? null);
     });
 
     this.onMessage("emote", (client, message: { emoteId?: string }) => {
@@ -8709,7 +8713,23 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
   /** Nudge every online client to refresh an open Exchange panel. */
   private broadcastExchangeChanged() {
+    ZoneRoom.notifyExchangeChanged();
+  }
+
+  /** Static form for callers outside a room instance (the weekly dividend runner). */
+  public static notifyExchangeChanged() {
     for (const room of ZoneRoom.activeRooms) room.broadcast("exchangeChanged", {});
+  }
+
+  private handleExchangeVote(client: Client, companyId: string, pct: number | null) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !companyId) return;
+    const result = setDividendVote(companyId, player.name, pct);
+    if (!result.ok) return void client.send("exchangeResult", { ok: false, error: result.error });
+    client.send("exchangeResult", { ok: true, message: pct == null ? "Vote cleared." : `Voted ${pct}% dividend.` });
+    const detail = buildMarketDetail(companyId, player.name);
+    if (detail) client.send("marketDetail", detail);
+    this.broadcastExchangeChanged();
   }
 
   private async handleExchangeList(client: Client) {

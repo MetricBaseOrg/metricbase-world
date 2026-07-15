@@ -157,6 +157,9 @@ export function createCompany(
     salaries: {},
     stats: emptyCompanyStats(),
     lastPayoutDay: null,
+    weekAnchorRevenue: 0,
+    weekAnchorOpex: 0,
+    lastDividendWeek: null,
     createdAt: Date.now(),
   };
   companies.set(record.id, record);
@@ -440,6 +443,78 @@ export function creditCompanyTreasury(id: string, amount: number, source: "vendo
   company.treasury += gold;
   company.stats.revenue[source] += gold;
   void saveCompany(company);
+}
+
+/** Lifetime revenue across every source. */
+export function companyLifetimeRevenue(company: StoredCompany): number {
+  const r = company.stats.revenue;
+  return r.skim + r.vendor + r.contracts + r.deposits + r.shares;
+}
+
+/** Lifetime operating expenses (wages + member dividends; NOT share dividends,
+ * which are paid out OF net profit and would otherwise be circular). */
+export function companyLifetimeOpex(company: StoredCompany): number {
+  return company.stats.paidOut.salaries + company.stats.paidOut.dividends;
+}
+
+/** Gold value of everything in the warehouse (for the balance sheet). */
+export function companyWarehouseValue(company: StoredCompany): number {
+  let total = 0;
+  for (const entry of company.warehouse) total += getItemBaseValue(entry.itemId) * entry.quantity;
+  return Math.round(total);
+}
+
+/** Snapshot a listed company needs for the weekly share-dividend runner. */
+export interface CompanyDividendSnapshot {
+  id: string;
+  name: string;
+  members: string[];
+  treasury: number;
+  warehouseValue: number;
+  lifetimeRevenue: number;
+  lifetimeOpex: number;
+  weekAnchorRevenue: number;
+  weekAnchorOpex: number;
+  lastDividendWeek: string | null;
+}
+
+export function companyDividendSnapshot(id: string): CompanyDividendSnapshot | null {
+  const c = companies.get(id);
+  if (!c) return null;
+  return {
+    id: c.id,
+    name: c.name,
+    members: [...c.members],
+    treasury: c.treasury,
+    warehouseValue: companyWarehouseValue(c),
+    lifetimeRevenue: companyLifetimeRevenue(c),
+    lifetimeOpex: companyLifetimeOpex(c),
+    weekAnchorRevenue: c.weekAnchorRevenue,
+    weekAnchorOpex: c.weekAnchorOpex,
+    lastDividendWeek: c.lastDividendWeek,
+  };
+}
+
+/** Close the weekly books: debit the paid dividends from the treasury, re-anchor
+ * the revenue/opex baselines, and stamp the week. Returns the actual amount
+ * debited (never more than the treasury holds). */
+export function applyCompanyDividendClose(
+  id: string,
+  week: string,
+  revenueNow: number,
+  opexNow: number,
+  totalToPay: number,
+): number {
+  const c = companies.get(id);
+  if (!c) return 0;
+  const paid = Math.max(0, Math.min(totalToPay, c.treasury));
+  c.treasury -= paid;
+  c.stats.paidOut.shareDividends += paid;
+  c.weekAnchorRevenue = revenueNow;
+  c.weekAnchorOpex = opexNow;
+  c.lastDividendWeek = week;
+  void saveCompany(c);
+  return paid;
 }
 
 /** Stamp a member's most-recent activity day (dividend eligibility). */

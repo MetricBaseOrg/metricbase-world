@@ -1261,6 +1261,9 @@ export class NetworkManager {
   requestMarketDetail(companyId: string) {
     this.room?.send("requestMarketDetail", { companyId });
   }
+  sendExchangeVote(companyId: string, pct: number | null) {
+    this.room?.send("exchangeVote", { companyId, pct });
+  }
   getExchangeState(): ExchangeStatePayload {
     return this.latestExchangeState;
   }

@@ -2,6 +2,7 @@ import {
   SHARE_LISTING_COST,
   SHARE_MAX_TRADE,
   SHARE_MIN_TRADE,
+  SHARE_DIVIDEND_MAX_PCT,
   SHARE_TRADE_FEE_RATE,
   quoteBuy,
   quoteSell,
@@ -348,6 +349,60 @@ function MarketDetailView({
         </button>
       </div>
 
+      <div className="chibi-card" style={{ padding: "10px 12px", marginTop: 8 }}>
+        <div className="chibi-label">Governance</div>
+        <div style={{ fontSize: "0.74rem", marginTop: 4, lineHeight: 1.7 }}>
+          <div style={{ display: "flex", justifyContent: "space-between" }}>
+            <span>👑 CEO (largest holder)</span>
+            <b>{detail.ceo ? `${detail.ceo} (${(detail.ceoPct * 100).toFixed(1)}%)` : "—"}</b>
+          </div>
+          {detail.controlled && (
+            <div style={{ color: "#b8860b", fontSize: "0.68rem" }}>
+              Holds a controlling stake — their vote decides dividend policy.
+            </div>
+          )}
+          <div style={{ display: "flex", justifyContent: "space-between" }}>
+            <span>Dividend payout (share-weighted vote)</span>
+            <b>{detail.dividendPct}% of weekly profit</b>
+          </div>
+        </div>
+        {detail.myShares > 0 && (
+          <DividendVote companyId={m.companyId} current={detail.myDividendVote} effective={detail.dividendPct} pending={pending} setPending={setPending} />
+        )}
+      </div>
+
+      <div className="chibi-card" style={{ padding: "10px 12px", marginTop: 8 }}>
+        <div className="chibi-label">Financials (this week)</div>
+        <div style={{ fontSize: "0.74rem", marginTop: 4, lineHeight: 1.7 }}>
+          <div style={{ display: "flex", justifyContent: "space-between" }}><span>Revenue</span><b>{detail.financials.weekRevenue.toLocaleString()}g</b></div>
+          <div style={{ display: "flex", justifyContent: "space-between" }}><span>Expenses (wages + payroll)</span><b>{detail.financials.weekExpenses.toLocaleString()}g</b></div>
+          <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 700 }}>
+            <span>Net profit</span>
+            <span style={{ color: detail.financials.weekNetProfit >= 0 ? "#2f9e5e" : "#c0392b" }}>{detail.financials.weekNetProfit.toLocaleString()}g</span>
+          </div>
+          <div style={{ borderTop: "1px solid var(--chibi-outline-light)", margin: "5px 0" }} />
+          <div style={{ display: "flex", justifyContent: "space-between" }}><span>Treasury</span><b>{detail.financials.treasury.toLocaleString()}g</b></div>
+          <div style={{ display: "flex", justifyContent: "space-between" }}><span>Warehouse value</span><b>{detail.financials.warehouseValue.toLocaleString()}g</b></div>
+          <div className="chibi-text-muted" style={{ fontSize: "0.66rem", marginTop: 2 }}>
+            Lifetime revenue {detail.financials.lifetimeRevenue.toLocaleString()}g · expenses {detail.financials.lifetimeExpenses.toLocaleString()}g
+          </div>
+        </div>
+      </div>
+
+      {detail.dividendHistory.length > 0 && (
+        <div className="chibi-card" style={{ padding: "10px 12px", marginTop: 8 }}>
+          <div className="chibi-label">Dividend history</div>
+          <div style={{ fontSize: "0.72rem", marginTop: 4, lineHeight: 1.7 }}>
+            {detail.dividendHistory.map((d) => (
+              <div key={d.week} style={{ display: "flex", justifyContent: "space-between" }}>
+                <span className="chibi-text-muted">{new Date(d.at).toLocaleDateString()}</span>
+                <b>{d.total.toLocaleString()}g ({d.perShare.toFixed(2)}g/share)</b>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {detail.topHolders.length > 0 && (
         <div className="chibi-card" style={{ padding: "10px 12px", marginTop: 8 }}>
           <div className="chibi-label">Largest shareholders</div>
@@ -377,6 +432,42 @@ function MarketDetailView({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function DividendVote({
+  companyId,
+  current,
+  effective,
+  pending,
+  setPending,
+}: {
+  companyId: string;
+  current: number | null;
+  effective: number;
+  pending: boolean;
+  setPending: (v: boolean) => void;
+}) {
+  const [val, setVal] = useState(current ?? effective);
+  useEffect(() => setVal(current ?? effective), [current, effective]);
+  return (
+    <div style={{ marginTop: 8, borderTop: "1px solid var(--chibi-outline-light)", paddingTop: 8 }}>
+      <div style={{ fontSize: "0.72rem" }}>
+        Your dividend vote (weighted by your shares): <b>{val}%</b>
+        {current == null && <span className="chibi-text-muted"> · not yet voted</span>}
+      </div>
+      <input type="range" min={0} max={SHARE_DIVIDEND_MAX_PCT} value={val} style={{ width: "100%", marginTop: 4 }} onChange={(e) => setVal(Number(e.target.value))} />
+      <div style={{ display: "flex", gap: 6 }}>
+        <button type="button" className="chibi-btn chibi-btn--mint" style={{ flex: 1, padding: "6px", fontSize: "0.7rem" }} disabled={pending} onClick={() => { playSfx("ui_click"); setPending(true); networkManager.sendExchangeVote(companyId, val); }}>
+          Cast vote
+        </button>
+        {current != null && (
+          <button type="button" className="chibi-btn chibi-btn--ghost" style={{ padding: "6px 10px", fontSize: "0.7rem" }} disabled={pending} onClick={() => { playSfx("ui_click"); setPending(true); networkManager.sendExchangeVote(companyId, null); }}>
+            Clear
+          </button>
+        )}
+      </div>
     </div>
   );
 }
