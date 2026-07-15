@@ -409,8 +409,13 @@ import {
   cancelBaseListing,
   fillBaseListing,
   getBaseListing,
+  canPlaceOrder,
+  placeBuyOrder,
+  placeSellOrder,
+  cancelOrder,
   buildExchangeState,
   buildMarketDetail,
+  type OrderCredit,
 } from "../exchange/exchangeRegistry.js";
 import {
   addZoneEarnings,
@@ -1342,6 +1347,12 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     });
     this.onProtectedMessage("exchangeBuyBase", (client, m: { id?: string; signature?: string }) => {
       void this.handleExchangeBuyBase(client, m.id ?? "", m.signature ?? "");
+    });
+    this.onProtectedMessage("exchangeOrder", (client, m: { companyId?: string; side?: string; shares?: number; limitPrice?: number }) => {
+      void this.handleExchangeOrder(client, m.companyId ?? "", (m.side ?? "") as "buy" | "sell", m.shares ?? 0, m.limitPrice ?? 0);
+    });
+    this.onProtectedMessage("exchangeCancelOrder", (client, m: { id?: string }) => {
+      void this.handleExchangeCancelOrder(client, m.id ?? "");
     });
 
     this.onMessage("emote", (client, message: { emoteId?: string }) => {
@@ -8850,6 +8861,79 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         sentAt: Date.now(),
       });
     }
+  }
+
+  /** Apply order-fill gold credits: seller proceeds + taker-buyer refunds. */
+  private applyOrderCredits(credits: OrderCredit[]) {
+    for (const c of credits) this.creditPlayerByName(c.name, c.amount);
+  }
+
+  private async handleExchangeOrder(
+    client: Client,
+    companyId: string,
+    side: "buy" | "sell",
+    rawShares: number,
+    rawPrice: number,
+  ) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !companyId) return;
+    const shares = Math.floor(rawShares);
+    const limitPrice = Math.floor(rawPrice);
+    const check = canPlaceOrder(companyId, player.name, side, shares, limitPrice);
+    if (!check.ok) return void client.send("exchangeResult", { ok: false, error: check.error });
+    const pid = this.pidOf(player);
+    const wallet = this.playerWallets.get(client.sessionId) ?? null;
+
+    if (side === "buy") {
+      const cost = limitPrice * shares;
+      const gold = this.playerGold.get(pid) ?? STARTING_GOLD;
+      if (gold < cost) {
+        return void client.send("exchangeResult", {
+          ok: false,
+          error: `Need ${cost.toLocaleString()} gold to escrow this order (you have ${gold.toLocaleString()}).`,
+        });
+      }
+      this.playerGold.set(pid, gold - cost); // escrow the whole order up front
+      const result = placeBuyOrder(companyId, player.name, wallet, shares, limitPrice);
+      if (!result.ok) {
+        this.playerGold.set(pid, gold); // refund on failure
+        return void client.send("exchangeResult", { ok: false, error: result.error });
+      }
+      this.applyOrderCredits(result.credits ?? []);
+      this.sendProfile(client, player);
+      await this.persistPlayer(player);
+      client.send("exchangeResult", { ok: true, gold: this.playerGold.get(pid), message: "Buy order placed." });
+    } else {
+      const result = placeSellOrder(companyId, player.name, wallet, shares, limitPrice);
+      if (!result.ok) return void client.send("exchangeResult", { ok: false, error: result.error });
+      this.applyOrderCredits(result.credits ?? []); // the seller's own proceeds land here
+      this.sendProfile(client, player);
+      await this.persistPlayer(player);
+      client.send("exchangeResult", { ok: true, gold: this.playerGold.get(pid), message: "Sell order placed." });
+    }
+    bumpMetric("exchange.orders");
+    this.refreshMarketDetail(client, companyId);
+    this.broadcastExchangeChanged();
+  }
+
+  private async handleExchangeCancelOrder(client: Client, id: string) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !id) return;
+    const result = cancelOrder(id, player.name);
+    if (!result.ok) return void client.send("exchangeResult", { ok: false, error: result.error });
+    if (result.refundGold && result.refundGold > 0) {
+      const pid = this.pidOf(player);
+      this.playerGold.set(pid, (this.playerGold.get(pid) ?? STARTING_GOLD) + result.refundGold);
+      this.sendProfile(client, player);
+      await this.persistPlayer(player);
+    }
+    client.send("exchangeResult", {
+      ok: true,
+      gold: this.playerGold.get(this.pidOf(player)),
+      message: result.refundGold ? `Order cancelled — ${result.refundGold.toLocaleString()}g refunded.` : "Order cancelled.",
+    });
+    if (result.companyId) this.refreshMarketDetail(client, result.companyId);
+    this.broadcastExchangeChanged();
   }
 
   private async handleExchangeList(client: Client) {

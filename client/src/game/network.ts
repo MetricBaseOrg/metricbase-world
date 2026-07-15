@@ -1273,6 +1273,12 @@ export class NetworkManager {
   sendExchangeBuyBase(id: string, signature: string) {
     this.room?.send("exchangeBuyBase", { id, signature });
   }
+  sendExchangeOrder(companyId: string, side: "buy" | "sell", shares: number, limitPrice: number) {
+    this.room?.send("exchangeOrder", { companyId, side, shares, limitPrice });
+  }
+  sendExchangeCancelOrder(id: string) {
+    this.room?.send("exchangeCancelOrder", { id });
+  }
   getExchangeState(): ExchangeStatePayload {
     return this.latestExchangeState;
   }

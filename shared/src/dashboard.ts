@@ -11,6 +11,10 @@ export const MOTTO_MAX_LENGTH = 80;
  */
 export const DASHBOARD_UPDATES: Array<{ title: string; body: string }> = [
   {
+    title: "v0.145 — Limit Orders & Order Book",
+    body: "Set your price: place standing buy or sell limit orders and let the matching engine fill them peer-to-peer at the best available price (with price improvement when you cross the spread). Each company's trade page now shows a live order book of bids and asks.",
+  },
+  {
     title: "v0.144 — Trade Shares for real $BASE",
     body: "List a block of company shares for a fixed $BASE price and let anyone buy it with real crypto — the buyer pays $BASE straight to your wallet on-chain and the shares move to them instantly. Find it under each company on the 📈 Stock Exchange.",
   },
@@ -25,10 +29,6 @@ export const DASHBOARD_UPDATES: Array<{ title: string; body: string }> = [
   {
     title: "v0.140 — Merchant Companies",
     body: "Found a player-owned business: a shared treasury and item warehouse, ranks and salaries, automatic daily dividends, a revenue-share on members' earnings, warehouse vendor sales, and an inbound contracts board. Belong to a guild AND a company at once — open Companies from the ⚙️ menu.",
-  },
-  {
-    title: "v0.137 — MetricBase DAO",
-    body: "Govern the world at /dao: $BASE holders create polls (10M+) and vote (1M+) with power weighted by their holdings. Off-chain and gasless — just sign in with your wallet.",
   },
 ];
 

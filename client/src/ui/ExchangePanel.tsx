@@ -3,6 +3,7 @@ import {
   SHARE_MAX_TRADE,
   SHARE_MIN_TRADE,
   SHARE_DIVIDEND_MAX_PCT,
+  SHARE_ORDER_MIN_PRICE,
   SHARE_TRADE_FEE_RATE,
   quoteBuy,
   quoteSell,
@@ -388,6 +389,8 @@ function MarketDetailView({
         </button>
       </div>
 
+      <OrderBook detail={detail} gold={gold} pending={pending} setPending={setPending} />
+
       <BaseMarket
         detail={detail}
         walletAddress={walletAddress}
@@ -479,6 +482,112 @@ function MarketDetailView({
               </div>
             ))}
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function OrderBook({
+  detail,
+  gold,
+  pending,
+  setPending,
+}: {
+  detail: CompanyMarketDetail;
+  gold: number;
+  pending: boolean;
+  setPending: (v: boolean) => void;
+}) {
+  const companyId = detail.summary.companyId;
+  const [side, setSide] = useState<"buy" | "sell">("buy");
+  const [shares, setShares] = useState("");
+  const [price, setPrice] = useState("");
+  const n = Math.floor(Number(shares) || 0);
+  const p = Math.floor(Number(price) || 0);
+  const sellable = detail.myShares - detail.myCommitted;
+  const cost = n * p;
+  const canPlace =
+    !pending &&
+    n >= 1 &&
+    p >= SHARE_ORDER_MIN_PRICE &&
+    (side === "buy" ? cost <= gold : n <= sellable);
+
+  const place = () => {
+    if (!canPlace) return;
+    playSfx("ui_click");
+    setPending(true);
+    networkManager.sendExchangeOrder(companyId, side, n, p);
+    setShares("");
+    setPrice("");
+  };
+  const cancel = (id: string) => {
+    playSfx("ui_click");
+    setPending(true);
+    networkManager.sendExchangeCancelOrder(id);
+  };
+
+  const level = (l: { price: number; shares: number }, color: string) => (
+    <div key={`${l.price}`} style={{ display: "flex", justifyContent: "space-between", fontSize: "0.72rem" }}>
+      <span style={{ color, fontWeight: 700 }}>{l.price.toLocaleString()}g</span>
+      <span className="chibi-text-muted">{l.shares.toLocaleString()}</span>
+    </div>
+  );
+
+  return (
+    <div className="chibi-card" style={{ padding: "10px 12px", marginTop: 8 }}>
+      <div className="chibi-label">📖 Order book (limit orders)</div>
+      <div style={{ display: "flex", gap: 12, marginTop: 4 }}>
+        <div style={{ flex: 1 }}>
+          <div className="chibi-text-muted" style={{ fontSize: "0.66rem" }}>Bids (buy)</div>
+          {detail.bids.length === 0 ? <div className="chibi-text-muted" style={{ fontSize: "0.7rem" }}>—</div> : detail.bids.map((l) => level(l, "#2f9e5e"))}
+        </div>
+        <div style={{ flex: 1 }}>
+          <div className="chibi-text-muted" style={{ fontSize: "0.66rem" }}>Asks (sell)</div>
+          {detail.asks.length === 0 ? <div className="chibi-text-muted" style={{ fontSize: "0.7rem" }}>—</div> : detail.asks.map((l) => level(l, "#c0392b"))}
+        </div>
+      </div>
+
+      <div style={{ marginTop: 8, borderTop: "1px solid var(--chibi-outline-light)", paddingTop: 8 }}>
+        <div style={{ display: "flex", gap: 6 }}>
+          <button type="button" className={`chibi-btn ${side === "buy" ? "chibi-btn--mint" : "chibi-btn--ghost"}`} style={{ flex: 1, padding: "5px", fontSize: "0.72rem" }} onClick={() => setSide("buy")}>
+            Buy limit
+          </button>
+          <button type="button" className={`chibi-btn ${side === "sell" ? "chibi-btn--mint" : "chibi-btn--ghost"}`} style={{ flex: 1, padding: "5px", fontSize: "0.72rem" }} onClick={() => setSide("sell")}>
+            Sell limit
+          </button>
+        </div>
+        <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+          <input className="chibi-input" style={{ flex: 1 }} inputMode="numeric" placeholder="Shares" value={shares}
+            onChange={(e) => setShares(e.target.value.replace(/[^0-9]/g, ""))}
+            onFocus={() => setUiTypingActive(true)} onBlur={() => setUiTypingActive(false)} />
+          <input className="chibi-input" style={{ flex: 1 }} inputMode="numeric" placeholder="Limit g/share" value={price}
+            onChange={(e) => setPrice(e.target.value.replace(/[^0-9]/g, ""))}
+            onFocus={() => setUiTypingActive(true)} onBlur={() => setUiTypingActive(false)} />
+          <button type="button" className="chibi-btn chibi-btn--gold" style={{ padding: "6px 10px" }} disabled={!canPlace} onClick={place}>
+            Place
+          </button>
+        </div>
+        <div className="chibi-text-muted" style={{ fontSize: "0.66rem", marginTop: 4 }}>
+          {side === "buy"
+            ? `Escrows ${cost.toLocaleString()}g until filled (you have ${gold.toLocaleString()}g).`
+            : `Reserves ${n || 0} shares (${sellable.toLocaleString()} sellable).`}
+        </div>
+      </div>
+
+      {detail.myOrders.length > 0 && (
+        <div style={{ marginTop: 8 }}>
+          <div className="chibi-text-muted" style={{ fontSize: "0.66rem" }}>Your open orders</div>
+          {detail.myOrders.map((o) => (
+            <div key={o.id} style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 3, fontSize: "0.72rem" }}>
+              <span style={{ flex: 1, color: o.side === "buy" ? "#2f9e5e" : "#c0392b" }}>
+                {o.side === "buy" ? "BUY" : "SELL"} {o.sharesRemaining.toLocaleString()} @ {o.limitPrice.toLocaleString()}g
+              </span>
+              <button type="button" className="chibi-btn chibi-btn--ghost" style={{ padding: "4px 8px", fontSize: "0.66rem" }} disabled={pending} onClick={() => cancel(o.id)}>
+                Cancel
+              </button>
+            </div>
+          ))}
         </div>
       )}
     </div>

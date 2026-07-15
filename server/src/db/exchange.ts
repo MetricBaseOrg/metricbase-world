@@ -39,6 +39,18 @@ export interface StoredShareBaseListing {
   createdAt: number;
 }
 
+export interface StoredShareOrder {
+  id: string;
+  companyId: string;
+  traderName: string;
+  traderWallet: string | null;
+  side: "buy" | "sell";
+  limitPrice: number;
+  sharesTotal: number;
+  sharesRemaining: number;
+  createdAt: number;
+}
+
 export interface StoredShareTrade {
   id: string;
   companyId: string;
@@ -276,6 +288,65 @@ export async function deleteShareBaseListing(id: string): Promise<void> {
     await pool.query("DELETE FROM share_base_listings WHERE id = $1", [id]);
   } catch (error) {
     console.warn("[exchange] delete base listing failed:", error);
+  }
+}
+
+export async function loadShareOrders(): Promise<StoredShareOrder[]> {
+  const pool = getPool();
+  if (!pool) return [];
+  try {
+    const res = await pool.query<{
+      id: string;
+      company_id: string;
+      trader_name: string;
+      trader_wallet: string | null;
+      side: string;
+      limit_price: number;
+      shares_total: number;
+      shares_remaining: number;
+      created_at: string | number;
+    }>(
+      "SELECT id, company_id, trader_name, trader_wallet, side, limit_price, shares_total, shares_remaining, created_at FROM share_orders WHERE shares_remaining > 0",
+    );
+    return res.rows.map((r) => ({
+      id: r.id,
+      companyId: r.company_id,
+      traderName: r.trader_name,
+      traderWallet: r.trader_wallet ?? null,
+      side: r.side as "buy" | "sell",
+      limitPrice: Math.max(1, Math.floor(r.limit_price)),
+      sharesTotal: Math.max(0, Math.floor(r.shares_total)),
+      sharesRemaining: Math.max(0, Math.floor(r.shares_remaining)),
+      createdAt: Number(r.created_at),
+    }));
+  } catch (error) {
+    console.warn("[exchange] load orders failed:", error);
+    return [];
+  }
+}
+
+export async function saveShareOrder(o: StoredShareOrder): Promise<void> {
+  const pool = getPool();
+  if (!pool) return;
+  try {
+    await pool.query(
+      `INSERT INTO share_orders (id, company_id, trader_name, trader_wallet, side, limit_price, shares_total, shares_remaining, created_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+       ON CONFLICT (id) DO UPDATE SET shares_remaining = EXCLUDED.shares_remaining`,
+      [o.id, o.companyId, o.traderName, o.traderWallet, o.side, o.limitPrice, o.sharesTotal, o.sharesRemaining, o.createdAt],
+    );
+  } catch (error) {
+    console.warn("[exchange] save order failed:", error);
+  }
+}
+
+export async function deleteShareOrder(id: string): Promise<void> {
+  const pool = getPool();
+  if (!pool) return;
+  try {
+    await pool.query("DELETE FROM share_orders WHERE id = $1", [id]);
+  } catch (error) {
+    console.warn("[exchange] delete order failed:", error);
   }
 }
 

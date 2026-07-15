@@ -100,6 +100,43 @@ export interface ShareBaseListingView {
   createdAt: number;
 }
 
+// --- Gold limit-order book + matching engine (Phase 3b) ---
+
+/** Minimum limit price (integer gold per share) for a standing order. */
+export const SHARE_ORDER_MIN_PRICE = 1;
+/** Max simultaneously open limit orders a trader can have per company. */
+export const MAX_SHARE_ORDERS_PER_TRADER = 10;
+
+export type ShareOrderSide = "buy" | "sell";
+
+/** One of the viewer's own standing limit orders. */
+export interface ShareOrderView {
+  id: string;
+  companyId: string;
+  side: ShareOrderSide;
+  limitPrice: number;
+  sharesRemaining: number;
+  createdAt: number;
+}
+
+/** An aggregated price level in the order book. */
+export interface OrderBookLevel {
+  price: number;
+  shares: number;
+}
+
+/** Validate a limit order; returns an error string or null. */
+export function validateShareOrder(side: string, shares: number, limitPrice: number): string | null {
+  if (side !== "buy" && side !== "sell") return "Unknown order side.";
+  if (!Number.isInteger(shares) || shares < 1 || shares > SHARE_MAX_TRADE) {
+    return `Order 1–${SHARE_MAX_TRADE.toLocaleString()} shares.`;
+  }
+  if (!Number.isInteger(limitPrice) || limitPrice < SHARE_ORDER_MIN_PRICE) {
+    return `Limit price must be a whole number ≥ ${SHARE_ORDER_MIN_PRICE} gold.`;
+  }
+  return null;
+}
+
 /** Validate a $BASE share listing; returns an error string or null. */
 export function validateShareBaseListing(shares: number, priceBase: number): string | null {
   if (!Number.isFinite(shares) || shares < 1 || shares > SHARE_MAX_TRADE) {
@@ -278,8 +315,15 @@ export interface CompanyMarketDetail {
   dividendHistory: DividendRecordView[];
   /** Open real-$BASE share block listings for this company. */
   baseListings: ShareBaseListingView[];
-  /** Shares the viewer has committed to their own open $BASE listings. */
+  /** Shares the viewer has committed to their own open $BASE listings + sell orders. */
   myCommitted: number;
+  // --- gold limit-order book ---
+  /** Aggregated resting buy orders (bids), best price first. */
+  bids: OrderBookLevel[];
+  /** Aggregated resting sell orders (asks), best price first. */
+  asks: OrderBookLevel[];
+  /** The viewer's own open limit orders in this company. */
+  myOrders: ShareOrderView[];
 }
 
 export interface ExchangeStatePayload {

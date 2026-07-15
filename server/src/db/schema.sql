@@ -581,6 +581,22 @@ CREATE TABLE IF NOT EXISTS share_trades (
 );
 CREATE INDEX IF NOT EXISTS share_trades_company_at_idx ON share_trades (company_id, at DESC);
 
+-- Gold limit-order book (Phase 3b). Standing buy/sell limit orders that match
+-- peer-to-peer via price-time priority. Buy orders escrow gold (limit×remaining);
+-- sell orders reserve shares. Existing shares transfer on a fill — nothing minted.
+CREATE TABLE IF NOT EXISTS share_orders (
+  id VARCHAR(64) PRIMARY KEY,
+  company_id VARCHAR(64) NOT NULL,
+  trader_name VARCHAR(16) NOT NULL,
+  trader_wallet VARCHAR(44),
+  side VARCHAR(4) NOT NULL,                            -- buy|sell
+  limit_price INTEGER NOT NULL,                        -- gold per share
+  shares_total INTEGER NOT NULL,
+  shares_remaining INTEGER NOT NULL,
+  created_at BIGINT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS share_orders_company_idx ON share_orders (company_id, side);
+
 -- Real-$BASE peer-to-peer share block listings (Phase 3a). A holder offers a
 -- block of shares for a fixed $BASE price; a buyer pays $BASE straight to the
 -- seller's wallet (verified on-chain) and the shares transfer in the ledger.
