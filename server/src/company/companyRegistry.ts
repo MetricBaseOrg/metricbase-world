@@ -30,6 +30,7 @@ import {
   type CompanySummary,
   type CompanyType,
   type CompanyContribution,
+  type CompanyStats,
 } from "@metricbase/shared";
 import {
   deleteCompany,
@@ -476,6 +477,15 @@ export interface CompanyDividendSnapshot {
   weekAnchorRevenue: number;
   weekAnchorOpex: number;
   lastDividendWeek: string | null;
+}
+
+/** Lifetime revenue-by-source + payout-by-kind for the financial statements. */
+export function companyFinancialBreakdown(
+  id: string,
+): { revenue: CompanyStats["revenue"]; paidOut: CompanyStats["paidOut"] } | null {
+  const c = companies.get(id);
+  if (!c) return null;
+  return { revenue: { ...c.stats.revenue }, paidOut: { ...c.stats.paidOut } };
 }
 
 export function companyDividendSnapshot(id: string): CompanyDividendSnapshot | null {

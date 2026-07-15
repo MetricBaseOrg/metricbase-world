@@ -247,27 +247,122 @@ export function ExchangePanel() {
   );
 }
 
-/** A tiny inline SVG line chart for a price series. */
-function Sparkline({ values, width = 240, height = 44 }: { values: number[]; width?: number; height?: number }) {
-  if (values.length < 2) {
+/** A candlestick chart bucketed from a chronological trade series. */
+function Candles({ trades, width = 240, height = 60 }: { trades: { price: number }[]; width?: number; height?: number }) {
+  if (trades.length < 2) {
     return <div className="chibi-text-muted" style={{ fontSize: "0.7rem" }}>Not enough trades to chart yet.</div>;
   }
-  const min = Math.min(...values);
-  const max = Math.max(...values);
+  const prices = trades.map((t) => t.price);
+  const bucketCount = Math.min(16, prices.length);
+  const size = Math.ceil(prices.length / bucketCount);
+  const candles: { o: number; h: number; l: number; c: number }[] = [];
+  for (let i = 0; i < prices.length; i += size) {
+    const slice = prices.slice(i, i + size);
+    candles.push({ o: slice[0], h: Math.max(...slice), l: Math.min(...slice), c: slice[slice.length - 1] });
+  }
+  const min = Math.min(...candles.map((c) => c.l));
+  const max = Math.max(...candles.map((c) => c.h));
   const span = max - min || 1;
-  const pts = values
-    .map((v, i) => {
-      const x = (i / (values.length - 1)) * (width - 4) + 2;
-      const y = height - 2 - ((v - min) / span) * (height - 4);
-      return `${x.toFixed(1)},${y.toFixed(1)}`;
-    })
-    .join(" ");
-  const up = values[values.length - 1] >= values[0];
-  const stroke = up ? "#2f9e5e" : "#c0392b";
+  const y = (v: number) => height - 2 - ((v - min) / span) * (height - 4);
+  const slot = (width - 4) / candles.length;
+  const bw = Math.max(2, slot * 0.6);
   return (
     <svg width="100%" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" style={{ display: "block" }}>
-      <polyline points={pts} fill="none" stroke={stroke} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+      {candles.map((c, i) => {
+        const cx = 2 + slot * i + slot / 2;
+        const up = c.c >= c.o;
+        const col = up ? "#2f9e5e" : "#c0392b";
+        const bodyTop = y(Math.max(c.o, c.c));
+        const bodyH = Math.max(1, Math.abs(y(c.o) - y(c.c)));
+        return (
+          <g key={i}>
+            <line x1={cx} x2={cx} y1={y(c.h)} y2={y(c.l)} stroke={col} strokeWidth={1} />
+            <rect x={cx - bw / 2} y={bodyTop} width={bw} height={bodyH} fill={col} />
+          </g>
+        );
+      })}
     </svg>
+  );
+}
+
+function Financials({
+  f,
+  marketCap,
+  reserve,
+}: {
+  f: CompanyMarketDetail["financials"];
+  marketCap: number;
+  reserve: number;
+}) {
+  const [tab, setTab] = useState<"income" | "cashflow" | "balance">("income");
+  const g = (n: number) => `${n.toLocaleString()}g`;
+  const line = (label: string, value: string, bold = false, color?: string) => (
+    <div style={{ display: "flex", justifyContent: "space-between", fontWeight: bold ? 700 : 400 }}>
+      <span>{label}</span>
+      <span style={{ color }}>{value}</span>
+    </div>
+  );
+  const rule = <div style={{ borderTop: "1px solid var(--chibi-outline-light)", margin: "5px 0" }} />;
+  const rev = f.revenue;
+  const totalRev = rev.skim + rev.vendor + rev.contracts + rev.deposits + rev.shares;
+  const out = f.paidOut;
+  const totalOut = out.salaries + out.dividends + out.shareDividends;
+  const assets = f.treasury + f.warehouseValue;
+
+  return (
+    <div className="chibi-card" style={{ padding: "10px 12px", marginTop: 8 }}>
+      <div style={{ display: "flex", gap: 4 }}>
+        {(["income", "cashflow", "balance"] as const).map((t) => (
+          <button key={t} type="button" className={`chibi-btn ${tab === t ? "chibi-btn--mint" : "chibi-btn--ghost"}`} style={{ flex: 1, padding: "5px", fontSize: "0.68rem" }} onClick={() => setTab(t)}>
+            {t === "income" ? "Income" : t === "cashflow" ? "Cash flow" : "Balance"}
+          </button>
+        ))}
+      </div>
+      <div style={{ fontSize: "0.74rem", marginTop: 8, lineHeight: 1.7 }}>
+        {tab === "income" && (
+          <>
+            <div className="chibi-text-muted" style={{ fontSize: "0.66rem" }}>This week</div>
+            {line("Revenue", g(f.weekRevenue))}
+            {line("Operating expenses", g(f.weekExpenses))}
+            {line("Net profit", g(f.weekNetProfit), true, f.weekNetProfit >= 0 ? "#2f9e5e" : "#c0392b")}
+            {rule}
+            <div className="chibi-text-muted" style={{ fontSize: "0.66rem" }}>Lifetime revenue by source</div>
+            {line("Revenue-share skim", g(rev.skim))}
+            {line("Warehouse vendor sales", g(rev.vendor))}
+            {line("Completed contracts", g(rev.contracts))}
+            {line("Share-trade fees", g(rev.shares))}
+            {line("Member deposits", g(rev.deposits))}
+            {line("Total revenue", g(totalRev), true)}
+          </>
+        )}
+        {tab === "cashflow" && (
+          <>
+            <div className="chibi-text-muted" style={{ fontSize: "0.66rem" }}>Lifetime cash flow</div>
+            {line("Operating inflow (revenue)", g(f.lifetimeRevenue), false, "#2f9e5e")}
+            {line("Salaries paid", `-${g(out.salaries)}`, false, "#c0392b")}
+            {line("Member dividends paid", `-${g(out.dividends)}`, false, "#c0392b")}
+            {line("Share dividends paid", `-${g(out.shareDividends)}`, false, "#c0392b")}
+            {rule}
+            {line("Net cash retained", g(f.lifetimeRevenue - totalOut), true, f.lifetimeRevenue - totalOut >= 0 ? "#2f9e5e" : "#c0392b")}
+            <div className="chibi-text-muted" style={{ fontSize: "0.66rem", marginTop: 2 }}>
+              Ending treasury balance {g(f.treasury)}
+            </div>
+          </>
+        )}
+        {tab === "balance" && (
+          <>
+            <div className="chibi-text-muted" style={{ fontSize: "0.66rem" }}>Assets</div>
+            {line("Treasury (cash)", g(f.treasury))}
+            {line("Warehouse inventory", g(f.warehouseValue))}
+            {line("Total assets", g(assets), true)}
+            {rule}
+            <div className="chibi-text-muted" style={{ fontSize: "0.66rem" }}>Market</div>
+            {line("Market cap (equity)", g(marketCap))}
+            {line("Share reserve (curve)", g(reserve))}
+          </>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -528,7 +623,7 @@ function MarketDetailView({
             high {m.high.toFixed(2)}g · low {m.low.toFixed(2)}g · vol {m.volume24h.toLocaleString()}g/24h
           </div>
         </div>
-        <Sparkline values={[...detail.recentTrades].reverse().map((t) => t.price)} />
+        <Candles trades={[...detail.recentTrades].reverse()} />
       </div>
 
       <div className="chibi-card" style={{ padding: "12px", marginTop: 8 }}>
@@ -614,23 +709,7 @@ function MarketDetailView({
         )}
       </div>
 
-      <div className="chibi-card" style={{ padding: "10px 12px", marginTop: 8 }}>
-        <div className="chibi-label">Financials (this week)</div>
-        <div style={{ fontSize: "0.74rem", marginTop: 4, lineHeight: 1.7 }}>
-          <div style={{ display: "flex", justifyContent: "space-between" }}><span>Revenue</span><b>{detail.financials.weekRevenue.toLocaleString()}g</b></div>
-          <div style={{ display: "flex", justifyContent: "space-between" }}><span>Expenses (wages + payroll)</span><b>{detail.financials.weekExpenses.toLocaleString()}g</b></div>
-          <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 700 }}>
-            <span>Net profit</span>
-            <span style={{ color: detail.financials.weekNetProfit >= 0 ? "#2f9e5e" : "#c0392b" }}>{detail.financials.weekNetProfit.toLocaleString()}g</span>
-          </div>
-          <div style={{ borderTop: "1px solid var(--chibi-outline-light)", margin: "5px 0" }} />
-          <div style={{ display: "flex", justifyContent: "space-between" }}><span>Treasury</span><b>{detail.financials.treasury.toLocaleString()}g</b></div>
-          <div style={{ display: "flex", justifyContent: "space-between" }}><span>Warehouse value</span><b>{detail.financials.warehouseValue.toLocaleString()}g</b></div>
-          <div className="chibi-text-muted" style={{ fontSize: "0.66rem", marginTop: 2 }}>
-            Lifetime revenue {detail.financials.lifetimeRevenue.toLocaleString()}g · expenses {detail.financials.lifetimeExpenses.toLocaleString()}g
-          </div>
-        </div>
-      </div>
+      <Financials f={detail.financials} marketCap={m.marketCap} reserve={m.reserve} />
 
       {detail.dividendHistory.length > 0 && (
         <div className="chibi-card" style={{ padding: "10px 12px", marginTop: 8 }}>

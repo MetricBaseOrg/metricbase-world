@@ -11,6 +11,10 @@ export const MOTTO_MAX_LENGTH = 80;
  */
 export const DASHBOARD_UPDATES: Array<{ title: string; body: string }> = [
   {
+    title: "v0.147 — Candlesticks & Financial Statements",
+    body: "Every listed company now has a candlestick price chart and full financial statements — an income statement (revenue by source, net profit), a cash-flow statement, and a balance sheet — right on its trade page.",
+  },
+  {
     title: "v0.146 — Charts, Portfolio & Discovery",
     body: "The Stock Exchange grows up: a price chart and high/low on every company, a Portfolio tab with your total value and profit/loss, and a Discover tab with top gainers, top losers, a market-cap leaderboard and a personal watchlist. Star the companies you're tracking.",
   },
@@ -21,10 +25,6 @@ export const DASHBOARD_UPDATES: Array<{ title: string; body: string }> = [
   {
     title: "v0.144 — Trade Shares for real $BASE",
     body: "List a block of company shares for a fixed $BASE price and let anyone buy it with real crypto — the buyer pays $BASE straight to your wallet on-chain and the shares move to them instantly. Find it under each company on the 📈 Stock Exchange.",
-  },
-  {
-    title: "v0.143 — Dividends, Shareholder Control & Financials",
-    body: "Listed companies now pay weekly share dividends from their profit — split among shareholders, with the payout % set by a share-weighted vote. Buy enough shares and you become the CEO with a controlling stake. Each company's trade page shows live financials (revenue, expenses, net profit) and dividend history. Your share portfolio counts toward your net worth.",
   },
   {
     title: "v0.140 — Merchant Companies",

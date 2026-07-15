@@ -284,6 +284,10 @@ export interface CompanyFinancialsView {
   /** Company assets: treasury gold + warehouse value. */
   treasury: number;
   warehouseValue: number;
+  /** Lifetime revenue by source (for the income statement). */
+  revenue: { skim: number; vendor: number; contracts: number; deposits: number; shares: number };
+  /** Lifetime cash paid out by kind (for the cash-flow statement). */
+  paidOut: { salaries: number; dividends: number; shareDividends: number };
 }
 
 export interface DividendRecordView {
