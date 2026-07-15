@@ -45,6 +45,10 @@ import {
   P2PMarketPayload,
   GuildStatePayload,
   GuildResultPayload,
+  CompanyStatePayload,
+  CompanyResultPayload,
+  CompanyRank,
+  CompanyContractKind,
   PartyStatePayload,
   PartyResultPayload,
   PartyInvitePayload,
@@ -248,6 +252,8 @@ type ChopCancelListener = (payload: ChopCancelPayload) => void;
 type SkillStateListener = (payload: SkillStatePayload) => void;
 type GuildStateListener = (payload: GuildStatePayload) => void;
 type GuildResultListener = (payload: GuildResultPayload) => void;
+type CompanyStateListener = (payload: CompanyStatePayload) => void;
+type CompanyResultListener = (payload: CompanyResultPayload) => void;
 type PartyStateListener = (payload: PartyStatePayload) => void;
 type PartyResultListener = (payload: PartyResultPayload) => void;
 type PartyInviteListener = (payload: PartyInvitePayload) => void;
@@ -361,6 +367,15 @@ export class NetworkManager {
   private guildStateListeners = new Set<GuildStateListener>();
   private guildResultListeners = new Set<GuildResultListener>();
   private latestGuildState: GuildStatePayload = { myGuild: null, guilds: [], myRequestGuildId: null };
+  private companyStateListeners = new Set<CompanyStateListener>();
+  private companyResultListeners = new Set<CompanyResultListener>();
+  private latestCompanyState: CompanyStatePayload = {
+    myCompany: null,
+    companies: [],
+    myRequestCompanyId: null,
+    openContracts: [],
+    myPostedContracts: [],
+  };
   private partyStateListeners = new Set<PartyStateListener>();
   private partyResultListeners = new Set<PartyResultListener>();
   private partyInviteListeners = new Set<PartyInviteListener>();
@@ -1121,6 +1136,98 @@ export class NetworkManager {
 
   getGuildState(): GuildStatePayload {
     return this.latestGuildState;
+  }
+
+  // ----- Merchant Companies -----
+  sendCompanyCreate(name: string, emblem: string, color: number, companyType: string) {
+    this.room?.send("companyCreate", { name, emblem, color, companyType });
+  }
+  sendCompanyJoin(companyId: string) {
+    this.room?.send("companyJoin", { companyId });
+  }
+  sendCompanyCancelRequest() {
+    this.room?.send("companyCancelRequest", {});
+  }
+  sendCompanyApprove(applicant: string) {
+    this.room?.send("companyApprove", { applicant });
+  }
+  sendCompanyDeny(applicant: string) {
+    this.room?.send("companyDeny", { applicant });
+  }
+  sendCompanyLeave() {
+    this.room?.send("companyLeave", {});
+  }
+  sendCompanyKick(target: string) {
+    this.room?.send("companyKick", { target });
+  }
+  sendCompanySetRank(target: string, rank: CompanyRank) {
+    this.room?.send("companySetRank", { target, rank });
+  }
+  sendCompanySetMotd(motd: string) {
+    this.room?.send("companySetMotd", { motd });
+  }
+  sendCompanySetRates(revenueShare: number, dividendRate: number) {
+    this.room?.send("companySetRates", { revenueShare, dividendRate });
+  }
+  sendCompanySetSalary(target: string, gold: number) {
+    this.room?.send("companySetSalary", { target, gold });
+  }
+  sendCompanyDeposit(amount: number) {
+    this.room?.send("companyDeposit", { amount });
+  }
+  sendCompanyWithdraw(amount: number) {
+    this.room?.send("companyWithdraw", { amount });
+  }
+  sendCompanyContribute(itemId: string, qty: number) {
+    this.room?.send("companyContribute", { itemId, qty });
+  }
+  sendCompanyTake(itemId: string, qty: number) {
+    this.room?.send("companyTake", { itemId, qty });
+  }
+  sendCompanySell(itemId: string, qty: number) {
+    this.room?.send("companySell", { itemId, qty });
+  }
+  sendCompanyContractPost(
+    companyId: string,
+    kind: CompanyContractKind,
+    itemId: string | null,
+    qty: number,
+    rewardGold: number,
+  ) {
+    this.room?.send("companyContractPost", { companyId, kind, itemId, qty, rewardGold });
+  }
+  sendCompanyContractCancel(id: string) {
+    this.room?.send("companyContractCancel", { id });
+  }
+  sendCompanyContractAccept(id: string) {
+    this.room?.send("companyContractAccept", { id });
+  }
+  sendCompanyContractDeliver(id: string, qty: number) {
+    this.room?.send("companyContractDeliver", { id, qty });
+  }
+  sendCompanyContractCollect(id: string) {
+    this.room?.send("companyContractCollect", { id });
+  }
+  sendCompanyContractDismiss(id: string) {
+    this.room?.send("companyContractDismiss", { id });
+  }
+  sendCompanyChat(body: string) {
+    this.room?.send("companyChat", { body });
+  }
+  requestCompanies() {
+    this.room?.send("requestCompanies", {});
+  }
+  getCompanyState(): CompanyStatePayload {
+    return this.latestCompanyState;
+  }
+  onCompanyState(listener: CompanyStateListener) {
+    this.companyStateListeners.add(listener);
+    listener(this.latestCompanyState);
+    return () => this.companyStateListeners.delete(listener);
+  }
+  onCompanyResult(listener: CompanyResultListener) {
+    this.companyResultListeners.add(listener);
+    return () => this.companyResultListeners.delete(listener);
   }
 
   sendPartyInvite(targetName: string) {
@@ -1940,6 +2047,17 @@ export class NetworkManager {
     });
     this.room.onMessage("guildResult", (payload: GuildResultPayload) => {
       for (const listener of this.guildResultListeners) {
+        listener(payload);
+      }
+    });
+    this.room.onMessage("companyState", (payload: CompanyStatePayload) => {
+      this.latestCompanyState = payload;
+      for (const listener of this.companyStateListeners) {
+        listener(payload);
+      }
+    });
+    this.room.onMessage("companyResult", (payload: CompanyResultPayload) => {
+      for (const listener of this.companyResultListeners) {
         listener(payload);
       }
     });

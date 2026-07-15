@@ -34,6 +34,7 @@ import { ensureMetricFloor, initMetrics } from "./economy/metrics.js";
 import { initItemFlows } from "./economy/itemFlows.js";
 import { initFarmRegistry } from "./farming/farmRegistry.js";
 import { initGuildRegistry } from "./guild/guildRegistry.js";
+import { initCompanyRegistry, runCompanyDailyPayouts } from "./company/companyRegistry.js";
 import { initTerritoryRegistry } from "./territory/territoryRegistry.js";
 import { initSiegeRegistry } from "./siege/siegeRegistry.js";
 import { adService } from "./ads/adService.js";
@@ -125,6 +126,16 @@ gameServer.define(ZONE_JAIL, ZoneRoom, { zoneId: ZONE_JAIL });
 // visitors in their own room instance (matched on the zoneId join option).
 gameServer.define(PLAYER_ZONE_ROOM, ZoneRoom).filterBy(["zoneId"]);
 
+gameServer.onBeforeShutdown(async () => {
+  console.log("[Shutdown] Graceful shutdown initiated. Saving all online characters...");
+  try {
+    await ZoneRoom.persistAllActivePlayers();
+    console.log("[Shutdown] All characters saved successfully.");
+  } catch (error) {
+    console.error("[Shutdown] Failed to save characters during graceful shutdown:", error);
+  }
+});
+
 await initDatabase();
 await initSellPressure();
 await initLandRegistry();
@@ -160,6 +171,7 @@ try {
 }
 await initFarmRegistry();
 await initGuildRegistry();
+await initCompanyRegistry();
 await initTerritoryRegistry();
 await initSiegeRegistry();
 await adService.init();
@@ -172,6 +184,16 @@ setInterval(() => void getBaseHolderCount(), 5 * 60 * 1000).unref();
 // hourly — the day's row is upserted, so the last capture converges on EOD.
 void captureNetWorthSnapshot();
 setInterval(() => void captureNetWorthSnapshot(), 60 * 60 * 1000).unref();
+
+// Merchant Company daily payouts (salaries + dividends). Runs hourly and on
+// boot; each company is paid at most once per UTC day (idempotent via
+// lastPayoutDay + the company_payouts PK). Credits online players' gold or
+// falls back to pending_gold for the offline.
+runCompanyDailyPayouts((name, amount) => ZoneRoom.creditPlayerGlobal(name, amount));
+setInterval(
+  () => runCompanyDailyPayouts((name, amount) => ZoneRoom.creditPlayerGlobal(name, amount)),
+  60 * 60 * 1000,
+).unref();
 
 httpServer.listen(PORT, () => {
   console.log(`MetricBase game server listening on ws://localhost:${PORT}`);

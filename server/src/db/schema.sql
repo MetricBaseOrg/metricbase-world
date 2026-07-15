@@ -474,4 +474,61 @@ ALTER TABLE pending_gold    ADD COLUMN IF NOT EXISTS player_wallet    VARCHAR(44
 ALTER TABLE daily_state     ADD COLUMN IF NOT EXISTS player_wallet    VARCHAR(44);
 CREATE INDEX IF NOT EXISTS mail_recipient_wallet_idx ON mail (recipient_wallet, created_at DESC);
 CREATE INDEX IF NOT EXISTS zone_passes_holder_wallet_idx ON zone_passes (zone_id, holder_wallet);
+
+-- ============================================================================
+-- Merchant Companies (v0.140.0): player-owned ECONOMIC organizations that
+-- coexist with guilds. One JSONB-roster row per company (guild pattern) plus
+-- side tables for inbound contracts and the daily-payout audit log. Members are
+-- keyed by display NAME (with an owner_wallet dual-write column, matching the
+-- wallet-identity migration). All additive/idempotent, applied on boot.
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS companies (
+  id VARCHAR(64) PRIMARY KEY,
+  name VARCHAR(24) UNIQUE NOT NULL,
+  owner_name VARCHAR(16) NOT NULL,
+  owner_wallet VARCHAR(44),
+  emblem VARCHAR(8) NOT NULL DEFAULT '🏢',
+  color INTEGER NOT NULL DEFAULT 4886754,
+  company_type VARCHAR(16) NOT NULL DEFAULT 'merchant',
+  motd VARCHAR(200) NOT NULL DEFAULT '',
+  treasury INTEGER NOT NULL DEFAULT 0,
+  revenue_share DOUBLE PRECISION NOT NULL DEFAULT 0,
+  dividend_rate DOUBLE PRECISION NOT NULL DEFAULT 0,
+  members JSONB NOT NULL DEFAULT '[]'::jsonb,        -- all member names (owner included)
+  managers JSONB NOT NULL DEFAULT '[]'::jsonb,       -- manager rank (subset of members)
+  trainees JSONB NOT NULL DEFAULT '[]'::jsonb,       -- trainee rank (subset of members)
+  join_requests JSONB NOT NULL DEFAULT '[]'::jsonb,  -- pending applicant names
+  warehouse JSONB NOT NULL DEFAULT '[]'::jsonb,      -- InventoryEntry[] (shared/items.ts shape)
+  salaries JSONB NOT NULL DEFAULT '{}'::jsonb,       -- { name: goldPerDay }
+  stats JSONB NOT NULL DEFAULT '{}'::jsonb,          -- CompanyStats (revenue/paidOut/contrib)
+  last_payout_day VARCHAR(10),                        -- idempotency key (UTC yyyy-mm-dd)
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Contracts posted BY outsiders TO a company; reward gold escrowed at posting.
+CREATE TABLE IF NOT EXISTS company_contracts (
+  id VARCHAR(64) PRIMARY KEY,
+  company_id VARCHAR(64) NOT NULL,
+  poster_name VARCHAR(16) NOT NULL,
+  poster_wallet VARCHAR(44),
+  kind VARCHAR(16) NOT NULL,                          -- supply|gather|harvest|mobs
+  item_id VARCHAR(48),
+  qty INTEGER NOT NULL,
+  progress INTEGER NOT NULL DEFAULT 0,
+  reward_gold INTEGER NOT NULL,
+  status VARCHAR(12) NOT NULL DEFAULT 'open',         -- open|accepted|completed|cancelled
+  items_to_collect INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS company_contracts_company_idx ON company_contracts (company_id, status);
+
+-- Daily payout audit log (one row per company per UTC day actually paid).
+CREATE TABLE IF NOT EXISTS company_payouts (
+  company_id VARCHAR(64) NOT NULL,
+  day VARCHAR(10) NOT NULL,
+  salaries_paid INTEGER NOT NULL DEFAULT 0,
+  dividends_paid INTEGER NOT NULL DEFAULT 0,
+  detail JSONB NOT NULL DEFAULT '{}'::jsonb,          -- { name: amount } breakdown
+  PRIMARY KEY (company_id, day)
+);
 CREATE INDEX IF NOT EXISTS asset_inventory_player_wallet_idx ON asset_inventory (player_wallet);

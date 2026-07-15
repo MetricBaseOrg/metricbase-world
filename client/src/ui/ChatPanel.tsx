@@ -12,9 +12,10 @@ export function ChatPanel() {
   const [draft, setDraft] = useState("");
   const mobileLayout = useMobileLayout();
   const [open, setOpen] = useState(false);
-  const [channel, setChannel] = useState<"zone" | "guild" | "party">("zone");
+  const [channel, setChannel] = useState<"zone" | "guild" | "party" | "company">("zone");
   const [inGuild, setInGuild] = useState(false);
   const [inParty, setInParty] = useState(false);
+  const [inCompany, setInCompany] = useState(false);
   const messages = useGameStore((state) => state.chatMessages);
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -34,9 +35,11 @@ export function ChatPanel() {
   useEffect(() => {
     const unsubGuild = networkManager.onGuildState((state) => setInGuild(!!state.myGuild));
     const unsubParty = networkManager.onPartyState((state) => setInParty(!!state.party));
+    const unsubCompany = networkManager.onCompanyState((state) => setInCompany(!!state.myCompany));
     return () => {
       unsubGuild();
       unsubParty();
+      unsubCompany();
     };
   }, []);
 
@@ -44,16 +47,19 @@ export function ChatPanel() {
   useEffect(() => {
     if (channel === "guild" && !inGuild) setChannel("zone");
     if (channel === "party" && !inParty) setChannel("zone");
-  }, [inGuild, inParty, channel]);
+    if (channel === "company" && !inCompany) setChannel("zone");
+  }, [inGuild, inParty, inCompany, channel]);
 
-  const channels: Array<"zone" | "guild" | "party"> = [
+  const channels: Array<"zone" | "guild" | "party" | "company"> = [
     "zone",
     ...(inGuild ? (["guild"] as const) : []),
     ...(inParty ? (["party"] as const) : []),
+    ...(inCompany ? (["company"] as const) : []),
   ];
   const cycleChannel = () =>
     setChannel((c) => channels[(channels.indexOf(c) + 1) % channels.length] ?? "zone");
-  const channelLabel = channel === "guild" ? "Guild" : channel === "party" ? "Party" : "Global";
+  const channelLabel =
+    channel === "guild" ? "Guild" : channel === "party" ? "Party" : channel === "company" ? "Company" : "Global";
 
   useEffect(() => {
     if (listRef.current) {
@@ -70,6 +76,8 @@ export function ChatPanel() {
       networkManager.sendGuildChat(body);
     } else if (channel === "party") {
       networkManager.sendPartyChat(body);
+    } else if (channel === "company") {
+      networkManager.sendCompanyChat(body);
     } else {
       networkManager.sendChat(body);
     }
@@ -111,6 +119,16 @@ export function ChatPanel() {
         <>
           <span className="chibi-chat-party chibi-chat-name-btn" onClick={() => tagPlayer(message.senderName)}>
             [Party] {message.senderName}:{" "}
+          </span>
+          {body}
+        </>
+      );
+    }
+    if (message.channel === "company") {
+      return (
+        <>
+          <span className="chibi-chat-company chibi-chat-name-btn" onClick={() => tagPlayer(message.senderName)}>
+            [Company] {message.senderName}:{" "}
           </span>
           {body}
         </>

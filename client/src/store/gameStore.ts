@@ -65,6 +65,8 @@ interface GameStore {
   dailyOpen: boolean;
   /** Player-to-player job board. */
   jobsOpen: boolean;
+  /** Merchant Companies panel. */
+  companyOpen: boolean;
   /** Admin moderation panel (ban/unban). Only reachable for admin wallets. */
   adminOpen: boolean;
   /** Whether this session's wallet is a server-verified admin (drives UI only). */
@@ -159,6 +161,7 @@ interface GameStore {
   setCropMarketOpen: (market: string | null) => void;
   setDailyOpen: (open: boolean) => void;
   setJobsOpen: (open: boolean) => void;
+  setCompanyOpen: (open: boolean) => void;
   setAdminOpen: (open: boolean) => void;
   setIsAdmin: (isAdmin: boolean) => void;
   setChatOpen: (open: boolean) => void;
@@ -203,6 +206,7 @@ export function isAnyPanelOpen(s: GameStore): boolean {
     s.buildShopOpen ||
     s.dailyOpen ||
     s.jobsOpen ||
+    s.companyOpen ||
     s.chatOpen ||
     s.settingsOpen ||
     s.housingOpen ||
@@ -266,6 +270,7 @@ export const useGameStore = create<GameStore>((set) => ({
   cropMarketOpen: null,
   dailyOpen: false,
   jobsOpen: false,
+  companyOpen: false,
   adminOpen: false,
   isAdmin: false,
   chatOpen: false,
@@ -380,6 +385,7 @@ export const useGameStore = create<GameStore>((set) => ({
   setCropMarketOpen: (cropMarketOpen) => set({ cropMarketOpen }),
   setDailyOpen: (dailyOpen) => set({ dailyOpen }),
   setJobsOpen: (jobsOpen) => set({ jobsOpen }),
+  setCompanyOpen: (companyOpen) => set({ companyOpen }),
   setAdminOpen: (adminOpen) => set({ adminOpen }),
   setIsAdmin: (isAdmin) => set({ isAdmin }),
   setChatOpen: (chatOpen) => set({ chatOpen }),

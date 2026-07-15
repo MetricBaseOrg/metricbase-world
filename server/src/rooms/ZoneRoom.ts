@@ -234,6 +234,12 @@ import {
   zoneAssetPrice,
   type PlayerZoneBuild,
   type PlayerZoneRecord,
+  COMPANY_CREATE_COST,
+  sanitizeCompanyName,
+  getPipSellPrice,
+  type CompanyContractKind,
+  type CompanyRank,
+  type CompanyType,
 } from "@metricbase/shared";
 import { verifyAccessToken } from "../auth/accessToken.js";
 import { isTokenGateEnabled } from "../auth/tokenGate.js";
@@ -348,6 +354,40 @@ import {
   guildMembersById,
   depositToBankById,
 } from "../guild/guildRegistry.js";
+import {
+  getCompanyForMember,
+  getCompanyById,
+  companyMemberNames,
+  createCompany,
+  requestJoinCompany,
+  cancelJoinRequest as cancelCompanyJoinRequest,
+  approveJoinRequest as approveCompanyJoinRequest,
+  denyJoinRequest as denyCompanyJoinRequest,
+  leaveCompany,
+  kickCompanyMember,
+  setCompanyRank,
+  setCompanyMotd,
+  setCompanyRates,
+  setCompanySalary,
+  depositCompanyGold,
+  withdrawCompanyGold,
+  contributeWarehouse,
+  stockWarehouse,
+  takeFromWarehouse,
+  applyCompanyCut,
+  creditCompanyTreasury,
+  tickCompanyActivity,
+  postCompanyContract,
+  cancelCompanyContract,
+  acceptCompanyContract,
+  deliverCompanyContract,
+  peekContractCollect,
+  reduceContractCollect,
+  dismissCompanyContract,
+  bumpCompanyContractProgress,
+  buildCompanyStatePayload,
+  broadcastCompanyState as broadcastCompanyStateFn,
+} from "../company/companyRegistry.js";
 import {
   addZoneEarnings,
   addZoneTax,
@@ -644,6 +684,19 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     this.clock.setInterval(() => {
       if (this.state.players.size > 0) this.broadcast("worldStats", this.buildWorldStats());
     }, 60_000);
+
+    // Periodically autosave all online players in this room to prevent progress loss on crash
+    this.clock.setInterval(async () => {
+      if (this.state.players.size > 0) {
+        const promises: Promise<void>[] = [];
+        for (const player of this.state.players.values()) {
+          if (!player.spectator) {
+            promises.push(this.persistPlayer(player));
+          }
+        }
+        await Promise.allSettled(promises);
+      }
+    }, 5 * 60 * 1000);
 
     // Ad impressions: each viewing player generates one per minute per slot.
     this.clock.setInterval(() => {
@@ -1147,6 +1200,94 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       if (player) client.send("guildState", buildGuildStatePayload(player.name));
     });
 
+    // ----- Merchant Companies -----
+    this.onProtectedMessage(
+      "companyCreate",
+      (client, m: { name?: string; emblem?: string; color?: number; companyType?: string }) => {
+        this.handleCompanyCreate(client, m.name ?? "", m.emblem ?? "", m.color ?? 0, m.companyType ?? "");
+      },
+    );
+    this.onProtectedMessage("companyJoin", (client, m: { companyId?: string }) => {
+      this.handleCompanyJoin(client, m.companyId ?? "");
+    });
+    this.onProtectedMessage("companyCancelRequest", (client) => {
+      this.handleCompanyCancelRequest(client);
+    });
+    this.onProtectedMessage("companyApprove", (client, m: { applicant?: string }) => {
+      this.handleCompanyJoinDecision(client, "approve", m.applicant ?? "");
+    });
+    this.onProtectedMessage("companyDeny", (client, m: { applicant?: string }) => {
+      this.handleCompanyJoinDecision(client, "deny", m.applicant ?? "");
+    });
+    this.onProtectedMessage("companyLeave", (client) => {
+      this.handleCompanyLeave(client);
+    });
+    this.onProtectedMessage("companyKick", (client, m: { target?: string }) => {
+      this.handleCompanyKick(client, m.target ?? "");
+    });
+    this.onProtectedMessage("companySetRank", (client, m: { target?: string; rank?: string }) => {
+      this.handleCompanySetRank(client, m.target ?? "", (m.rank ?? "") as CompanyRank);
+    });
+    this.onProtectedMessage("companySetMotd", (client, m: { motd?: string }) => {
+      this.handleCompanySetMotd(client, m.motd ?? "");
+    });
+    this.onProtectedMessage("companySetRates", (client, m: { revenueShare?: number; dividendRate?: number }) => {
+      this.handleCompanySetRates(client, m.revenueShare ?? 0, m.dividendRate ?? 0);
+    });
+    this.onProtectedMessage("companySetSalary", (client, m: { target?: string; gold?: number }) => {
+      this.handleCompanySetSalary(client, m.target ?? "", m.gold ?? 0);
+    });
+    this.onProtectedMessage("companyDeposit", (client, m: { amount?: number }) => {
+      void this.handleCompanyDeposit(client, m.amount ?? 0);
+    });
+    this.onProtectedMessage("companyWithdraw", (client, m: { amount?: number }) => {
+      void this.handleCompanyWithdraw(client, m.amount ?? 0);
+    });
+    this.onProtectedMessage("companyContribute", (client, m: { itemId?: string; qty?: number }) => {
+      void this.handleCompanyContribute(client, m.itemId ?? "", m.qty ?? 0);
+    });
+    this.onProtectedMessage("companyTake", (client, m: { itemId?: string; qty?: number }) => {
+      void this.handleCompanyTake(client, m.itemId ?? "", m.qty ?? 0);
+    });
+    this.onProtectedMessage("companySell", (client, m: { itemId?: string; qty?: number }) => {
+      this.handleCompanySell(client, m.itemId ?? "", m.qty ?? 0);
+    });
+    this.onProtectedMessage(
+      "companyContractPost",
+      (client, m: { companyId?: string; kind?: string; itemId?: string | null; qty?: number; rewardGold?: number }) => {
+        void this.handleCompanyContractPost(
+          client,
+          m.companyId ?? "",
+          (m.kind ?? "") as CompanyContractKind,
+          m.itemId ?? null,
+          m.qty ?? 0,
+          m.rewardGold ?? 0,
+        );
+      },
+    );
+    this.onProtectedMessage("companyContractCancel", (client, m: { id?: string }) => {
+      void this.handleCompanyContractCancel(client, m.id ?? "");
+    });
+    this.onProtectedMessage("companyContractAccept", (client, m: { id?: string }) => {
+      this.handleCompanyContractAccept(client, m.id ?? "");
+    });
+    this.onProtectedMessage("companyContractDeliver", (client, m: { id?: string; qty?: number }) => {
+      this.handleCompanyContractDeliver(client, m.id ?? "", m.qty ?? 0);
+    });
+    this.onProtectedMessage("companyContractCollect", (client, m: { id?: string }) => {
+      void this.handleCompanyContractCollect(client, m.id ?? "");
+    });
+    this.onProtectedMessage("companyContractDismiss", (client, m: { id?: string }) => {
+      this.handleCompanyContractDismiss(client, m.id ?? "");
+    });
+    this.onProtectedMessage("companyChat", (client, m: { body?: string }) => {
+      this.handleCompanyChat(client, m.body ?? "");
+    });
+    this.onMessage("requestCompanies", (client) => {
+      const player = this.state.players.get(client.sessionId);
+      if (player) client.send("companyState", buildCompanyStatePayload(player.name));
+    });
+
     this.onMessage("emote", (client, message: { emoteId?: string }) => {
       this.handleEmote(client, message.emoteId ?? "");
     });
@@ -1518,6 +1659,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     this.sendSkillState(client, player.name);
     client.send("farmState", this.buildFarmState());
     client.send("housingState", this.buildHousingState());
+    client.send("companyState", buildCompanyStatePayload(player.name));
     client.send("lootBags", { bags: [...this.lootBags.values()] });
     this.sendAssetInventory(client, player.name);
     // Player-owned zones aren't in the client's static ZONE_CONFIGS — push the
@@ -1658,6 +1800,23 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     for (const room of ZoneRoom.activeRooms) {
       room.broadcast("worldStats", payload);
     }
+  }
+
+  /** Persist all non-spectator players across all active rooms. */
+  public static async persistAllActivePlayers(): Promise<void> {
+    console.log(`[Autosave] Persisting all active players across ${ZoneRoom.activeRooms.size} rooms.`);
+    const promises: Promise<void>[] = [];
+    for (const room of ZoneRoom.activeRooms) {
+      for (const player of room.state.players.values()) {
+        if (!player.spectator) {
+          promises.push(room.persistPlayer(player));
+        }
+      }
+    }
+    const results = await Promise.allSettled(promises);
+    const succeeded = results.filter((r) => r.status === "fulfilled").length;
+    const failed = results.filter((r) => r.status === "rejected").length;
+    console.log(`[Autosave] Persistence complete. Succeeded: ${succeeded}, Failed: ${failed}.`);
   }
 
   private buildWorldStats(): WorldStatsPayload {
@@ -4124,6 +4283,14 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
   /** Credit gold to a player by name across any room; queue it if they're offline. */
   private creditPlayerByName(name: string, amount: number) {
+    ZoneRoom.creditPlayerGlobal(name, amount);
+  }
+
+  /** Credit gold to a player by display name from ANY context (no room instance
+   * needed) — scans all active rooms and pays the online session by pid, or
+   * falls back to pending_gold when they're offline. Used by the company daily
+   * payout runner (which lives outside any room). */
+  public static creditPlayerGlobal(name: string, amount: number) {
     if (amount <= 0) return;
     for (const room of ZoneRoom.activeRooms) {
       const sessionId = room.activePlayerSession.get(name);
@@ -4342,6 +4509,10 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   private tickJobProgress(playerName: string, kind: "gather" | "harvest" | "mobs", n = 1) {
     const completed = bumpJobProgress(playerName, kind, n);
     if (completed) void this.completeJob(completed);
+    // Company: stamp the member's activity (dividend eligibility) and advance any
+    // accepted activity contract of the matching kind.
+    tickCompanyActivity(playerName);
+    bumpCompanyContractProgress(playerName, kind, n);
   }
 
   private async checkTalkObjectives(client: Client, playerName: string, npcId: string) {
@@ -4802,28 +4973,38 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     if (reason.startsWith("defeated")) bumpMetric("mob.gold", amount);
     else if (reason.startsWith("completed")) bumpMetric("quest.gold", amount);
 
-    // Guild income tax: a slice of earnings is skimmed straight to the guild bank.
+    // Guild income tax + company revenue-share: slices of the earning are
+    // skimmed straight into the guild bank / company treasury. Both cap at 10%,
+    // so the player always keeps ≥ 80%. Pure transfers — the gold was already
+    // minted above; nothing is minted twice.
     const tax = applyGuildTax(player.name, amount);
-    const kept = amount - tax;
+    const cut = applyCompanyCut(player.name, amount);
+    const kept = amount - tax - cut;
 
     const next = (this.playerGold.get(this.pidOf(player)) ?? STARTING_GOLD) + kept;
     this.playerGold.set(this.pidOf(player), next);
     this.sendProfile(client, player);
 
+    const skimNote =
+      tax > 0 && cut > 0
+        ? ` (${reason}; ${tax} to guild bank, ${cut} to company)`
+        : tax > 0
+          ? ` (${reason}; ${tax} to guild bank)`
+          : cut > 0
+            ? ` (${reason}; ${cut} to company)`
+            : ` (${reason})`;
     this.broadcastChat({
       id: crypto.randomUUID(),
       channel: "system",
       senderId: "system",
       senderName: "System",
-      body:
-        tax > 0
-          ? `${player.name} earned ${kept} gold (${reason}; ${tax} to guild bank).`
-          : `${player.name} earned ${amount} gold (${reason}).`,
+      body: `${player.name} earned ${kept} gold${skimNote}.`,
       sentAt: Date.now(),
     });
 
-    // Keep guildmates' bank display fresh after a tax deposit.
+    // Keep guildmates' bank + company members' treasury displays fresh.
     if (tax > 0) this.broadcastGuildState(guildMemberNames(player.name));
+    if (cut > 0) broadcastCompanyStateFn(companyMemberNames(player.name));
   }
 
   private async handleLinkWallet(client: Client, accessToken: string) {
@@ -5073,6 +5254,20 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     await this.persistPlayer(player);
   }
 
+  /** The one place NPC vendor proceeds are computed: apply the supply-adjusted
+   * price, record the sale so the price softens (capping the sell faucet), mint
+   * the gold, and book the sell metrics. Returns the payout. Shared by player
+   * shop-sell and company warehouse-sell so both behave identically. */
+  private vendorSellProceeds(itemId: string, basePrice: number, qty: number): number {
+    const unitPrice = effectiveSellPrice(itemId, basePrice);
+    const payout = unitPrice * qty;
+    recordSale(itemId, qty);
+    mintGold(payout);
+    bumpMetric("sell.count", qty);
+    bumpMetric("sell.gold", payout);
+    return payout;
+  }
+
   private async handleShopSell(
     client: Client,
     shopId: string,
@@ -5110,12 +5305,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
     // Pay the current (supply-adjusted) price, then record the sale so the price
     // softens — this caps the gather→sell gold faucet.
-    const unitPrice = effectiveSellPrice(itemId, basePrice);
-    const payout = unitPrice * removed;
-    recordSale(itemId, removed);
-    mintGold(payout);
-    bumpMetric("sell.count", removed);
-    bumpMetric("sell.gold", payout);
+    const payout = this.vendorSellProceeds(itemId, basePrice, removed);
     this.bumpDaily(player.name, "sell", removed);
     const gold = (this.playerGold.get(this.pidOf(player)) ?? STARTING_GOLD) + payout;
     this.playerGold.set(this.pidOf(player), gold);
@@ -8028,6 +8218,424 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     sendToPlayers(guild.members, "chat", {
       id: crypto.randomUUID(),
       channel: "guild",
+      senderId: client.sessionId,
+      senderName: player.name,
+      body,
+      sentAt: now,
+    } satisfies ChatMessagePayload);
+  }
+
+  // ===== Merchant Companies =====================================================
+
+  /** Push fresh company state to each named member (per-recipient), cross-zone. */
+  private broadcastCompanyState(names: string[]) {
+    broadcastCompanyStateFn(names);
+  }
+
+  private handleCompanyCreate(
+    client: Client,
+    rawName: string,
+    emblem: string,
+    color: number,
+    companyType: string,
+  ) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const name = sanitizeCompanyName(rawName);
+    const gold = this.playerGold.get(this.pidOf(player)) ?? STARTING_GOLD;
+    if (gold < COMPANY_CREATE_COST) {
+      client.send("companyResult", {
+        ok: false,
+        gold,
+        error: `Founding a company costs ${COMPANY_CREATE_COST.toLocaleString()} gold.`,
+      });
+      return;
+    }
+    const wallet = this.playerWallets.get(client.sessionId) ?? null;
+    const result = createCompany(name, emblem, color, companyType as CompanyType, player.name, wallet);
+    if (!result.ok) {
+      client.send("companyResult", { ok: false, error: result.error });
+      return;
+    }
+    const nextGold = gold - COMPANY_CREATE_COST;
+    this.playerGold.set(this.pidOf(player), nextGold);
+    burnGold(COMPANY_CREATE_COST); // registration fee leaves the economy (a sink)
+    bumpMetric("company.created");
+    bumpMetric("company.create.gold", COMPANY_CREATE_COST);
+    this.sendProfile(client, player);
+    void this.persistPlayer(player);
+    client.send("companyResult", { ok: true, gold: nextGold, message: "Company founded!" });
+    client.send("companyState", buildCompanyStatePayload(player.name));
+    this.broadcastChat({
+      id: crypto.randomUUID(),
+      channel: "system",
+      senderId: "system",
+      senderName: "System",
+      body: `${player.name} founded the company "${name}".`,
+      sentAt: Date.now(),
+    });
+  }
+
+  private handleCompanyJoin(client: Client, companyId: string) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const result = requestJoinCompany(player.name, companyId);
+    if (!result.ok) return void client.send("companyResult", { ok: false, error: result.error });
+    client.send("companyResult", { ok: true, message: "Application sent." });
+    client.send("companyState", buildCompanyStatePayload(player.name));
+    if (result.company) this.broadcastCompanyState(result.company.members);
+  }
+
+  private handleCompanyCancelRequest(client: Client) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const company = cancelCompanyJoinRequest(player.name);
+    client.send("companyResult", { ok: true, message: "Request cancelled." });
+    client.send("companyState", buildCompanyStatePayload(player.name));
+    if (company) this.broadcastCompanyState(company.members);
+  }
+
+  private handleCompanyJoinDecision(client: Client, action: "approve" | "deny", applicant: string) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !applicant) return;
+    const result =
+      action === "approve"
+        ? approveCompanyJoinRequest(player.name, applicant)
+        : denyCompanyJoinRequest(player.name, applicant);
+    if (!result.ok) return void client.send("companyResult", { ok: false, error: result.error });
+    client.send("companyResult", { ok: true });
+    if (result.company) this.broadcastCompanyState(result.company.members);
+    // Refresh the applicant so their UI updates (joined, or request cleared).
+    sendToPlayer(applicant, "companyState", buildCompanyStatePayload(applicant));
+  }
+
+  private handleCompanyLeave(client: Client) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const members = companyMemberNames(player.name);
+    const result = leaveCompany(player.name);
+    if (!result.ok) return void client.send("companyResult", { ok: false, error: result.error });
+    // Refund escrow of any contracts orphaned by a disband.
+    for (const refund of result.refunds ?? []) {
+      this.creditPlayerByName(refund.name, refund.amount);
+    }
+    client.send("companyResult", { ok: true, message: "You left the company." });
+    client.send("companyState", buildCompanyStatePayload(player.name));
+    this.broadcastCompanyState(members);
+  }
+
+  private handleCompanyKick(client: Client, target: string) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !target) return;
+    const members = companyMemberNames(player.name);
+    const result = kickCompanyMember(player.name, target);
+    if (!result.ok) return void client.send("companyResult", { ok: false, error: result.error });
+    client.send("companyResult", { ok: true });
+    this.broadcastCompanyState(members);
+    sendToPlayer(target, "companyState", buildCompanyStatePayload(target));
+  }
+
+  private handleCompanySetRank(client: Client, target: string, rank: CompanyRank) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !target) return;
+    const result = setCompanyRank(player.name, target, rank);
+    if (!result.ok) return void client.send("companyResult", { ok: false, error: result.error });
+    client.send("companyResult", { ok: true });
+    this.broadcastCompanyState(companyMemberNames(player.name));
+  }
+
+  private handleCompanySetMotd(client: Client, motd: string) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const result = setCompanyMotd(player.name, motd);
+    if (!result.ok) return void client.send("companyResult", { ok: false, error: result.error });
+    const members = companyMemberNames(player.name);
+    client.send("companyResult", { ok: true, message: "Announcement updated." });
+    this.broadcastCompanyState(members);
+    // Surface the new announcement in company chat so members see it live.
+    const company = getCompanyForMember(player.name);
+    if (company && company.motd) {
+      sendToPlayers(members, "chat", {
+        id: crypto.randomUUID(),
+        channel: "company",
+        senderId: "system",
+        senderName: company.name,
+        body: `📢 ${company.motd}`,
+        sentAt: Date.now(),
+      } satisfies ChatMessagePayload);
+    }
+  }
+
+  private handleCompanySetRates(client: Client, revenueShare: number, dividendRate: number) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const result = setCompanyRates(player.name, revenueShare, dividendRate);
+    if (!result.ok) return void client.send("companyResult", { ok: false, error: result.error });
+    client.send("companyResult", { ok: true, message: "Rates updated." });
+    this.broadcastCompanyState(companyMemberNames(player.name));
+  }
+
+  private handleCompanySetSalary(client: Client, target: string, gold: number) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !target) return;
+    const result = setCompanySalary(player.name, target, gold);
+    if (!result.ok) return void client.send("companyResult", { ok: false, error: result.error });
+    client.send("companyResult", { ok: true, message: "Salary updated." });
+    this.broadcastCompanyState(companyMemberNames(player.name));
+  }
+
+  private async handleCompanyDeposit(client: Client, amount: number) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const want = Math.floor(amount);
+    const gold = this.playerGold.get(this.pidOf(player)) ?? STARTING_GOLD;
+    if (!Number.isFinite(want) || want <= 0) {
+      return void client.send("companyResult", { ok: false, error: "Enter a positive amount." });
+    }
+    if (gold < want) {
+      return void client.send("companyResult", { ok: false, error: "You don't have that much gold." });
+    }
+    const result = depositCompanyGold(player.name, want);
+    if (!result.ok) return void client.send("companyResult", { ok: false, error: result.error });
+    const nextGold = gold - want;
+    this.playerGold.set(this.pidOf(player), nextGold); // pure transfer — no burn
+    this.sendProfile(client, player);
+    await this.persistPlayer(player);
+    client.send("companyResult", { ok: true, gold: nextGold, message: `Deposited ${want.toLocaleString()}g.` });
+    this.broadcastCompanyState(companyMemberNames(player.name));
+  }
+
+  private async handleCompanyWithdraw(client: Client, amount: number) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const result = withdrawCompanyGold(player.name, amount);
+    if (!result.ok || result.amount == null) {
+      return void client.send("companyResult", { ok: false, error: result.error });
+    }
+    const nextGold = (this.playerGold.get(this.pidOf(player)) ?? STARTING_GOLD) + result.amount;
+    this.playerGold.set(this.pidOf(player), nextGold);
+    this.sendProfile(client, player);
+    await this.persistPlayer(player);
+    client.send("companyResult", {
+      ok: true,
+      gold: nextGold,
+      message: `Withdrew ${result.amount.toLocaleString()}g.`,
+    });
+    this.broadcastCompanyState(companyMemberNames(player.name));
+  }
+
+  private async handleCompanyContribute(client: Client, itemId: string, qty: number) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !itemId) return;
+    const pid = this.pidOf(player);
+    const inv = this.inventories.get(pid) ?? [];
+    const have = getItemQuantity(inv, itemId);
+    const want = Math.min(Math.floor(qty), have);
+    if (want <= 0) return void client.send("companyResult", { ok: false, error: "You don't have that item." });
+    if (this.wouldStripEquipped(player, inv, itemId, want)) {
+      return void client.send("companyResult", { ok: false, error: "That's equipped — unequip it first." });
+    }
+    const result = contributeWarehouse(player.name, itemId, want);
+    if (!result.ok || !result.added) {
+      return void client.send("companyResult", { ok: false, error: result.error ?? "Couldn't contribute." });
+    }
+    // Remove exactly what the warehouse accepted (a neutral P2P transfer — no
+    // recordProduced/recordConsumed).
+    const { inventory } = removeItemFromInventory(inv, itemId, result.added);
+    this.inventories.set(pid, inventory);
+    this.sendInventory(client, player.name);
+    await this.persistPlayer(player);
+    const item = getItemDefinition(itemId);
+    client.send("companyResult", {
+      ok: true,
+      message: `Contributed ${result.added}× ${item.name} to the warehouse.`,
+    });
+    this.broadcastCompanyState(companyMemberNames(player.name));
+  }
+
+  private async handleCompanyTake(client: Client, itemId: string, qty: number) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !itemId) return;
+    const taken = takeFromWarehouse(player.name, itemId, qty, "withdrawItems");
+    if (!taken.ok || !taken.removed || !taken.companyId) {
+      return void client.send("companyResult", { ok: false, error: taken.error ?? "Couldn't withdraw." });
+    }
+    const pid = this.pidOf(player);
+    const inv = this.inventories.get(pid) ?? [];
+    const { inventory, added } = addItemToInventory(inv, itemId, taken.removed, this.bagCapOf(player.name));
+    this.inventories.set(pid, inventory);
+    // Return any items that didn't fit the player's bag back to the warehouse.
+    const leftover = taken.removed - added;
+    if (leftover > 0) stockWarehouse(taken.companyId, itemId, leftover);
+    this.sendInventory(client, player.name);
+    await this.persistPlayer(player);
+    const item = getItemDefinition(itemId);
+    client.send("companyResult", {
+      ok: true,
+      message:
+        leftover > 0
+          ? `Withdrew ${added}× ${item.name} — bag full, ${leftover} left in the warehouse.`
+          : `Withdrew ${added}× ${item.name}.`,
+    });
+    this.broadcastCompanyState(companyMemberNames(player.name));
+  }
+
+  private handleCompanySell(client: Client, itemId: string, qty: number) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !itemId) return;
+    const basePrice = getPipSellPrice(itemId);
+    if (!basePrice) {
+      return void client.send("companyResult", { ok: false, error: "Pip won't buy that item." });
+    }
+    const taken = takeFromWarehouse(player.name, itemId, qty, "sellWarehouse");
+    if (!taken.ok || !taken.removed || !taken.companyId) {
+      return void client.send("companyResult", { ok: false, error: taken.error ?? "Couldn't sell." });
+    }
+    // Same softened faucet as a player vendor sale — no new pump vector.
+    const payout = this.vendorSellProceeds(itemId, basePrice, taken.removed);
+    creditCompanyTreasury(taken.companyId, payout, "vendor");
+    const item = getItemDefinition(itemId);
+    client.send("companyResult", {
+      ok: true,
+      message: `Sold ${taken.removed}× ${item.name} for ${payout.toLocaleString()}g to the treasury.`,
+    });
+    this.broadcastCompanyState(companyMemberNames(player.name));
+  }
+
+  private async handleCompanyContractPost(
+    client: Client,
+    companyId: string,
+    kind: CompanyContractKind,
+    itemId: string | null,
+    qty: number,
+    rewardGold: number,
+  ) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const reward = Math.floor(rewardGold);
+    const gold = this.playerGold.get(this.pidOf(player)) ?? STARTING_GOLD;
+    if (gold < reward) {
+      return void client.send("companyResult", {
+        ok: false,
+        error: `Need ${reward.toLocaleString()}g to escrow the reward (you have ${gold.toLocaleString()}).`,
+      });
+    }
+    const wallet = this.playerWallets.get(client.sessionId) ?? null;
+    const result = postCompanyContract(player.name, wallet, companyId, kind, itemId, qty, reward);
+    if (!result.ok || !result.contract) {
+      return void client.send("companyResult", { ok: false, error: result.error });
+    }
+    const nextGold = gold - reward; // escrow held on the contract, refunded on cancel
+    this.playerGold.set(this.pidOf(player), nextGold);
+    bumpMetric("company.contract.posted");
+    this.sendProfile(client, player);
+    await this.persistPlayer(player);
+    client.send("companyResult", { ok: true, gold: nextGold, message: "Contract posted." });
+    client.send("companyState", buildCompanyStatePayload(player.name));
+    // Notify the target company's members so their board updates.
+    const company = getCompanyById(companyId);
+    if (company) this.broadcastCompanyState(company.members);
+  }
+
+  private async handleCompanyContractCancel(client: Client, id: string) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const result = cancelCompanyContract(player.name, id);
+    if (!result.ok || result.refund == null) {
+      return void client.send("companyResult", { ok: false, error: result.error });
+    }
+    const nextGold = (this.playerGold.get(this.pidOf(player)) ?? STARTING_GOLD) + result.refund;
+    this.playerGold.set(this.pidOf(player), nextGold);
+    this.sendProfile(client, player);
+    await this.persistPlayer(player);
+    client.send("companyResult", {
+      ok: true,
+      gold: nextGold,
+      message: `Contract cancelled — ${result.refund.toLocaleString()}g refunded.`,
+    });
+    client.send("companyState", buildCompanyStatePayload(player.name));
+  }
+
+  private handleCompanyContractAccept(client: Client, id: string) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const result = acceptCompanyContract(player.name, id);
+    if (!result.ok) return void client.send("companyResult", { ok: false, error: result.error });
+    client.send("companyResult", { ok: true, message: "Contract accepted." });
+    this.broadcastCompanyState(companyMemberNames(player.name));
+  }
+
+  private handleCompanyContractDeliver(client: Client, id: string, qty: number) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const result = deliverCompanyContract(player.name, id, qty);
+    if (!result.ok) return void client.send("companyResult", { ok: false, error: result.error });
+    client.send("companyResult", {
+      ok: true,
+      message: result.completed
+        ? `Contract complete — ${(result.reward ?? 0).toLocaleString()}g paid to the treasury.`
+        : "Delivered.",
+    });
+    if (result.completed) bumpMetric("company.contract.completed");
+    this.broadcastCompanyState(companyMemberNames(player.name));
+  }
+
+  /** Poster collects the goods a company delivered on a completed supply contract. */
+  private async handleCompanyContractCollect(client: Client, id: string) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const peek = peekContractCollect(player.name, id);
+    if (!peek.ok || !peek.itemId || !peek.qty) {
+      return void client.send("companyResult", { ok: false, error: peek.error });
+    }
+    const pid = this.pidOf(player);
+    const inv = this.inventories.get(pid) ?? [];
+    const { inventory, added } = addItemToInventory(inv, peek.itemId, peek.qty, this.bagCapOf(player.name));
+    if (added <= 0) {
+      return void client.send("companyResult", { ok: false, error: "Your bag is full." });
+    }
+    this.inventories.set(pid, inventory);
+    reduceContractCollect(id, added);
+    this.sendInventory(client, player.name);
+    await this.persistPlayer(player);
+    const item = getItemDefinition(peek.itemId);
+    const leftover = peek.qty - added;
+    client.send("companyResult", {
+      ok: true,
+      message:
+        leftover > 0
+          ? `Collected ${added}× ${item.name} — bag full, ${leftover} left to collect.`
+          : `Collected ${added}× ${item.name}.`,
+    });
+    client.send("companyState", buildCompanyStatePayload(player.name));
+  }
+
+  private handleCompanyContractDismiss(client: Client, id: string) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const result = dismissCompanyContract(player.name, id);
+    if (!result.ok) return void client.send("companyResult", { ok: false, error: result.error });
+    client.send("companyResult", { ok: true });
+    client.send("companyState", buildCompanyStatePayload(player.name));
+  }
+
+  private handleCompanyChat(client: Client, rawBody: string) {
+    const now = Date.now();
+    const lastSent = this.chatCooldowns.get(client.sessionId) ?? 0;
+    if (now - lastSent < CHAT_COOLDOWN_MS) return;
+    const body = rawBody.trim().slice(0, CHAT_MAX_LENGTH);
+    if (!body) return;
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const company = getCompanyForMember(player.name);
+    if (!company) {
+      client.send("companyResult", { ok: false, error: "You're not in a company." });
+      return;
+    }
+    this.chatCooldowns.set(client.sessionId, now);
+    sendToPlayers(company.members, "chat", {
+      id: crypto.randomUUID(),
+      channel: "company",
       senderId: client.sessionId,
       senderName: player.name,
       body,

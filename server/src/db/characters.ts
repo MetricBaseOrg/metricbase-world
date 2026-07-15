@@ -281,6 +281,7 @@ export async function renameCharacter(wallet: string, rawNewName: string): Promi
       ["asset_inventory", "player_name"], ["asset_listings", "seller_name"],
       ["pending_gold", "player_name"], ["daily_state", "player_name"],
       ["market_orders", "player_name"], ["guilds", "leader_name"],
+      ["companies", "owner_name"], ["company_contracts", "poster_name"],
     ];
     for (const [table, col] of nameCols) {
       await client.query(`UPDATE ${table} SET ${col} = $1 WHERE lower(${col}) = lower($2)`, [newName, oldName]);
@@ -292,6 +293,20 @@ export async function renameCharacter(wallet: string, rawNewName: string): Promi
          officers      = COALESCE((SELECT jsonb_agg(CASE WHEN e = to_jsonb($2::text) THEN to_jsonb($1::text) ELSE e END) FROM jsonb_array_elements(officers) e), '[]'::jsonb),
          join_requests = COALESCE((SELECT jsonb_agg(CASE WHEN e = to_jsonb($2::text) THEN to_jsonb($1::text) ELSE e END) FROM jsonb_array_elements(join_requests) e), '[]'::jsonb)
        WHERE members @> to_jsonb(ARRAY[$2]::text[]) OR officers @> to_jsonb(ARRAY[$2]::text[]) OR join_requests @> to_jsonb(ARRAY[$2]::text[])`,
+      [newName, oldName],
+    );
+    // Company JSON rosters + name-keyed maps (salaries, stats.contrib).
+    await client.query(
+      `UPDATE companies SET
+         members       = COALESCE((SELECT jsonb_agg(CASE WHEN e = to_jsonb($2::text) THEN to_jsonb($1::text) ELSE e END) FROM jsonb_array_elements(members) e), '[]'::jsonb),
+         managers      = COALESCE((SELECT jsonb_agg(CASE WHEN e = to_jsonb($2::text) THEN to_jsonb($1::text) ELSE e END) FROM jsonb_array_elements(managers) e), '[]'::jsonb),
+         trainees      = COALESCE((SELECT jsonb_agg(CASE WHEN e = to_jsonb($2::text) THEN to_jsonb($1::text) ELSE e END) FROM jsonb_array_elements(trainees) e), '[]'::jsonb),
+         join_requests = COALESCE((SELECT jsonb_agg(CASE WHEN e = to_jsonb($2::text) THEN to_jsonb($1::text) ELSE e END) FROM jsonb_array_elements(join_requests) e), '[]'::jsonb),
+         salaries      = CASE WHEN salaries ? $2 THEN (salaries - $2) || jsonb_build_object($1, salaries->$2) ELSE salaries END,
+         stats         = CASE WHEN stats->'contrib' ? $2
+                              THEN jsonb_set(stats, '{contrib}', (stats->'contrib' - $2) || jsonb_build_object($1, stats->'contrib'->$2))
+                              ELSE stats END
+       WHERE members @> to_jsonb(ARRAY[$2]::text[]) OR join_requests @> to_jsonb(ARRAY[$2]::text[]) OR salaries ? $2 OR stats->'contrib' ? $2`,
       [newName, oldName],
     );
     await client.query("COMMIT");

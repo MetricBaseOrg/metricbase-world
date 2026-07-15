@@ -17,9 +17,10 @@ export function getMentionCandidates(): string[] {
   for (const m of useGameStore.getState().chatMessages) {
     if (m.channel !== "system" && m.senderName) names.add(m.senderName);
   }
-  // Guild + party rosters — taggable even when offline / in another zone.
+  // Guild + party + company rosters — taggable even when offline / in another zone.
   for (const member of networkManager.getGuildState().myGuild?.members ?? []) names.add(member);
   for (const member of networkManager.getPartyState().party?.members ?? []) names.add(member);
+  for (const member of networkManager.getCompanyState().myCompany?.members ?? []) names.add(member);
   if (me) names.delete(me);
   return [...names].sort((a, b) => a.localeCompare(b));
 }

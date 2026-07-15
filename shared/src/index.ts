@@ -1,4 +1,4 @@
-export const GAME_VERSION = "0.139.1";
+export const GAME_VERSION = "0.140.0";
 
 export const TICK_RATE = 20;
 
@@ -72,6 +72,7 @@ export * from "./playerZones.js";
 export * from "./zoneProps.js";
 export * from "./zonePricing.js";
 export * from "./guild.js";
+export * from "./company.js";
 export * from "./party.js";
 export * from "./stamina.js";
 export * from "./daynight.js";

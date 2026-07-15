@@ -1322,6 +1322,11 @@ body {
   font-weight: 800;
 }
 
+.chibi-chat-company {
+  color: #d98a2b;
+  font-weight: 800;
+}
+
 .chibi-chat-name {
   color: var(--chibi-gold-deep);
   font-weight: 800;

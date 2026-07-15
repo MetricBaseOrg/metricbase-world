@@ -11,6 +11,10 @@ export const MOTTO_MAX_LENGTH = 80;
  */
 export const DASHBOARD_UPDATES: Array<{ title: string; body: string }> = [
   {
+    title: "v0.140 — Merchant Companies",
+    body: "Found a player-owned business: a shared treasury and item warehouse, ranks and salaries, automatic daily dividends, a revenue-share on members' earnings, warehouse vendor sales, and an inbound contracts board. Belong to a guild AND a company at once — open Companies from the ⚙️ menu.",
+  },
+  {
     title: "v0.139 — DAO Guild Delegation",
     body: "Guild members can now delegate their DAO voting power to their guild — when the leader votes, every delegator's $BASE is cast alongside. Small holders, big voice.",
   },
@@ -25,10 +29,6 @@ export const DASHBOARD_UPDATES: Array<{ title: string; body: string }> = [
   {
     title: "v0.134 — Farming Tools & Gear",
     body: "Forge copper, iron and steel hoes: tend crop patches up to 50% faster and planted crops mature up to 35% sooner. Weave a Farmer's Sun Hat or craft a Grower's Ring for bonus crops and Farming XP.",
-  },
-  {
-    title: "v0.129–0.131 — Farming Loop in Worlds",
-    body: "Crop patches in player Worlds now yield seeds (the Crop Field gives a random one) and train your Farming skill — gather a seed, plant it, grow it, harvest it.",
   },
 ];
 
