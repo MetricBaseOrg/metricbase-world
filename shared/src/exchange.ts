@@ -241,6 +241,9 @@ export interface ShareMarketSummary {
   change24h: number | null;
   volume24h: number;
   listedAt: number;
+  /** All-time high / low marginal price. */
+  high: number;
+  low: number;
 }
 
 export interface ShareHoldingView {

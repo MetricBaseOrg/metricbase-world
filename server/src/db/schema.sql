@@ -550,6 +550,9 @@ CREATE TABLE IF NOT EXISTS share_markets (
   base_price DOUBLE PRECISION NOT NULL,               -- bonding-curve P0 at listing
   slope DOUBLE PRECISION NOT NULL                     -- bonding-curve k at listing
 );
+-- All-time high/low of the marginal share price (for the chart + 52-week view).
+ALTER TABLE share_markets ADD COLUMN IF NOT EXISTS high DOUBLE PRECISION;
+ALTER TABLE share_markets ADD COLUMN IF NOT EXISTS low DOUBLE PRECISION;
 
 -- Per-holder share balances (the shareholder registry). cost_basis is the total
 -- gold outlay (net of proportional reductions on sells) for the current

@@ -12,7 +12,7 @@ import {
   type ExchangeStatePayload,
   type ShareMarketSummary,
 } from "@metricbase/shared";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { playSfx } from "../audio/soundEffects";
 import { setUiTypingActive } from "../game/inputControl";
 import { networkManager, type PipGoldInfoPayload } from "../game/network";
@@ -20,6 +20,7 @@ import { useGameStore } from "../store/gameStore";
 import { sendMetricbaseTokenPayment } from "../wallet/tokenPayment";
 
 const PENDING_BASE_KEY = "mb.pendingSharePurchase";
+const WATCHLIST_KEY = "mb.exchangeWatchlist";
 
 function colorCss(color: number): string {
   return `#${(color >>> 0).toString(16).padStart(6, "0").slice(-6)}`;
@@ -52,6 +53,25 @@ export function ExchangePanel() {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [pipInfo, setPipInfo] = useState<PipGoldInfoPayload | null>(null);
+  const [view, setView] = useState<"markets" | "portfolio" | "discover">("markets");
+  const [watchlist, setWatchlist] = useState<string[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem(WATCHLIST_KEY) ?? "[]") as string[];
+    } catch {
+      return [];
+    }
+  });
+  const toggleWatch = (id: string) => {
+    setWatchlist((prev) => {
+      const next = prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id];
+      try {
+        localStorage.setItem(WATCHLIST_KEY, JSON.stringify(next));
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  };
 
   useEffect(() => {
     const offState = networkManager.onExchangeState((s) => setState(s));
@@ -199,14 +219,174 @@ export function ExchangePanel() {
         />
       ) : (
         state && (
-          <MarketBoard state={state} onOpen={openMarket} />
+          <>
+            <div style={{ display: "flex", gap: 4, marginTop: 8 }}>
+              {(["markets", "portfolio", "discover"] as const).map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  className={`chibi-btn ${view === v ? "chibi-btn--mint" : "chibi-btn--ghost"}`}
+                  style={{ flex: 1, padding: "7px", fontSize: "0.72rem", textTransform: "capitalize" }}
+                  onClick={() => setView(v)}
+                >
+                  {v === "markets" ? "📊 Markets" : v === "portfolio" ? "💼 Portfolio" : "🔎 Discover"}
+                </button>
+              ))}
+            </div>
+            {view === "markets" && (
+              <MarketBoard state={state} onOpen={openMarket} watchlist={watchlist} toggleWatch={toggleWatch} />
+            )}
+            {view === "portfolio" && <PortfolioView state={state} onOpen={openMarket} />}
+            {view === "discover" && (
+              <DiscoverView state={state} onOpen={openMarket} watchlist={watchlist} toggleWatch={toggleWatch} />
+            )}
+          </>
         )
       )}
     </div>
   );
 }
 
-function MarketBoard({ state, onOpen }: { state: ExchangeStatePayload; onOpen: (id: string) => void }) {
+/** A tiny inline SVG line chart for a price series. */
+function Sparkline({ values, width = 240, height = 44 }: { values: number[]; width?: number; height?: number }) {
+  if (values.length < 2) {
+    return <div className="chibi-text-muted" style={{ fontSize: "0.7rem" }}>Not enough trades to chart yet.</div>;
+  }
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const span = max - min || 1;
+  const pts = values
+    .map((v, i) => {
+      const x = (i / (values.length - 1)) * (width - 4) + 2;
+      const y = height - 2 - ((v - min) / span) * (height - 4);
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(" ");
+  const up = values[values.length - 1] >= values[0];
+  const stroke = up ? "#2f9e5e" : "#c0392b";
+  return (
+    <svg width="100%" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" style={{ display: "block" }}>
+      <polyline points={pts} fill="none" stroke={stroke} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function WatchStar({ on, onClick }: { on: boolean; onClick: () => void }) {
+  return (
+    <span
+      role="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+      style={{ cursor: "pointer", fontSize: "0.9rem", opacity: on ? 1 : 0.35 }}
+      title={on ? "Remove from watchlist" : "Add to watchlist"}
+    >
+      {on ? "★" : "☆"}
+    </span>
+  );
+}
+
+function PortfolioView({ state, onOpen }: { state: ExchangeStatePayload; onOpen: (id: string) => void }) {
+  const totalValue = state.myHoldings.reduce((a, h) => a + h.value, 0);
+  const totalCost = state.myHoldings.reduce((a, h) => a + h.costBasis, 0);
+  const totalPnl = totalValue - totalCost;
+  return (
+    <div style={{ marginTop: 8 }}>
+      <div style={{ display: "flex", gap: 8 }}>
+        <div className="chibi-card" style={{ flex: 1, padding: "10px 12px" }}>
+          <div className="chibi-label">Portfolio value</div>
+          <div style={{ fontWeight: 800, fontSize: "1.1rem", color: "#b8860b" }}>{totalValue.toLocaleString()}g</div>
+        </div>
+        <div className="chibi-card" style={{ flex: 1, padding: "10px 12px" }}>
+          <div className="chibi-label">Unrealised P/L</div>
+          <div style={{ fontWeight: 800, fontSize: "1.1rem", color: totalPnl >= 0 ? "#2f9e5e" : "#c0392b" }}>
+            {totalPnl >= 0 ? "+" : ""}{totalPnl.toLocaleString()}g
+          </div>
+        </div>
+      </div>
+      <div className="chibi-label" style={{ margin: "12px 0 4px" }}>Holdings</div>
+      {state.myHoldings.length === 0 && (
+        <div className="chibi-text-muted" style={{ fontSize: "0.78rem" }}>You don't own any shares yet.</div>
+      )}
+      {state.myHoldings.map((h) => (
+        <button key={h.companyId} type="button" className="chibi-card chibi-chat-name-btn"
+          style={{ padding: "8px 12px", marginTop: 4, display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left", cursor: "pointer" }}
+          onClick={() => onOpen(h.companyId)}>
+          <div style={{ width: 26, height: 26, borderRadius: 7, display: "grid", placeItems: "center", background: colorCss(h.color), fontSize: 14 }}>{h.emblem}</div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontWeight: 700, fontSize: "0.8rem" }}>{h.ticker} · {h.name}</div>
+            <div className="chibi-text-muted" style={{ fontSize: "0.68rem" }}>
+              {h.shares.toLocaleString()} shares · ~{h.value.toLocaleString()}g · cost {h.costBasis.toLocaleString()}g
+            </div>
+          </div>
+          <div style={{ fontWeight: 700, fontSize: "0.78rem", color: h.pnl >= 0 ? "#2f9e5e" : "#c0392b" }}>
+            {h.pnl >= 0 ? "+" : ""}{h.pnl.toLocaleString()}g
+          </div>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function DiscoverView({
+  state,
+  onOpen,
+  watchlist,
+  toggleWatch,
+}: {
+  state: ExchangeStatePayload;
+  onOpen: (id: string) => void;
+  watchlist: string[];
+  toggleWatch: (id: string) => void;
+}) {
+  const withChange = state.markets.filter((m) => m.change24h !== null);
+  const gainers = [...withChange].sort((a, b) => (b.change24h ?? 0) - (a.change24h ?? 0)).slice(0, 5);
+  const losers = [...withChange].sort((a, b) => (a.change24h ?? 0) - (b.change24h ?? 0)).slice(0, 5);
+  const byCap = [...state.markets].sort((a, b) => b.marketCap - a.marketCap).slice(0, 8);
+  const watched = state.markets.filter((m) => watchlist.includes(m.companyId));
+
+  const row = (m: ShareMarketSummary, right: ReactNode) => (
+    <button key={m.companyId} type="button" className="chibi-card chibi-chat-name-btn"
+      style={{ padding: "6px 10px", marginTop: 3, display: "flex", alignItems: "center", gap: 8, width: "100%", textAlign: "left", cursor: "pointer" }}
+      onClick={() => onOpen(m.companyId)}>
+      <WatchStar on={watchlist.includes(m.companyId)} onClick={() => toggleWatch(m.companyId)} />
+      <div style={{ flex: 1, minWidth: 0, fontSize: "0.76rem", fontWeight: 700 }}>{m.ticker} <span className="chibi-text-muted" style={{ fontWeight: 400 }}>{m.name}</span></div>
+      {right}
+    </button>
+  );
+
+  return (
+    <div style={{ marginTop: 8 }}>
+      {watched.length > 0 && (
+        <>
+          <div className="chibi-label">★ Watchlist</div>
+          {watched.map((m) => row(m, <span style={{ fontWeight: 700, color: "#b8860b", fontSize: "0.78rem" }}>{m.price.toFixed(2)}g</span>))}
+        </>
+      )}
+      <div className="chibi-label" style={{ margin: "12px 0 4px" }}>📈 Top gainers (24h)</div>
+      {gainers.length === 0 && <div className="chibi-text-muted" style={{ fontSize: "0.74rem" }}>No trades in the last day.</div>}
+      {gainers.map((m) => row(m, pctBadge(m.change24h)))}
+      <div className="chibi-label" style={{ margin: "12px 0 4px" }}>📉 Top losers (24h)</div>
+      {losers.length === 0 && <div className="chibi-text-muted" style={{ fontSize: "0.74rem" }}>No trades in the last day.</div>}
+      {losers.map((m) => row(m, pctBadge(m.change24h)))}
+      <div className="chibi-label" style={{ margin: "12px 0 4px" }}>🏦 Largest by market cap</div>
+      {byCap.map((m) => row(m, <span className="chibi-text-muted" style={{ fontSize: "0.72rem" }}>{m.marketCap.toLocaleString()}g</span>))}
+    </div>
+  );
+}
+
+function MarketBoard({
+  state,
+  onOpen,
+  watchlist,
+  toggleWatch,
+}: {
+  state: ExchangeStatePayload;
+  onOpen: (id: string) => void;
+  watchlist: string[];
+  toggleWatch: (id: string) => void;
+}) {
   return (
     <>
       {state.myHoldings.length > 0 && (
@@ -255,6 +435,7 @@ function MarketBoard({ state, onOpen }: { state: ExchangeStatePayload; onOpen: (
           style={{ padding: "8px 12px", marginTop: 4, display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left", cursor: "pointer" }}
           onClick={() => onOpen(m.companyId)}
         >
+          <WatchStar on={watchlist.includes(m.companyId)} onClick={() => toggleWatch(m.companyId)} />
           <div style={{ width: 30, height: 30, borderRadius: 8, display: "grid", placeItems: "center", background: colorCss(m.color), fontSize: 16 }}>{m.emblem}</div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontWeight: 800, fontSize: "0.82rem" }}>{m.ticker} <span className="chibi-text-muted" style={{ fontWeight: 400 }}>· {m.name}</span></div>
@@ -338,6 +519,16 @@ function MarketDetailView({
           <div style={{ fontWeight: 800, fontSize: "1.05rem", color: "#b8860b" }}>{m.price.toFixed(2)}g</div>
           {pctBadge(m.change24h)}
         </div>
+      </div>
+
+      <div className="chibi-card" style={{ padding: "10px 12px", marginTop: 8 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+          <div className="chibi-label">Price</div>
+          <div className="chibi-text-muted" style={{ fontSize: "0.68rem" }}>
+            high {m.high.toFixed(2)}g · low {m.low.toFixed(2)}g · vol {m.volume24h.toLocaleString()}g/24h
+          </div>
+        </div>
+        <Sparkline values={[...detail.recentTrades].reverse().map((t) => t.price)} />
       </div>
 
       <div className="chibi-card" style={{ padding: "12px", marginTop: 8 }}>

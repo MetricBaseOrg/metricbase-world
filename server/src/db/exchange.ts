@@ -8,6 +8,9 @@ export interface StoredShareMarket {
   reserveGold: number;
   basePrice: number;
   slope: number;
+  /** All-time high/low of the marginal price (null until first tracked). */
+  high: number | null;
+  low: number | null;
 }
 
 export interface StoredShareHolding {
@@ -74,8 +77,10 @@ export async function loadShareMarkets(): Promise<StoredShareMarket[]> {
       reserve_gold: string | number;
       base_price: number;
       slope: number;
+      high: number | null;
+      low: number | null;
     }>(
-      "SELECT company_id, listed_at, circulating_shares, reserve_gold, base_price, slope FROM share_markets",
+      "SELECT company_id, listed_at, circulating_shares, reserve_gold, base_price, slope, high, low FROM share_markets",
     );
     return res.rows.map((r) => ({
       companyId: r.company_id,
@@ -84,6 +89,8 @@ export async function loadShareMarkets(): Promise<StoredShareMarket[]> {
       reserveGold: Math.max(0, Math.floor(Number(r.reserve_gold))),
       basePrice: r.base_price,
       slope: r.slope,
+      high: r.high ?? null,
+      low: r.low ?? null,
     }));
   } catch (error) {
     console.warn("[exchange] load markets failed:", error);
@@ -96,12 +103,13 @@ export async function saveShareMarket(m: StoredShareMarket): Promise<void> {
   if (!pool) return;
   try {
     await pool.query(
-      `INSERT INTO share_markets (company_id, listed_at, circulating_shares, reserve_gold, base_price, slope)
-       VALUES ($1,$2,$3,$4,$5,$6)
+      `INSERT INTO share_markets (company_id, listed_at, circulating_shares, reserve_gold, base_price, slope, high, low)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
        ON CONFLICT (company_id) DO UPDATE SET
          circulating_shares = EXCLUDED.circulating_shares,
-         reserve_gold = EXCLUDED.reserve_gold`,
-      [m.companyId, m.listedAt, m.circulatingShares, m.reserveGold, m.basePrice, m.slope],
+         reserve_gold = EXCLUDED.reserve_gold,
+         high = EXCLUDED.high, low = EXCLUDED.low`,
+      [m.companyId, m.listedAt, m.circulatingShares, m.reserveGold, m.basePrice, m.slope, m.high, m.low],
     );
   } catch (error) {
     console.warn("[exchange] save market failed:", error);

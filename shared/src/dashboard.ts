@@ -11,6 +11,10 @@ export const MOTTO_MAX_LENGTH = 80;
  */
 export const DASHBOARD_UPDATES: Array<{ title: string; body: string }> = [
   {
+    title: "v0.146 — Charts, Portfolio & Discovery",
+    body: "The Stock Exchange grows up: a price chart and high/low on every company, a Portfolio tab with your total value and profit/loss, and a Discover tab with top gainers, top losers, a market-cap leaderboard and a personal watchlist. Star the companies you're tracking.",
+  },
+  {
     title: "v0.145 — Limit Orders & Order Book",
     body: "Set your price: place standing buy or sell limit orders and let the matching engine fill them peer-to-peer at the best available price (with price improvement when you cross the spread). Each company's trade page now shows a live order book of bids and asks.",
   },
@@ -21,10 +25,6 @@ export const DASHBOARD_UPDATES: Array<{ title: string; body: string }> = [
   {
     title: "v0.143 — Dividends, Shareholder Control & Financials",
     body: "Listed companies now pay weekly share dividends from their profit — split among shareholders, with the payout % set by a share-weighted vote. Buy enough shares and you become the CEO with a controlling stake. Each company's trade page shows live financials (revenue, expenses, net profit) and dividend history. Your share portfolio counts toward your net worth.",
-  },
-  {
-    title: "v0.141 — Stock Exchange (Phase 1)",
-    body: "Company owners can list on the Stock Exchange, and anyone can buy and sell shares on a live bonding-curve market. Prices move with demand, a slice of every trade funds the company treasury, and your holdings show up in the new 📈 Exchange panel.",
   },
   {
     title: "v0.140 — Merchant Companies",
