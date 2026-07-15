@@ -29,6 +29,16 @@ export interface StoredShareDividend {
   at: number;
 }
 
+export interface StoredShareBaseListing {
+  id: string;
+  companyId: string;
+  sellerName: string;
+  sellerWallet: string;
+  shares: number;
+  priceBase: number;
+  createdAt: number;
+}
+
 export interface StoredShareTrade {
   id: string;
   companyId: string;
@@ -214,6 +224,58 @@ export async function insertShareDividend(d: StoredShareDividend): Promise<void>
     );
   } catch (error) {
     console.warn("[exchange] insert dividend failed:", error);
+  }
+}
+
+export async function loadShareBaseListings(): Promise<StoredShareBaseListing[]> {
+  const pool = getPool();
+  if (!pool) return [];
+  try {
+    const res = await pool.query<{
+      id: string;
+      company_id: string;
+      seller_name: string;
+      seller_wallet: string;
+      shares: number;
+      price_base: number;
+      created_at: string | number;
+    }>("SELECT id, company_id, seller_name, seller_wallet, shares, price_base, created_at FROM share_base_listings");
+    return res.rows.map((r) => ({
+      id: r.id,
+      companyId: r.company_id,
+      sellerName: r.seller_name,
+      sellerWallet: r.seller_wallet,
+      shares: Math.max(0, Math.floor(r.shares)),
+      priceBase: r.price_base,
+      createdAt: Number(r.created_at),
+    }));
+  } catch (error) {
+    console.warn("[exchange] load base listings failed:", error);
+    return [];
+  }
+}
+
+export async function saveShareBaseListing(l: StoredShareBaseListing): Promise<void> {
+  const pool = getPool();
+  if (!pool) return;
+  try {
+    await pool.query(
+      `INSERT INTO share_base_listings (id, company_id, seller_name, seller_wallet, shares, price_base, created_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (id) DO NOTHING`,
+      [l.id, l.companyId, l.sellerName, l.sellerWallet, l.shares, l.priceBase, l.createdAt],
+    );
+  } catch (error) {
+    console.warn("[exchange] save base listing failed:", error);
+  }
+}
+
+export async function deleteShareBaseListing(id: string): Promise<void> {
+  const pool = getPool();
+  if (!pool) return;
+  try {
+    await pool.query("DELETE FROM share_base_listings WHERE id = $1", [id]);
+  } catch (error) {
+    console.warn("[exchange] delete base listing failed:", error);
   }
 }
 

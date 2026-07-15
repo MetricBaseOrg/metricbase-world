@@ -14,8 +14,11 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { playSfx } from "../audio/soundEffects";
 import { setUiTypingActive } from "../game/inputControl";
-import { networkManager } from "../game/network";
+import { networkManager, type PipGoldInfoPayload } from "../game/network";
 import { useGameStore } from "../store/gameStore";
+import { sendMetricbaseTokenPayment } from "../wallet/tokenPayment";
+
+const PENDING_BASE_KEY = "mb.pendingSharePurchase";
 
 function colorCss(color: number): string {
   return `#${(color >>> 0).toString(16).padStart(6, "0").slice(-6)}`;
@@ -40,12 +43,14 @@ export function ExchangePanel() {
   const open = useGameStore((s) => s.exchangeOpen);
   const setOpen = useGameStore((s) => s.setExchangeOpen);
   const gold = useGameStore((s) => s.playerGold);
+  const walletAddress = useGameStore((s) => s.walletAddress);
   const [state, setState] = useState<ExchangeStatePayload | null>(null);
   const [detail, setDetail] = useState<CompanyMarketDetail | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [pipInfo, setPipInfo] = useState<PipGoldInfoPayload | null>(null);
 
   useEffect(() => {
     const offState = networkManager.onExchangeState((s) => setState(s));
@@ -58,7 +63,17 @@ export function ExchangePanel() {
       } else {
         setError(r.error ?? "Trade failed.");
       }
+      // Clear a stashed $BASE payment once it's settled (or failed non-retryably).
+      if (r.signature && (r.ok || !r.retryable)) {
+        try {
+          localStorage.removeItem(PENDING_BASE_KEY);
+        } catch {
+          /* ignore */
+        }
+      }
     });
+    const offPip = networkManager.onPipGoldInfo((info) => setPipInfo(info));
+    networkManager.requestPipGoldInfo?.();
     const offDetail = networkManager.onMarketDetail((d) => {
       setDetail(d);
       setSelected(d.summary.companyId);
@@ -70,11 +85,23 @@ export function ExchangePanel() {
         if (sel) networkManager.requestMarketDetail(sel);
       }
     });
+    // Recover a $BASE payment that was sent but not yet confirmed (e.g. a reload
+    // mid-purchase) so a real payment is never stranded.
+    try {
+      const raw = localStorage.getItem(PENDING_BASE_KEY);
+      if (raw) {
+        const p = JSON.parse(raw) as { id: string; signature: string };
+        if (p?.id && p?.signature) networkManager.sendExchangeBuyBase(p.id, p.signature);
+      }
+    } catch {
+      /* ignore */
+    }
     return () => {
       offState();
       offResult();
       offDetail();
       offChanged();
+      offPip();
     };
   }, []);
 
@@ -158,8 +185,12 @@ export function ExchangePanel() {
         <MarketDetailView
           detail={detail}
           gold={gold}
+          walletAddress={walletAddress}
+          pipInfo={pipInfo}
           pending={pending}
           setPending={setPending}
+          setNotice={setNotice}
+          setError={setError}
           onBack={() => {
             setSelected(null);
             setDetail(null);
@@ -243,14 +274,22 @@ function MarketBoard({ state, onOpen }: { state: ExchangeStatePayload; onOpen: (
 function MarketDetailView({
   detail,
   gold,
+  walletAddress,
+  pipInfo,
   pending,
   setPending,
+  setNotice,
+  setError,
   onBack,
 }: {
   detail: CompanyMarketDetail;
   gold: number;
+  walletAddress: string | null;
+  pipInfo: PipGoldInfoPayload | null;
   pending: boolean;
   setPending: (v: boolean) => void;
+  setNotice: (s: string | null) => void;
+  setError: (s: string | null) => void;
   onBack: () => void;
 }) {
   const m = detail.summary;
@@ -349,6 +388,16 @@ function MarketDetailView({
         </button>
       </div>
 
+      <BaseMarket
+        detail={detail}
+        walletAddress={walletAddress}
+        pipInfo={pipInfo}
+        pending={pending}
+        setPending={setPending}
+        setNotice={setNotice}
+        setError={setError}
+      />
+
       <div className="chibi-card" style={{ padding: "10px 12px", marginTop: 8 }}>
         <div className="chibi-label">Governance</div>
         <div style={{ fontSize: "0.74rem", marginTop: 4, lineHeight: 1.7 }}>
@@ -430,6 +479,134 @@ function MarketDetailView({
               </div>
             ))}
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BaseMarket({
+  detail,
+  walletAddress,
+  pipInfo,
+  pending,
+  setPending,
+  setNotice,
+  setError,
+}: {
+  detail: CompanyMarketDetail;
+  walletAddress: string | null;
+  pipInfo: PipGoldInfoPayload | null;
+  pending: boolean;
+  setPending: (v: boolean) => void;
+  setNotice: (s: string | null) => void;
+  setError: (s: string | null) => void;
+}) {
+  const companyId = detail.summary.companyId;
+  const sellable = detail.myShares - detail.myCommitted;
+  const [shares, setShares] = useState("");
+  const [price, setPrice] = useState("");
+
+  const list = () => {
+    const n = Math.floor(Number(shares) || 0);
+    const p = Number(price) || 0;
+    if (n < 1 || n > sellable || p <= 0) return;
+    playSfx("ui_click");
+    setPending(true);
+    networkManager.sendExchangeListBase(companyId, n, p);
+    setShares("");
+    setPrice("");
+  };
+
+  const cancel = (id: string) => {
+    playSfx("ui_click");
+    setPending(true);
+    networkManager.sendExchangeCancelBase(id);
+  };
+
+  const buy = async (listing: CompanyMarketDetail["baseListings"][number]) => {
+    if (!walletAddress) return setError("Connect your wallet to pay with $BASE.");
+    if (!pipInfo?.mint) return setError("Wallet services are unavailable right now.");
+    playSfx("ui_click");
+    setPending(true);
+    setError(null);
+    setNotice("Sending $BASE to the seller…");
+    try {
+      const signature = await sendMetricbaseTokenPayment({
+        payerWallet: walletAddress,
+        recipientWallet: listing.sellerWallet,
+        mint: pipInfo.mint,
+        uiAmount: listing.priceBase,
+        decimals: pipInfo.decimals,
+        rpcUrl: pipInfo.rpcUrl,
+      });
+      // Persist BEFORE asking the server so a reload can't strand a real payment.
+      try {
+        localStorage.setItem(PENDING_BASE_KEY, JSON.stringify({ id: listing.id, signature }));
+      } catch {
+        /* ignore */
+      }
+      setNotice("Confirming your payment on-chain…");
+      networkManager.sendExchangeBuyBase(listing.id, signature);
+    } catch (err) {
+      setPending(false);
+      setError(err instanceof Error ? err.message : "Payment was cancelled.");
+    }
+  };
+
+  return (
+    <div className="chibi-card" style={{ padding: "10px 12px", marginTop: 8 }}>
+      <div className="chibi-label">💵 $BASE market (real crypto)</div>
+      {detail.baseListings.length === 0 && (
+        <div className="chibi-text-muted" style={{ fontSize: "0.72rem", marginTop: 4 }}>
+          No $BASE listings. List a block below to sell shares for real $BASE.
+        </div>
+      )}
+      {detail.baseListings.map((l) => {
+        const mine = l.sellerName === useGameStore.getState().playerName;
+        return (
+          <div key={l.id} style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6, fontSize: "0.74rem" }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <b>{l.shares.toLocaleString()}</b> shares · <b style={{ color: "#9a4ad9" }}>{l.priceBase} $BASE</b>
+              <div className="chibi-text-muted" style={{ fontSize: "0.66rem" }}>
+                {mine ? "your listing" : `by ${l.sellerName}`} · {(l.priceBase / l.shares).toFixed(4)} $BASE/share
+              </div>
+            </div>
+            {mine ? (
+              <button type="button" className="chibi-btn chibi-btn--secondary" style={{ padding: "5px 9px", fontSize: "0.68rem" }} disabled={pending} onClick={() => cancel(l.id)}>
+                Cancel
+              </button>
+            ) : (
+              <button type="button" className="chibi-btn chibi-btn--gold" style={{ padding: "5px 9px", fontSize: "0.68rem" }} disabled={pending || !walletAddress} onClick={() => void buy(l)}>
+                Buy · {l.priceBase} $BASE
+              </button>
+            )}
+          </div>
+        );
+      })}
+
+      {sellable > 0 && (
+        <div style={{ marginTop: 8, borderTop: "1px solid var(--chibi-outline-light)", paddingTop: 8 }}>
+          <div style={{ fontSize: "0.7rem", marginBottom: 4 }}>
+            List shares for $BASE ({sellable.toLocaleString()} sellable
+            {detail.myCommitted > 0 ? `, ${detail.myCommitted.toLocaleString()} already listed` : ""})
+          </div>
+          <div style={{ display: "flex", gap: 6 }}>
+            <input className="chibi-input" style={{ flex: 1 }} inputMode="numeric" placeholder="Shares" value={shares}
+              onChange={(e) => setShares(e.target.value.replace(/[^0-9]/g, ""))}
+              onFocus={() => setUiTypingActive(true)} onBlur={() => setUiTypingActive(false)} />
+            <input className="chibi-input" style={{ flex: 1 }} inputMode="decimal" placeholder="$BASE total" value={price}
+              onChange={(e) => setPrice(e.target.value.replace(/[^0-9.]/g, ""))}
+              onFocus={() => setUiTypingActive(true)} onBlur={() => setUiTypingActive(false)} />
+            <button type="button" className="chibi-btn chibi-btn--mint" style={{ padding: "6px 10px" }} disabled={pending || !walletAddress} onClick={list}>
+              List
+            </button>
+          </div>
+          {!walletAddress && (
+            <div className="chibi-text-muted" style={{ fontSize: "0.66rem", marginTop: 3 }}>
+              Connect a wallet to receive $BASE.
+            </div>
+          )}
         </div>
       )}
     </div>

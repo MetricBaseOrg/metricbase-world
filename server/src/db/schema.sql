@@ -581,6 +581,20 @@ CREATE TABLE IF NOT EXISTS share_trades (
 );
 CREATE INDEX IF NOT EXISTS share_trades_company_at_idx ON share_trades (company_id, at DESC);
 
+-- Real-$BASE peer-to-peer share block listings (Phase 3a). A holder offers a
+-- block of shares for a fixed $BASE price; a buyer pays $BASE straight to the
+-- seller's wallet (verified on-chain) and the shares transfer in the ledger.
+CREATE TABLE IF NOT EXISTS share_base_listings (
+  id VARCHAR(64) PRIMARY KEY,
+  company_id VARCHAR(64) NOT NULL,
+  seller_name VARCHAR(16) NOT NULL,
+  seller_wallet VARCHAR(44) NOT NULL,
+  shares INTEGER NOT NULL,
+  price_base DOUBLE PRECISION NOT NULL,
+  created_at BIGINT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS share_base_listings_company_idx ON share_base_listings (company_id);
+
 -- Weekly share-dividend distributions (history + payout idempotency backstop).
 CREATE TABLE IF NOT EXISTS share_dividends (
   company_id VARCHAR(64) NOT NULL,

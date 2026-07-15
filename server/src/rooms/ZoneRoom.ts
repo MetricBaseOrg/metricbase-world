@@ -404,6 +404,11 @@ import {
   applySell as applyShareSell,
   settleDelisting,
   setDividendVote,
+  freeSharesFor,
+  createBaseListing,
+  cancelBaseListing,
+  fillBaseListing,
+  getBaseListing,
   buildExchangeState,
   buildMarketDetail,
 } from "../exchange/exchangeRegistry.js";
@@ -1328,6 +1333,15 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     });
     this.onProtectedMessage("exchangeVote", (client, m: { companyId?: string; pct?: number | null }) => {
       this.handleExchangeVote(client, m.companyId ?? "", m.pct ?? null);
+    });
+    this.onProtectedMessage("exchangeListBase", (client, m: { companyId?: string; shares?: number; priceBase?: number }) => {
+      this.handleExchangeListBase(client, m.companyId ?? "", m.shares ?? 0, m.priceBase ?? 0);
+    });
+    this.onProtectedMessage("exchangeCancelBase", (client, m: { id?: string }) => {
+      this.handleExchangeCancelBase(client, m.id ?? "");
+    });
+    this.onProtectedMessage("exchangeBuyBase", (client, m: { id?: string; signature?: string }) => {
+      void this.handleExchangeBuyBase(client, m.id ?? "", m.signature ?? "");
     });
 
     this.onMessage("emote", (client, message: { emoteId?: string }) => {
@@ -8732,6 +8746,112 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     this.broadcastExchangeChanged();
   }
 
+  private refreshMarketDetail(client: Client, companyId: string) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const detail = buildMarketDetail(companyId, player.name);
+    if (detail) client.send("marketDetail", detail);
+  }
+
+  private handleExchangeListBase(client: Client, companyId: string, shares: number, priceBase: number) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !companyId) return;
+    const wallet = this.getClientWallet(client) ?? this.playerWallets.get(client.sessionId) ?? null;
+    const result = createBaseListing(companyId, player.name, wallet, shares, priceBase);
+    if (!result.ok) return void client.send("exchangeResult", { ok: false, error: result.error });
+    client.send("exchangeResult", { ok: true, message: `Listed ${Math.floor(shares)} shares for ${priceBase} $BASE.` });
+    this.refreshMarketDetail(client, companyId);
+    this.broadcastExchangeChanged();
+  }
+
+  private handleExchangeCancelBase(client: Client, id: string) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !id) return;
+    const result = cancelBaseListing(id, player.name);
+    if (!result.ok) return void client.send("exchangeResult", { ok: false, error: result.error });
+    client.send("exchangeResult", { ok: true, message: "Listing cancelled." });
+    if (result.companyId) this.refreshMarketDetail(client, result.companyId);
+    this.broadcastExchangeChanged();
+  }
+
+  /** Buy a $BASE share block. Mirrors the audited housing-resale $BASE flow:
+   * verify the buyer's on-chain $BASE payment to the seller, then move the shares
+   * in the ledger and record the signature idempotently. */
+  private async handleExchangeBuyBase(client: Client, id: string, signature: string) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !id) return;
+    const wallet = this.getClientWallet(client) ?? this.playerWallets.get(client.sessionId) ?? null;
+    if (!wallet) return void client.send("exchangeResult", { ok: false, error: "Link a wallet to pay with $BASE." });
+    if (!signature || signature.length < 32) {
+      return void client.send("exchangeResult", { ok: false, error: "Missing payment transaction." });
+    }
+    const listing = getBaseListing(id);
+    if (!listing) return void client.send("exchangeResult", { ok: false, error: "That listing is gone." });
+    if (listing.sellerName === player.name) {
+      return void client.send("exchangeResult", { ok: false, error: "That's your own listing." });
+    }
+    if (await isPurchaseRedeemed(signature)) {
+      return void client.send("exchangeResult", { ok: false, signature, error: "That payment was already used." });
+    }
+    const mint = process.env.TOKEN_MINT?.trim() || METRICBASE_TOKEN_MINT;
+    let v;
+    try {
+      v = await verifyPeerTokenTransfer(
+        signature,
+        { fromWallet: wallet, toWallet: listing.sellerWallet, mint, minUiAmount: listing.priceBase },
+        10,
+      );
+    } catch (error) {
+      console.warn("[exchange] $BASE verify threw:", error);
+      return void client.send("exchangeResult", {
+        ok: false,
+        signature,
+        retryable: true,
+        error: "Couldn't confirm your payment on-chain. Your $BASE is safe — try again in a moment.",
+      });
+    }
+    if (!v.ok || v.uiAmount === undefined || v.uiAmount <= 0) {
+      return void client.send("exchangeResult", {
+        ok: false,
+        signature,
+        retryable: v.retryable === true,
+        error: v.error ?? "Payment not found on-chain.",
+      });
+    }
+    // Payment confirmed. Move the shares (re-checks the seller still holds them),
+    // then record the signature so a mid-flight crash leaves the payment retryable.
+    const filled = fillBaseListing(id, player.name, wallet);
+    if (!filled.ok || !filled.companyId) {
+      return void client.send("exchangeResult", {
+        ok: false,
+        signature,
+        error: filled.error ?? "The shares were no longer available — contact the seller for a $BASE refund.",
+      });
+    }
+    await recordTokenPurchase(signature, wallet, `share_base:${id}`, v.uiAmount);
+    bumpMetric("exchange.baseTrades");
+    bumpMetric("exchange.baseVolume", Math.round(v.uiAmount));
+    client.send("exchangeResult", {
+      ok: true,
+      signature,
+      message: `Bought ${filled.shares?.toLocaleString()} shares for ${listing.priceBase} $BASE.`,
+    });
+    this.sendExchangeState(client);
+    this.refreshMarketDetail(client, filled.companyId);
+    this.broadcastExchangeChanged();
+    // Notify the seller of the completed sale.
+    if (filled.sellerName) {
+      sendToPlayer(filled.sellerName, "chat", {
+        id: crypto.randomUUID(),
+        channel: "system",
+        senderId: "system",
+        senderName: "Exchange",
+        body: `💵 ${player.name} bought your ${filled.shares?.toLocaleString()} shares for ${listing.priceBase} $BASE.`,
+        sentAt: Date.now(),
+      });
+    }
+  }
+
   private async handleExchangeList(client: Client) {
     const player = this.state.players.get(client.sessionId);
     if (!player) return;
@@ -8811,9 +8931,12 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       bumpMetric("exchange.volume.gold", applied.gross);
       this.finishExchangeTrade(client, player, companyId, `Bought ${n} shares for ${(applied.gross + fee.fee).toLocaleString()}g.`);
     } else {
-      const owned = sharesOf(companyId, player.name);
-      if (owned < n) {
-        return void client.send("exchangeResult", { ok: false, error: `You only hold ${owned.toLocaleString()} shares.` });
+      const free = freeSharesFor(companyId, player.name);
+      if (free < n) {
+        return void client.send("exchangeResult", {
+          ok: false,
+          error: `You only have ${free.toLocaleString()} sellable shares (some may be committed to $BASE listings).`,
+        });
       }
       const applied = applyShareSell(companyId, player.name, wallet, n);
       if (!applied) return void client.send("exchangeResult", { ok: false, error: "Trade failed." });

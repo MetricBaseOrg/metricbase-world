@@ -80,6 +80,37 @@ export function clampPct(pct: number): number {
   return Math.max(0, Math.min(SHARE_DIVIDEND_MAX_PCT, Math.round(pct)));
 }
 
+// --- Real-$BASE peer-to-peer share block listings (Phase 3a) ---
+
+/** Minimum $BASE price for a share block listing. */
+export const SHARE_BASE_MIN_PRICE = 0.001;
+/** Max simultaneously open $BASE listings a seller can have per company. */
+export const MAX_SHARE_BASE_LISTINGS_PER_SELLER = 10;
+
+export interface ShareBaseListingView {
+  id: string;
+  companyId: string;
+  ticker: string;
+  name: string;
+  sellerName: string;
+  sellerWallet: string;
+  shares: number;
+  /** Total $BASE for the whole block (bought atomically). */
+  priceBase: number;
+  createdAt: number;
+}
+
+/** Validate a $BASE share listing; returns an error string or null. */
+export function validateShareBaseListing(shares: number, priceBase: number): string | null {
+  if (!Number.isFinite(shares) || shares < 1 || shares > SHARE_MAX_TRADE) {
+    return `List 1–${SHARE_MAX_TRADE.toLocaleString()} shares.`;
+  }
+  if (!Number.isFinite(priceBase) || priceBase < SHARE_BASE_MIN_PRICE) {
+    return `Price must be at least ${SHARE_BASE_MIN_PRICE} $BASE.`;
+  }
+  return null;
+}
+
 // ---------------------------------------------------------------------------
 // Bonding-curve maths (pure). Computed in float, rounded at the boundary so the
 // reserve is always solvent.
@@ -245,6 +276,10 @@ export interface CompanyMarketDetail {
   financials: CompanyFinancialsView;
   /** Recent share-dividend distributions (newest first). */
   dividendHistory: DividendRecordView[];
+  /** Open real-$BASE share block listings for this company. */
+  baseListings: ShareBaseListingView[];
+  /** Shares the viewer has committed to their own open $BASE listings. */
+  myCommitted: number;
 }
 
 export interface ExchangeStatePayload {
@@ -262,6 +297,10 @@ export interface ExchangeResultPayload {
   message?: string;
   /** Updated player gold after a trade/listing charge. */
   gold?: number;
+  /** Echoed on-chain payment signature (for $BASE purchases). */
+  signature?: string;
+  /** True when a failed $BASE purchase is safe to retry (payment still settling). */
+  retryable?: boolean;
 }
 
 /** A live quote for a prospective trade, shown before the player confirms. */

@@ -1264,6 +1264,15 @@ export class NetworkManager {
   sendExchangeVote(companyId: string, pct: number | null) {
     this.room?.send("exchangeVote", { companyId, pct });
   }
+  sendExchangeListBase(companyId: string, shares: number, priceBase: number) {
+    this.room?.send("exchangeListBase", { companyId, shares, priceBase });
+  }
+  sendExchangeCancelBase(id: string) {
+    this.room?.send("exchangeCancelBase", { id });
+  }
+  sendExchangeBuyBase(id: string, signature: string) {
+    this.room?.send("exchangeBuyBase", { id, signature });
+  }
   getExchangeState(): ExchangeStatePayload {
     return this.latestExchangeState;
   }

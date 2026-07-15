@@ -11,6 +11,10 @@ export const MOTTO_MAX_LENGTH = 80;
  */
 export const DASHBOARD_UPDATES: Array<{ title: string; body: string }> = [
   {
+    title: "v0.144 — Trade Shares for real $BASE",
+    body: "List a block of company shares for a fixed $BASE price and let anyone buy it with real crypto — the buyer pays $BASE straight to your wallet on-chain and the shares move to them instantly. Find it under each company on the 📈 Stock Exchange.",
+  },
+  {
     title: "v0.143 — Dividends, Shareholder Control & Financials",
     body: "Listed companies now pay weekly share dividends from their profit — split among shareholders, with the payout % set by a share-weighted vote. Buy enough shares and you become the CEO with a controlling stake. Each company's trade page shows live financials (revenue, expenses, net profit) and dividend history. Your share portfolio counts toward your net worth.",
   },
@@ -21,10 +25,6 @@ export const DASHBOARD_UPDATES: Array<{ title: string; body: string }> = [
   {
     title: "v0.140 — Merchant Companies",
     body: "Found a player-owned business: a shared treasury and item warehouse, ranks and salaries, automatic daily dividends, a revenue-share on members' earnings, warehouse vendor sales, and an inbound contracts board. Belong to a guild AND a company at once — open Companies from the ⚙️ menu.",
-  },
-  {
-    title: "v0.139 — DAO Guild Delegation",
-    body: "Guild members can now delegate their DAO voting power to their guild — when the leader votes, every delegator's $BASE is cast alongside. Small holders, big voice.",
   },
   {
     title: "v0.137 — MetricBase DAO",
