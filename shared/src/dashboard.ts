@@ -11,6 +11,10 @@ export const MOTTO_MAX_LENGTH = 80;
  */
 export const DASHBOARD_UPDATES: Array<{ title: string; body: string }> = [
   {
+    title: "v0.141 — Stock Exchange (Phase 1)",
+    body: "Company owners can list on the Stock Exchange, and anyone can buy and sell shares on a live bonding-curve market. Prices move with demand, a slice of every trade funds the company treasury, and your holdings show up in the new 📈 Exchange panel. Dividends and financial statements come next.",
+  },
+  {
     title: "v0.140 — Merchant Companies",
     body: "Found a player-owned business: a shared treasury and item warehouse, ranks and salaries, automatic daily dividends, a revenue-share on members' earnings, warehouse vendor sales, and an inbound contracts board. Belong to a guild AND a company at once — open Companies from the ⚙️ menu.",
   },
@@ -25,10 +29,6 @@ export const DASHBOARD_UPDATES: Array<{ title: string; body: string }> = [
   {
     title: "v0.136 — Level Cap Raised to 99",
     body: "The grind goes on: combat level and every gathering skill (Woodcutting, Mining, Fishing, Farming) now climb all the way to 99. Existing XP counts — you may level up the moment you log in.",
-  },
-  {
-    title: "v0.134 — Farming Tools & Gear",
-    body: "Forge copper, iron and steel hoes: tend crop patches up to 50% faster and planted crops mature up to 35% sooner. Weave a Farmer's Sun Hat or craft a Grower's Ring for bonus crops and Farming XP.",
   },
 ];
 

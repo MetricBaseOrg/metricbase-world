@@ -40,6 +40,7 @@ import { CropMarketPanel } from "./ui/CropMarketPanel";
 import { DailyPanel } from "./ui/DailyPanel";
 import { JobsPanel } from "./ui/JobsPanel";
 import { CompanyPanel } from "./ui/CompanyPanel";
+import { ExchangePanel } from "./ui/ExchangePanel";
 import { AdminPanel } from "./ui/AdminPanel";
 import { CatchCelebration } from "./ui/CatchCelebration";
 import { FishingMinigame } from "./ui/FishingMinigame";
@@ -420,6 +421,7 @@ export function App() {
       {joined && <DailyPanel />}
       {joined && <JobsPanel />}
       {joined && <CompanyPanel />}
+      {joined && <ExchangePanel />}
       {joined && <AdminPanel />}
       {joined && <FishingMinigame />}
       {joined && <CatchCelebration />}

@@ -102,6 +102,7 @@ function normalizeStats(value: unknown): CompanyStats {
     base.revenue.vendor = Math.max(0, Math.floor(raw.revenue.vendor ?? 0));
     base.revenue.contracts = Math.max(0, Math.floor(raw.revenue.contracts ?? 0));
     base.revenue.deposits = Math.max(0, Math.floor(raw.revenue.deposits ?? 0));
+    base.revenue.shares = Math.max(0, Math.floor(raw.revenue.shares ?? 0));
   }
   if (raw.paidOut && typeof raw.paidOut === "object") {
     base.paidOut.salaries = Math.max(0, Math.floor(raw.paidOut.salaries ?? 0));

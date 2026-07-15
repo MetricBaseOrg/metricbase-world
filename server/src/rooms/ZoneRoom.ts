@@ -240,6 +240,12 @@ import {
   type CompanyContractKind,
   type CompanyRank,
   type CompanyType,
+  SHARE_LISTING_COST,
+  SHARE_MIN_TRADE,
+  SHARE_MAX_TRADE,
+  quoteBuy,
+  quoteSell,
+  shareTradeFee,
 } from "@metricbase/shared";
 import { verifyAccessToken } from "../auth/accessToken.js";
 import { isTokenGateEnabled } from "../auth/tokenGate.js";
@@ -388,6 +394,18 @@ import {
   buildCompanyStatePayload,
   broadcastCompanyState as broadcastCompanyStateFn,
 } from "../company/companyRegistry.js";
+import {
+  isListed as isCompanyListed,
+  getMarket as getShareMarket,
+  listCompany as listShareMarket,
+  sharesOf,
+  tradeCooldownRemaining,
+  applyBuy as applyShareBuy,
+  applySell as applyShareSell,
+  settleDelisting,
+  buildExchangeState,
+  buildMarketDetail,
+} from "../exchange/exchangeRegistry.js";
 import {
   addZoneEarnings,
   addZoneTax,
@@ -1288,6 +1306,26 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       if (player) client.send("companyState", buildCompanyStatePayload(player.name));
     });
 
+    // ----- Stock Exchange -----
+    this.onProtectedMessage("exchangeList", (client) => {
+      void this.handleExchangeList(client);
+    });
+    this.onProtectedMessage("exchangeBuy", (client, m: { companyId?: string; shares?: number }) => {
+      void this.handleExchangeTrade(client, "buy", m.companyId ?? "", m.shares ?? 0);
+    });
+    this.onProtectedMessage("exchangeSell", (client, m: { companyId?: string; shares?: number }) => {
+      void this.handleExchangeTrade(client, "sell", m.companyId ?? "", m.shares ?? 0);
+    });
+    this.onMessage("requestExchange", (client) => {
+      this.sendExchangeState(client);
+    });
+    this.onMessage("requestMarketDetail", (client, m: { companyId?: string }) => {
+      const player = this.state.players.get(client.sessionId);
+      if (!player || !m.companyId) return;
+      const detail = buildMarketDetail(m.companyId, player.name);
+      if (detail) client.send("marketDetail", detail);
+    });
+
     this.onMessage("emote", (client, message: { emoteId?: string }) => {
       this.handleEmote(client, message.emoteId ?? "");
     });
@@ -1660,6 +1698,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     client.send("farmState", this.buildFarmState());
     client.send("housingState", this.buildHousingState());
     client.send("companyState", buildCompanyStatePayload(player.name));
+    client.send("exchangeState", buildExchangeState(player.name, this.listableCompanyIdFor(player.name)));
     client.send("lootBags", { bags: [...this.lootBags.values()] });
     this.sendAssetInventory(client, player.name);
     // Player-owned zones aren't in the client's static ZONE_CONFIGS — push the
@@ -8312,12 +8351,22 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   private handleCompanyLeave(client: Client) {
     const player = this.state.players.get(client.sessionId);
     if (!player) return;
+    const company = getCompanyForMember(player.name);
+    const companyId = company?.id;
     const members = companyMemberNames(player.name);
     const result = leaveCompany(player.name);
     if (!result.ok) return void client.send("companyResult", { ok: false, error: result.error });
     // Refund escrow of any contracts orphaned by a disband.
     for (const refund of result.refunds ?? []) {
       this.creditPlayerByName(refund.name, refund.amount);
+    }
+    // A disbanded company that was listed on the exchange is delisted; its
+    // reserve is returned to shareholders pro-rata by shares held.
+    if (result.disbanded && companyId && isCompanyListed(companyId)) {
+      for (const payout of settleDelisting(companyId)) {
+        this.creditPlayerByName(payout.name, payout.gold);
+      }
+      this.broadcastExchangeChanged();
     }
     client.send("companyResult", { ok: true, message: "You left the company." });
     client.send("companyState", buildCompanyStatePayload(player.name));
@@ -8641,6 +8690,144 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       body,
       sentAt: now,
     } satisfies ChatMessagePayload);
+  }
+
+  // ===== Stock Exchange =========================================================
+
+  /** The company a player OWNS that isn't listed yet (so they can list it). */
+  private listableCompanyIdFor(name: string): string | null {
+    const company = getCompanyForMember(name);
+    if (company && company.ownerName === name && !isCompanyListed(company.id)) return company.id;
+    return null;
+  }
+
+  private sendExchangeState(client: Client) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    client.send("exchangeState", buildExchangeState(player.name, this.listableCompanyIdFor(player.name)));
+  }
+
+  /** Nudge every online client to refresh an open Exchange panel. */
+  private broadcastExchangeChanged() {
+    for (const room of ZoneRoom.activeRooms) room.broadcast("exchangeChanged", {});
+  }
+
+  private async handleExchangeList(client: Client) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const company = getCompanyForMember(player.name);
+    if (!company || company.ownerName !== player.name) {
+      return void client.send("exchangeResult", { ok: false, error: "Only a company owner can list it." });
+    }
+    if (isCompanyListed(company.id)) {
+      return void client.send("exchangeResult", { ok: false, error: "Your company is already listed." });
+    }
+    const gold = this.playerGold.get(this.pidOf(player)) ?? STARTING_GOLD;
+    if (gold < SHARE_LISTING_COST) {
+      return void client.send("exchangeResult", {
+        ok: false,
+        gold,
+        error: `Listing costs ${SHARE_LISTING_COST.toLocaleString()} gold.`,
+      });
+    }
+    const result = listShareMarket(company.id);
+    if (!result.ok) return void client.send("exchangeResult", { ok: false, error: result.error });
+    const nextGold = gold - SHARE_LISTING_COST;
+    this.playerGold.set(this.pidOf(player), nextGold);
+    burnGold(SHARE_LISTING_COST); // listing fee is a sink
+    bumpMetric("exchange.listed");
+    bumpMetric("exchange.listing.gold", SHARE_LISTING_COST);
+    this.sendProfile(client, player);
+    await this.persistPlayer(player);
+    client.send("exchangeResult", { ok: true, gold: nextGold, message: `${company.name} is now listed!` });
+    this.sendExchangeState(client);
+    this.broadcastExchangeChanged();
+    this.broadcastChat({
+      id: crypto.randomUUID(),
+      channel: "system",
+      senderId: "system",
+      senderName: "Exchange",
+      body: `${company.name} went public on the Stock Exchange.`,
+      sentAt: Date.now(),
+    });
+  }
+
+  private async handleExchangeTrade(
+    client: Client,
+    side: "buy" | "sell",
+    companyId: string,
+    rawShares: number,
+  ) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !companyId) return;
+    const market = getShareMarket(companyId);
+    if (!market) return void client.send("exchangeResult", { ok: false, error: "That company isn't listed." });
+    const n = Math.floor(rawShares);
+    if (!Number.isFinite(n) || n < SHARE_MIN_TRADE || n > SHARE_MAX_TRADE) {
+      return void client.send("exchangeResult", { ok: false, error: `Trade ${SHARE_MIN_TRADE}–${SHARE_MAX_TRADE.toLocaleString()} shares.` });
+    }
+    if (tradeCooldownRemaining(player.name, companyId) > 0) {
+      return void client.send("exchangeResult", { ok: false, error: "Slow down — trading too fast." });
+    }
+    const wallet = this.playerWallets.get(client.sessionId) ?? null;
+    const pid = this.pidOf(player);
+    const gold = this.playerGold.get(pid) ?? STARTING_GOLD;
+
+    if (side === "buy") {
+      const quote = quoteBuy(market.circulatingShares, n, market.basePrice, market.slope);
+      if (gold < quote.net) {
+        return void client.send("exchangeResult", {
+          ok: false,
+          error: `Need ${quote.net.toLocaleString()} gold (you have ${gold.toLocaleString()}).`,
+        });
+      }
+      const applied = applyShareBuy(companyId, player.name, wallet, n);
+      if (!applied) return void client.send("exchangeResult", { ok: false, error: "Trade failed." });
+      const fee = shareTradeFee(applied.gross); // buyer paid gross + fee
+      this.playerGold.set(pid, gold - (applied.gross + fee.fee));
+      creditCompanyTreasury(companyId, fee.treasury, "shares");
+      burnGold(fee.burn);
+      bumpMetric("exchange.trades");
+      bumpMetric("exchange.volume.gold", applied.gross);
+      this.finishExchangeTrade(client, player, companyId, `Bought ${n} shares for ${(applied.gross + fee.fee).toLocaleString()}g.`);
+    } else {
+      const owned = sharesOf(companyId, player.name);
+      if (owned < n) {
+        return void client.send("exchangeResult", { ok: false, error: `You only hold ${owned.toLocaleString()} shares.` });
+      }
+      const applied = applyShareSell(companyId, player.name, wallet, n);
+      if (!applied) return void client.send("exchangeResult", { ok: false, error: "Trade failed." });
+      const fee = shareTradeFee(applied.gross);
+      const net = Math.max(0, applied.gross - fee.fee);
+      this.playerGold.set(pid, gold + net);
+      creditCompanyTreasury(companyId, fee.treasury, "shares");
+      burnGold(fee.burn);
+      bumpMetric("exchange.trades");
+      bumpMetric("exchange.volume.gold", applied.gross);
+      this.finishExchangeTrade(client, player, companyId, `Sold ${n} shares for ${net.toLocaleString()}g.`);
+    }
+  }
+
+  private finishExchangeTrade(
+    client: Client,
+    player: InstanceType<typeof PlayerSchema>,
+    companyId: string,
+    message: string,
+  ) {
+    this.sendProfile(client, player);
+    void this.persistPlayer(player);
+    client.send("exchangeResult", {
+      ok: true,
+      gold: this.playerGold.get(this.pidOf(player)) ?? STARTING_GOLD,
+      message,
+    });
+    this.sendExchangeState(client);
+    const detail = buildMarketDetail(companyId, player.name);
+    if (detail) client.send("marketDetail", detail);
+    this.broadcastExchangeChanged();
+    // The share-trade fee changed the company treasury — refresh its members.
+    const company = getCompanyById(companyId);
+    if (company) this.broadcastCompanyState(company.members);
   }
 
   private nameFor(client: Client): string {

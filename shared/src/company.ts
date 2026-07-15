@@ -230,6 +230,8 @@ export interface CompanyStats {
     vendor: number;
     contracts: number;
     deposits: number;
+    /** Share-trade fees routed to the treasury by the stock exchange. */
+    shares: number;
   };
   paidOut: {
     salaries: number;
@@ -241,7 +243,7 @@ export interface CompanyStats {
 
 export function emptyCompanyStats(): CompanyStats {
   return {
-    revenue: { skim: 0, vendor: 0, contracts: 0, deposits: 0 },
+    revenue: { skim: 0, vendor: 0, contracts: 0, deposits: 0, shares: 0 },
     paidOut: { salaries: 0, dividends: 0 },
     contractsCompleted: 0,
     contrib: {},

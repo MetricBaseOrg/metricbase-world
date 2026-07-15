@@ -49,6 +49,9 @@ import {
   CompanyResultPayload,
   CompanyRank,
   CompanyContractKind,
+  ExchangeStatePayload,
+  ExchangeResultPayload,
+  CompanyMarketDetail,
   PartyStatePayload,
   PartyResultPayload,
   PartyInvitePayload,
@@ -254,6 +257,9 @@ type GuildStateListener = (payload: GuildStatePayload) => void;
 type GuildResultListener = (payload: GuildResultPayload) => void;
 type CompanyStateListener = (payload: CompanyStatePayload) => void;
 type CompanyResultListener = (payload: CompanyResultPayload) => void;
+type ExchangeStateListener = (payload: ExchangeStatePayload) => void;
+type ExchangeResultListener = (payload: ExchangeResultPayload) => void;
+type MarketDetailListener = (payload: CompanyMarketDetail) => void;
 type PartyStateListener = (payload: PartyStatePayload) => void;
 type PartyResultListener = (payload: PartyResultPayload) => void;
 type PartyInviteListener = (payload: PartyInvitePayload) => void;
@@ -375,6 +381,15 @@ export class NetworkManager {
     myRequestCompanyId: null,
     openContracts: [],
     myPostedContracts: [],
+  };
+  private exchangeStateListeners = new Set<ExchangeStateListener>();
+  private exchangeResultListeners = new Set<ExchangeResultListener>();
+  private marketDetailListeners = new Set<MarketDetailListener>();
+  private exchangeChangedListeners = new Set<() => void>();
+  private latestExchangeState: ExchangeStatePayload = {
+    markets: [],
+    myHoldings: [],
+    listableCompanyId: null,
   };
   private partyStateListeners = new Set<PartyStateListener>();
   private partyResultListeners = new Set<PartyResultListener>();
@@ -1230,6 +1245,43 @@ export class NetworkManager {
     return () => this.companyResultListeners.delete(listener);
   }
 
+  // ----- Stock Exchange -----
+  sendExchangeList() {
+    this.room?.send("exchangeList", {});
+  }
+  sendExchangeBuy(companyId: string, shares: number) {
+    this.room?.send("exchangeBuy", { companyId, shares });
+  }
+  sendExchangeSell(companyId: string, shares: number) {
+    this.room?.send("exchangeSell", { companyId, shares });
+  }
+  requestExchange() {
+    this.room?.send("requestExchange", {});
+  }
+  requestMarketDetail(companyId: string) {
+    this.room?.send("requestMarketDetail", { companyId });
+  }
+  getExchangeState(): ExchangeStatePayload {
+    return this.latestExchangeState;
+  }
+  onExchangeState(listener: ExchangeStateListener) {
+    this.exchangeStateListeners.add(listener);
+    listener(this.latestExchangeState);
+    return () => this.exchangeStateListeners.delete(listener);
+  }
+  onExchangeResult(listener: ExchangeResultListener) {
+    this.exchangeResultListeners.add(listener);
+    return () => this.exchangeResultListeners.delete(listener);
+  }
+  onMarketDetail(listener: MarketDetailListener) {
+    this.marketDetailListeners.add(listener);
+    return () => this.marketDetailListeners.delete(listener);
+  }
+  onExchangeChanged(listener: () => void) {
+    this.exchangeChangedListeners.add(listener);
+    return () => this.exchangeChangedListeners.delete(listener);
+  }
+
   sendPartyInvite(targetName: string) {
     this.room?.send("partyInvite", { targetName });
   }
@@ -2059,6 +2111,27 @@ export class NetworkManager {
     this.room.onMessage("companyResult", (payload: CompanyResultPayload) => {
       for (const listener of this.companyResultListeners) {
         listener(payload);
+      }
+    });
+    this.room.onMessage("exchangeState", (payload: ExchangeStatePayload) => {
+      this.latestExchangeState = payload;
+      for (const listener of this.exchangeStateListeners) {
+        listener(payload);
+      }
+    });
+    this.room.onMessage("exchangeResult", (payload: ExchangeResultPayload) => {
+      for (const listener of this.exchangeResultListeners) {
+        listener(payload);
+      }
+    });
+    this.room.onMessage("marketDetail", (payload: CompanyMarketDetail) => {
+      for (const listener of this.marketDetailListeners) {
+        listener(payload);
+      }
+    });
+    this.room.onMessage("exchangeChanged", () => {
+      for (const listener of this.exchangeChangedListeners) {
+        listener();
       }
     });
     this.room.onMessage("partyState", (payload: PartyStatePayload) => {

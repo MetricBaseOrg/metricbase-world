@@ -432,8 +432,8 @@ export function applyCompanyCut(name: string, grossGold: number): number {
   return cut;
 }
 
-/** Credit non-member revenue (vendor sales, contract payouts) to a treasury. */
-export function creditCompanyTreasury(id: string, amount: number, source: "vendor" | "contracts"): void {
+/** Credit non-member revenue (vendor sales, contract payouts, share-trade fees). */
+export function creditCompanyTreasury(id: string, amount: number, source: "vendor" | "contracts" | "shares"): void {
   const company = companies.get(id);
   if (!company || amount <= 0) return;
   const gold = Math.floor(amount);
@@ -737,7 +737,8 @@ function reputationOf(company: StoredCompany): number {
     company.stats.revenue.skim +
     company.stats.revenue.vendor +
     company.stats.revenue.contracts +
-    company.stats.revenue.deposits;
+    company.stats.revenue.deposits +
+    company.stats.revenue.shares;
   return computeCompanyReputation({
     ageDays,
     members: company.members.length,

@@ -246,7 +246,7 @@ function OverviewTab({
   if (mine) {
     const info = COMPANY_TYPE_INFO[mine.companyType];
     const rev = mine.stats.revenue;
-    const totalRev = rev.skim + rev.vendor + rev.contracts + rev.deposits;
+    const totalRev = rev.skim + rev.vendor + rev.contracts + rev.deposits + rev.shares;
     const topContrib = Object.entries(mine.stats.contrib)
       .map(([n, c]) => ({ name: n, total: c.gold + c.itemsValue + c.skim }))
       .filter((c) => c.total > 0)
@@ -288,6 +288,7 @@ function OverviewTab({
             <div>Revenue-share skim: <b>{rev.skim.toLocaleString()}g</b></div>
             <div>Warehouse vendor sales: <b>{rev.vendor.toLocaleString()}g</b></div>
             <div>Completed contracts: <b>{rev.contracts.toLocaleString()}g</b></div>
+            <div>Share-trade fees: <b>{rev.shares.toLocaleString()}g</b></div>
             <div>Member deposits: <b>{rev.deposits.toLocaleString()}g</b></div>
             <div style={{ marginTop: 4 }}>
               Paid out: <b>{mine.stats.paidOut.salaries.toLocaleString()}g</b> salaries ·{" "}

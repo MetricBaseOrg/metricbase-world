@@ -531,4 +531,43 @@ CREATE TABLE IF NOT EXISTS company_payouts (
   detail JSONB NOT NULL DEFAULT '{}'::jsonb,          -- { name: amount } breakdown
   PRIMARY KEY (company_id, day)
 );
+
+-- ============================================================================
+-- Players Company Stock Exchange (v0.141.0, Phase 1): a gold-settled
+-- bonding-curve market for shares in Merchant Companies. Shares are an
+-- authoritative in-game ledger. Gold buys lock into reserve_gold (which backs
+-- sells), so the market is solvent by construction; nothing is minted.
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS share_markets (
+  company_id VARCHAR(64) PRIMARY KEY,
+  listed_at BIGINT NOT NULL,                          -- epoch ms
+  circulating_shares INTEGER NOT NULL DEFAULT 0,
+  reserve_gold BIGINT NOT NULL DEFAULT 0,             -- gold backing the shares
+  base_price DOUBLE PRECISION NOT NULL,               -- bonding-curve P0 at listing
+  slope DOUBLE PRECISION NOT NULL                     -- bonding-curve k at listing
+);
+
+-- Per-holder share balances (the shareholder registry).
+CREATE TABLE IF NOT EXISTS share_holdings (
+  company_id VARCHAR(64) NOT NULL,
+  holder_name VARCHAR(16) NOT NULL,
+  holder_wallet VARCHAR(44),
+  shares INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (company_id, holder_name)
+);
+CREATE INDEX IF NOT EXISTS share_holdings_holder_idx ON share_holdings (holder_name);
+
+-- Trade tape: every executed trade, for the feed, volume, 24h change + charts.
+CREATE TABLE IF NOT EXISTS share_trades (
+  id VARCHAR(64) PRIMARY KEY,
+  company_id VARCHAR(64) NOT NULL,
+  trader_name VARCHAR(16) NOT NULL,
+  trader_wallet VARCHAR(44),
+  side VARCHAR(4) NOT NULL,                            -- buy|sell
+  shares INTEGER NOT NULL,
+  gold INTEGER NOT NULL,                               -- gross gold moved through the reserve
+  price DOUBLE PRECISION NOT NULL,                     -- marginal price at execution
+  at BIGINT NOT NULL                                   -- epoch ms
+);
+CREATE INDEX IF NOT EXISTS share_trades_company_at_idx ON share_trades (company_id, at DESC);
 CREATE INDEX IF NOT EXISTS asset_inventory_player_wallet_idx ON asset_inventory (player_wallet);

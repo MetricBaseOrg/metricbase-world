@@ -282,6 +282,7 @@ export async function renameCharacter(wallet: string, rawNewName: string): Promi
       ["pending_gold", "player_name"], ["daily_state", "player_name"],
       ["market_orders", "player_name"], ["guilds", "leader_name"],
       ["companies", "owner_name"], ["company_contracts", "poster_name"],
+      ["share_holdings", "holder_name"], ["share_trades", "trader_name"],
     ];
     for (const [table, col] of nameCols) {
       await client.query(`UPDATE ${table} SET ${col} = $1 WHERE lower(${col}) = lower($2)`, [newName, oldName]);

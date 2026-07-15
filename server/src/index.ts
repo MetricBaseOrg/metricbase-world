@@ -35,6 +35,7 @@ import { initItemFlows } from "./economy/itemFlows.js";
 import { initFarmRegistry } from "./farming/farmRegistry.js";
 import { initGuildRegistry } from "./guild/guildRegistry.js";
 import { initCompanyRegistry, runCompanyDailyPayouts } from "./company/companyRegistry.js";
+import { initExchangeRegistry } from "./exchange/exchangeRegistry.js";
 import { initTerritoryRegistry } from "./territory/territoryRegistry.js";
 import { initSiegeRegistry } from "./siege/siegeRegistry.js";
 import { adService } from "./ads/adService.js";
@@ -172,6 +173,7 @@ try {
 await initFarmRegistry();
 await initGuildRegistry();
 await initCompanyRegistry();
+await initExchangeRegistry();
 await initTerritoryRegistry();
 await initSiegeRegistry();
 await adService.init();
