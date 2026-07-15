@@ -177,7 +177,12 @@ function MarketBoard({ state, onOpen }: { state: ExchangeStatePayload; onOpen: (
     <>
       {state.myHoldings.length > 0 && (
         <>
-          <div className="chibi-label" style={{ margin: "12px 0 4px" }}>Your holdings</div>
+          <div className="chibi-label" style={{ margin: "12px 0 4px", display: "flex", justifyContent: "space-between" }}>
+            <span>Your holdings</span>
+            <span style={{ color: "#b8860b" }}>
+              portfolio ~{state.myHoldings.reduce((a, h) => a + h.value, 0).toLocaleString()}g
+            </span>
+          </div>
           {state.myHoldings.map((h) => (
             <button
               key={h.companyId}

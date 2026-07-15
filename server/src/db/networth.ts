@@ -7,10 +7,15 @@
 //   - build assets owned (asset_inventory) and escrowed in open P2P listings
 //   - owned Worlds: slot cost + everything placed in the build + unclaimed earnings
 //   - owned land plots: plot cost + player-shop stock + unclaimed earnings
+//   - stock portfolio: shares held in listed companies, at LIQUIDATION value
+//     (what selling them now would return down the bonding curve). The gold that
+//     backs those shares sits in each market's reserve, which is not attributed
+//     to anyone, so this adds no phantom wealth and can't double-count.
 
 import {
   getItemBaseValue,
   getPvpSeason,
+  shareSellProceeds,
   zoneAssetPrice,
   zoneBuildCost,
   PLOT_PRICE,
@@ -83,12 +88,17 @@ export async function fetchExternalWealth(pool: pg.Pool): Promise<ExternalWealth
     else if (name) byName.set(name, (byName.get(name) ?? 0) + value);
   };
 
-  const [pending, assets, listings, zones, plots] = await Promise.all([
+  const [pending, assets, listings, zones, plots, shares] = await Promise.all([
     pool.query("SELECT player_name, player_wallet, amount FROM pending_gold"),
     pool.query("SELECT player_name, player_wallet, asset_id, qty FROM asset_inventory"),
     pool.query("SELECT seller_name, seller_wallet, asset_id, qty FROM asset_listings"),
     pool.query("SELECT owner_name, owner_wallet, build, earnings FROM player_zones"),
     pool.query("SELECT owner_name, owner_wallet, listings, earnings FROM land_plots"),
+    pool.query(
+      `SELECT h.holder_name, h.holder_wallet, h.shares, m.circulating_shares, m.base_price, m.slope
+       FROM share_holdings h JOIN share_markets m ON h.company_id = m.company_id
+       WHERE h.shares > 0`,
+    ),
   ]);
 
   for (const row of pending.rows) {
@@ -113,6 +123,13 @@ export async function fetchExternalWealth(pool: pg.Pool): Promise<ExternalWealth
       row.owner_name,
       PLOT_PRICE + shopStockValue(row.listings) + (Number(row.earnings) || 0),
     );
+  }
+  for (const row of shares.rows) {
+    const held = Number(row.shares) || 0;
+    const supply = Number(row.circulating_shares) || 0;
+    if (held <= 0 || supply <= 0) continue;
+    const value = shareSellProceeds(supply, Math.min(held, supply), Number(row.base_price), Number(row.slope));
+    credit(row.holder_wallet, row.holder_name, value);
   }
 
   return { byWallet, byName };
