@@ -570,6 +570,20 @@ export class GameScene extends Phaser.Scene {
       this.localLampGlow?.setVisible(false);
       this.renderZone(zoneId);
       playSfx("zone_enter");
+      // Arrival swirl at the zone's spawn tile (where the player materialises).
+      const spawnCfg = resolveZoneConfig(zoneId);
+      if (spawnCfg.spawnTile) {
+        const { x: ax, y: ay } = tileToWorld(spawnCfg.spawnTile.x, spawnCfg.spawnTile.y);
+        this.spawnPortalFx(ax, ay);
+      }
+    });
+
+    // Portal departure: swirl at the player's feet + a magenta flash that
+    // covers the room switch (the "portal" sfx already plays in App.tsx).
+    const unsubscribeTransfer = networkManager.onTransfer(() => {
+      const avatar = this.localAvatar;
+      if (avatar) this.spawnPortalFx(avatar.sprite.x, avatar.sprite.y);
+      this.cameras.main.flash(380, 190, 90, 235);
     });
 
     const unsubscribeZoneConfig = networkManager.onZoneConfigUpdate((zoneId) => {
@@ -887,6 +901,7 @@ export class GameScene extends Phaser.Scene {
       unsubscribePlayers();
       unsubscribeZone();
       unsubscribeZoneConfig();
+      unsubscribeTransfer();
       unsubscribeMobHealth();
       unsubscribeNpcPositions();
       unsubscribeAttackResult();
@@ -3820,6 +3835,65 @@ export class GameScene extends Phaser.Scene {
       ease: "Cubic.easeOut",
       onComplete: () => g.destroy(),
     });
+  }
+
+  /** Magenta portal swirl: expanding rings + orbiting sparks, self-destroying.
+   *  Played at the player's feet on portal departure and at the spawn tile on
+   *  arrival in the new zone. */
+  private spawnPortalFx(x: number, y: number) {
+    // Two expanding rings, staggered.
+    for (let i = 0; i < 2; i++) {
+      const ring = this.add.graphics().setDepth(y + 20);
+      ring.lineStyle(3, i === 0 ? 0xd06bf0 : 0x8b3fd9, 0.9);
+      ring.strokeEllipse(0, 0, 26, 13); // iso-squashed ring
+      ring.setPosition(x, y - 6);
+      ring.setScale(0.3);
+      this.tweens.add({
+        targets: ring,
+        scaleX: 2.4,
+        scaleY: 2.4,
+        alpha: 0,
+        duration: 520,
+        delay: i * 130,
+        ease: "Cubic.easeOut",
+        onComplete: () => ring.destroy(),
+      });
+    }
+    // A soft rising glow column.
+    const glow = this.add
+      .image(x, y - 14, "lamp-glow")
+      .setTint(0xc14fe0)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setDisplaySize(56, 84)
+      .setDepth(y + 19)
+      .setAlpha(0.75);
+    this.tweens.add({
+      targets: glow,
+      alpha: 0,
+      y: y - 44,
+      scaleX: glow.scaleX * 0.5,
+      duration: 560,
+      ease: "Sine.easeOut",
+      onComplete: () => glow.destroy(),
+    });
+    // Sparkles spiralling upward.
+    for (let i = 0; i < 8; i++) {
+      const angle = (i / 8) * Math.PI * 2;
+      const spark = this.add
+        .rectangle(x + Math.cos(angle) * 12, y - 4 + Math.sin(angle) * 6, 3, 3, i % 2 ? 0xf3d0ff : 0xe7a6f7)
+        .setDepth(y + 21)
+        .setAlpha(0.95);
+      this.tweens.add({
+        targets: spark,
+        x: x + Math.cos(angle + 2.2) * 26,
+        y: y - 36 - Math.random() * 22,
+        alpha: 0,
+        angle: 180,
+        duration: 480 + Math.random() * 160,
+        ease: "Sine.easeOut",
+        onComplete: () => spark.destroy(),
+      });
+    }
   }
 
   private spawnDustPuff(x: number, y: number) {
