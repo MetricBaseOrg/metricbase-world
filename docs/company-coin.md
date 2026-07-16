@@ -154,6 +154,40 @@ after legal sign-off.
 - Founder allocation cap + mandatory vesting to blunt insider dumps even with
   locked liquidity.
 
+## Coin → Shares convertibility (one-way on-ramp)
+
+Players can convert a Company Coin into that company's in-game shares. This is
+**safe** and reuses existing primitives, because it is entirely a "value in" flow:
+
+1. **Coin → `$BASE`** — swap on the coin's DEX pool (market price; pre-existing
+   `$BASE` from the pool).
+2. **`$BASE` → gold** — Pip's gold desk, **1:1, one-directional** (`handleBuyGoldFromPip`,
+   ZoneRoom.ts:3634 — `$BASE` is captured by the treasury, gold is credited).
+3. **gold → shares** — a normal exchange buy at the in-game share price
+   (bonding curve / order book).
+
+No minted gold is ever turned back into `$BASE`, so this creates no faucet — the
+player spends the coin's real `$BASE` value to acquire shares. Implementation is a
+**UX/quote layer** ("Convert to shares" shows `X coin ≈ Y $BASE ≈ Z shares` and
+guides the swap → Pip → buy); the server never custodies player coins or executes
+swaps on their behalf.
+
+### THE HARD INVARIANT (do not break)
+
+**Never add a gold → `$BASE` (or shares → `$BASE`-by-minting) cash-out at a fixed
+peg.** Pip's desk is `$BASE` → gold only. If minted gold could be converted back
+to `$BASE`, the whole game becomes an infinite-money real-cash faucet (gather →
+gold → `$BASE` → sell). All `$BASE`-**out** must stay peer-to-peer transfers of
+pre-existing `$BASE` (housing resale, the `$BASE` share market), never a minted
+payout. With this invariant held, coin↔shares convertibility can only shuffle
+`$BASE` between players — it can never drain value.
+
+### Note
+
+Convertibility re-links the coin to equity (shares pay dividends + carry votes),
+which strengthens the coin's securities characterization. Legal-review item, not
+a technical blocker.
+
 ## Build plan (when you say go)
 
 - **A.** `coinLaunch.ts`: create mint + mint supply + **revoke authority**;
