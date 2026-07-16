@@ -244,9 +244,20 @@ export const MOB_DENS: Record<
 /** Prefix on npc ids derived from placed mob dens (also keys their rewards). */
 export const PZ_MOB_PREFIX = "pzmob_";
 
-/** Portal that always returns a visitor from a player zone back to the Hub. */
+/** Portal that always returns a visitor from a player zone back to the Hub.
+ *  @deprecated Worlds now carry TWO exits — use {@link playerZoneExitPortals}. */
 export function playerZoneExitPortal(gridSize = PLAYER_ZONE_GRID): ZonePortal {
-  return { tileX: 1, tileY: Math.floor(gridSize / 2), targetZone: "zone_hub", label: "Leave World" };
+  return playerZoneExitPortals(gridSize)[0];
+}
+
+/** Exit portals for a player zone: one tucked in the NORTH-WEST corner and one
+ *  in the SOUTH-EAST corner, so visitors are never far from an exit and the
+ *  gate no longer sits mid-edge where it crowds builds. */
+export function playerZoneExitPortals(gridSize = PLAYER_ZONE_GRID): ZonePortal[] {
+  return [
+    { tileX: 2, tileY: 2, targetZone: "zone_hub", label: "Leave World" },
+    { tileX: gridSize - 3, tileY: gridSize - 3, targetZone: "zone_hub", label: "Leave World" },
+  ];
 }
 
 /**
@@ -309,7 +320,7 @@ export function playerZoneToConfig(record: PlayerZoneRecord): ZoneConfig {
     dangerTier: normalizePlayerZoneTier(record.dangerTier),
     // Heal legacy builds whose spawn sits on now-blocking paint (water).
     spawnTile: safeBuildSpawnTile(build, gridSize),
-    portals: [playerZoneExitPortal(gridSize)],
+    portals: playerZoneExitPortals(gridSize),
     npcs: mobs,
     resources: [...storedResources, ...legacyResources],
     farmPlots: [...ownFarmPlots, ...soilPlots],

@@ -7,7 +7,7 @@ import {
   getZoneConfig,
   PLAYER_ZONE_PREFIX,
   PLAYER_ZONE_GRID,
-  playerZoneExitPortal,
+  playerZoneExitPortals,
   type ZoneConfig,
 } from "@metricbase/shared";
 
@@ -35,7 +35,7 @@ function placeholderConfig(zoneId: string): ZoneConfig {
     displayName: "World",
     dangerTier: "safe",
     spawnTile: { x: mid, y: mid },
-    portals: [playerZoneExitPortal()],
+    portals: playerZoneExitPortals(),
     npcs: [],
     resources: [],
     farmPlots: [],

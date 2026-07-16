@@ -28,6 +28,7 @@ import {
   TILE_GRASS,
   TILE_WATER,
   tileToWorld,
+  TILE_WIDTH,
   worldToTile,
   type FarmStatePayload,
   type HousingStatePayload,
@@ -1917,23 +1918,24 @@ export class GameScene extends Phaser.Scene {
 
       // Pulsing magenta aura behind the gate (reuses the soft glow texture).
       const aura = this.add
-        .image(x, y - 18, "lamp-glow")
+        .image(x, y - 12, "lamp-glow")
         .setTint(0xc14fe0)
         .setBlendMode(Phaser.BlendModes.ADD)
-        .setDisplaySize(96, 96)
+        .setDisplaySize(64, 64)
         .setDepth(y - 1)
         .setAlpha(0.5);
       this.tweens.add({ targets: aura, alpha: 0.85, scale: aura.scale * 1.12, duration: 1100, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
 
-      const sprite = this.add.sprite(x, y, "portal_gate").setOrigin(0.5, 0.84).setDepth(y);
-      // The hand-drawn gate art is 512px; scale it down to a ~2-tile landmark and
-      // mirror it horizontally so the arch faces into the isometric world.
-      this.scaleSpriteToWidth(sprite, 130);
+      // 1×1-tile gate, mirrored so the arch faces into the isometric world.
+      // Depth is lifted past the next ground row so front-edge grass tiles
+      // (drawn at their own row depth) can never cover the gate's base.
+      const sprite = this.add.sprite(x, y, "portal_gate").setOrigin(0.5, 0.84).setDepth(y + 14);
+      this.scaleSpriteToWidth(sprite, TILE_WIDTH);
       sprite.setFlipX(true);
       this.tweens.add({ targets: sprite, y: y - 3, duration: 1400, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
 
       const label = this.add
-        .text(x, y - 64, portal.label, {
+        .text(x, y - 56, portal.label, {
           fontFamily: '"Fredoka", "Nunito", sans-serif',
           fontSize: "12px",
           fontStyle: "bold",
@@ -1942,7 +1944,7 @@ export class GameScene extends Phaser.Scene {
           strokeThickness: 4,
         })
         .setOrigin(0.5, 1)
-        .setDepth(y + 1);
+        .setDepth(y + 15);
 
       this.renderedPortals.push(aura, sprite, label);
       this.portalLabels.push({ text: label, x, y });
@@ -2068,8 +2070,8 @@ export class GameScene extends Phaser.Scene {
         continue;
       }
       const sprite = this.add.sprite(x, y, `scenery_${node.prop}`).setOrigin(0.5, flat ? 0.5 : 0.92);
-      // Hand-drawn scenery art is 512px — scale it to a ~1.5-tile prop.
-      this.scaleSpriteToWidth(sprite, 96);
+      // Hand-drawn scenery art is 512px — scale every prop to a 1×1 tile.
+      this.scaleSpriteToWidth(sprite, TILE_WIDTH);
       // Flat props (rugs) sit just above the floor tile but beneath players;
       // upright furniture depth-sorts by world Y so the player can pass in
       // front of / behind it.
@@ -3037,8 +3039,9 @@ export class GameScene extends Phaser.Scene {
         plot.stage === "ready" ? "plot_ready" : plot.stage === "growing" ? "plot_growing" : "plot_empty";
       sprite.setTexture(texture).setOrigin(0.5, 0.526);
       // Target width scales the small procedural plot_ready AND the 512px
-      // plot_empty/plot_growing art to the same intended footprint.
-      this.scaleSpriteToWidth(sprite, soilPlot ? 80 : 128);
+      // plot_empty/plot_growing art to the plot's real footprint: soil-paint
+      // plots are 1×1 tiles, built-in plots span 2×2.
+      this.scaleSpriteToWidth(sprite, soilPlot ? TILE_WIDTH : TILE_WIDTH * 2);
       return;
     }
 
