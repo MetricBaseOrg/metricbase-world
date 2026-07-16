@@ -1901,6 +1901,15 @@ export class GameScene extends Phaser.Scene {
     this.rebuildCollisionGrid(zoneId);
   }
 
+  /** Scale a sprite so its texture renders at `targetWidth` world px, whatever
+   *  the source size is. Keeps the small procedural textures AND the 512px
+   *  hand-drawn art (which would otherwise render ~9× too big) at the intended
+   *  world scale. */
+  private scaleSpriteToWidth(sprite: Phaser.GameObjects.Sprite, targetWidth: number) {
+    const w = sprite.width || targetWidth;
+    sprite.setScale(targetWidth / w);
+  }
+
   private renderPortals(zoneId: string) {
     const config = resolveZoneConfig(zoneId);
     for (const portal of config.portals) {
@@ -1917,6 +1926,10 @@ export class GameScene extends Phaser.Scene {
       this.tweens.add({ targets: aura, alpha: 0.85, scale: aura.scale * 1.12, duration: 1100, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
 
       const sprite = this.add.sprite(x, y, "portal_gate").setOrigin(0.5, 0.84).setDepth(y);
+      // The hand-drawn gate art is 512px; scale it down to a ~2-tile landmark and
+      // mirror it horizontally so the arch faces into the isometric world.
+      this.scaleSpriteToWidth(sprite, 130);
+      sprite.setFlipX(true);
       this.tweens.add({ targets: sprite, y: y - 3, duration: 1400, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
 
       const label = this.add
@@ -2055,6 +2068,8 @@ export class GameScene extends Phaser.Scene {
         continue;
       }
       const sprite = this.add.sprite(x, y, `scenery_${node.prop}`).setOrigin(0.5, flat ? 0.5 : 0.92);
+      // Hand-drawn scenery art is 512px — scale it to a ~1.5-tile prop.
+      this.scaleSpriteToWidth(sprite, 96);
       // Flat props (rugs) sit just above the floor tile but beneath players;
       // upright furniture depth-sorts by world Y so the player can pass in
       // front of / behind it.
@@ -2591,7 +2606,7 @@ export class GameScene extends Phaser.Scene {
     const config = resolveZoneConfig(zoneId);
     for (const node of config.billboards ?? []) {
       const { x, y } = tileToWorld(node.tileX, node.tileY);
-      const sprite = this.add.sprite(x, y, "billboard").setOrigin(0.5, 0.92).setDepth(y);
+      const sprite = this.add.sprite(x, y, "billboard").setOrigin(0.5, 0.92).setDepth(y).setDisplaySize(150, 124);
       const top = y - 124 * 0.92;
       const header = this.add
         .text(x, top + 24, "METRICBASE WORLD", {
@@ -2673,7 +2688,7 @@ export class GameScene extends Phaser.Scene {
 
     for (const t of slot.tiles) {
       const { x, y } = tileToWorld(t.x, t.y);
-      const sprite = this.add.sprite(x, y, "billboard").setOrigin(0.5, 0.92).setDepth(y);
+      const sprite = this.add.sprite(x, y, "billboard").setOrigin(0.5, 0.92).setDepth(y).setDisplaySize(150, 124);
       this.adBillboards.push(sprite);
       const faceY = y - 124 * 0.92 + 50; // centre of the sign board
 
@@ -3020,7 +3035,10 @@ export class GameScene extends Phaser.Scene {
     if (!assetId) {
       const texture =
         plot.stage === "ready" ? "plot_ready" : plot.stage === "growing" ? "plot_growing" : "plot_empty";
-      sprite.setTexture(texture).setOrigin(0.5, 0.526).setScale(soilPlot ? 0.62 : 1);
+      sprite.setTexture(texture).setOrigin(0.5, 0.526);
+      // Target width scales the small procedural plot_ready AND the 512px
+      // plot_empty/plot_growing art to the same intended footprint.
+      this.scaleSpriteToWidth(sprite, soilPlot ? 80 : 128);
       return;
     }
 
