@@ -260,7 +260,8 @@ const ZONE_TILE_SKIN: Record<string, Record<number, string>> = {
 const SCENERY_ART_ALIAS: Record<string, string> = {
   crate: "crates",
   lamppost: "lamp",
-  lantern: "torch",
+  // lantern now has its own hand-drawn art (scenery_lantern), so it is no longer
+  // aliased to the torch prop; its prop-driven light still fires via node.prop.
 };
 
 export class GameScene extends Phaser.Scene {

@@ -11,6 +11,10 @@ export const MOTTO_MAX_LENGTH = 80;
  */
 export const DASHBOARD_UPDATES: Array<{ title: string; body: string }> = [
   {
+    title: "v0.148 — Hand-drawn Art Refresh",
+    body: "Fresh hand-drawn art across the world and your bags: blacksmith forge/anvil/quench, the arcade & blackjack tables, market stalls and produce, cozy furniture and lanterns, farm plots, billboards and portal gates — plus new item icons for bread, planks, hardwood, steel bars, health potions and more.",
+  },
+  {
     title: "v0.147 — Candlesticks & Financial Statements",
     body: "Every listed company now has a candlestick price chart and full financial statements — an income statement (revenue by source, net profit), a cash-flow statement, and a balance sheet — right on its trade page.",
   },
@@ -21,10 +25,6 @@ export const DASHBOARD_UPDATES: Array<{ title: string; body: string }> = [
   {
     title: "v0.145 — Limit Orders & Order Book",
     body: "Set your price: place standing buy or sell limit orders and let the matching engine fill them peer-to-peer at the best available price (with price improvement when you cross the spread). Each company's trade page now shows a live order book of bids and asks.",
-  },
-  {
-    title: "v0.144 — Trade Shares for real $BASE",
-    body: "List a block of company shares for a fixed $BASE price and let anyone buy it with real crypto — the buyer pays $BASE straight to your wallet on-chain and the shares move to them instantly. Find it under each company on the 📈 Stock Exchange.",
   },
   {
     title: "v0.140 — Merchant Companies",

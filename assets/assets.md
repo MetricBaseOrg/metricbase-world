@@ -147,10 +147,10 @@ Each distinct mob now has its own art (was 4 procedural blobs):
 Square icon look (like the fish art), must read at 34px. Filename = as listed
 (Claude maps to exact item ids on drop):
 
-- Consumables (4): health-potion 🎨, bread 🎨, carrot-soup 🎨, carrot-bread 🎨 (new v0.113.0 dishes)
-- Materials (20): training-scrap 🎨, wood 🎨, ore ✅ (copper ore), slime-gel 🎨, slime-core 🎨,
-  wheat-seed ✅, wheat ✅, carrot-seed ✅, carrot ✅, plank 🎨, copper-bar ✅, iron-ore ✅,
-  iron-bar ✅, hardwood 🎨, hardwood-plank 🎨, steel-bar 🎨, amber 🎨, gemstone 🎨, pearl 🎨,
+- Consumables (4): health-potion ✅, bread ✅, carrot-soup ✅, carrot-bread ✅ (new v0.113.0 dishes)
+- Materials (20): training-scrap 🎨, wood ✅, ore ✅ (copper ore), slime-gel 🎨, slime-core 🎨,
+  wheat-seed ✅, wheat ✅, carrot-seed ✅, carrot ✅, plank ✅, copper-bar ✅, iron-ore ✅,
+  iron-bar ✅, hardwood ✅, hardwood-plank ✅, steel-bar ✅, amber 🎨, gemstone 🎨, pearl 🎨,
   lamp-oil 🎨
 - Weapons (4): rusty-blade 🎨, gel-knife 🎨, copper-dagger 🎨, gem-blade 🎨
 - Tools (11): copper-axe 🎨, iron-axe 🎨, steel-axe 🎨, copper-pickaxe 🎨, iron-pickaxe 🎨,
@@ -171,29 +171,29 @@ Square icon look (like the fish art), must read at 34px. Filename = as listed
 The first three are already referenced by `BootScene.ts` and **404 in-game today** — draw those
 first within this set:
 
-- scenery-rug.png 🎨 (⚠️ code expects it)
-- scenery-fireplace.png 🎨 (⚠️ code expects it)
-- scenery-bookshelf.png 🎨 (⚠️ code expects it)
-- scenery-plant.png 🎨
-- scenery-table.png 🎨
-- scenery-chair.png 🎨
-- scenery-stall.png 🎨
-- scenery-produce.png 🎨
-- scenery-forge.png 🎨
-- scenery-anvil.png 🎨
-- scenery-quench.png 🎨 (quench barrel)
-- scenery-signpost.png 🎨
-- scenery-lantern.png 🎨
-- scenery-arcade.png 🎨 (arcade cabinet)
-- scenery-blackjack.png 🎨 (card table)
+- scenery-rug.png ✅ (shipped v0.113.0)
+- scenery-fireplace.png ✅ (shipped v0.113.0)
+- scenery-bookshelf.png ✅ (shipped v0.113.0)
+- scenery-plant.png ✅ (shipped v0.113.0)
+- scenery-table.png ✅ (shipped v0.113.0)
+- scenery-chair.png ✅ (shipped v0.113.0)
+- scenery-stall.png ✅ (shipped v0.113.0)
+- scenery-produce.png ✅ (shipped v0.113.0)
+- scenery-forge.png ✅ (shipped v0.113.0)
+- scenery-anvil.png ✅ (shipped v0.113.0)
+- scenery-quench.png ✅ (shipped v0.113.0)
+- scenery-signpost.png ✅ (shipped v0.113.0)
+- scenery-lantern.png ✅ (shipped v0.113.0)
+- scenery-arcade.png ✅ (shipped v0.113.0) (arcade cabinet)
+- scenery-blackjack.png ✅ (shipped v0.113.0) (card table)
 
 ## Farm plots, billboard, portal — drop in `assets/world/`
 
-- plot-empty.png 🎨 (tilled empty soil plot)
-- plot-growing.png 🎨 (sprouting crop, generic)
+- plot-empty.png ✅ (shipped v0.113.0) (tilled empty soil plot)
+- plot-growing.png ✅ (shipped v0.113.0) (sprouting crop, generic)
 - crop-carrot.png ✅ (shipped v0.107.x — renamed in from farm-carrot art; crop-wheat.png ✅ too)
-- billboard.png 🎨 (ad billboard frame — the creative renders inside it)
-- portal-gate.png 🎨 (zone portal / gate)
+- billboard.png ✅ (shipped v0.113.0) (ad billboard frame — the creative renders inside it)
+- portal-gate.png ✅ (shipped v0.113.0) (zone portal / gate)
 
 ## Ground & ambience (lower priority — talk before drawing)
 

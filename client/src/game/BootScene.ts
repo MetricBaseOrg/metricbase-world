@@ -59,9 +59,29 @@ export class BootScene extends Phaser.Scene {
     this.load.image("mob-training-dummy", "/assets/mobs/mob-training-dummy.webp");
 
     // Hand-drawn World Scenery (Lodge)
-    this.load.image("scenery_rug", "/assets/world/scenery-rug.png");
-    this.load.image("scenery_fireplace", "/assets/world/scenery-fireplace.png");
-    this.load.image("scenery_bookshelf", "/assets/world/scenery-bookshelf.png");
+    this.load.image("scenery_rug", "/assets/world/scenery-rug.webp");
+    this.load.image("scenery_fireplace", "/assets/world/scenery-fireplace.webp");
+    this.load.image("scenery_bookshelf", "/assets/world/scenery-bookshelf.webp");
+    this.load.image("scenery_plant", "/assets/world/scenery-plant.webp");
+    this.load.image("scenery_table", "/assets/world/scenery-table.webp");
+    this.load.image("scenery_chair", "/assets/world/scenery-chair.webp");
+    this.load.image("scenery_lantern", "/assets/world/scenery-lantern.webp");
+    this.load.image("scenery_signpost", "/assets/world/scenery-signpost.webp");
+    this.load.image("scenery_stall", "/assets/world/scenery-stall.webp");
+    this.load.image("scenery_produce", "/assets/world/scenery-produce.webp");
+    this.load.image("scenery_forge", "/assets/world/scenery-forge.webp");
+    this.load.image("scenery_anvil", "/assets/world/scenery-anvil.webp");
+    this.load.image("scenery_quench", "/assets/world/scenery-quench.webp");
+    this.load.image("scenery_arcade", "/assets/world/scenery-arcade.webp");
+    this.load.image("scenery_blackjack", "/assets/world/scenery-blackjack.webp");
+
+    // Farm Plots
+    this.load.image("plot_empty", "/assets/world/plot-empty.webp");
+    this.load.image("plot_growing", "/assets/world/plot-growing.webp");
+
+    // Billboard & Portal Gate
+    this.load.image("billboard", "/assets/world/billboard.webp");
+    this.load.image("portal_gate", "/assets/world/portal-gate.webp");
   }
 
   /** Small cosmetic props scattered over grass to make the ground feel alive. */
@@ -184,7 +204,10 @@ export class BootScene extends Phaser.Scene {
     g.fillCircle(cx + 8, pcy + 8, 1.6);
     g.fillCircle(cx + 6, pcy - 14, 1.2);
 
-    g.generateTexture("portal_gate", W, H);
+    // portal_gate renders from real art (/assets/world/portal-gate.webp, loaded
+    // in preload). The procedural texture is intentionally NOT generated: in
+    // preload the synchronous generateTexture would win the key over the async
+    // image load and mask the art.
     g.destroy();
   }
 
@@ -728,25 +751,9 @@ export class BootScene extends Phaser.Scene {
       g.strokePath();
     };
 
+    // plot_empty + plot_growing render from real art (/assets/world/plot-*.webp,
+    // loaded in preload); only plot_ready has no art, so it stays procedural.
     let g = this.make.graphics({ x: 0, y: 0 });
-    drawSoil(g);
-    g.generateTexture("plot_empty", W, H);
-    g.destroy();
-
-    g = this.make.graphics({ x: 0, y: 0 });
-    drawSoil(g);
-    for (const p of crops(3)) {
-      g.lineStyle(2, 0x4caf50, 1);
-      g.beginPath();
-      g.moveTo(p.x, p.y);
-      g.lineTo(p.x, p.y - 9);
-      g.strokePath();
-      g.fillStyle(0x66bb6a, 1).fillCircle(p.x - 2, p.y - 9, 2).fillCircle(p.x + 2, p.y - 10, 2);
-    }
-    g.generateTexture("plot_growing", W, H);
-    g.destroy();
-
-    g = this.make.graphics({ x: 0, y: 0 });
     drawSoil(g);
     for (const p of crops(3)) {
       g.lineStyle(2, 0xc79a3a, 1);
@@ -1570,7 +1577,8 @@ export class BootScene extends Phaser.Scene {
     g.lineTo(W - 18, 64);
     g.strokePath();
 
-    g.generateTexture("billboard", W, H);
+    // billboard renders from real art (/assets/world/billboard.webp, loaded in
+    // preload); procedural version not generated so it can't mask the image.
     g.destroy();
   }
 
