@@ -75,9 +75,8 @@ export class BootScene extends Phaser.Scene {
     this.load.image("scenery_arcade", "/assets/world/scenery-arcade.webp");
     this.load.image("scenery_blackjack", "/assets/world/scenery-blackjack.webp");
 
-    // Farm Plots
+    // Farm Plots (plot_growing stays procedural — see createFarmPlotTextures)
     this.load.image("plot_empty", "/assets/world/plot-empty.webp");
-    this.load.image("plot_growing", "/assets/world/plot-growing.webp");
 
     // Billboard & Portal Gate
     this.load.image("billboard", "/assets/world/billboard.webp");
@@ -751,9 +750,24 @@ export class BootScene extends Phaser.Scene {
       g.strokePath();
     };
 
-    // plot_empty + plot_growing render from real art (/assets/world/plot-*.webp,
-    // loaded in preload); only plot_ready has no art, so it stays procedural.
+    // plot_empty renders from real art (/assets/world/plot-empty.webp, loaded in
+    // preload). plot_growing deliberately stays PROCEDURAL — the hand-drawn
+    // sprouts didn't fit the tile, and the classic sprouts read better
+    // ("seeds should appear as seed"). plot_ready has no art either.
     let g = this.make.graphics({ x: 0, y: 0 });
+    drawSoil(g);
+    for (const p of crops(3)) {
+      g.lineStyle(2, 0x4caf50, 1);
+      g.beginPath();
+      g.moveTo(p.x, p.y);
+      g.lineTo(p.x, p.y - 9);
+      g.strokePath();
+      g.fillStyle(0x66bb6a, 1).fillCircle(p.x - 2, p.y - 9, 2).fillCircle(p.x + 2, p.y - 10, 2);
+    }
+    g.generateTexture("plot_growing", W, H);
+    g.destroy();
+
+    g = this.make.graphics({ x: 0, y: 0 });
     drawSoil(g);
     for (const p of crops(3)) {
       g.lineStyle(2, 0xc79a3a, 1);

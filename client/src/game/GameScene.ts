@@ -3055,10 +3055,10 @@ export class GameScene extends Phaser.Scene {
       const texture =
         plot.stage === "ready" ? "plot_ready" : plot.stage === "growing" ? "plot_growing" : "plot_empty";
       sprite.setTexture(texture).setOrigin(0.5, 0.526);
-      // Target width scales the small procedural plot_ready AND the 512px
-      // plot_empty/plot_growing art to the plot's real footprint: soil-paint
-      // plots are 1×1 tiles, built-in plots span 2×2.
-      this.scaleSpriteToWidth(sprite, soilPlot ? TILE_WIDTH : TILE_WIDTH * 2);
+      // Target width scales procedural stages (128px: growing/ready) and the
+      // 512px plot_empty art to the same footprint. 80px soil matches the
+      // classic 0.62×128 look; built-in plots span their real 2×2 (128px).
+      this.scaleSpriteToWidth(sprite, soilPlot ? 80 : 128);
       return;
     }
 
