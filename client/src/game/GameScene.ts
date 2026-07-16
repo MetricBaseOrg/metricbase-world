@@ -2070,8 +2070,10 @@ export class GameScene extends Phaser.Scene {
         continue;
       }
       const sprite = this.add.sprite(x, y, `scenery_${node.prop}`).setOrigin(0.5, flat ? 0.5 : 0.92);
-      // Hand-drawn scenery art is 512px — scale every prop to a 1×1 tile.
-      this.scaleSpriteToWidth(sprite, TILE_WIDTH);
+      // Hand-drawn scenery art is 512px — scale it to a 1×1 tile. Procedural
+      // textures (crate/lamppost/hedge/bench, which have no art yet) are
+      // authored at display size, so only hi-res textures are rescaled.
+      if (sprite.width > TILE_WIDTH * 2) this.scaleSpriteToWidth(sprite, TILE_WIDTH);
       // Flat props (rugs) sit just above the floor tile but beneath players;
       // upright furniture depth-sorts by world Y so the player can pass in
       // front of / behind it.

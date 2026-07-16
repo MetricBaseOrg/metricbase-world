@@ -1107,7 +1107,7 @@ export class BootScene extends Phaser.Scene {
       );
       diamond(0xe7b6c2, 0.62);
       diamond(0xb5485f, 0.32);
-      g.generateTexture("scenery_rug", W, H);
+      g.generateTexture("scenery_rug_proc", W, H); // dead key: real art loads as scenery_rug
       g.destroy();
     }
 
@@ -1127,7 +1127,7 @@ export class BootScene extends Phaser.Scene {
       g.fillStyle(0xffd33d, 1).fillTriangle(cx - 4, baseY - 1, cx + 4, baseY - 1, cx, baseY - 11);
       g.fillStyle(0xc8bcb0, 1).fillRect(cx - 18, baseY - 38, 36, 5);
       g.lineStyle(2, OUTLINE, 1).strokeRect(cx - 18, baseY - 38, 36, 5);
-      g.generateTexture("scenery_fireplace", W, H);
+      g.generateTexture("scenery_fireplace_proc", W, H); // dead key: real art loads as scenery_fireplace
       g.destroy();
     }
 
@@ -1149,7 +1149,7 @@ export class BootScene extends Phaser.Scene {
           g.fillStyle(rowColors[(r + b) % rowColors.length], 1).fillRect(cx - 9 + b * 5, ry, 4, 7);
         }
       }
-      g.generateTexture("scenery_bookshelf", W, H);
+      g.generateTexture("scenery_bookshelf_proc", W, H); // dead key: real art loads as scenery_bookshelf
       g.destroy();
     }
 
@@ -1167,7 +1167,7 @@ export class BootScene extends Phaser.Scene {
       g.fillStyle(0x3f9d44, 1).fillEllipse(cx - 4, baseY - 27, 8, 10);
       g.fillStyle(0x81c784, 0.7).fillEllipse(cx + 3, baseY - 24, 5, 7);
       g.lineStyle(2, OUTLINE, 1).strokeEllipse(cx, baseY - 22, 18, 18);
-      g.generateTexture("scenery_plant", W, H);
+      g.generateTexture("scenery_plant_proc", W, H); // dead key: real art loads as scenery_plant
       g.destroy();
     }
 
@@ -1184,7 +1184,7 @@ export class BootScene extends Phaser.Scene {
       g.fillStyle(0xb5793f, 1).fillEllipse(cx, baseY - 14, 26, 9);
       g.lineStyle(2, OUTLINE, 1).strokeEllipse(cx, baseY - 14, 26, 9);
       g.fillStyle(0xd9a566, 0.6).fillEllipse(cx - 4, baseY - 16, 10, 3);
-      g.generateTexture("scenery_table", W, H);
+      g.generateTexture("scenery_table_proc", W, H); // dead key: real art loads as scenery_table
       g.destroy();
     }
 
@@ -1202,7 +1202,7 @@ export class BootScene extends Phaser.Scene {
       g.lineStyle(2, OUTLINE, 1).strokeRoundedRect(cx - 8, baseY - 12, 16, 6, 2);
       g.fillStyle(0x7a5230, 1).fillRect(cx - 7, baseY - 6, 2.5, 6);
       g.fillStyle(0x7a5230, 1).fillRect(cx + 4.5, baseY - 6, 2.5, 6);
-      g.generateTexture("scenery_chair", W, H);
+      g.generateTexture("scenery_chair_proc", W, H); // dead key: real art loads as scenery_chair
       g.destroy();
     }
 
@@ -1255,7 +1255,7 @@ export class BootScene extends Phaser.Scene {
         g.fillStyle(0xd0463f, 1).fillPoints([p0, p1, q1, q0], true);
       }
       g.lineStyle(2, OUTLINE, 1).strokePoints([aN, aE, aS, aW2], true);
-      g.generateTexture("scenery_stall", W, H);
+      g.generateTexture("scenery_stall_proc", W, H); // dead key: real art loads as scenery_stall
       g.destroy();
     }
 
@@ -1302,7 +1302,7 @@ export class BootScene extends Phaser.Scene {
       g.fillStyle(0x49b265, 1).fillCircle(tx + 1, ty - 1, 4);
       g.fillStyle(0xe8902e, 1).fillCircle(tx + 6, ty, 4);
       g.fillStyle(0xb05fbf, 1).fillCircle(tx, ty - 4, 3);
-      g.generateTexture("scenery_produce", W, H);
+      g.generateTexture("scenery_produce_proc", W, H); // dead key: real art loads as scenery_produce
       g.destroy();
     }
 
@@ -1324,7 +1324,7 @@ export class BootScene extends Phaser.Scene {
       // A wisp of smoke.
       g.fillStyle(0xcfcac4, 0.5).fillCircle(cx - 5, gy - 44, 4);
       g.fillStyle(0xcfcac4, 0.35).fillCircle(cx - 2, gy - 50, 5);
-      g.generateTexture("scenery_forge", W, H);
+      g.generateTexture("scenery_forge_proc", W, H); // dead key: real art loads as scenery_forge
       g.destroy();
     }
 
@@ -1345,7 +1345,7 @@ export class BootScene extends Phaser.Scene {
       g.fillStyle(0x3c424b, 1).fillTriangle(cx + 9, top - 9, cx + 18, top - 5, cx + 9, top - 2);
       g.lineStyle(2, OUTLINE, 1).strokeTriangle(cx + 9, top - 9, cx + 18, top - 5, cx + 9, top - 2);
       g.fillStyle(0x6a7280, 0.6).fillEllipse(cx, top - 10, 12, 4);
-      g.generateTexture("scenery_anvil", W, H);
+      g.generateTexture("scenery_anvil_proc", W, H); // dead key: real art loads as scenery_anvil
       g.destroy();
     }
 
@@ -1364,7 +1364,7 @@ export class BootScene extends Phaser.Scene {
       g.lineStyle(1.6, 0x4a3a28, 1);
       g.strokePoints([{ x: cx - 11, y: gy - 6 }, { x: cx, y: gy - 0.5 }, { x: cx + 11, y: gy - 6 }], false);
       g.strokePoints([{ x: cx - 11, y: gy - 12 }, { x: cx, y: gy - 6.5 }, { x: cx + 11, y: gy - 12 }], false);
-      g.generateTexture("scenery_quench", W, H);
+      g.generateTexture("scenery_quench_proc", W, H); // dead key: real art loads as scenery_quench
       g.destroy();
     }
 
@@ -1449,7 +1449,7 @@ export class BootScene extends Phaser.Scene {
       g.lineStyle(1.5, 0x7a5230, 1);
       g.strokePoints([{ x: cx - 8, y: by - 31 }, { x: cx + 6, y: by - 31 }], false);
       g.strokePoints([{ x: cx - 8, y: by - 28 }, { x: cx + 3, y: by - 28 }], false);
-      g.generateTexture("scenery_signpost", W, H);
+      g.generateTexture("scenery_signpost_proc", W, H); // dead key: real art loads as scenery_signpost
       g.destroy();
     }
 
@@ -1475,7 +1475,7 @@ export class BootScene extends Phaser.Scene {
       g.lineStyle(2, OUTLINE, 1).strokeTriangle(cx - 8, by - 40, cx + 8, by - 40, cx, by - 46);
       // soft glow
       g.fillStyle(0xffe09a, 0.2).fillCircle(cx, by - 31, 15);
-      g.generateTexture("scenery_lantern", W, H);
+      g.generateTexture("scenery_lantern_proc", W, H); // dead key: real art loads as scenery_lantern
       g.destroy();
     }
 
@@ -1507,7 +1507,7 @@ export class BootScene extends Phaser.Scene {
       // Neon side stripes.
       g.fillStyle(0x4fd6ff, 0.85).fillRect(cx - 15, 19, 2, baseY - 22);
       g.fillStyle(0xe255a1, 0.85).fillRect(cx + 13, 19, 2, baseY - 22);
-      g.generateTexture("scenery_arcade", W, H);
+      g.generateTexture("scenery_arcade_proc", W, H); // dead key: real art loads as scenery_arcade
       g.destroy();
     }
 
@@ -1545,7 +1545,7 @@ export class BootScene extends Phaser.Scene {
       g.lineStyle(1, OUTLINE, 1).strokeCircle(cx + 8, baseY - 12, 3);
       g.strokeCircle(cx + 12, baseY - 14, 3);
       g.strokeCircle(cx + 10, baseY - 16, 3);
-      g.generateTexture("scenery_blackjack", W, H);
+      g.generateTexture("scenery_blackjack_proc", W, H); // dead key: real art loads as scenery_blackjack
       g.destroy();
     }
   }

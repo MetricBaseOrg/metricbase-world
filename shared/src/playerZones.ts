@@ -250,13 +250,15 @@ export function playerZoneExitPortal(gridSize = PLAYER_ZONE_GRID): ZonePortal {
   return playerZoneExitPortals(gridSize)[0];
 }
 
-/** Exit portals for a player zone: one tucked in the NORTH-WEST corner and one
- *  in the SOUTH-EAST corner, so visitors are never far from an exit and the
- *  gate no longer sits mid-edge where it crowds builds. */
+/** Exit portals for a player zone, one on each of the two long screen edges of
+ *  the iso diamond: the NORTH-WEST edge (the tileX≈1 column, upper-left on
+ *  screen) and the SOUTH-EAST edge (the tileX≈gridSize−2 column, lower-right on
+ *  screen), both at mid-height so visitors are never far from an exit. */
 export function playerZoneExitPortals(gridSize = PLAYER_ZONE_GRID): ZonePortal[] {
+  const mid = Math.floor(gridSize / 2);
   return [
-    { tileX: 2, tileY: 2, targetZone: "zone_hub", label: "Leave World" },
-    { tileX: gridSize - 3, tileY: gridSize - 3, targetZone: "zone_hub", label: "Leave World" },
+    { tileX: 1, tileY: mid, targetZone: "zone_hub", label: "Leave World" },
+    { tileX: gridSize - 2, tileY: mid, targetZone: "zone_hub", label: "Leave World" },
   ];
 }
 
