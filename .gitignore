@@ -26,5 +26,10 @@ server/.env
 *.keystore
 android-twa/*.keystore
 
+# Solana keypair files — NEVER commit (wallet secret keys, devnet or mainnet)
+*-authority.json
+*-keypair.json
+devnet-*.json
+
 # Local scratch scripts (AP tooling)
 .ap/
