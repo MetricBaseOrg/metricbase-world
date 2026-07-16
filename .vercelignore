@@ -1,0 +1,12 @@
+# Keep CLI uploads small: only what the client build needs goes to Vercel.
+# Build = pnpm --filter @metricbase/client build (needs client/, shared/, and
+# the workspace manifests; server/package.json stays for lockfile resolution).
+assets/
+android-twa/
+docs/
+scripts/
+server/src/
+server/dist/
+server/tomexplorer-backup-*.json
+*.md
+.claude/
