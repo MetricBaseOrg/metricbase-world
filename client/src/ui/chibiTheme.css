@@ -1327,6 +1327,69 @@ body {
   font-weight: 800;
 }
 
+/* ===== Zone travel transition (portal loading screen) ===== */
+.mb-zone-transition {
+  position: fixed;
+  inset: 0;
+  z-index: 80; /* above every panel/HUD layer */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  background: radial-gradient(ellipse at center, #3a1148 0%, #1d0a26 62%, #120617 100%);
+  animation: mbZoneFadeIn 0.18s ease-out;
+  pointer-events: all;
+}
+.mb-zone-transition--out {
+  animation: mbZoneFadeOut 0.35s ease-in forwards;
+}
+.mb-zone-transition__swirl {
+  font-size: 64px;
+  line-height: 1;
+  animation: mbZoneSpin 1.1s linear infinite;
+  filter: drop-shadow(0 0 18px rgba(193, 79, 224, 0.8));
+}
+.mb-zone-transition__title {
+  font-family: "Fredoka", "Nunito", sans-serif;
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: #f3d0ff;
+  text-shadow: 0 2px 8px rgba(58, 17, 72, 0.9);
+}
+.mb-zone-transition__dots {
+  display: flex;
+  gap: 7px;
+}
+.mb-zone-transition__dots span {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #d06bf0;
+  animation: mbZoneDot 1s ease-in-out infinite;
+}
+.mb-zone-transition__dots span:nth-child(2) {
+  animation-delay: 0.16s;
+}
+.mb-zone-transition__dots span:nth-child(3) {
+  animation-delay: 0.32s;
+}
+@keyframes mbZoneSpin {
+  to { transform: rotate(360deg); }
+}
+@keyframes mbZoneDot {
+  0%, 100% { opacity: 0.35; transform: translateY(0); }
+  50% { opacity: 1; transform: translateY(-6px); }
+}
+@keyframes mbZoneFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes mbZoneFadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
 .chibi-chat-name {
   color: var(--chibi-gold-deep);
   font-weight: 800;

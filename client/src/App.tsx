@@ -41,6 +41,7 @@ import { DailyPanel } from "./ui/DailyPanel";
 import { JobsPanel } from "./ui/JobsPanel";
 import { CompanyPanel } from "./ui/CompanyPanel";
 import { ExchangePanel } from "./ui/ExchangePanel";
+import { ZoneTransitionOverlay } from "./ui/ZoneTransitionOverlay";
 import { AdminPanel } from "./ui/AdminPanel";
 import { CatchCelebration } from "./ui/CatchCelebration";
 import { FishingMinigame } from "./ui/FishingMinigame";
@@ -422,6 +423,7 @@ export function App() {
       {joined && <JobsPanel />}
       {joined && <CompanyPanel />}
       {joined && <ExchangePanel />}
+      {joined && <ZoneTransitionOverlay />}
       {joined && <AdminPanel />}
       {joined && <FishingMinigame />}
       {joined && <CatchCelebration />}

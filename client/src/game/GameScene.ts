@@ -570,20 +570,45 @@ export class GameScene extends Phaser.Scene {
       this.localLampGlow?.setVisible(false);
       this.renderZone(zoneId);
       playSfx("zone_enter");
-      // Arrival swirl at the zone's spawn tile (where the player materialises).
+      // Arrival swirl at the zone's spawn tile (where the player materialises),
+      // delayed so it plays just as the travel overlay fades out.
       const spawnCfg = resolveZoneConfig(zoneId);
       if (spawnCfg.spawnTile) {
         const { x: ax, y: ay } = tileToWorld(spawnCfg.spawnTile.x, spawnCfg.spawnTile.y);
-        this.spawnPortalFx(ax, ay);
+        this.time.delayedCall(420, () => this.spawnPortalFx(ax, ay));
       }
     });
 
-    // Portal departure: swirl at the player's feet + a magenta flash that
-    // covers the room switch (the "portal" sfx already plays in App.tsx).
+    // Portal departure sequence: swirl at the player's feet → magenta flash →
+    // the character fades/shrinks INTO the portal and disappears. The travel
+    // overlay (ZoneTransitionOverlay) covers the room switch on top of this;
+    // the "portal" sfx already plays in App.tsx.
     const unsubscribeTransfer = networkManager.onTransfer(() => {
       const avatar = this.localAvatar;
-      if (avatar) this.spawnPortalFx(avatar.sprite.x, avatar.sprite.y);
-      this.cameras.main.flash(380, 190, 90, 235);
+      if (avatar) {
+        this.spawnPortalFx(avatar.sprite.x, avatar.sprite.y);
+        // Vanish: shrink + fade + a small rise, like being pulled through.
+        const parts = [avatar.sprite, avatar.label, avatar.shadow, avatar.glow, avatar.pet].filter(
+          (p): p is NonNullable<typeof p> => Boolean(p),
+        );
+        this.tweens.add({
+          targets: avatar.sprite,
+          scaleX: avatar.sprite.scaleX * 0.1,
+          scaleY: avatar.sprite.scaleY * 0.1,
+          y: avatar.sprite.y - 18,
+          angle: 25,
+          duration: 320,
+          ease: "Back.easeIn",
+        });
+        this.tweens.add({
+          targets: parts,
+          alpha: 0,
+          duration: 300,
+          delay: 60,
+          onComplete: () => parts.forEach((p) => p.setVisible(false)),
+        });
+      }
+      this.time.delayedCall(150, () => this.cameras.main.flash(380, 190, 90, 235));
     });
 
     const unsubscribeZoneConfig = networkManager.onZoneConfigUpdate((zoneId) => {
