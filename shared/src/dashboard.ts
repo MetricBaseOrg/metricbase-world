@@ -11,6 +11,10 @@ export const MOTTO_MAX_LENGTH = 80;
  */
 export const DASHBOARD_UPDATES: Array<{ title: string; body: string }> = [
   {
+    title: "v0.157 — World Events & Living Economy",
+    body: "The economy breathes now! Random events shake the world — 🦠 Crop Blights halve harvests, ⛏️ Vein Discoveries and 🐟 Fish Runs shower one region with bonus yields. Rain speeds crops and fishing. And fees (repairs, bait, respecs) adapt ±20% to the gold supply — watch it all live on /stats.",
+  },
+  {
     title: "v0.156 — Company Perks",
     body: "Your company type now works for you! Mining crews roll bonus ore, farming co-ops grow crops faster, fishing companies pay half bait, blacksmiths roll better quality and repair cheaper, merchants trade shares at reduced fees, and logistics crews earn +25% freight with half the caravan cooldown.",
   },
@@ -25,10 +29,6 @@ export const DASHBOARD_UPDATES: Array<{ title: string; body: string }> = [
   {
     title: "v0.153 — Regional Markets",
     body: "Every town now has its own prices AND its own merchant — meet Mara at the Wilderness Camp and Fen in the Slime Grotto. What a town eats gets pricier there; what gets dumped there gets cheaper there only. Check the 🗺️ regional price grid in the 📋 Towns tab and haul your goods where they pay best.",
-  },
-  {
-    title: "v0.152 — Town Order Boards",
-    body: "Towns now consume goods and post time-limited bulk orders at a premium over market price! Check the new 📋 Town Orders tab in any shop: the Hub, Wilderness Camp and Grotto Outpost each want different goods — deliver on location before the order expires. First come, first served.",
   },
 ];
 

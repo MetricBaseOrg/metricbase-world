@@ -33,6 +33,7 @@ import { initJobs } from "./jobs/jobRegistry.js";
 import { ensureMetricFloor, initMetrics } from "./economy/metrics.js";
 import { initItemFlows } from "./economy/itemFlows.js";
 import { initTownDemand } from "./economy/townDemand.js";
+import { eventAnnouncement, initEconEvents } from "./economy/events.js";
 import { initFarmRegistry } from "./farming/farmRegistry.js";
 import { initGuildRegistry } from "./guild/guildRegistry.js";
 import { initCompanyRegistry, runCompanyDailyPayouts } from "./company/companyRegistry.js";
@@ -149,6 +150,10 @@ await initMetrics();
 await initItemFlows();
 // Town demand needs the 7-day flows loaded (ambient consumption is throttled
 // by real production), so it boots after initItemFlows.
+// Economic events: pulses that perturb yields; announced world-wide.
+initEconEvents((event) => {
+  ZoneRoom.announceGlobal("World Events", eventAnnouncement(event));
+});
 initTownDemand((posted) => {
   for (const order of posted) {
     ZoneRoom.announceGlobal(

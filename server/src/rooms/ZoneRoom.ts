@@ -443,6 +443,13 @@ import {
 import { creditTreasuryGold } from "../economy/treasury.js";
 import { fillTownOrder, getTownOrders, playerOrderGoldRemaining } from "../economy/townDemand.js";
 import {
+  cropGrowthMultNow,
+  cropYieldMultNow,
+  fishBonusChanceNow,
+  oreBonusChanceNow,
+} from "../economy/events.js";
+import { currentSinkMultiplier } from "../economy/metrics.js";
+import {
   baseItemIdOf,
   bonusYieldChance,
   COMPANY_TYPE_PERKS,
@@ -459,6 +466,7 @@ import {
   MAX_CRAFT_SPECS,
   normalizeCraftMastery,
   qualityVariantId,
+  RAIN_CROP_GROWTH_MULT,
   type CraftFamily,
   type CraftMasteryPayload,
   type CraftMasteryState,
@@ -1056,16 +1064,18 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       if (mastery.specs.length === 0) {
         return void client.send("craftMasteryResult", { ok: false, error: "You have no specializations to reset." });
       }
+      // Adaptive sink: the respec fee breathes with mint pressure (±20%).
+      const respecCost = Math.round(CRAFT_RESPEC_COST * currentSinkMultiplier());
       const gold = this.playerGold.get(this.pidOf(player)) ?? STARTING_GOLD;
-      if (gold < CRAFT_RESPEC_COST) {
+      if (gold < respecCost) {
         return void client.send("craftMasteryResult", {
           ok: false,
-          error: `A respec costs ${CRAFT_RESPEC_COST.toLocaleString()} gold.`,
+          error: `A respec costs ${respecCost.toLocaleString()} gold.`,
         });
       }
-      this.playerGold.set(this.pidOf(player), gold - CRAFT_RESPEC_COST);
-      burnGold(CRAFT_RESPEC_COST);
-      bumpMetric("gold.sink.respec", CRAFT_RESPEC_COST);
+      this.playerGold.set(this.pidOf(player), gold - respecCost);
+      burnGold(respecCost);
+      bumpMetric("gold.sink.respec", respecCost);
       // XP is kept — the respec fee buys back the SLOTS, not your knowledge.
       mastery.specs = [];
       this.craftMastery.set(this.pidOf(player), mastery);
@@ -2888,6 +2898,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     if (companyTypeOf(player.name) === "blacksmith") {
       cost *= COMPANY_TYPE_PERKS.blacksmith.repairCostMult ?? 1;
     }
+    // Adaptive sink: fees breathe with 7-day mint pressure (±20%, on /stats).
+    cost *= currentSinkMultiplier();
     cost = Math.max(5, Math.ceil(cost));
     const gold = this.playerGold.get(this.pidOf(player)) ?? STARTING_GOLD;
     if (gold < cost) {
@@ -6612,7 +6624,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       specs: mastery.specs,
       levels,
       xpTodayRemaining: Math.max(0, MASTERY_DAILY_XP_CAP - xpToday),
-      respecCost: CRAFT_RESPEC_COST,
+      // Adaptive: what a respec costs RIGHT NOW (mint-pressure adjusted).
+      respecCost: Math.round(CRAFT_RESPEC_COST * currentSinkMultiplier()),
       maxSpecs: MAX_CRAFT_SPECS,
     };
   }
@@ -6987,10 +7000,14 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
     // Bait money: every cast burns a little gold, win or lose (FISHING_CAST_GOLD).
     // Fishing-company members pay a reduced rate (COMPANY_TYPE_PERKS).
-    const baitCost =
-      companyTypeOf(player.name) === "fishing"
-        ? Math.max(1, Math.round(FISHING_CAST_GOLD * (COMPANY_TYPE_PERKS.fishing.baitCostMult ?? 1)))
-        : FISHING_CAST_GOLD;
+    const baitCost = Math.max(
+      1,
+      Math.round(
+        FISHING_CAST_GOLD *
+          (companyTypeOf(player.name) === "fishing" ? (COMPANY_TYPE_PERKS.fishing.baitCostMult ?? 1) : 1) *
+          currentSinkMultiplier(),
+      ),
+    );
     if (gather.skill === "fishing" && baitCost > 0) {
       const gold = this.playerGold.get(this.pidOf(player)) ?? STARTING_GOLD;
       if (gold < baitCost) {
@@ -7219,16 +7236,23 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     // Accessory/tool perks (master rods, lures, angler gear): extra XP, extra
     // rare-drop chance, and an extra yield roll.
     const perks = getGatherPerks(equipment, gather.skill);
-    // Mining-company members roll extra bonus-ore chance (COMPANY_TYPE_PERKS).
+    // Mining-company members roll extra bonus-ore chance (COMPANY_TYPE_PERKS),
+    // and a Vein Discovery event adds more in its zone.
     const companyOreBonus =
       gather.skill === "mining" && companyTypeOf(player.name) === "mining"
         ? (COMPANY_TYPE_PERKS.mining.oreYieldBonus ?? 0)
         : 0;
+    const eventOreBonus = gather.skill === "mining" ? oreBonusChanceNow(this.zoneConfig.id) : 0;
     const toolBonus =
-      Math.random() < getToolYieldBonus(toolId, gather.skill) + perks.yieldBonus + companyOreBonus ? 1 : 0;
-    // The fish bite in the rain — a bonus catch chance while it's wet.
+      Math.random() < getToolYieldBonus(toolId, gather.skill) + perks.yieldBonus + companyOreBonus + eventOreBonus
+        ? 1
+        : 0;
+    // The fish bite in the rain — and a Fish Run event boosts its zone too.
     const rainBonus =
-      gather.skill === "fishing" && Math.random() < rainFishingBonus(now) ? 1 : 0;
+      gather.skill === "fishing" &&
+      Math.random() < rainFishingBonus(now) + fishBonusChanceNow(this.zoneConfig.id)
+        ? 1
+        : 0;
     const bonusYield = toolBonus + rainBonus;
     const lootQuantity = gather.lootQuantity + bonusYield;
 
@@ -7604,6 +7628,10 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       if (companyTypeOf(player.name) === "farming") {
         growMult *= COMPANY_TYPE_PERKS.farming.cropGrowthMult ?? 1;
       }
+      // Rain waters the seedbed (scaled by intensity), and a Growth Spurt
+      // event speeds everything planted while it lasts.
+      growMult *= 1 - (1 - RAIN_CROP_GROWTH_MULT) * getWeather(now).rain;
+      growMult *= cropGrowthMultNow();
       plantFarmPlot({
         plotId,
         zoneId: this.zoneConfig.id,
@@ -7647,7 +7675,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     const farmPerks = getGatherPerks(farmEq, "farming");
     const bonusCrop =
       Math.random() < getToolYieldBonus(farmEq?.toolId, "farming") + farmPerks.yieldBonus ? 1 : 0;
-    const yieldQty = (crop?.yield ?? 1) + bonusCrop;
+    // Economic events (blight) scale harvests — never below a single crop.
+    const yieldQty = Math.max(1, Math.floor(((crop?.yield ?? 1) + bonusCrop) * cropYieldMultNow()));
     bumpMetric("farm.harvest", yieldQty);
     this.bumpDaily(player.name, "harvest", yieldQty);
     this.tickJobProgress(player.name, "harvest", yieldQty);
@@ -9327,21 +9356,23 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     if (isCompanyListed(company.id)) {
       return void client.send("exchangeResult", { ok: false, error: "Your company is already listed." });
     }
+    // Adaptive sink: the listing fee breathes with mint pressure (±20%).
+    const listingCost = Math.round(SHARE_LISTING_COST * currentSinkMultiplier());
     const gold = this.playerGold.get(this.pidOf(player)) ?? STARTING_GOLD;
-    if (gold < SHARE_LISTING_COST) {
+    if (gold < listingCost) {
       return void client.send("exchangeResult", {
         ok: false,
         gold,
-        error: `Listing costs ${SHARE_LISTING_COST.toLocaleString()} gold.`,
+        error: `Listing costs ${listingCost.toLocaleString()} gold.`,
       });
     }
     const result = listShareMarket(company.id);
     if (!result.ok) return void client.send("exchangeResult", { ok: false, error: result.error });
-    const nextGold = gold - SHARE_LISTING_COST;
+    const nextGold = gold - listingCost;
     this.playerGold.set(this.pidOf(player), nextGold);
-    burnGold(SHARE_LISTING_COST); // listing fee is a sink
+    burnGold(listingCost); // listing fee is a sink
     bumpMetric("exchange.listed");
-    bumpMetric("exchange.listing.gold", SHARE_LISTING_COST);
+    bumpMetric("exchange.listing.gold", listingCost);
     this.sendProfile(client, player);
     await this.persistPlayer(player);
     client.send("exchangeResult", { ok: true, gold: nextGold, message: `${company.name} is now listed!` });

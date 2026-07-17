@@ -11,7 +11,9 @@ import {
 import { getPool } from "../db/pool.js";
 import { getRichestBoard, type RichestBoard } from "../db/networth.js";
 import { ZoneRoom } from "../rooms/ZoneRoom.js";
-import { getDailySeries, getMetricTotals } from "../economy/metrics.js";
+import { currentSinkMultiplier, getDailySeries, getMetricTotals, getMintPressure } from "../economy/metrics.js";
+import { getActiveEconEvents } from "../economy/events.js";
+import type { ActiveEconEvent } from "@metricbase/shared";
 import { getItemFlows } from "../economy/itemFlows.js";
 import { getPlayerHeldBase } from "../solana/playerHeldBase.js";
 import { adService, type AdPublicStats } from "../ads/adService.js";
@@ -68,6 +70,12 @@ interface EconomyStats {
   richest: RichestBoard;
   activity: Record<string, number>;
   daily: { day: string; metric: string; value: number }[];
+  /** Live economic events + the adaptive-sink state (v0.157). */
+  econ: {
+    events: ActiveEconEvent[];
+    mintPressure: number;
+    sinkMultiplier: number;
+  };
   /** Live supply/demand item prices (vendor pays / shop charges). */
   itemPrices: ItemPriceStat[];
 }
@@ -248,6 +256,11 @@ export async function buildStats(): Promise<EconomyStats> {
     activity,
     daily,
     itemPrices: buildItemPrices(),
+    econ: {
+      events: getActiveEconEvents(),
+      mintPressure: Math.round(getMintPressure() * 100) / 100,
+      sinkMultiplier: Math.round(currentSinkMultiplier() * 100) / 100,
+    },
   };
 }
 

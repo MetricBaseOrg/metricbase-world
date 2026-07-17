@@ -1,3 +1,4 @@
+import { sinkMultiplierFor } from "@metricbase/shared";
 import { getPool } from "../db/pool.js";
 
 // Lifetime + per-day counters for in-game economy activity (gathered, crafted,
@@ -23,6 +24,8 @@ export async function initMetrics(): Promise<void> {
     console.warn("[metrics] init failed:", error);
   }
   setInterval(() => void flush(), 15_000);
+  void refreshMintPressure();
+  setInterval(() => void refreshMintPressure(), 10 * 60_000);
 }
 
 /** Increment a metric's lifetime + today's counters (accumulated, flushed later). */
@@ -75,6 +78,46 @@ async function flush(): Promise<void> {
 
 export function getMetricTotals(): Record<string, number> {
   return Object.fromEntries(totals);
+}
+
+// ---- Adaptive-sink input: 7-day mint pressure ------------------------------
+// minted ÷ burned over the trailing week, refreshed from economy_daily every
+// 10 minutes. DB-less environments stay at 1 (fees at their base rates).
+let mintPressure7d = 1;
+
+async function refreshMintPressure(): Promise<void> {
+  const pool = getPool();
+  if (!pool) return;
+  try {
+    const res = await pool.query<{ metric: string; v: string }>(
+      `SELECT metric, SUM(value) v FROM economy_daily
+       WHERE day >= (CURRENT_DATE - 6) AND metric IN ('gold.minted','gold.burned')
+       GROUP BY metric`,
+    );
+    let minted = 0;
+    let burned = 0;
+    for (const row of res.rows) {
+      if (row.metric === "gold.minted") minted = Number(row.v);
+      else burned = Number(row.v);
+    }
+    mintPressure7d = minted / Math.max(1, burned);
+  } catch {
+    /* keep the previous value */
+  }
+}
+
+export function getMintPressure(): number {
+  return mintPressure7d;
+}
+
+/** Current adaptive fee multiplier (sinkMultiplierFor bounds: 0.8–1.2). */
+export function currentSinkMultiplier(): number {
+  return sinkMultiplierFor(mintPressure7d);
+}
+
+/** Test hook: pin the mint pressure (DB-less suites). */
+export function setMintPressureForTest(value: number): void {
+  mintPressure7d = value;
 }
 
 /**

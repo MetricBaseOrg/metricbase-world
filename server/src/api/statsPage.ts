@@ -181,7 +181,8 @@ export const STATS_PAGE_HTML = `<!doctype html>
   <section id="economy">
     <div class="sec"><span class="em">💰</span><h2>Gold Economy</h2></div>
     <div class="grid" style="margin-bottom:14px">
-      <div class="card"><h2>⚖️ Mint pressure (7d)</h2><div class="big" id="mintPressure">—</div><div class="sub">minted ÷ burned, last 7 days — above 1.0 the gold supply is growing</div></div>
+      <div class="card"><h2>⚖️ Mint pressure (7d)</h2><div class="big" id="mintPressure">—</div><div class="sub">minted ÷ burned, last 7 days — fees adapt ±20% (now ×<span id="sinkMult">—</span>)</div></div>
+      <div class="card"><h2>🌩️ Economic events</h2><div id="econEvents" style="font-size:.85rem">—</div><div class="sub">live world events perturbing yields &amp; prices</div></div>
       <div class="card"><h2>🌱 Gold minted (7d)</h2><div class="big mint" id="minted7">—</div><div class="sub">entered circulation this week</div></div>
       <div class="card"><h2>🔥 Gold burned (7d)</h2><div class="big burn" id="burned7">—</div><div class="sub">left circulation this week</div></div>
     </div>
@@ -448,6 +449,13 @@ async function load(){
       if(mp){var r=m7/Math.max(1,b7);mp.textContent=r.toFixed(2)+"×";
         mp.className="big "+(r>1.15?"burn":r<0.9?"mint":"gold");}
       set("minted7",kfmt(m7));set("burned7",kfmt(b7));
+      var ec=s.econ||{};
+      set("sinkMult",(ec.sinkMultiplier!=null?ec.sinkMultiplier.toFixed(2):"1.00"));
+      var evEl=el("econEvents");
+      if(evEl){var evs=ec.events||[];
+        evEl.innerHTML=evs.length===0?'<span style="opacity:.6">All calm — no active events.</span>'
+          :evs.map(function(e){var mins=Math.max(0,Math.round((e.endsAt-Date.now())/60000));
+            return "<div><b>"+e.icon+" "+e.label+"</b>"+(e.zoneLabel?" · "+e.zoneLabel:"")+" · "+(mins>=60?Math.floor(mins/60)+"h "+(mins%60)+"m":mins+"m")+" left</div>";}).join("");}
     })();
     lineChart(el("actChart"),days,[
       {name:"Gathered",color:"#3fae74",vals:series(daily,days,"gather.count")},
