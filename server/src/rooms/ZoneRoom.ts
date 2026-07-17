@@ -23,7 +23,6 @@ import {
   getCraftDurationMs,
   getDismantleRefund,
   ITEMS,
-  getShopByNpcId,
   getShopDefinition,
   getZoneConfig,
   removeItemFromInventory,
@@ -5004,7 +5003,18 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     player: InstanceType<typeof PlayerSchema>,
     npc: ZoneConfig["npcs"][number],
   ) {
-    const shop = npc.shopId ? getShopByNpcId(npc.id) : null;
+    // Resolve by the NPC's OWN shopId — several NPCs share pip_general (Pip,
+    // Mara, Fen) but a ShopDefinition registers only one npcId, so the old
+    // getShopByNpcId(npc.id) lookup silently failed for every merchant except
+    // Pip (v0.153 regression: "can't interact with Mara/Fen").
+    let shop: ReturnType<typeof getShopDefinition> | null = null;
+    if (npc.shopId) {
+      try {
+        shop = getShopDefinition(npc.shopId);
+      } catch {
+        shop = null;
+      }
+    }
     if (!shop) return;
 
     const inventory = this.inventories.get(this.pidOf(player)) ?? [];
