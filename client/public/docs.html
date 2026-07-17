@@ -243,6 +243,7 @@
           <li><a href="#ads">9b. Ads &amp; Earnings</a></li>
           <li><a href="#daily">9c. Daily Rewards</a></li>
           <li><a href="#jobs">9d. Job Board</a></li>
+          <li><a href="#companies">9e. Companies &amp; Stock Exchange 📈</a></li>
           <li><a href="#housing">10. Housing &amp; Shops</a></li>
           <li><a href="#social">11. Social Play</a></li>
           <li><a href="#vip">11b. VIP Lodge &amp; Arcade</a></li>
@@ -268,8 +269,10 @@
         <br /><br />
         And when you're ready to leave your mark: found a <strong>Player World</strong> 🌍 — your own
         buildable zone with farms, markets, rivers and bridges — charge visitor passes and gather tax,
-        and grow it by burning $BASE. This page is the full wiki: everything in the game is documented
-        below.
+        and grow it by burning $BASE. Or go corporate: found a <strong>Company</strong> 🏢 with
+        treasury, payroll and warehouse, then float it on the <strong>Players Stock Exchange</strong> 📈
+        and let shareholders fund your empire. This page is the full wiki: everything in the game is
+        documented below.
       </p>
 
       <!-- 1 -->
@@ -870,6 +873,72 @@
         deliver, and pocket the reward. It's the fastest way to earn from other players' gold.</div>
       </section>
 
+      <!-- 9e -->
+      <section id="companies">
+        <h2><span class="emoji">🏢</span> 9e. Companies &amp; the Stock Exchange</h2>
+        <p>Beyond guilds sits the corporate layer: player-run <strong>Companies</strong> with a
+        treasury, payroll, and warehouse — and a full <strong>Players Stock Exchange</strong> where
+        their shares trade for gold. You can be in one guild <em>and</em> one company at the same
+        time.</p>
+
+        <h3>🏢 Found or join a Company</h3>
+        <p>Open <strong>⚙️ → 🏢 Companies</strong>. Founding costs <strong>2,500 gold</strong>: pick
+        a name, one of six types — ⛏️ Mining, 🌾 Farming Cooperative, 🎣 Fishing, 💰 Merchant,
+        ⚒️ Blacksmith, or 🚚 Logistics — plus an emblem and colour. A company holds up to
+        <strong>20 members</strong> across four ranks (<strong>owner → manager → employee →
+        trainee</strong>), each with its own permissions for approving joiners, kicking, setting
+        rates and salaries, and touching the treasury or warehouse.</p>
+        <ul class="list">
+          <li><strong>💰 Treasury &amp; revenue share</strong> — a shared gold pool. The owner can
+          set a <strong>revenue share up to 10%</strong>: that slice of every member's gold
+          earnings flows into the treasury automatically (it stacks with guild tax).</li>
+          <li><strong>📦 Warehouse</strong> — 48 shared item slots. Members contribute goods;
+          authorized ranks can withdraw them or <strong>vendor-sell warehouse stock</strong> with
+          the proceeds going straight to the treasury.</li>
+          <li><strong>💵 Daily payroll</strong> — the owner sets per-member <strong>salaries (up to
+          500g/day)</strong> and a <strong>member dividend of up to 25% of the treasury per
+          day</strong>, split among members. Both pay out daily, even to offline players. Dividends
+          need at least 2 members who've been active in the last 3 days.</li>
+          <li><strong>📜 Inbound contracts</strong> — anyone can post a supply contract <em>to</em> a
+          company: the reward (50g – 1,000,000g) is escrowed up front, the company fills the order,
+          the treasury gets paid, and the poster collects the goods. Up to 5 open at a time.</li>
+          <li><strong>💬 Company chat</strong> — a private chat channel alongside guild and party.</li>
+        </ul>
+
+        <h3>📈 The Players Stock Exchange</h3>
+        <p>Open <strong>⚙️ → 📈 Stock Exchange</strong>. A company owner can <strong>list their
+        company for 1,000 gold</strong> (burned), issuing shares that anyone can trade.</p>
+        <ul class="list">
+          <li><strong>Always-on market maker</strong> — prices follow a bonding curve: the first
+          share costs <strong>10g</strong> and each share issued raises the price by
+          <strong>0.05g</strong>. You can buy from or sell back to the market at any time; the gold
+          reserve always covers every outstanding share by construction.</li>
+          <li><strong>3% trade fee</strong> on every fill — about two-thirds goes to the company's
+          treasury (owning shares literally funds the business), the rest is burned.</li>
+          <li><strong>Limit orders</strong> — post buy or sell orders at your own price on a real
+          order book with price-time matching. Buy orders escrow your gold; if your order fills at
+          a better price, the difference is refunded. Up to 10 open orders per trader.</li>
+          <li><strong>📅 Weekly shareholder dividends</strong> — each week a share-weighted vote
+          sets what percentage of the company's <em>net profit</em> (default 30%, max 50%) is paid
+          out to shareholders in gold, proportional to holdings. Offline holders are paid too.</li>
+          <li><strong>👔 CEO &amp; control</strong> — the largest holder is shown as CEO; a stake
+          above <strong>50%</strong> is a controlling stake whose dividend vote decides policy
+          outright. Hostile takeovers by accumulation are entirely legal.</li>
+          <li><strong>🪙 $BASE share blocks</strong> — sell blocks of shares peer-to-peer for real
+          <strong>$BASE</strong>, settled on-chain directly between the two wallets.</li>
+          <li><strong>📊 Trader tools</strong> — candlestick charts, day high/low, top gainers and
+          losers, a ⭐ watchlist, a portfolio tab with <strong>cost basis and unrealised P/L</strong>,
+          and full company financials (income statement, cash flow, balance sheet).</li>
+        </ul>
+        <div class="callout">Your share portfolio counts toward your <strong>net worth</strong> on
+        the <a href="/stats" target="_blank" rel="noopener">👑 Richest Players</a> board — valued at
+        what you'd actually get selling into the curve. And note the hard rule: the exchange trades
+        in <strong>gold</strong>; $BASE only ever moves peer-to-peer between players.</div>
+        <div class="callout leaf">Scouting an investment? Read the financials: a company whose
+        members grind (revenue share flowing in) and whose fee income compounds is a dividend
+        machine. A treasury that only ever shrinks is not.</div>
+      </section>
+
       <!-- 10 -->
       <section id="housing">
         <h2><span class="emoji">🏠</span> 10. Housing &amp; Shops</h2>
@@ -983,6 +1052,10 @@
           🟣 Black (full loot — drop everything). Pick it in the <a href="#worlds">Worlds</a> manage
           card; visitors see the tier in the directory and are warned the instant you change it.
           Higher risk makes a great arena or a dangerous farming ground — your call.</div>
+        <div class="callout leaf">🛡️ <strong>Guild-only Worlds:</strong> the manage card also has an
+          access toggle (🌐 public / 🛡️ guild-only). Flip it to lock entry to your guildmates — they
+          still pay your visitor pass and gather tax as usual, and the directory shows a 🛡️ badge so
+          outsiders know why the door won't open.</div>
 
         <h3>🧱 Assets, the Build Shop &amp; the P2P market</h3>
         <ul class="list">
@@ -1011,6 +1084,9 @@
           <li><strong>The Shop building is a working store</strong> — walk up + interact to browse
           Pip's full general store (same stock, prices, and price pressure as the Hub), so
           visitors can restock potions and sell their haul without leaving your World.</li>
+          <li><strong>Two exit portals</strong> stand on the north-west and south-east edges of
+          every World, so visitors always have a way home from either side of your build — plan
+          your paths (and toll roads) around them.</li>
         </ul>
 
         <h3>🌾 Crop Markets</h3>
@@ -1132,7 +1208,8 @@
         <a href="https://world.metricbase.org/stats">world.metricbase.org/stats</a> — live players,
         gold minted vs burned, $BASE burned by sink, player Worlds economy, markets, ads, daily
         activity charts, and the <strong>👑 Richest Players</strong> board: top players by full
-        <strong>net worth</strong> (gold + items + build assets + Worlds, houses and shops) with
+        <strong>net worth</strong> (gold + items + build assets + Worlds, houses, shops and stock
+        portfolio) with
         day-over-day change, resetting each 90-day season. Hit <strong>𝕏 Share the numbers</strong>
         there to post the live stats.</p>
       </section>
