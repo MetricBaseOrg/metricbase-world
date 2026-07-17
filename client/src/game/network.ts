@@ -688,8 +688,14 @@ export class NetworkManager {
     this.zoneConfigUpdateListeners.add(listener);
     return () => this.zoneConfigUpdateListeners.delete(listener);
   }
-  /** Enter a player-owned zone by id (leaves the current room). */
-  async enterWorld(zoneId: string) {
+  /** Enter a player-owned zone by id (leaves the current room). Emits the same
+   *  transfer event a server portal does, so the full travel choreography
+   *  (vanish FX, portal sfx, loading transition, arrival swirl) plays for
+   *  button-initiated trips too. */
+  async enterWorld(zoneId: string, label = "the World") {
+    for (const listener of this.transferListeners) {
+      listener({ targetZone: zoneId, label });
+    }
     await this.transferToZone(zoneId);
   }
 

@@ -95,10 +95,10 @@ export function WorldsPanel() {
     networkManager.sendBuyZoneSlot();
   };
 
-  const enter = (zoneId: string) => {
+  const enter = (zoneId: string, name?: string) => {
     playSfx("ui_click");
     setWorldsOpen(false);
-    void networkManager.enterWorld(zoneId);
+    void networkManager.enterWorld(zoneId, name);
   };
 
   const buyPass = (zoneId: string) => {
@@ -275,7 +275,7 @@ export function WorldsPanel() {
                   )}
                 </div>
                 <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
-                  <button type="button" className="chibi-btn chibi-btn--mint" style={{ flex: 1 }} onClick={() => enter(w.zoneId)}>
+                  <button type="button" className="chibi-btn chibi-btn--mint" style={{ flex: 1 }} onClick={() => enter(w.zoneId, w.displayName)}>
                     Enter
                   </button>
                   {w.passPrice > 0 && w.ownerName !== playerName && (
@@ -496,7 +496,7 @@ export function WorldsPanel() {
                   >
                     {w.published ? "Unpublish" : "Publish"}
                   </button>
-                  <button type="button" className="chibi-btn chibi-btn--primary" onClick={() => enter(w.zoneId)}>
+                  <button type="button" className="chibi-btn chibi-btn--primary" onClick={() => enter(w.zoneId, w.displayName)}>
                     🔨 Build
                   </button>
                   <button
