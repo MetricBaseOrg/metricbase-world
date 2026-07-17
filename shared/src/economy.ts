@@ -47,9 +47,12 @@ export function dynamicSellPrice(basePrice: number, saturation: number): number 
 
 /** Smoothing constant — keeps thin markets from swinging to the clamps. */
 export const SD_SMOOTHING = 30;
-/** Price multiplier clamps. */
-export const SD_MULT_MIN = 0.5;
-export const SD_MULT_MAX = 2.0;
+/** Price multiplier clamps — wide enough for real scarcity spikes and gluts.
+ * Manipulation stays hard: hitting the ceiling needs sustained 7-day genuine
+ * consumption (demand signals are value-weighted), and the sell side keeps its
+ * own saturation floor. */
+export const SD_MULT_MIN = 0.4;
+export const SD_MULT_MAX = 3.0;
 /** Response curve — <1 softens the raw used/produced ratio. */
 export const SD_EXPONENT = 0.6;
 

@@ -195,6 +195,30 @@ export function getPipSellPrice(itemId: string): number {
 /** A repair restoring at least this fraction of max durability needs a material. */
 export const MAJOR_REPAIR_FRACTION = 0.3;
 
+/** Base gold per durability point restored (starter-tier gear). */
+export const REPAIR_COST_PER_POINT = 2;
+/** Item value at which the repair fee is exactly the base rate (rusty blade = 16). */
+export const REPAIR_VALUE_ANCHOR = 16;
+/** Tier-multiplier bounds — cheap gear stays cheap, endgame gear is a real sink. */
+export const REPAIR_TIER_MIN = 1;
+export const REPAIR_TIER_MAX = 4;
+
+/**
+ * Gold per durability point for a specific item: the base rate scaled by the
+ * square root of the item's value relative to starter gear, clamped. Sqrt keeps
+ * the curve gentle (steel ≈ 3×, not 10×); items without a derivable value pay
+ * the base rate.
+ */
+export function repairCostPerPoint(itemId: string): number {
+  const value = getItemBaseValue(itemId);
+  if (value <= 0) return REPAIR_COST_PER_POINT;
+  const mult = Math.min(
+    REPAIR_TIER_MAX,
+    Math.max(REPAIR_TIER_MIN, Math.sqrt(value / REPAIR_VALUE_ANCHOR)),
+  );
+  return REPAIR_COST_PER_POINT * mult;
+}
+
 /** Repair materials for gear without a crafting recipe. */
 const REPAIR_MATERIAL_FALLBACK: Record<string, string> = {
   item_rusty_blade: "item_training_scrap",

@@ -180,6 +180,11 @@ export const STATS_PAGE_HTML = `<!doctype html>
 
   <section id="economy">
     <div class="sec"><span class="em">💰</span><h2>Gold Economy</h2></div>
+    <div class="grid" style="margin-bottom:14px">
+      <div class="card"><h2>⚖️ Mint pressure (7d)</h2><div class="big" id="mintPressure">—</div><div class="sub">minted ÷ burned, last 7 days — above 1.0 the gold supply is growing</div></div>
+      <div class="card"><h2>🌱 Gold minted (7d)</h2><div class="big mint" id="minted7">—</div><div class="sub">entered circulation this week</div></div>
+      <div class="card"><h2>🔥 Gold burned (7d)</h2><div class="big burn" id="burned7">—</div><div class="sub">left circulation this week</div></div>
+    </div>
     <div class="card wide">
       <h2>💰 Gold flow — minted vs burned (last 14 days)</h2>
       <svg id="goldChart" viewBox="0 0 720 240" role="img" aria-label="Gold minted and burned per day"></svg>
@@ -435,6 +440,15 @@ async function load(){
     lineChart(el("goldChart"),days,[
       {name:"Minted",color:"#3fae74",vals:series(daily,days,"gold.minted")},
       {name:"Burned",color:"#d85f97",vals:series(daily,days,"gold.burned")}]);
+    // Money-supply health: 7-day minted/burned ratio from the same honest series.
+    (function(){
+      var m7=0,b7=0,mv=series(daily,days,"gold.minted"),bv=series(daily,days,"gold.burned");
+      for(var i=Math.max(0,days.length-7);i<days.length;i++){m7+=mv[i]||0;b7+=bv[i]||0;}
+      var mp=el("mintPressure");
+      if(mp){var r=m7/Math.max(1,b7);mp.textContent=r.toFixed(2)+"×";
+        mp.className="big "+(r>1.15?"burn":r<0.9?"mint":"gold");}
+      set("minted7",kfmt(m7));set("burned7",kfmt(b7));
+    })();
     lineChart(el("actChart"),days,[
       {name:"Gathered",color:"#3fae74",vals:series(daily,days,"gather.count")},
       {name:"Crafted",color:"#e09b2d",vals:series(daily,days,"craft.count")},

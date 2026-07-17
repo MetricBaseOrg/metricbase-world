@@ -11,6 +11,10 @@ export const MOTTO_MAX_LENGTH = 80;
  */
 export const DASHBOARD_UPDATES: Array<{ title: string; body: string }> = [
   {
+    title: "v0.151 — A More Real Economy",
+    body: "Prices now swing wider with real scarcity and gluts (0.4×–3× of base value), repair fees scale with your gear's tier, and the /stats dashboard gained a Money Supply panel: gold minted vs burned this week and a mint-pressure gauge — watch the economy breathe.",
+  },
+  {
     title: "v0.148 — Hand-drawn Art Refresh",
     body: "Fresh hand-drawn art across the world and your bags: blacksmith forge/anvil/quench, the arcade & blackjack tables, market stalls and produce, cozy furniture and lanterns, farm plots, billboards and portal gates — plus new item icons for bread, planks, hardwood, steel bars, health potions and more.",
   },
@@ -25,10 +29,6 @@ export const DASHBOARD_UPDATES: Array<{ title: string; body: string }> = [
   {
     title: "v0.145 — Limit Orders & Order Book",
     body: "Set your price: place standing buy or sell limit orders and let the matching engine fill them peer-to-peer at the best available price (with price improvement when you cross the spread). Each company's trade page now shows a live order book of bids and asks.",
-  },
-  {
-    title: "v0.140 — Merchant Companies",
-    body: "Found a player-owned business: a shared treasury and item warehouse, ranks and salaries, automatic daily dividends, a revenue-share on members' earnings, warehouse vendor sales, and an inbound contracts board. Belong to a guild AND a company at once — open Companies from the ⚙️ menu.",
   },
 ];
 

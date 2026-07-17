@@ -101,6 +101,7 @@ import {
   fieldForGearSlot,
   maxDurabilityForSlot,
   MAJOR_REPAIR_FRACTION,
+  repairCostPerPoint,
   repairMaterialFor,
   restoreSlotWear,
   stashSlotWear,
@@ -2706,8 +2707,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
           materialsUsed.set(material, used + 1);
         }
       }
-      // 2 gold per durability point restored — a steady gold sink.
-      cost += restore * 2;
+      // Gold per point scales with gear tier (repairCostPerPoint in shop.ts).
+      cost += restore * repairCostPerPoint(itemId);
       repaired.push([slot, max]);
     }
 
@@ -3190,7 +3191,13 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     if (tier === "black") {
       const gold = this.playerGold.get(this.pidForName(victim.name)) ?? 0;
       goldDropped = Math.floor(gold / 2);
-      if (goldDropped > 0) this.playerGold.set(this.pidForName(victim.name), gold - goldDropped);
+      if (goldDropped > 0) {
+        this.playerGold.set(this.pidForName(victim.name), gold - goldDropped);
+        // Dropped gold leaves circulation; pickup mints it back (net zero, and
+        // expired bags are honestly burned rather than silently vanishing).
+        burnGold(goldDropped);
+        bumpMetric("sink.pvp_loot", goldDropped);
+      }
     }
 
     if (dropped.length === 0 && goldDropped === 0) return;
@@ -3472,6 +3479,9 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       return;
     }
     this.playerGold.set(this.pidOf(player), have - amount);
+    // Placement leaves circulation now; the payout mints on claim (net zero).
+    burnGold(amount);
+    bumpMetric("sink.bounty", amount);
     this.bounties.set(targetName, (this.bounties.get(targetName) ?? 0) + amount);
     this.sendProfile(client, player);
     this.broadcastChat(
@@ -3556,6 +3566,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     }
 
     this.playerGold.set(this.pidOf(player), gold - VIP_PASS_GOLD_COST);
+    void creditTreasuryGold("vip_pass", VIP_PASS_GOLD_COST);
     bumpMetric("base.burned", Math.round(result.burned ?? VIP_PASS_BURN_AMOUNT));
     ZoneRoom.vipPassUntil.set(wallet, Date.now() + VIP_PASS_DAYS * 24 * 60 * 60 * 1000);
     this.sendProfile(client, player);
@@ -3585,6 +3596,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     }
 
     this.playerGold.set(this.pidOf(player), gold - VIP_PASS_GOLD_ONLY_COST);
+    void creditTreasuryGold("vip_pass", VIP_PASS_GOLD_ONLY_COST);
     ZoneRoom.vipPassUntil.set(wallet, Date.now() + VIP_PASS_DAYS * 24 * 60 * 60 * 1000);
     this.sendProfile(client, player);
     await this.persistPlayer(player);
@@ -7545,6 +7557,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
     const nextGold = gold - PLOT_PRICE;
     this.playerGold.set(this.pidOf(player), nextGold);
+    void creditTreasuryGold("plot", PLOT_PRICE);
     const wallet = this.getClientWallet(client) ?? this.playerWallets.get(client.sessionId) ?? null;
     claimPlot(plotId, this.zoneConfig.id, player.name, wallet, structure);
     blockPlotFootprint(this.zoneConfig.id, plot);
