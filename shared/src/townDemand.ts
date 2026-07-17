@@ -58,6 +58,21 @@ export const TOWNS: TownDef[] = [
 /** Ambient consumption per day = min(basket qty, this fraction of 7d production). */
 export const TOWN_AMBIENT_PROD_FRACTION = 0.15;
 
+/**
+ * Towns double as PRICE REGIONS: each keeps a regional prod/cons ledger and a
+ * regional sell-saturation bucket, so vendor prices differ per town (see
+ * zonalDeviationMultiplier in economy.ts). Every other zone — player Worlds,
+ * interiors, the Black Zone — trades at the plain global price.
+ */
+export function priceRegionOf(zoneId: string): string | null {
+  return TOWNS.some((t) => t.zoneId === zoneId) ? zoneId : null;
+}
+
+/** Region list for price-comparison UIs: [zoneId, label] pairs. */
+export function priceRegions(): { zoneId: string; label: string }[] {
+  return TOWNS.map((t) => ({ zoneId: t.zoneId, label: t.label }));
+}
+
 /** How often a town considers posting a new order. */
 export const TOWN_ORDER_INTERVAL_MS = 3 * 60 * 60 * 1000;
 /** Active orders per town at any time. */
@@ -99,6 +114,13 @@ export interface TownOrdersPayload {
   orders: TownOrder[];
   /** Gold the requesting player can still earn from orders today. */
   playerDailyRemaining: number;
+}
+
+/** Per-region vendor prices for the items in a player's bag (arbitrage view). */
+export interface RegionalPricesPayload {
+  regions: { zoneId: string; label: string }[];
+  /** prices[i] aligns with regions[i]. */
+  rows: { itemId: string; prices: number[] }[];
 }
 
 export interface TownOrderFillResult {

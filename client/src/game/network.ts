@@ -45,6 +45,7 @@ import {
   P2PMarketPayload,
   TownOrdersPayload,
   TownOrderFillResult,
+  RegionalPricesPayload,
   GuildStatePayload,
   GuildResultPayload,
   CompanyStatePayload,
@@ -342,6 +343,7 @@ export class NetworkManager {
   private p2pMarketListeners = new Set<(payload: P2PMarketPayload) => void>();
   private townOrdersListeners = new Set<(payload: TownOrdersPayload) => void>();
   private townOrderResultListeners = new Set<(payload: TownOrderFillResult) => void>();
+  private regionalPricesListeners = new Set<(payload: RegionalPricesPayload) => void>();
   private worldsListListeners = new Set<(worlds: WorldDirectoryEntry[]) => void>();
   private myWorldsListeners = new Set<(worlds: MyWorldEntry[]) => void>();
   private zoneResultListeners = new Set<(result: ZoneResultPayload) => void>();
@@ -1115,6 +1117,15 @@ export class NetworkManager {
   onTownOrderResult(listener: (payload: TownOrderFillResult) => void) {
     this.townOrderResultListeners.add(listener);
     return () => this.townOrderResultListeners.delete(listener);
+  }
+
+  requestRegionalPrices() {
+    this.room?.send("regionalPrices", {});
+  }
+
+  onRegionalPrices(listener: (payload: RegionalPricesPayload) => void) {
+    this.regionalPricesListeners.add(listener);
+    return () => this.regionalPricesListeners.delete(listener);
   }
 
   sendGuildCreate(name: string, tag: string) {
@@ -2111,6 +2122,9 @@ export class NetworkManager {
     });
     this.room.onMessage("townOrderResult", (payload: TownOrderFillResult) => {
       for (const listener of this.townOrderResultListeners) listener(payload);
+    });
+    this.room.onMessage("regionalPrices", (payload: RegionalPricesPayload) => {
+      for (const listener of this.regionalPricesListeners) listener(payload);
     });
     this.room.onMessage("emote", (payload: EmotePayload) => {
       for (const listener of this.emoteListeners) {

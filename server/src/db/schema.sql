@@ -249,6 +249,10 @@ CREATE TABLE IF NOT EXISTS economy_daily (
   value BIGINT NOT NULL DEFAULT 0,
   PRIMARY KEY (day, metric)
 );
+-- Regional flow keys (prod.z.<zoneId>.<itemId>, v0.153) run up to ~45 chars —
+-- widen the metric columns so a longer future item id can't break the flush.
+ALTER TABLE economy_metrics ALTER COLUMN metric TYPE VARCHAR(80);
+ALTER TABLE economy_daily ALTER COLUMN metric TYPE VARCHAR(80);
 
 -- Player-owned zones ("Worlds"): a blank zone slot bought for gold, built by
 -- its owner from placeable props/nodes, and monetised via visitor passes. The

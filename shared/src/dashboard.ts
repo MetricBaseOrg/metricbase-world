@@ -11,6 +11,10 @@ export const MOTTO_MAX_LENGTH = 80;
  */
 export const DASHBOARD_UPDATES: Array<{ title: string; body: string }> = [
   {
+    title: "v0.153 — Regional Markets",
+    body: "Every town now has its own prices AND its own merchant — meet Mara at the Wilderness Camp and Fen in the Slime Grotto. What a town eats gets pricier there; what gets dumped there gets cheaper there only. Check the 🗺️ regional price grid in the 📋 Towns tab and haul your goods where they pay best.",
+  },
+  {
     title: "v0.152 — Town Order Boards",
     body: "Towns now consume goods and post time-limited bulk orders at a premium over market price! Check the new 📋 Town Orders tab in any shop: the Hub, Wilderness Camp and Grotto Outpost each want different goods — deliver on location before the order expires. First come, first served.",
   },
@@ -25,10 +29,6 @@ export const DASHBOARD_UPDATES: Array<{ title: string; body: string }> = [
   {
     title: "v0.147 — Candlesticks & Financial Statements",
     body: "Every listed company now has a candlestick price chart and full financial statements — an income statement (revenue by source, net profit), a cash-flow statement, and a balance sheet — right on its trade page.",
-  },
-  {
-    title: "v0.146 — Charts, Portfolio & Discovery",
-    body: "The Stock Exchange grows up: a price chart and high/low on every company, a Portfolio tab with your total value and profit/loss, and a Discover tab with top gainers, top losers, a market-cap leaderboard and a personal watchlist. Star the companies you're tracking.",
   },
 ];
 

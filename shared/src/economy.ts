@@ -63,6 +63,39 @@ export function supplyDemandMultiplier(produced: number, consumed: number): numb
   return Math.min(SD_MULT_MAX, Math.max(SD_MULT_MIN, mult));
 }
 
+// ---- Regional price deviation ------------------------------------------------
+// Each price REGION (the three towns — see TOWNS in townDemand.ts) keeps its own
+// prod/cons ledger next to the global one. A region's price deviates from the
+// global price by how much hungrier (or more glutted) that region is than the
+// world overall. The band is deliberately NARROWER than the global clamp:
+// regional spread is arbitrage margin, not a second pricing engine — max spread
+// ≈ 1.3/0.8 ≈ 1.6× minus the travel time to capture it.
+
+/** Response curve for the region/global demand ratio. */
+export const ZONE_DEV_EXPONENT = 0.4;
+/** Regional deviation clamps. */
+export const ZONE_DEV_MIN = 0.8;
+export const ZONE_DEV_MAX = 1.3;
+
+/**
+ * Price multiplier for a region relative to the global price. Ratios share
+ * SD_SMOOTHING so thin regional ledgers sit near 1.0 until real volume moves
+ * them.
+ */
+export function zonalDeviationMultiplier(
+  globalProduced: number,
+  globalConsumed: number,
+  zoneProduced: number,
+  zoneConsumed: number,
+): number {
+  const globalRatio =
+    (Math.max(0, globalConsumed) + SD_SMOOTHING) / (Math.max(0, globalProduced) + SD_SMOOTHING);
+  const zoneRatio =
+    (Math.max(0, zoneConsumed) + SD_SMOOTHING) / (Math.max(0, zoneProduced) + SD_SMOOTHING);
+  const mult = Math.pow(zoneRatio / globalRatio, ZONE_DEV_EXPONENT);
+  return Math.min(ZONE_DEV_MAX, Math.max(ZONE_DEV_MIN, mult));
+}
+
 // Gold market fee — a cut of every completed gold trade is burned (removed from
 // the economy), acting as a gold sink and curbing wash-trading.
 export const MARKET_FEE_RATE = 0.04;

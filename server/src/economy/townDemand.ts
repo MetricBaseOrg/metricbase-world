@@ -118,7 +118,9 @@ export function runAmbientConsumption(): void {
       const produced7d = flows.get(itemId)?.produced ?? 0;
       const qty = Math.min(ceiling, Math.floor(produced7d * TOWN_AMBIENT_PROD_FRACTION));
       if (qty <= 0) continue;
-      recordConsumed(itemId, qty);
+      // Attributed to the town's own region — this is what makes lamp oil
+      // pricier in the Grotto than in the Hub.
+      recordConsumed(itemId, qty, town.zoneId);
       bumpMetric(`town.consumed.${itemId}`, qty);
     }
   }
@@ -176,7 +178,10 @@ export function fillTownOrder(orderId: string, pid: string, available: number): 
   if (available <= 0) {
     return { ok: false, error: "You don't have any of that item.", delivered: 0, goldPaid: 0 };
   }
-  const unitPrice = Math.max(1, Math.round(effectiveSellPrice(order.itemId, getItemBaseValue(order.itemId)) * order.premium));
+  const unitPrice = Math.max(
+    1,
+    Math.round(effectiveSellPrice(order.itemId, getItemBaseValue(order.itemId), now, order.zoneId) * order.premium),
+  );
   const townRemaining = Math.max(0, TOWN_ORDER_DAILY_GOLD_CAP - (townPaidToday.get(order.zoneId) ?? 0));
   const playerRemaining = Math.max(0, PLAYER_ORDER_DAILY_GOLD_CAP - (playerPaidToday.get(pid) ?? 0));
   const goldCeiling = Math.min(townRemaining, playerRemaining);
@@ -193,8 +198,9 @@ export function fillTownOrder(orderId: string, pid: string, available: number): 
   order.remaining -= delivered;
   townPaidToday.set(order.zoneId, (townPaidToday.get(order.zoneId) ?? 0) + goldPaid);
   playerPaidToday.set(pid, (playerPaidToday.get(pid) ?? 0) + goldPaid);
-  // The town consumed the goods — real demand into the ledger.
-  recordConsumed(order.itemId, delivered);
+  // The town consumed the goods — real demand into the ledger, attributed to
+  // the town's own price region.
+  recordConsumed(order.itemId, delivered, order.zoneId);
   bumpMetric(`town.consumed.${order.itemId}`, delivered);
   bumpMetric("town.order.filled", order.remaining === 0 ? 1 : 0);
   bumpMetric("gold.faucet.townOrders", goldPaid);

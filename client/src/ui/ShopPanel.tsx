@@ -15,6 +15,7 @@ import {
   type P2PMarketListing,
   type PlayerShopResultPayload,
   type TownOrdersPayload,
+  type RegionalPricesPayload,
   type ShopOpenPayload,
   type ShopResultPayload,
 } from "@metricbase/shared";
@@ -171,8 +172,9 @@ export function ShopPanel() {
   // loaded yet (fetched when the tab opens).
   const [p2pListings, setP2pListings] = useState<P2PMarketListing[] | null>(null);
   const [p2pSearch, setP2pSearch] = useState("");
-  // Town order board: fetched when the tab opens; null = loading.
+  // Town order board + regional price grid: fetched when the tab opens.
   const [townOrders, setTownOrders] = useState<TownOrdersPayload | null>(null);
+  const [regionalPrices, setRegionalPrices] = useState<RegionalPricesPayload | null>(null);
   const zoneId = useGameStore((state) => state.zoneId);
 
   if (!open || !shop) return null;
@@ -295,6 +297,15 @@ export function ShopPanel() {
 
   const refreshTownOrders = () => {
     void waitForTownOrders().then(setTownOrders);
+    void new Promise<RegionalPricesPayload | null>((resolve) => {
+      const timeout = window.setTimeout(() => resolve(null), 10000);
+      const unsubscribe = networkManager.onRegionalPrices((payload) => {
+        window.clearTimeout(timeout);
+        unsubscribe();
+        resolve(payload);
+      });
+      networkManager.requestRegionalPrices();
+    }).then(setRegionalPrices);
   };
 
   const handleTownOrderFill = async (orderId: string) => {
@@ -536,7 +547,7 @@ export function ShopPanel() {
       <div className="chibi-tabs">
         <button type="button" className={`chibi-btn chibi-btn--tab${tab === "gold" ? " active" : ""}`} onClick={() => { playSfx("ui_click"); setTab("gold"); }}>🪙 Gold Shop</button>
         <button type="button" className={`chibi-btn chibi-btn--tab${tab === "p2p" ? " active" : ""}`} onClick={() => { playSfx("ui_click"); setTab("p2p"); refreshP2pMarket(); }}>🤝 P2P Market</button>
-        <button type="button" className={`chibi-btn chibi-btn--tab${tab === "orders" ? " active" : ""}`} onClick={() => { playSfx("ui_click"); setTab("orders"); refreshTownOrders(); }}>📋 Town Orders</button>
+        <button type="button" className={`chibi-btn chibi-btn--tab${tab === "orders" ? " active" : ""}`} onClick={() => { playSfx("ui_click"); setTab("orders"); refreshTownOrders(); }}>📋 Towns</button>
         <button type="button" className={`chibi-btn chibi-btn--tab${tab === "market" ? " active" : ""}`} onClick={() => { playSfx("ui_click"); setTab("market"); refreshMarket(currency); }}>📈 Gold Market</button>
       </div>
 
@@ -665,6 +676,58 @@ export function ShopPanel() {
               })
             )}
           </div>
+          <div className="chibi-card chibi-card--info" style={{ marginTop: 16, fontSize: "0.85rem" }}>
+            <div style={{ fontWeight: 800, marginBottom: 6 }}>🗺️ Regional prices — your bag</div>
+            <div style={{ fontSize: 12, opacity: 0.8 }}>
+              Each town pays its own price for the same goods. Sell where the number is highest —
+              the spread is your hauling profit.
+            </div>
+          </div>
+          {regionalPrices && regionalPrices.rows.length > 0 ? (
+            <div style={{ marginTop: 10, overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.78rem" }}>
+                <thead>
+                  <tr>
+                    <th style={{ textAlign: "left", padding: "6px 8px" }}>Item</th>
+                    {regionalPrices.regions.map((r) => (
+                      <th key={r.zoneId} style={{ textAlign: "right", padding: "6px 8px", whiteSpace: "nowrap" }}>
+                        {r.zoneId === zoneId ? "📍 " : ""}{r.label}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {regionalPrices.rows.map((row) => {
+                    const best = Math.max(...row.prices);
+                    return (
+                      <tr key={row.itemId} style={{ borderTop: "1px solid rgba(0,0,0,0.08)" }}>
+                        <td style={{ padding: "6px 8px", fontWeight: 700 }}>
+                          {ITEM_ICONS[row.itemId] ?? "📦"} {getItemDefinition(row.itemId).name}
+                        </td>
+                        {row.prices.map((p, i) => (
+                          <td
+                            key={regionalPrices.regions[i].zoneId}
+                            style={{
+                              padding: "6px 8px",
+                              textAlign: "right",
+                              fontWeight: p === best ? 800 : 500,
+                              color: p === best ? "var(--chibi-gold-deep)" : undefined,
+                            }}
+                          >
+                            {p}g{p === best && row.prices.some((q) => q !== best) ? " ★" : ""}
+                          </td>
+                        ))}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div style={{ marginTop: 10, fontSize: 12, opacity: 0.6 }}>
+              {regionalPrices === null ? "Loading prices…" : "Nothing sellable in your bag yet — gather something first."}
+            </div>
+          )}
           <button
             type="button"
             className="chibi-btn chibi-btn--secondary"

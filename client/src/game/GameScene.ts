@@ -3203,6 +3203,8 @@ export class GameScene extends Phaser.Scene {
       if (!isCombat) {
         const npcKeyMap: Record<string, string> = {
           hub_merchant: "npc-pip",
+          wilderness_merchant: "npc-pip",
+          grotto_merchant: "npc-pip",
           hub_guide: "npc-guide",
           hub_smith: "npc-smith",
           jail_guard: "npc-warden",

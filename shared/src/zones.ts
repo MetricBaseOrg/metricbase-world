@@ -334,6 +334,15 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
           "Chop trees in the west grove for wood and Woodcutting XP. Head east for the Training Dummy, or south to hunt Wild Slimes.",
       },
       {
+        id: "wilderness_merchant",
+        name: "Mara",
+        tileX: 7,
+        tileY: 11,
+        shopId: "pip_general",
+        dialogue:
+          "Camp store's open! Out here we pay what the CAMP needs, not what the Hub does — check the regional prices before you haul your goods to town.",
+      },
+      {
         id: "training_dummy",
         name: "Training Dummy",
         tileX: 14,
@@ -648,6 +657,15 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
       },
     ],
     npcs: [
+      {
+        id: "grotto_merchant",
+        name: "Fen",
+        tileX: 19,
+        tileY: 11,
+        shopId: "pip_general",
+        dialogue:
+          "Supplies for the deep grotto — and I pay grotto prices. Lamp oil and hot meals fetch more down here than they ever will up top.",
+      },
       {
         id: "grotto_warden",
         name: "Moss",
