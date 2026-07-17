@@ -98,6 +98,57 @@ export const DEFAULT_COMPANY_EMBLEM = "🏢";
 export const DEFAULT_COMPANY_COLOR = 0x4a90d9;
 
 // ---------------------------------------------------------------------------
+// Type perks (v0.156) — company type is an economic identity, not a label.
+// THE tunables table. Perks apply to every member of a company of that type.
+// GUARDS: the merchant perk reduces ONLY the treasury-routed share of exchange
+// fees — never the burn portion, and never the gold-market 4% burn (those are
+// the wash-trade deterrents). The logistics fee boost pays from the same
+// capped per-town freight budget. Anti-hopping friction = joining a company
+// requires approval and one company at a time.
+// ---------------------------------------------------------------------------
+
+export interface CompanyTypePerks {
+  /** Extra bonus-ore chance on mining gathers (additive to tool yieldBonus). */
+  oreYieldBonus?: number;
+  /** Multiplier on crop growth time at plant time (lower = faster). */
+  cropGrowthMult?: number;
+  /** Multiplier on the fishing bait cost per cast. */
+  baitCostMult?: number;
+  /** Multiplier on craft Fine/Master roll chances. */
+  qualityRollMult?: number;
+  /** Multiplier on the gear-repair gold fee. */
+  repairCostMult?: number;
+  /** Multiplier on the treasury-routed portion of a member's exchange fee. */
+  exchangeTreasuryFeeMult?: number;
+  /** Multiplier on caravan freight fees earned by members. */
+  caravanFeeMult?: number;
+  /** Multiplier on the caravan accept cooldown. */
+  caravanCooldownMult?: number;
+  /** One-line perk summary for pickers and panels. */
+  blurb: string;
+}
+
+export const COMPANY_TYPE_PERKS: Record<CompanyType, CompanyTypePerks> = {
+  mining: { oreYieldBonus: 0.1, blurb: "⛏️ +10% bonus ore chance while mining" },
+  farming: { cropGrowthMult: 0.9, blurb: "🌾 Crops you plant grow 10% faster" },
+  fishing: { baitCostMult: 0.5, blurb: "🎣 Bait costs half on every cast" },
+  blacksmith: {
+    qualityRollMult: 1.15,
+    repairCostMult: 0.8,
+    blurb: "⚒️ +15% Fine/Master craft rolls · repairs 20% cheaper",
+  },
+  merchant: {
+    exchangeTreasuryFeeMult: 0.67,
+    blurb: "💰 Share-trade fees reduced by a third (burn portion untouched)",
+  },
+  logistics: {
+    caravanFeeMult: 1.25,
+    caravanCooldownMult: 0.5,
+    blurb: "🚚 Caravan runs pay +25% · half the caravan cooldown",
+  },
+};
+
+// ---------------------------------------------------------------------------
 // Ranks + permissions
 // ---------------------------------------------------------------------------
 

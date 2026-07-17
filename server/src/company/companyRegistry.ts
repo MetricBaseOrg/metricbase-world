@@ -86,6 +86,11 @@ export function getCompanyForMember(name: string): StoredCompany | undefined {
   return id ? companies.get(id) : undefined;
 }
 
+/** The company type a player belongs to (perk lookups), or null. */
+export function companyTypeOf(name: string): CompanyType | null {
+  return getCompanyForMember(name)?.companyType ?? null;
+}
+
 export function getCompanyById(id: string | null): StoredCompany | undefined {
   return id ? companies.get(id) : undefined;
 }

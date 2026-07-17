@@ -8,6 +8,7 @@
 // $BASE never appears anywhere in this system — see shared/caravan.ts.
 
 import {
+  COMPANY_TYPE_PERKS,
   CARAVAN_COOLDOWN_MS,
   CARAVAN_PLAYER_DAILY_GOLD_CAP,
   CARAVAN_ROUTES,
@@ -50,8 +51,10 @@ export function playerFreightRemaining(pid: string): number {
   return Math.max(0, CARAVAN_PLAYER_DAILY_GOLD_CAP - (playerFreightToday.get(pid) ?? 0));
 }
 
-export function caravanCooldownMs(pid: string): number {
-  return Math.max(0, (lastCompletedAt.get(pid) ?? 0) + CARAVAN_COOLDOWN_MS - Date.now());
+/** `logistics` = the hauler belongs to a logistics company (COMPANY_TYPE_PERKS). */
+export function caravanCooldownMs(pid: string, logistics = false): number {
+  const cooldown = Math.round(CARAVAN_COOLDOWN_MS * (logistics ? (COMPANY_TYPE_PERKS.logistics.caravanCooldownMult ?? 1) : 1));
+  return Math.max(0, (lastCompletedAt.get(pid) ?? 0) + cooldown - Date.now());
 }
 
 export function activeRunOf(pid: string): CaravanRunState | null {
@@ -72,10 +75,15 @@ export function offersFrom(zoneId: string): CaravanRunState[] {
   }));
 }
 
-export function acceptRun(pid: string, atZone: string, toZone: string): { ok: boolean; error?: string; run?: CaravanRunState } {
+export function acceptRun(
+  pid: string,
+  atZone: string,
+  toZone: string,
+  logistics = false,
+): { ok: boolean; error?: string; run?: CaravanRunState } {
   pruneExpired(pid);
   if (activeRuns.has(pid)) return { ok: false, error: "You're already hauling cargo — deliver it first." };
-  const cd = caravanCooldownMs(pid);
+  const cd = caravanCooldownMs(pid, logistics);
   if (cd > 0) return { ok: false, error: `The caravan master is loading up — try again in ${Math.ceil(cd / 1000)}s.` };
   const route = CARAVAN_ROUTES.find((r) => r.fromZone === atZone && r.toZone === toZone);
   if (!route) return { ok: false, error: "No caravan departs from here on that route." };
@@ -96,12 +104,18 @@ export function acceptRun(pid: string, atZone: string, toZone: string): { ok: bo
 
 /** Deliver at the destination town's board. Returns the capped fee to grant
  * (caller mints via grantGold); 0-fee deliveries still complete the run. */
-export function deliverRun(pid: string, atZone: string): { ok: boolean; error?: string; goldPaid?: number } {
+export function deliverRun(
+  pid: string,
+  atZone: string,
+  logistics = false,
+): { ok: boolean; error?: string; goldPaid?: number } {
   pruneExpired(pid);
   const run = activeRuns.get(pid);
   if (!run) return { ok: false, error: "You aren't carrying any cargo." };
   if (run.toZone !== atZone) return { ok: false, error: `This cargo is bound for ${run.toLabel}.` };
-  const fee = Math.min(run.feeGold, playerFreightRemaining(pid), townBudgetRemaining(run.toZone));
+  // Logistics companies charge premium freight — still inside the same caps.
+  const boosted = Math.round(run.feeGold * (logistics ? (COMPANY_TYPE_PERKS.logistics.caravanFeeMult ?? 1) : 1));
+  const fee = Math.min(boosted, playerFreightRemaining(pid), townBudgetRemaining(run.toZone));
   activeRuns.delete(pid);
   lastCompletedAt.set(pid, Date.now());
   if (fee > 0) {

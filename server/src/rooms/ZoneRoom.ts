@@ -367,6 +367,7 @@ import {
   getCompanyForMember,
   getCompanyById,
   companyMemberNames,
+  companyTypeOf,
   createCompany,
   requestJoinCompany,
   cancelJoinRequest as cancelCompanyJoinRequest,
@@ -444,6 +445,7 @@ import { fillTownOrder, getTownOrders, playerOrderGoldRemaining } from "../econo
 import {
   baseItemIdOf,
   bonusYieldChance,
+  COMPANY_TYPE_PERKS,
   CRAFT_FAMILIES,
   CRAFT_RESPEC_COST,
   craftFamilyOf,
@@ -1429,13 +1431,13 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         offers: offersFrom(this.zoneConfig.id),
         active: activeRunOf(pid),
         playerDailyRemaining: playerFreightRemaining(pid),
-        cooldownMs: caravanCooldownMs(pid),
+        cooldownMs: caravanCooldownMs(pid, companyTypeOf(player.name) === "logistics"),
       });
     });
     this.onProtectedMessage("caravanAccept", (client, m: { toZone?: string }) => {
       const player = this.state.players.get(client.sessionId);
       if (!player) return;
-      const result = acceptRun(this.pidOf(player), this.zoneConfig.id, m.toZone ?? "");
+      const result = acceptRun(this.pidOf(player), this.zoneConfig.id, m.toZone ?? "", companyTypeOf(player.name) === "logistics");
       if (result.ok && result.run) {
         client.send("chat", this.systemChat("Caravan", `Cargo loaded! Haul it to ${result.run.toLabel} within 30 minutes — 🪙 ${result.run.feeGold} on delivery.`));
       }
@@ -1444,7 +1446,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     this.onProtectedMessage("caravanDeliver", (client) => {
       const player = this.state.players.get(client.sessionId);
       if (!player) return;
-      const result = deliverRun(this.pidOf(player), this.zoneConfig.id);
+      const result = deliverRun(this.pidOf(player), this.zoneConfig.id, companyTypeOf(player.name) === "logistics");
       if (result.ok) {
         if ((result.goldPaid ?? 0) > 0) {
           this.grantGold(client, player, result.goldPaid ?? 0, "caravan delivery");
@@ -2882,6 +2884,10 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       return;
     }
 
+    // Blacksmith-company members repair cheaper (COMPANY_TYPE_PERKS).
+    if (companyTypeOf(player.name) === "blacksmith") {
+      cost *= COMPANY_TYPE_PERKS.blacksmith.repairCostMult ?? 1;
+    }
     cost = Math.max(5, Math.ceil(cost));
     const gold = this.playerGold.get(this.pidOf(player)) ?? STARTING_GOLD;
     if (gold < cost) {
@@ -6681,7 +6687,12 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         mastery.xpToday += xpGain;
       }
       const level = masteryLevel(mastery.xp[family] ?? 0);
-      const roll = Math.random();
+      // Blacksmith-company members roll better quality (COMPANY_TYPE_PERKS).
+      const rollMult =
+        companyTypeOf(playerName) === "blacksmith"
+          ? (COMPANY_TYPE_PERKS.blacksmith.qualityRollMult ?? 1)
+          : 1;
+      const roll = Math.random() / rollMult;
       if (isQualityEligible(recipe.output.itemId)) {
         if (roll < masterChance(level)) {
           outputItemId = qualityVariantId(recipe.output.itemId, "master");
@@ -6975,9 +6986,14 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     }
 
     // Bait money: every cast burns a little gold, win or lose (FISHING_CAST_GOLD).
-    if (gather.skill === "fishing" && FISHING_CAST_GOLD > 0) {
+    // Fishing-company members pay a reduced rate (COMPANY_TYPE_PERKS).
+    const baitCost =
+      companyTypeOf(player.name) === "fishing"
+        ? Math.max(1, Math.round(FISHING_CAST_GOLD * (COMPANY_TYPE_PERKS.fishing.baitCostMult ?? 1)))
+        : FISHING_CAST_GOLD;
+    if (gather.skill === "fishing" && baitCost > 0) {
       const gold = this.playerGold.get(this.pidOf(player)) ?? STARTING_GOLD;
-      if (gold < FISHING_CAST_GOLD) {
+      if (gold < baitCost) {
         client.send("chopResult", {
           resourceId,
           available: true,
@@ -6987,13 +7003,13 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
           skill: gather.skill,
           skillLevel,
           ok: false,
-          error: `You need ${FISHING_CAST_GOLD}g of bait to cast. Sell a catch or two to Pip first.`,
+          error: `You need ${baitCost}g of bait to cast. Sell a catch or two to Pip first.`,
         });
         return;
       }
-      this.playerGold.set(this.pidOf(player), gold - FISHING_CAST_GOLD);
-      burnGold(FISHING_CAST_GOLD);
-      bumpMetric("fishing.bait.gold", FISHING_CAST_GOLD);
+      this.playerGold.set(this.pidOf(player), gold - baitCost);
+      burnGold(baitCost);
+      bumpMetric("fishing.bait.gold", baitCost);
       this.sendProfile(client, player);
     }
 
@@ -7203,8 +7219,13 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     // Accessory/tool perks (master rods, lures, angler gear): extra XP, extra
     // rare-drop chance, and an extra yield roll.
     const perks = getGatherPerks(equipment, gather.skill);
+    // Mining-company members roll extra bonus-ore chance (COMPANY_TYPE_PERKS).
+    const companyOreBonus =
+      gather.skill === "mining" && companyTypeOf(player.name) === "mining"
+        ? (COMPANY_TYPE_PERKS.mining.oreYieldBonus ?? 0)
+        : 0;
     const toolBonus =
-      Math.random() < getToolYieldBonus(toolId, gather.skill) + perks.yieldBonus ? 1 : 0;
+      Math.random() < getToolYieldBonus(toolId, gather.skill) + perks.yieldBonus + companyOreBonus ? 1 : 0;
     // The fish bite in the rain — a bonus catch chance while it's wet.
     const rainBonus =
       gather.skill === "fishing" && Math.random() < rainFishingBonus(now) ? 1 : 0;
@@ -7578,7 +7599,11 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       this.sendInventory(client, player.name);
       this.sendProfile(client, player);
       // A better hoe makes the planted crop mature sooner (locked in at plant).
-      const growMult = getFarmGrowthMultiplier(this.playerEquipment.get(this.pidOf(player))?.toolId);
+      let growMult = getFarmGrowthMultiplier(this.playerEquipment.get(this.pidOf(player))?.toolId);
+      // Farming-company members plant faster-growing crops (COMPANY_TYPE_PERKS).
+      if (companyTypeOf(player.name) === "farming") {
+        growMult *= COMPANY_TYPE_PERKS.farming.cropGrowthMult ?? 1;
+      }
       plantFarmPlot({
         plotId,
         zoneId: this.zoneConfig.id,
@@ -9363,7 +9388,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       }
       const applied = applyShareBuy(companyId, player.name, wallet, n);
       if (!applied) return void client.send("exchangeResult", { ok: false, error: "Trade failed." });
-      const fee = shareTradeFee(applied.gross); // buyer paid gross + fee
+      const fee = this.tradeFeeFor(player.name, applied.gross); // buyer paid gross + fee
       this.playerGold.set(pid, gold - (applied.gross + fee.fee));
       creditCompanyTreasury(companyId, fee.treasury, "shares");
       burnGold(fee.burn);
@@ -9380,7 +9405,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       }
       const applied = applyShareSell(companyId, player.name, wallet, n);
       if (!applied) return void client.send("exchangeResult", { ok: false, error: "Trade failed." });
-      const fee = shareTradeFee(applied.gross);
+      const fee = this.tradeFeeFor(player.name, applied.gross);
       const net = Math.max(0, applied.gross - fee.fee);
       this.playerGold.set(pid, gold + net);
       creditCompanyTreasury(companyId, fee.treasury, "shares");
@@ -9389,6 +9414,16 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       bumpMetric("exchange.volume.gold", applied.gross);
       this.finishExchangeTrade(client, player, companyId, `Sold ${n} shares for ${net.toLocaleString()}g.`);
     }
+  }
+
+  /** Trade fee with the merchant-company perk applied: the TREASURY-routed
+   * portion shrinks, the BURN portion never does (it's the wash-trade
+   * deterrent). Applies to bonding-curve trades; order-book fills unchanged. */
+  private tradeFeeFor(playerName: string, gross: number): { fee: number; treasury: number; burn: number } {
+    const fee = shareTradeFee(gross);
+    if (companyTypeOf(playerName) !== "merchant") return fee;
+    const treasury = Math.floor(fee.treasury * (COMPANY_TYPE_PERKS.merchant.exchangeTreasuryFeeMult ?? 1));
+    return { fee: treasury + fee.burn, treasury, burn: fee.burn };
   }
 
   private finishExchangeTrade(

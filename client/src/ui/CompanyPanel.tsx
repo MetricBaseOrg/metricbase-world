@@ -10,6 +10,7 @@ import {
   COMPANY_NAME_MAX_LENGTH,
   COMPANY_TYPES,
   COMPANY_TYPE_INFO,
+  COMPANY_TYPE_PERKS,
   COMPANY_WAREHOUSE_SLOTS,
   ITEMS,
   MAX_COMPANY_MEMBERS,
@@ -261,6 +262,9 @@ function OverviewTab({
             <div className="chibi-text-muted" style={{ fontSize: "0.72rem" }}>
               {info.icon} {info.label} · {mine.memberCount}/{MAX_COMPANY_MEMBERS} members · ⭐ {mine.reputation} rep
             </div>
+            <div style={{ fontSize: "0.68rem", marginTop: 3, color: "var(--chibi-gold-deep)" }}>
+              {COMPANY_TYPE_PERKS[mine.companyType].blurb}
+            </div>
           </div>
         </div>
 
@@ -405,6 +409,8 @@ function OverviewTab({
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 12 }}>
           <CompanyBadge emblem={emblem} color={color} />
           <div className="chibi-text-muted" style={{ fontSize: "0.7rem", flex: 1 }}>
+            <b>Member perk:</b> {COMPANY_TYPE_PERKS[type].blurb}.
+            <br />
             Focus: {COMPANY_TYPE_INFO[type].focusStat}. Founding costs {COMPANY_CREATE_COST.toLocaleString()}g (you have{" "}
             {gold.toLocaleString()}g).
           </div>

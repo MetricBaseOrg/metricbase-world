@@ -11,6 +11,10 @@ export const MOTTO_MAX_LENGTH = 80;
  */
 export const DASHBOARD_UPDATES: Array<{ title: string; body: string }> = [
   {
+    title: "v0.156 — Company Perks",
+    body: "Your company type now works for you! Mining crews roll bonus ore, farming co-ops grow crops faster, fishing companies pay half bait, blacksmiths roll better quality and repair cheaper, merchants trade shares at reduced fees, and logistics crews earn +25% freight with half the caravan cooldown.",
+  },
+  {
     title: "v0.155 — Crafting Professions",
     body: "Master your craft! Pick up to 2 of 6 craft families (🎓 Mastery tab at the forge). Specialists roll ✨ Fine and 🌟 Master gear — stronger, longer-lasting, and NEVER sold by Pip. Chefs and smelters cook bonus portions instead. Want top-tier gear outside your specialty? Trade with another player.",
   },
@@ -25,10 +29,6 @@ export const DASHBOARD_UPDATES: Array<{ title: string; body: string }> = [
   {
     title: "v0.152 — Town Order Boards",
     body: "Towns now consume goods and post time-limited bulk orders at a premium over market price! Check the new 📋 Town Orders tab in any shop: the Hub, Wilderness Camp and Grotto Outpost each want different goods — deliver on location before the order expires. First come, first served.",
-  },
-  {
-    title: "v0.151 — A More Real Economy",
-    body: "Prices now swing wider with real scarcity and gluts (0.4×–3× of base value), repair fees scale with your gear's tier, and the /stats dashboard gained a Money Supply panel: gold minted vs burned this week and a mint-pressure gauge — watch the economy breathe.",
   },
 ];
 

@@ -482,6 +482,10 @@ async function load(){
       ["🗺️","World expansions",a["zone.expanded"]],["🎒","Bag expansions",a["bag.expanded"]],
       ["📅","Daily tasks claimed",a["daily.claimed"]],["🔥","Login bonuses",a["daily.login"]],["🪙","Daily gold paid",a["daily.gold"]],
       ["📋","Town orders filled",a["town.order.filled"]],["🏘️","Town-order gold",a["gold.faucet.townOrders"]],
+      ["🚚","Caravan runs",a["caravan.completed"]],["🏴‍☠️","Cargo intercepted",a["caravan.intercepted"]],
+      ["📦","Cargo lost",a["caravan.lost"]],["🪙","Freight gold",a["gold.faucet.caravan"]],
+      ["✨","Fine crafts",a["craft.quality.fine"]],["🌟","Master crafts",a["craft.quality.master"]],
+      ["🍞","Bonus-yield crafts",a["craft.bonusYield"]],["🎓","Respec gold burned",a["gold.sink.respec"]],
       ["🧑‍🌾","Jobs posted",a["jobs.posted"]],["🤝","Jobs completed",a["jobs.completed"]],["💵","Job wages paid",a["jobs.goldPaid"]]];
     el("totals").innerHTML=tiles.map(tileHtml).join("");
     rows(el("treasurySrc"),s.treasury.bySource,function(x){return '<div class="row"><span>'+x.source+'</span><b>'+fmt(x.gold)+'g</b></div>';});
