@@ -332,6 +332,8 @@ CREATE TABLE IF NOT EXISTS jobs (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS jobs_status_idx ON jobs (status);
+-- Haul jobs (v0.154): supply contracts may pin delivery to a specific town.
+ALTER TABLE jobs ADD COLUMN IF NOT EXISTS deliver_zone_id VARCHAR(64);
 
 CREATE TABLE IF NOT EXISTS pending_gold (
   player_name VARCHAR(16) PRIMARY KEY,

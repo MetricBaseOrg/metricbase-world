@@ -152,6 +152,18 @@ export function playerOrderGoldRemaining(pid: string): number {
   return Math.max(0, PLAYER_ORDER_DAILY_GOLD_CAP - (playerPaidToday.get(pid) ?? 0));
 }
 
+/** Shared daily faucet budget per town — caravans draw from the same pot as
+ * orders so the two systems can't stack into a double-sized faucet. */
+export function townBudgetRemaining(zoneId: string): number {
+  rollCountersIfNewDay();
+  return Math.max(0, TOWN_ORDER_DAILY_GOLD_CAP - (townPaidToday.get(zoneId) ?? 0));
+}
+
+export function chargeTownBudget(zoneId: string, gold: number): void {
+  rollCountersIfNewDay();
+  townPaidToday.set(zoneId, (townPaidToday.get(zoneId) ?? 0) + gold);
+}
+
 export interface TownFillOutcome {
   ok: boolean;
   error?: string;

@@ -16,6 +16,7 @@ import {
   type PlayerShopResultPayload,
   type TownOrdersPayload,
   type RegionalPricesPayload,
+  type CaravanBoardPayload,
   type ShopOpenPayload,
   type ShopResultPayload,
 } from "@metricbase/shared";
@@ -175,6 +176,7 @@ export function ShopPanel() {
   // Town order board + regional price grid: fetched when the tab opens.
   const [townOrders, setTownOrders] = useState<TownOrdersPayload | null>(null);
   const [regionalPrices, setRegionalPrices] = useState<RegionalPricesPayload | null>(null);
+  const [caravan, setCaravan] = useState<CaravanBoardPayload | null>(null);
   const zoneId = useGameStore((state) => state.zoneId);
 
   if (!open || !shop) return null;
@@ -306,6 +308,38 @@ export function ShopPanel() {
       });
       networkManager.requestRegionalPrices();
     }).then(setRegionalPrices);
+    void new Promise<CaravanBoardPayload | null>((resolve) => {
+      const timeout = window.setTimeout(() => resolve(null), 10000);
+      const unsubscribe = networkManager.onCaravanBoard((payload) => {
+        window.clearTimeout(timeout);
+        unsubscribe();
+        resolve(payload);
+      });
+      networkManager.requestCaravanBoard();
+    }).then(setCaravan);
+  };
+
+  const caravanAct = async (send: () => void) => {
+    setPending(true);
+    setError(null);
+    const result = await new Promise<{ ok: boolean; error?: string; goldPaid?: number }>((resolve) => {
+      const timeout = window.setTimeout(() => resolve({ ok: false, error: "Caravan request timed out." }), 8000);
+      const unsubscribe = networkManager.onCaravanResult((payload) => {
+        window.clearTimeout(timeout);
+        unsubscribe();
+        resolve(payload);
+      });
+      send();
+    });
+    setPending(false);
+    if (!result.ok) {
+      playSfx("shop_fail");
+      setError(result.error ?? "Caravan action failed.");
+    } else {
+      playSfx("shop_buy");
+      if (result.goldPaid !== undefined) setStatus(`Cargo delivered — earned 🪙 ${result.goldPaid}.`);
+    }
+    refreshTownOrders();
   };
 
   const handleTownOrderFill = async (orderId: string) => {
@@ -676,6 +710,60 @@ export function ShopPanel() {
               })
             )}
           </div>
+          <div className="chibi-card chibi-card--info" style={{ marginTop: 16, fontSize: "0.85rem" }}>
+            <div style={{ fontWeight: 800, marginBottom: 6 }}>🚚 Caravan runs</div>
+            <div style={{ fontSize: 12, opacity: 0.8 }}>
+              Haul a sealed cargo satchel to another town for a flat fee. Risky routes pay more —
+              and in PvP zones, dying <strong>drops the cargo</strong> for anyone to seize.
+            </div>
+          </div>
+          {caravan?.active ? (
+            <div className="chibi-card chibi-card--gold" style={{ marginTop: 10, ...orderRowStyle() }}>
+              <div>
+                <div style={{ fontWeight: 800, fontSize: "0.85rem" }}>📦 Cargo → {caravan.active.toLabel}</div>
+                <div className="chibi-text-muted" style={{ marginTop: 4, fontSize: "0.75rem" }}>
+                  🪙 {caravan.active.feeGold} on delivery · ⏳ {formatTimeLeft(caravan.active.expiresAt)}
+                </div>
+              </div>
+              <button
+                type="button"
+                className="chibi-btn chibi-btn--primary"
+                disabled={pending || caravan.active.toZone !== zoneId}
+                onClick={() => void caravanAct(() => networkManager.sendCaravanDeliver())}
+                style={{ padding: "8px 12px", fontSize: "0.78rem" }}
+              >
+                {caravan.active.toZone === zoneId ? "Deliver" : `Go to ${caravan.active.toLabel}`}
+              </button>
+            </div>
+          ) : caravan && caravan.offers.length > 0 ? (
+            <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
+              {caravan.offers.map((offer) => (
+                <div key={offer.id} className="chibi-card" style={orderRowStyle()}>
+                  <div>
+                    <div style={{ fontWeight: 800, fontSize: "0.85rem" }}>🚚 {offer.fromLabel} → {offer.toLabel}</div>
+                    <div className="chibi-text-muted" style={{ marginTop: 4, fontSize: "0.75rem" }}>
+                      pays 🪙 {offer.feeGold} · 30 min limit
+                      {caravan.cooldownMs > 0 && <span> · ready in {Math.ceil(caravan.cooldownMs / 1000)}s</span>}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="chibi-btn chibi-btn--primary"
+                    disabled={pending || caravan.cooldownMs > 0 || caravan.playerDailyRemaining <= 0}
+                    onClick={() => void caravanAct(() => networkManager.sendCaravanAccept(offer.toZone))}
+                    style={{ padding: "8px 12px", fontSize: "0.78rem" }}
+                  >
+                    Accept
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div style={{ marginTop: 10, fontSize: 12, opacity: 0.6 }}>
+              {caravan === null ? "Checking the caravan post…" : "Caravans depart from town boards — visit the Hub, Camp, or Grotto."}
+            </div>
+          )}
+
           <div className="chibi-card chibi-card--info" style={{ marginTop: 16, fontSize: "0.85rem" }}>
             <div style={{ fontWeight: 800, marginBottom: 6 }}>🗺️ Regional prices — your bag</div>
             <div style={{ fontSize: 12, opacity: 0.8 }}>

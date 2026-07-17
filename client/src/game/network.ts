@@ -46,6 +46,8 @@ import {
   TownOrdersPayload,
   TownOrderFillResult,
   RegionalPricesPayload,
+  CaravanBoardPayload,
+  CaravanResultPayload,
   GuildStatePayload,
   GuildResultPayload,
   CompanyStatePayload,
@@ -344,6 +346,8 @@ export class NetworkManager {
   private townOrdersListeners = new Set<(payload: TownOrdersPayload) => void>();
   private townOrderResultListeners = new Set<(payload: TownOrderFillResult) => void>();
   private regionalPricesListeners = new Set<(payload: RegionalPricesPayload) => void>();
+  private caravanBoardListeners = new Set<(payload: CaravanBoardPayload) => void>();
+  private caravanResultListeners = new Set<(payload: CaravanResultPayload) => void>();
   private worldsListListeners = new Set<(worlds: WorldDirectoryEntry[]) => void>();
   private myWorldsListeners = new Set<(worlds: MyWorldEntry[]) => void>();
   private zoneResultListeners = new Set<(result: ZoneResultPayload) => void>();
@@ -969,8 +973,30 @@ export class NetworkManager {
     this.room?.send("requestJobs", {});
   }
 
-  sendJobPost(kind: string, itemId: string | null, qty: number, rewardGold: number) {
-    this.room?.send("jobPost", { kind, itemId, qty, rewardGold });
+  sendJobPost(kind: string, itemId: string | null, qty: number, rewardGold: number, deliverZoneId: string | null = null) {
+    this.room?.send("jobPost", { kind, itemId, qty, rewardGold, deliverZoneId });
+  }
+
+  requestCaravanBoard() {
+    this.room?.send("caravanBoard", {});
+  }
+
+  sendCaravanAccept(toZone: string) {
+    this.room?.send("caravanAccept", { toZone });
+  }
+
+  sendCaravanDeliver() {
+    this.room?.send("caravanDeliver", {});
+  }
+
+  onCaravanBoard(listener: (payload: CaravanBoardPayload) => void) {
+    this.caravanBoardListeners.add(listener);
+    return () => this.caravanBoardListeners.delete(listener);
+  }
+
+  onCaravanResult(listener: (payload: CaravanResultPayload) => void) {
+    this.caravanResultListeners.add(listener);
+    return () => this.caravanResultListeners.delete(listener);
   }
 
   sendJobAction(action: "jobCancel" | "jobAccept" | "jobAbandon" | "jobDeliver" | "jobCollect" | "jobDismiss", id: string) {
@@ -2125,6 +2151,12 @@ export class NetworkManager {
     });
     this.room.onMessage("regionalPrices", (payload: RegionalPricesPayload) => {
       for (const listener of this.regionalPricesListeners) listener(payload);
+    });
+    this.room.onMessage("caravanBoard", (payload: CaravanBoardPayload) => {
+      for (const listener of this.caravanBoardListeners) listener(payload);
+    });
+    this.room.onMessage("caravanResult", (payload: CaravanResultPayload) => {
+      for (const listener of this.caravanResultListeners) listener(payload);
     });
     this.room.onMessage("emote", (payload: EmotePayload) => {
       for (const listener of this.emoteListeners) {

@@ -12,6 +12,7 @@ type JobRow = {
   status: string;
   worker_name: string | null;
   zone_id: string | null;
+  deliver_zone_id: string | null;
   items_to_collect: number;
   created_at: string | Date;
 };
@@ -29,6 +30,7 @@ function mapRow(row: JobRow): JobView {
     status: row.status as JobView["status"],
     workerName: row.worker_name,
     zoneId: row.zone_id,
+    deliverZoneId: row.deliver_zone_id ?? null,
     itemsToCollect: Number(row.items_to_collect),
     createdAt: Number.isFinite(created) ? created : Date.now(),
   };
@@ -53,8 +55,8 @@ export async function saveJob(job: JobView): Promise<void> {
   if (!db) return;
   try {
     await db.query(
-      `INSERT INTO jobs (id, employer_name, kind, item_id, qty, progress, reward_gold, status, worker_name, zone_id, items_to_collect, created_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,to_timestamp($12/1000.0))
+      `INSERT INTO jobs (id, employer_name, kind, item_id, qty, progress, reward_gold, status, worker_name, zone_id, deliver_zone_id, items_to_collect, created_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,to_timestamp($13/1000.0))
        ON CONFLICT (id) DO UPDATE SET
          progress = EXCLUDED.progress,
          status = EXCLUDED.status,
@@ -71,6 +73,7 @@ export async function saveJob(job: JobView): Promise<void> {
         job.status,
         job.workerName,
         job.zoneId,
+        job.deliverZoneId ?? null,
         job.itemsToCollect,
         job.createdAt,
       ],

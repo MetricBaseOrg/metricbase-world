@@ -103,6 +103,7 @@ import {
   MAJOR_REPAIR_FRACTION,
   priceRegionOf,
   priceRegions,
+  TOWNS,
   repairCostPerPoint,
   repairMaterialFor,
   restoreSlotWear,
@@ -441,6 +442,16 @@ import {
 } from "../zones/zoneRegistry.js";
 import { creditTreasuryGold } from "../economy/treasury.js";
 import { fillTownOrder, getTownOrders, playerOrderGoldRemaining } from "../economy/townDemand.js";
+import {
+  acceptRun,
+  activeRunOf,
+  caravanCooldownMs,
+  claimDroppedRun,
+  deliverRun,
+  dropRunOnDeath,
+  offersFrom,
+  playerFreightRemaining,
+} from "../economy/caravans.js";
 import { bumpMetric, burnGold, mintGold } from "../economy/metrics.js";
 import { creditGoldForPurchase, isPurchaseRedeemed, recordTokenPurchase } from "../db/tokenPurchases.js";
 import { emptyDailyRow, loadDailyState, saveDailyState, type DailyRow } from "../db/daily.js";
@@ -1333,6 +1344,41 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     this.onProtectedMessage("townOrderFill", (client, m: { orderId?: string }) => {
       void this.handleTownOrderFill(client, m.orderId ?? "");
     });
+    // ----- Caravan freight -----
+    this.onMessage("caravanBoard", (client) => {
+      const player = this.state.players.get(client.sessionId);
+      if (!player) return;
+      const pid = this.pidOf(player);
+      client.send("caravanBoard", {
+        offers: offersFrom(this.zoneConfig.id),
+        active: activeRunOf(pid),
+        playerDailyRemaining: playerFreightRemaining(pid),
+        cooldownMs: caravanCooldownMs(pid),
+      });
+    });
+    this.onProtectedMessage("caravanAccept", (client, m: { toZone?: string }) => {
+      const player = this.state.players.get(client.sessionId);
+      if (!player) return;
+      const result = acceptRun(this.pidOf(player), this.zoneConfig.id, m.toZone ?? "");
+      if (result.ok && result.run) {
+        client.send("chat", this.systemChat("Caravan", `Cargo loaded! Haul it to ${result.run.toLabel} within 30 minutes — 🪙 ${result.run.feeGold} on delivery.`));
+      }
+      client.send("caravanResult", { ok: result.ok, error: result.error, accepted: result.run ?? null });
+    });
+    this.onProtectedMessage("caravanDeliver", (client) => {
+      const player = this.state.players.get(client.sessionId);
+      if (!player) return;
+      const result = deliverRun(this.pidOf(player), this.zoneConfig.id);
+      if (result.ok) {
+        if ((result.goldPaid ?? 0) > 0) {
+          this.grantGold(client, player, result.goldPaid ?? 0, "caravan delivery");
+        } else {
+          client.send("chat", this.systemChat("Caravan", "Delivered — but the freight budget for today is spent. No fee this time."));
+        }
+      }
+      client.send("caravanResult", { ok: result.ok, error: result.error, goldPaid: result.goldPaid });
+    });
+
     // Regional price comparison for the goods in the player's bag: what each
     // town's vendor pays right now — the arbitrage screen.
     this.onMessage("regionalPrices", (client) => {
@@ -1448,13 +1494,14 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     });
     this.onProtectedMessage(
       "jobPost",
-      (client, message: { kind?: string; itemId?: string; qty?: number; rewardGold?: number }) => {
+      (client, message: { kind?: string; itemId?: string; qty?: number; rewardGold?: number; deliverZoneId?: string }) => {
         void this.handleJobPost(
           client,
           message.kind ?? "",
           message.itemId ?? null,
           Math.floor(Number(message.qty) || 0),
           Math.floor(Number(message.rewardGold) || 0),
+          message.deliverZoneId || null,
         );
       },
     );
@@ -3212,6 +3259,9 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   /** Spawn a loot bag at the victim with the dropped items for the zone tier. */
   private dropLootBag(victim: InstanceType<typeof PlayerSchema>, tier: DangerTier) {
     if (tier === "safe" || tier === "yellow") return; // no item loss in safe/yellow
+    // Caravan cargo drops with the body in PvP zones — whoever grabs the bag
+    // inherits the freight run (interception gameplay).
+    const cargoRunId = dropRunOnDeath(this.pidForName(victim.name));
     const inventory = this.inventories.get(this.pidForName(victim.name)) ?? [];
     const dropped: InventoryEntry[] = [];
     const kept: InventoryEntry[] = [];
@@ -3237,7 +3287,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       }
     }
 
-    if (dropped.length === 0 && goldDropped === 0) return;
+    if (dropped.length === 0 && goldDropped === 0 && !cargoRunId) return;
     this.inventories.set(this.pidForName(victim.name), kept);
     const victimClient = this.clientForName(victim.name);
     if (victimClient) this.sendInventory(victimClient, victim.name);
@@ -3249,9 +3299,13 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       items: dropped,
       gold: goldDropped,
       expiresAt: Date.now() + 120_000,
+      ...(cargoRunId ? { cargoRunId } : {}),
     };
     this.lootBags.set(bag.id, bag);
     this.broadcastLootBags();
+    if (cargoRunId) {
+      this.broadcastChat(this.systemChat("Caravan", `${victim.name} dropped their cargo satchel — it's up for grabs!`));
+    }
   }
 
   private async handleLootPickup(client: Client, bagId: string) {
@@ -3275,6 +3329,15 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     }
     this.inventories.set(this.pidOf(player), inventory);
     if (bag.gold > 0) this.grantGold(client, player, bag.gold, "loot bag");
+    if (bag.cargoRunId) {
+      const run = claimDroppedRun(bag.cargoRunId, this.pidOf(player));
+      delete bag.cargoRunId;
+      if (run) {
+        this.broadcastChat(this.systemChat("Caravan", `${player.name} seized the cargo satchel — now hauling to ${run.toLabel}!`));
+      } else {
+        client.send("chat", this.systemChat("Caravan", "The satchel's seal is broken — you can't take this freight (already hauling?)."));
+      }
+    }
 
     if (leftover.length > 0) {
       // Inventory full — leave the rest in the bag.
@@ -4502,9 +4565,15 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     itemId: string | null,
     qty: number,
     rewardGold: number,
+    deliverZoneId: string | null = null,
   ) {
     const player = this.state.players.get(client.sessionId);
     if (!player) return;
+    // Haul destinations are limited to the three towns — they have boards,
+    // and a destination in someone's locked World would be ungriefable bait.
+    if (deliverZoneId && priceRegionOf(deliverZoneId) === null) {
+      return void client.send("jobResult", { ok: false, error: "Delivery destination must be one of the three towns." });
+    }
     const gold = this.playerGold.get(this.pidOf(player)) ?? STARTING_GOLD;
     if (gold < rewardGold) {
       return void client.send("jobResult", {
@@ -4512,7 +4581,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         error: `Need ${rewardGold.toLocaleString()} gold to escrow the reward (you have ${gold.toLocaleString()}).`,
       });
     }
-    const result = postJob(player.name, kind, itemId, qty, rewardGold, this.zoneConfig.id);
+    const result = postJob(player.name, kind, itemId, qty, rewardGold, this.zoneConfig.id, deliverZoneId);
     if (!result.ok) return void client.send("jobResult", { ok: false, error: result.error });
     // Escrow the reward now; it's refunded on cancel, paid to the worker on completion.
     this.playerGold.set(this.pidOf(player), gold - rewardGold);
@@ -4566,6 +4635,10 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     const job = getJob(id);
     if (!job || job.status !== "taken" || job.workerName !== player.name || job.kind !== "supply" || !job.itemId) {
       return void client.send("jobResult", { ok: false, error: "Nothing to deliver for that job." });
+    }
+    if (job.deliverZoneId && job.deliverZoneId !== this.zoneConfig.id) {
+      const label = TOWNS.find((t) => t.zoneId === job.deliverZoneId)?.label ?? job.deliverZoneId;
+      return void client.send("jobResult", { ok: false, error: `This is a haul contract — deliver at ${label}.` });
     }
     const remaining = job.qty - job.progress;
     const current = this.inventories.get(this.pidOf(player)) ?? [];

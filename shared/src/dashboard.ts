@@ -11,6 +11,10 @@ export const MOTTO_MAX_LENGTH = 80;
  */
 export const DASHBOARD_UPDATES: Array<{ title: string; body: string }> = [
   {
+    title: "v0.154 — Caravan Runs",
+    body: "Become a hauler! Accept a sealed cargo satchel at any town board and walk it to another town for a flat freight fee — riskier routes pay more. Die in a PvP zone and your cargo DROPS for anyone to seize and deliver. Employers can also pin supply jobs to a delivery town for player-to-player hauling.",
+  },
+  {
     title: "v0.153 — Regional Markets",
     body: "Every town now has its own prices AND its own merchant — meet Mara at the Wilderness Camp and Fen in the Slime Grotto. What a town eats gets pricier there; what gets dumped there gets cheaper there only. Check the 🗺️ regional price grid in the 📋 Towns tab and haul your goods where they pay best.",
   },
@@ -25,10 +29,6 @@ export const DASHBOARD_UPDATES: Array<{ title: string; body: string }> = [
   {
     title: "v0.148 — Hand-drawn Art Refresh",
     body: "Fresh hand-drawn art across the world and your bags: blacksmith forge/anvil/quench, the arcade & blackjack tables, market stalls and produce, cozy furniture and lanterns, farm plots, billboards and portal gates — plus new item icons for bread, planks, hardwood, steel bars, health potions and more.",
-  },
-  {
-    title: "v0.147 — Candlesticks & Financial Statements",
-    body: "Every listed company now has a candlestick price chart and full financial statements — an income statement (revenue by source, net profit), a cash-flow statement, and a balance sheet — right on its trade page.",
   },
 ];
 

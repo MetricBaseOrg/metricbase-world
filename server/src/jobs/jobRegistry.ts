@@ -49,6 +49,7 @@ export function postJob(
   qty: number,
   rewardGold: number,
   zoneId: string | null,
+  deliverZoneId: string | null = null,
 ): { ok: boolean; error?: string; job?: JobView } {
   qty = Math.floor(qty);
   rewardGold = Math.floor(rewardGold);
@@ -72,6 +73,7 @@ export function postJob(
     status: "open",
     workerName: null,
     zoneId,
+    deliverZoneId: def.needsItem ? deliverZoneId : null,
     itemsToCollect: 0,
     createdAt: Date.now(),
   };

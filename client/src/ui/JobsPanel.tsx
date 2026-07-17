@@ -4,6 +4,7 @@ import {
   JOB_MAX_REWARD,
   JOB_MIN_REWARD,
   isSupplyItem,
+  priceRegions,
   type JobKind,
   type JobView,
   type JobsStatePayload,
@@ -35,6 +36,7 @@ export function JobsPanel() {
   );
   const [qty, setQty] = useState(10);
   const [reward, setReward] = useState(100);
+  const [deliverZoneId, setDeliverZoneId] = useState("");
 
   const supplyItems = useMemo(
     () =>
@@ -82,7 +84,7 @@ export function JobsPanel() {
   const post = () => {
     playSfx("ui_click");
     setPending(true);
-    networkManager.sendJobPost(kind, JOB_KINDS[kind].needsItem ? itemId : null, qty, reward);
+    networkManager.sendJobPost(kind, JOB_KINDS[kind].needsItem ? itemId : null, qty, reward, JOB_KINDS[kind].needsItem && deliverZoneId ? deliverZoneId : null);
   };
 
   const close = () => {
@@ -104,6 +106,7 @@ export function JobsPanel() {
             <div style={{ fontWeight: 700, fontSize: "0.82rem" }}>{d.describe(j.qty, itemName(j.itemId))}</div>
             <div className="chibi-text-muted" style={{ fontSize: "0.68rem", marginTop: 2 }}>
               by {j.employerName} · pays <b style={{ color: "#b8860b" }}>{j.rewardGold.toLocaleString()}g</b>
+              {j.deliverZoneId ? ` · 🚚 deliver at ${priceRegions().find((r) => r.zoneId === j.deliverZoneId)?.label ?? j.deliverZoneId}` : ""}
               {j.workerName ? ` · worker: ${j.workerName}` : ""}
               {extra ? ` · ${extra}` : ""}
             </div>
@@ -225,6 +228,19 @@ export function JobsPanel() {
                   {supplyItems.map((d) => (
                     <option key={d.id} value={d.id}>
                       {d.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            {def.needsItem && (
+              <label style={{ display: "block", marginTop: 8, fontSize: "0.72rem" }}>
+                🚚 Delivery town (optional — turns this into a haul contract)
+                <select className="chibi-input" style={{ width: "100%", marginTop: 4 }} value={deliverZoneId} onChange={(e) => setDeliverZoneId(e.target.value)}>
+                  <option value="">Anywhere (deliver on the spot)</option>
+                  {priceRegions().map((r) => (
+                    <option key={r.zoneId} value={r.zoneId}>
+                      {r.label}
                     </option>
                   ))}
                 </select>

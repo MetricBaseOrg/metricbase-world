@@ -51,6 +51,8 @@ export interface LootBagState {
   gold: number;
   /** Epoch ms when the bag despawns. */
   expiresAt: number;
+  /** Dropped caravan cargo: whoever grabs the bag inherits this freight run. */
+  cargoRunId?: string;
 }
 
 export interface LootBagsPayload {

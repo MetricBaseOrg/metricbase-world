@@ -77,6 +77,9 @@ export interface JobView {
   workerName: string | null;
   /** Zone the job was posted from (flavour/filtering). */
   zoneId: string | null;
+  /** Supply jobs only: the TOWN the goods must be delivered in (haul jobs).
+   * null = deliver anywhere, as before. Gold-escrow only — never $BASE. */
+  deliverZoneId?: string | null;
   /** For done supply jobs: items awaiting employer pickup. */
   itemsToCollect: number;
   createdAt: number;

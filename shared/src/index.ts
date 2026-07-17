@@ -1,4 +1,4 @@
-export const GAME_VERSION = "0.153.0";
+export const GAME_VERSION = "0.154.0";
 
 export const TICK_RATE = 20;
 
@@ -87,6 +87,7 @@ export * from "./profile.js";
 export * from "./admin.js";
 export * from "./dao.js";
 export * from "./townDemand.js";
+export * from "./caravan.js";
 export * from "./schema/PlayerSchema.js";
 export * from "./schema/ZoneState.js";
 
