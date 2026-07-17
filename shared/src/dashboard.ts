@@ -11,6 +11,10 @@ export const MOTTO_MAX_LENGTH = 80;
  */
 export const DASHBOARD_UPDATES: Array<{ title: string; body: string }> = [
   {
+    title: "v0.155 — Crafting Professions",
+    body: "Master your craft! Pick up to 2 of 6 craft families (🎓 Mastery tab at the forge). Specialists roll ✨ Fine and 🌟 Master gear — stronger, longer-lasting, and NEVER sold by Pip. Chefs and smelters cook bonus portions instead. Want top-tier gear outside your specialty? Trade with another player.",
+  },
+  {
     title: "v0.154 — Caravan Runs",
     body: "Become a hauler! Accept a sealed cargo satchel at any town board and walk it to another town for a flat freight fee — riskier routes pay more. Die in a PvP zone and your cargo DROPS for anyone to seize and deliver. Employers can also pin supply jobs to a delivery town for player-to-player hauling.",
   },
@@ -25,10 +29,6 @@ export const DASHBOARD_UPDATES: Array<{ title: string; body: string }> = [
   {
     title: "v0.151 — A More Real Economy",
     body: "Prices now swing wider with real scarcity and gluts (0.4×–3× of base value), repair fees scale with your gear's tier, and the /stats dashboard gained a Money Supply panel: gold minted vs burned this week and a mint-pressure gauge — watch the economy breathe.",
-  },
-  {
-    title: "v0.148 — Hand-drawn Art Refresh",
-    body: "Fresh hand-drawn art across the world and your bags: blacksmith forge/anvil/quench, the arcade & blackjack tables, market stalls and produce, cozy furniture and lanterns, farm plots, billboards and portal gates — plus new item icons for bread, planks, hardwood, steel bars, health potions and more.",
   },
 ];
 

@@ -7,9 +7,11 @@ import {
   clampStamina,
   getPlayerMaxHp,
   normalizeCharacterAppearance,
+  normalizeCraftMastery,
   normalizeEquipment,
   normalizeInventory,
   normalizeSkills,
+  type CraftMasteryState,
   type CharacterAppearance,
   type InventoryEntry,
   type PlayerEquipment,
@@ -33,6 +35,8 @@ export interface CharacterRecord {
   hp: number;
   equipment: PlayerEquipment;
   npcInteractAt: Record<string, number>;
+  /** Craft mastery + specializations (craftQuality.ts). */
+  craftMastery: CraftMasteryState;
   mobGoldClaimed: Record<string, boolean>;
   knockedOutUntil: number | null;
   skills: SkillXpMap;
@@ -72,6 +76,7 @@ type CharacterRow = {
   hp: number | null;
   equipment: PlayerEquipment | null;
   npc_interact_at: Record<string, number> | null;
+  craft_mastery: unknown;
   mob_gold_claimed: Record<string, boolean> | null;
   knocked_out_until: string | number | null;
   skills: SkillXpMap | null;
@@ -92,7 +97,7 @@ export async function loadCharacterByName(name: string): Promise<CharacterRecord
   if (!db) return null;
 
   const result = await db.query<CharacterRow>(
-    `SELECT name, wallet_address, zone_id, x, y, level, xp, gold, quest_progress, appearance, inventory, hp, equipment, npc_interact_at, mob_gold_claimed, knocked_out_until, skills, stamina, vip_pass_until, black_pass, pvp_rating, pvp_kills, pvp_season
+    `SELECT name, wallet_address, zone_id, x, y, level, xp, gold, quest_progress, appearance, inventory, hp, equipment, npc_interact_at, craft_mastery, mob_gold_claimed, knocked_out_until, skills, stamina, vip_pass_until, black_pass, pvp_rating, pvp_kills, pvp_season
      , honor, guild_coin, gems, bag_level
      FROM characters
      WHERE name = $1`,
@@ -108,7 +113,7 @@ export async function loadCharacterByWallet(wallet: string): Promise<CharacterRe
   if (!db) return null;
 
   const result = await db.query<CharacterRow>(
-    `SELECT name, wallet_address, zone_id, x, y, level, xp, gold, quest_progress, appearance, inventory, hp, equipment, npc_interact_at, mob_gold_claimed, knocked_out_until, skills, stamina, vip_pass_until, black_pass, pvp_rating, pvp_kills, pvp_season
+    `SELECT name, wallet_address, zone_id, x, y, level, xp, gold, quest_progress, appearance, inventory, hp, equipment, npc_interact_at, craft_mastery, mob_gold_claimed, knocked_out_until, skills, stamina, vip_pass_until, black_pass, pvp_rating, pvp_kills, pvp_season
      , honor, guild_coin, gems, bag_level
      FROM characters
      WHERE wallet_address = $1`,
@@ -155,8 +160,8 @@ export async function saveCharacter(record: CharacterRecord): Promise<void> {
   // the legacy name conflict target.
   const conflictTarget = record.walletAddress ? "wallet_address" : "name";
   const result = await db.query(
-    `INSERT INTO characters (name, wallet_address, zone_id, x, y, level, xp, gold, quest_progress, appearance, inventory, hp, equipment, npc_interact_at, mob_gold_claimed, knocked_out_until, skills, stamina, vip_pass_until, black_pass, pvp_rating, pvp_kills, pvp_season, honor, guild_coin, gems, bag_level, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10::jsonb, $11::jsonb, $12, $13::jsonb, $14::jsonb, $15::jsonb, $16, $17::jsonb, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, NOW())
+    `INSERT INTO characters (name, wallet_address, zone_id, x, y, level, xp, gold, quest_progress, appearance, inventory, hp, equipment, npc_interact_at, craft_mastery, mob_gold_claimed, knocked_out_until, skills, stamina, vip_pass_until, black_pass, pvp_rating, pvp_kills, pvp_season, honor, guild_coin, gems, bag_level, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10::jsonb, $11::jsonb, $12, $13::jsonb, $14::jsonb, $15::jsonb, $16::jsonb, $17, $18::jsonb, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, NOW())
      ON CONFLICT (${conflictTarget})
      DO UPDATE SET
        wallet_address = COALESCE(EXCLUDED.wallet_address, characters.wallet_address),
@@ -172,6 +177,7 @@ export async function saveCharacter(record: CharacterRecord): Promise<void> {
        hp = EXCLUDED.hp,
        equipment = EXCLUDED.equipment,
        npc_interact_at = EXCLUDED.npc_interact_at,
+       craft_mastery = EXCLUDED.craft_mastery,
        mob_gold_claimed = EXCLUDED.mob_gold_claimed,
        knocked_out_until = EXCLUDED.knocked_out_until,
        skills = jsonb_build_object(
@@ -208,6 +214,7 @@ export async function saveCharacter(record: CharacterRecord): Promise<void> {
       record.hp,
       JSON.stringify(record.equipment),
       JSON.stringify(record.npcInteractAt),
+      JSON.stringify(record.craftMastery),
       JSON.stringify(record.mobGoldClaimed),
       record.knockedOutUntil,
       JSON.stringify(record.skills),
@@ -411,6 +418,9 @@ export async function bindCharacterToWallet(
     ),
     npcInteractAt:
       existingByWallet?.npcInteractAt ?? existingByName?.npcInteractAt ?? {},
+    craftMastery: normalizeCraftMastery(
+      existingByWallet?.craftMastery ?? existingByName?.craftMastery,
+    ),
     mobGoldClaimed:
       existingByWallet?.mobGoldClaimed ?? existingByName?.mobGoldClaimed ?? {},
     knockedOutUntil:
@@ -512,6 +522,7 @@ function mapRow(row: CharacterRow): CharacterRecord {
     hp: row.hp ?? getPlayerMaxHp(row.level),
     equipment: normalizeEquipment(row.equipment ?? EMPTY_EQUIPMENT),
     npcInteractAt: normalizeNpcInteractAt(row.npc_interact_at),
+    craftMastery: normalizeCraftMastery(row.craft_mastery),
     mobGoldClaimed: normalizeMobGoldClaimed(row.mob_gold_claimed),
     knockedOutUntil: normalizeKnockedOutUntil(row.knocked_out_until),
     skills: normalizeSkills(row.skills),

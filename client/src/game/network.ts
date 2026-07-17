@@ -48,6 +48,7 @@ import {
   RegionalPricesPayload,
   CaravanBoardPayload,
   CaravanResultPayload,
+  CraftMasteryPayload,
   GuildStatePayload,
   GuildResultPayload,
   CompanyStatePayload,
@@ -348,6 +349,8 @@ export class NetworkManager {
   private regionalPricesListeners = new Set<(payload: RegionalPricesPayload) => void>();
   private caravanBoardListeners = new Set<(payload: CaravanBoardPayload) => void>();
   private caravanResultListeners = new Set<(payload: CaravanResultPayload) => void>();
+  private craftMasteryListeners = new Set<(payload: CraftMasteryPayload) => void>();
+  private craftMasteryResultListeners = new Set<(payload: { ok: boolean; error?: string }) => void>();
   private worldsListListeners = new Set<(worlds: WorldDirectoryEntry[]) => void>();
   private myWorldsListeners = new Set<(worlds: MyWorldEntry[]) => void>();
   private zoneResultListeners = new Set<(result: ZoneResultPayload) => void>();
@@ -975,6 +978,28 @@ export class NetworkManager {
 
   sendJobPost(kind: string, itemId: string | null, qty: number, rewardGold: number, deliverZoneId: string | null = null) {
     this.room?.send("jobPost", { kind, itemId, qty, rewardGold, deliverZoneId });
+  }
+
+  requestCraftMastery() {
+    this.room?.send("craftMastery", {});
+  }
+
+  sendCraftSpecSet(family: string) {
+    this.room?.send("craftSpecSet", { family });
+  }
+
+  sendCraftRespec() {
+    this.room?.send("craftRespec", {});
+  }
+
+  onCraftMastery(listener: (payload: CraftMasteryPayload) => void) {
+    this.craftMasteryListeners.add(listener);
+    return () => this.craftMasteryListeners.delete(listener);
+  }
+
+  onCraftMasteryResult(listener: (payload: { ok: boolean; error?: string }) => void) {
+    this.craftMasteryResultListeners.add(listener);
+    return () => this.craftMasteryResultListeners.delete(listener);
   }
 
   requestCaravanBoard() {
@@ -2157,6 +2182,12 @@ export class NetworkManager {
     });
     this.room.onMessage("caravanResult", (payload: CaravanResultPayload) => {
       for (const listener of this.caravanResultListeners) listener(payload);
+    });
+    this.room.onMessage("craftMastery", (payload: CraftMasteryPayload) => {
+      for (const listener of this.craftMasteryListeners) listener(payload);
+    });
+    this.room.onMessage("craftMasteryResult", (payload: { ok: boolean; error?: string }) => {
+      for (const listener of this.craftMasteryResultListeners) listener(payload);
     });
     this.room.onMessage("emote", (payload: EmotePayload) => {
       for (const listener of this.emoteListeners) {

@@ -442,6 +442,26 @@ import {
 import { creditTreasuryGold } from "../economy/treasury.js";
 import { fillTownOrder, getTownOrders, playerOrderGoldRemaining } from "../economy/townDemand.js";
 import {
+  baseItemIdOf,
+  bonusYieldChance,
+  CRAFT_FAMILIES,
+  CRAFT_RESPEC_COST,
+  craftFamilyOf,
+  emptyCraftMastery,
+  fineChance,
+  isQualityEligible,
+  masterChance,
+  MASTERY_DAILY_XP_CAP,
+  masteryLevel,
+  masteryXpForCraft,
+  MAX_CRAFT_SPECS,
+  normalizeCraftMastery,
+  qualityVariantId,
+  type CraftFamily,
+  type CraftMasteryPayload,
+  type CraftMasteryState,
+} from "@metricbase/shared";
+import {
   acceptRun,
   activeRunOf,
   caravanCooldownMs,
@@ -595,6 +615,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   private inputs = new Map<string, PendingInput>();
   private chatCooldowns = new Map<string, number>();
   private npcInteractAt = new Map<string, Record<string, number>>();
+  /** Craft mastery + specialization per pid (craftQuality.ts). */
+  private craftMastery = new Map<string, CraftMasteryState>();
   private mobGoldClaimed = new Map<string, Record<string, boolean>>();
   private playerKnockedOutUntil = new Map<string, number>();
   private playerLastCombatAt = new Map<string, number>();
@@ -994,6 +1016,61 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
     this.onProtectedMessage("enhanceGear", (client, message: { slot?: string }) => {
       void this.handleEnhanceGear(client, message.slot ?? "");
+    });
+
+    // ----- Craft mastery / specialization (craftQuality.ts) -----
+    this.onMessage("craftMastery", (client) => {
+      const player = this.state.players.get(client.sessionId);
+      if (!player) return;
+      client.send("craftMastery", this.buildCraftMasteryPayload(this.pidOf(player)));
+    });
+    this.onProtectedMessage("craftSpecSet", (client, m: { family?: string }) => {
+      const player = this.state.players.get(client.sessionId);
+      if (!player) return;
+      const family = m.family as CraftFamily;
+      const mastery = this.craftMastery.get(this.pidOf(player)) ?? emptyCraftMastery();
+      if (!CRAFT_FAMILIES.includes(family)) {
+        return void client.send("craftMasteryResult", { ok: false, error: "Unknown craft family." });
+      }
+      if (mastery.specs.includes(family)) {
+        return void client.send("craftMasteryResult", { ok: false, error: "Already specialized in that family." });
+      }
+      if (mastery.specs.length >= MAX_CRAFT_SPECS) {
+        return void client.send("craftMasteryResult", {
+          ok: false,
+          error: `You can master only ${MAX_CRAFT_SPECS} families — respec to change paths.`,
+        });
+      }
+      mastery.specs.push(family);
+      this.craftMastery.set(this.pidOf(player), mastery);
+      void this.persistPlayer(player);
+      client.send("craftMasteryResult", { ok: true });
+      client.send("craftMastery", this.buildCraftMasteryPayload(this.pidOf(player)));
+    });
+    this.onProtectedMessage("craftRespec", (client) => {
+      const player = this.state.players.get(client.sessionId);
+      if (!player) return;
+      const mastery = this.craftMastery.get(this.pidOf(player)) ?? emptyCraftMastery();
+      if (mastery.specs.length === 0) {
+        return void client.send("craftMasteryResult", { ok: false, error: "You have no specializations to reset." });
+      }
+      const gold = this.playerGold.get(this.pidOf(player)) ?? STARTING_GOLD;
+      if (gold < CRAFT_RESPEC_COST) {
+        return void client.send("craftMasteryResult", {
+          ok: false,
+          error: `A respec costs ${CRAFT_RESPEC_COST.toLocaleString()} gold.`,
+        });
+      }
+      this.playerGold.set(this.pidOf(player), gold - CRAFT_RESPEC_COST);
+      burnGold(CRAFT_RESPEC_COST);
+      bumpMetric("gold.sink.respec", CRAFT_RESPEC_COST);
+      // XP is kept — the respec fee buys back the SLOTS, not your knowledge.
+      mastery.specs = [];
+      this.craftMastery.set(this.pidOf(player), mastery);
+      this.sendProfile(client, player);
+      void this.persistPlayer(player);
+      client.send("craftMasteryResult", { ok: true });
+      client.send("craftMastery", this.buildCraftMasteryPayload(this.pidOf(player)));
     });
 
     this.onProtectedMessage("craft", (client, message: { recipeId?: string }) => {
@@ -1799,6 +1876,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     player.hp = this.playerHp.get(this.pidOf(player)) ?? player.maxHp;
     player.stamina = this.playerStamina.get(this.pidOf(player)) ?? STARTING_STAMINA;
     this.npcInteractAt.set(this.pidOf(player), saved?.npcInteractAt ?? {});
+    this.craftMastery.set(this.pidOf(player), normalizeCraftMastery(saved?.craftMastery));
     this.mobGoldClaimed.set(this.pidOf(player), saved?.mobGoldClaimed ?? {});
     this.playerSkills.set(this.pidOf(player), normalizeSkills(saved?.skills));
 
@@ -1899,6 +1977,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         this.playerHp.delete(pid);
         this.playerEquipment.delete(pid);
         this.npcInteractAt.delete(pid);
+        this.craftMastery.delete(pid);
         this.mobGoldClaimed.delete(pid);
         this.playerStamina.delete(pid);
         this.playerSkills.delete(pid);
@@ -5531,9 +5610,12 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
    * the gold, and book the sell metrics. Returns the payout. Shared by player
    * shop-sell and company warehouse-sell so both behave identically. */
   private vendorSellProceeds(itemId: string, basePrice: number, qty: number): number {
-    const unitPrice = effectiveSellPrice(itemId, basePrice, Date.now(), this.priceRegion());
+    // Quality variants price + saturate under their base id (value ignores
+    // quality; a dump of Fine axes softens the axe market, not a shadow one).
+    const marketId = baseItemIdOf(itemId);
+    const unitPrice = effectiveSellPrice(marketId, basePrice, Date.now(), this.priceRegion());
     const payout = unitPrice * qty;
-    recordSale(itemId, qty, Date.now(), this.priceRegion());
+    recordSale(marketId, qty, Date.now(), this.priceRegion());
     mintGold(payout);
     bumpMetric("sell.count", qty);
     bumpMetric("sell.gold", payout);
@@ -5557,7 +5639,10 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       return;
     }
 
-    const basePrice = shop.sellPrices[itemId];
+    // Quality variants vendor at their BASE item's price (value ignores
+    // quality); the variant itself is what leaves the bag. Saturation and the
+    // S/D ledger key on the base id so variants share the base's market.
+    const basePrice = shop.sellPrices[itemId] ?? shop.sellPrices[baseItemIdOf(itemId)];
     if (!basePrice) {
       client.send("shopResult", { ok: false, error: "Merchant won't buy that item." });
       return;
@@ -6508,6 +6593,24 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     await this.sendMailState(client, player.name);
   }
 
+  private buildCraftMasteryPayload(pid: string): CraftMasteryPayload {
+    const mastery = this.craftMastery.get(pid) ?? emptyCraftMastery();
+    const day = new Date().toISOString().slice(0, 10);
+    const xpToday = mastery.day === day ? mastery.xpToday : 0;
+    const levels: CraftMasteryPayload["levels"] = {};
+    for (const family of CRAFT_FAMILIES) {
+      const xp = mastery.xp[family] ?? 0;
+      if (xp > 0 || mastery.specs.includes(family)) levels[family] = { level: masteryLevel(xp), xp };
+    }
+    return {
+      specs: mastery.specs,
+      levels,
+      xpTodayRemaining: Math.max(0, MASTERY_DAILY_XP_CAP - xpToday),
+      respecCost: CRAFT_RESPEC_COST,
+      maxSpecs: MAX_CRAFT_SPECS,
+    };
+  }
+
   private async completeCraft(client: Client, playerName: string, recipeId: string) {
     this.craftingUntil.delete(playerName);
 
@@ -6554,28 +6657,75 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       return;
     }
 
+    // ---- Mastery + quality roll (craftQuality.ts) ----
+    // Specialized families earn value-weighted, daily-capped mastery XP and
+    // roll Fine/Master variants (gear) or bonus yield (goods). Non-spec
+    // families always produce Standard — trade with a specialist instead.
+    const pid = this.pidForName(playerName);
+    const mastery = this.craftMastery.get(pid) ?? emptyCraftMastery();
+    const family = craftFamilyOf(recipe.output.itemId);
+    let outputItemId = recipe.output.itemId;
+    let outputQty = recipe.output.quantity;
+    let qualityNote = "";
+    if (mastery.specs.includes(family)) {
+      const day = new Date().toISOString().slice(0, 10);
+      if (mastery.day !== day) {
+        mastery.day = day;
+        mastery.xpToday = 0;
+      }
+      const inputCost =
+        recipe.inputs.reduce((sum, i) => sum + getItemBaseValue(i.itemId) * i.quantity, 0) + recipe.goldCost;
+      const xpGain = Math.min(masteryXpForCraft(inputCost), Math.max(0, MASTERY_DAILY_XP_CAP - mastery.xpToday));
+      if (xpGain > 0) {
+        mastery.xp[family] = (mastery.xp[family] ?? 0) + xpGain;
+        mastery.xpToday += xpGain;
+      }
+      const level = masteryLevel(mastery.xp[family] ?? 0);
+      const roll = Math.random();
+      if (isQualityEligible(recipe.output.itemId)) {
+        if (roll < masterChance(level)) {
+          outputItemId = qualityVariantId(recipe.output.itemId, "master");
+          bumpMetric("craft.quality.master");
+          qualityNote = " 🌟 MASTER quality!";
+        } else if (roll < masterChance(level) + fineChance(level)) {
+          outputItemId = qualityVariantId(recipe.output.itemId, "fine");
+          bumpMetric("craft.quality.fine");
+          qualityNote = " ✨ Fine quality!";
+        }
+      } else if (roll < bonusYieldChance(level)) {
+        outputQty += 1;
+        bumpMetric("craft.bonusYield");
+        qualityNote = " ✨ Bonus yield!";
+      }
+      this.craftMastery.set(pid, mastery);
+    }
+
     for (const input of recipe.inputs) {
       inventory = removeItemFromInventory(inventory, input.itemId, input.quantity).inventory;
       recordConsumed(input.itemId, input.quantity, this.priceRegion());
     }
-    inventory = addItemToInventory(inventory, recipe.output.itemId, recipe.output.quantity, this.bagCapOf(playerName)).inventory;
-    recordProduced(recipe.output.itemId, recipe.output.quantity, this.priceRegion());
+    // The pre-check guaranteed the base quantity fits; a bonus-yield unit may
+    // not — grant what actually fits and record only that.
+    const addResult = addItemToInventory(inventory, outputItemId, outputQty, this.bagCapOf(playerName));
+    inventory = addResult.inventory;
+    const granted = addResult.added;
+    recordProduced(outputItemId, granted, this.priceRegion());
     gold -= recipe.goldCost;
     this.playerGold.set(this.pidForName(playerName), gold);
     this.inventories.set(this.pidForName(playerName), inventory);
-    bumpMetric("craft.count", recipe.output.quantity);
-    this.bumpDaily(playerName, "craft", recipe.output.quantity);
+    bumpMetric("craft.count", granted);
+    this.bumpDaily(playerName, "craft", granted);
     if (recipe.goldCost > 0) burnGold(recipe.goldCost); // forge fee sink
     this.sendInventory(client, playerName);
     this.sendProfile(client, player);
 
-    const outputName = ITEMS[recipe.output.itemId]?.name ?? recipe.output.itemId;
+    const outputName = ITEMS[outputItemId]?.name ?? outputItemId;
     this.broadcastChat({
       id: crypto.randomUUID(),
       channel: "system",
       senderId: "system",
       senderName: "Crafting",
-      body: `${playerName} crafted ${recipe.output.quantity}x ${outputName}.`,
+      body: `${playerName} crafted ${granted}x ${outputName}.${qualityNote}`,
       sentAt: Date.now(),
     });
 
@@ -8419,6 +8569,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       hp: this.playerHp.get(this.pidOf(player)) ?? getPlayerMaxHp(player.level),
       equipment: normalizeEquipment(this.playerEquipment.get(this.pidOf(player))),
       npcInteractAt: this.npcInteractAt.get(this.pidOf(player)) ?? {},
+      craftMastery: this.craftMastery.get(this.pidOf(player)) ?? emptyCraftMastery(),
       mobGoldClaimed: this.mobGoldClaimed.get(this.pidOf(player)) ?? {},
       knockedOutUntil: this.isKnockedOut(player.name)
         ? (this.playerKnockedOutUntil.get(player.name) ?? null)

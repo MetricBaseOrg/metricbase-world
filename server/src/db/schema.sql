@@ -335,6 +335,9 @@ CREATE INDEX IF NOT EXISTS jobs_status_idx ON jobs (status);
 -- Haul jobs (v0.154): supply contracts may pin delivery to a specific town.
 ALTER TABLE jobs ADD COLUMN IF NOT EXISTS deliver_zone_id VARCHAR(64);
 
+-- Craft mastery + specialization (v0.155, craftQuality.ts): {specs, xp, day, xpToday}.
+ALTER TABLE characters ADD COLUMN IF NOT EXISTS craft_mastery JSONB NOT NULL DEFAULT '{}'::jsonb;
+
 CREATE TABLE IF NOT EXISTS pending_gold (
   player_name VARCHAR(16) PRIMARY KEY,
   amount INTEGER NOT NULL DEFAULT 0

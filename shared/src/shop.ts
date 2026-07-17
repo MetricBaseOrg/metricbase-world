@@ -123,6 +123,12 @@ const valueCache = new Map<string, number>();
  * crop-market fallback for future crops. Also drives gather-tax valuation.
  */
 export function getItemBaseValue(itemId: string): number {
+  // NPC value IGNORES craft quality (craftQuality.ts): a Fine/Master variant
+  // vendors at exactly the Standard price, so quality can never mint gold —
+  // its premium exists only in player-to-player trade. (Inline suffix check
+  // instead of importing craftQuality to keep module-init order simple.)
+  const qualityMatch = /_(fine|master)$/.exec(itemId);
+  if (qualityMatch) return getItemBaseValue(itemId.slice(0, -qualityMatch[0].length));
   const cached = valueCache.get(itemId);
   if (cached !== undefined) return cached;
   valueCache.set(itemId, 0); // cycle guard for recursive recipe lookups
@@ -163,7 +169,10 @@ const KIND_ORDER: Record<string, number> = {
 /** Every tradable item id: has a value; pets stay gem-shop exclusive. */
 function tradableItemIds(): string[] {
   return Object.keys(ITEMS)
-    .filter((id) => !PET_IDS.has(id) && getItemBaseValue(id) > 0)
+    // Quality variants (craftQuality.ts) are EXCLUDED: Pip only ever stocks
+    // Standard gear — Fine/Master exists solely through player crafting. The
+    // sellPrices side is fine either way (value ignores quality).
+    .filter((id) => !PET_IDS.has(id) && !/_(fine|master)$/.test(id) && getItemBaseValue(id) > 0)
     .sort(
       (a, b) =>
         (KIND_ORDER[ITEMS[a].kind] ?? 9) - (KIND_ORDER[ITEMS[b].kind] ?? 9) ||

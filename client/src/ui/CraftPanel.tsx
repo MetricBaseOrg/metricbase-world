@@ -1,15 +1,23 @@
 import {
+  CRAFT_FAMILIES,
+  CRAFT_FAMILY_INFO,
   CRAFT_RECIPES,
   ENHANCEABLE_SLOTS,
+  MAX_CRAFT_SPECS,
   MAX_ENHANCE_LEVEL,
   RARITY_COLORS,
+  bonusYieldChance,
   enhanceCost,
   enhanceSuccessRate,
+  familyRollsQuality,
+  fineChance,
   getCraftDurationMs,
   getDismantleRefund,
   getGearStat,
   getItemDefinition,
   getItemQuantity,
+  masterChance,
+  type CraftMasteryPayload,
   type CraftRecipe,
   type EquipmentSlot,
 } from "@metricbase/shared";
@@ -19,13 +27,14 @@ import { networkManager } from "../game/network";
 import { useGameStore } from "../store/gameStore";
 import { ItemIcon } from "./ItemIcon";
 
-type Tab = "craft" | "refine" | "enhance" | "dismantle";
+type Tab = "craft" | "refine" | "enhance" | "dismantle" | "mastery";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "craft", label: "🔨 Craft" },
   { id: "refine", label: "🔥 Refine" },
   { id: "enhance", label: "⚒️ Enhance" },
   { id: "dismantle", label: "♻️ Dismantle" },
+  { id: "mastery", label: "🎓 Mastery" },
 ];
 
 const SLOT_LABELS: Partial<Record<EquipmentSlot, string>> = {
@@ -88,6 +97,7 @@ export function CraftPanel() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [enhanceMsg, setEnhanceMsg] = useState<string | null>(null);
+  const [mastery, setMastery] = useState<CraftMasteryPayload | null>(null);
 
   const refineRecipes = useMemo(
     () => CRAFT_RECIPES.filter((r) => getItemDefinition(r.output.itemId).kind === "material"),
@@ -109,6 +119,17 @@ export function CraftPanel() {
   const dismantleItems = inventory.items.filter((entry) => getDismantleRefund(entry.itemId) !== null);
 
   useEffect(() => {
+    const offMastery = networkManager.onCraftMastery(setMastery);
+    const offMasteryResult = networkManager.onCraftMasteryResult((p) => {
+      setBusy(false);
+      if (!p.ok) {
+        playSfx("shop_fail");
+        setError(p.error ?? "Mastery change failed.");
+      } else {
+        playSfx("level_up");
+        setError(null);
+      }
+    });
     const off = networkManager.onEnhanceResult((p) => {
       setBusy(false);
       if (!p.ok) {
@@ -122,8 +143,14 @@ export function CraftPanel() {
     });
     return () => {
       off();
+      offMastery();
+      offMasteryResult();
     };
   }, []);
+
+  useEffect(() => {
+    if (open) networkManager.requestCraftMastery();
+  }, [open]);
 
   if (!open) return null;
 
@@ -381,6 +408,75 @@ export function CraftPanel() {
             )}
             {tab === "craft" && renderRecipeList(craftRecipes)}
             {tab === "refine" && renderRecipeList(refineRecipes)}
+            {tab === "mastery" && (
+              <div style={{ padding: "6px 4px", display: "grid", gap: 8 }}>
+                <div className="chibi-text-muted" style={{ fontSize: "0.72rem" }}>
+                  Master up to <b>{mastery?.maxSpecs ?? MAX_CRAFT_SPECS}</b> craft families. Specialized
+                  crafts earn mastery XP and roll <b>✨ Fine</b> / <b>🌟 Master</b> gear (or bonus
+                  portions for goods) — everyone else crafts Standard. Daily XP left:{" "}
+                  <b>{mastery?.xpTodayRemaining ?? "—"}</b>
+                </div>
+                {CRAFT_FAMILIES.map((family) => {
+                  const info = CRAFT_FAMILY_INFO[family];
+                  const spec = mastery?.specs.includes(family) ?? false;
+                  const lv = mastery?.levels[family]?.level ?? 0;
+                  const xp = mastery?.levels[family]?.xp ?? 0;
+                  const nextXp = 40 * (lv + 1) * (lv + 1);
+                  const specsFull = (mastery?.specs.length ?? 0) >= (mastery?.maxSpecs ?? MAX_CRAFT_SPECS);
+                  return (
+                    <div key={family} className="chibi-card" style={{ padding: "8px 10px" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ fontSize: "1.1rem" }}>{info.icon}</span>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontWeight: 800, fontSize: "0.8rem" }}>
+                            {info.label}
+                            {spec && <span style={{ color: "var(--chibi-gold-deep)" }}> · Lv {lv}</span>}
+                          </div>
+                          <div className="chibi-text-muted" style={{ fontSize: "0.64rem" }}>{info.blurb}</div>
+                        </div>
+                        {spec ? (
+                          <span className="chibi-btn chibi-btn--tab active" style={{ padding: "3px 8px", fontSize: "0.66rem" }}>🎓 Yours</span>
+                        ) : (
+                          <button
+                            type="button"
+                            className="chibi-btn chibi-btn--primary"
+                            style={{ padding: "4px 9px", fontSize: "0.68rem" }}
+                            disabled={busy || specsFull}
+                            onClick={() => { playSfx("ui_click"); setBusy(true); networkManager.sendCraftSpecSet(family); }}
+                          >
+                            Specialize
+                          </button>
+                        )}
+                      </div>
+                      {spec && (
+                        <>
+                          <div style={{ marginTop: 6, height: 6, background: "rgba(0,0,0,0.1)", borderRadius: 3 }}>
+                            <div style={{ height: 6, width: `${Math.min(100, Math.round((xp / nextXp) * 100))}%`, background: "var(--chibi-gold-deep, #b8860b)", borderRadius: 3 }} />
+                          </div>
+                          <div className="chibi-text-muted" style={{ marginTop: 4, fontSize: "0.62rem" }}>
+                            {familyRollsQuality(family)
+                              ? `✨ Fine ${Math.round(fineChance(lv) * 100)}% · 🌟 Master ${Math.round(masterChance(lv) * 1000) / 10}%`
+                              : `✨ Bonus yield ${Math.round(bonusYieldChance(lv) * 100)}%`}
+                            {` · ${xp}/${nextXp} xp`}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
+                {(mastery?.specs.length ?? 0) > 0 && (
+                  <button
+                    type="button"
+                    className="chibi-btn chibi-btn--secondary"
+                    style={{ padding: "6px 10px", fontSize: "0.7rem" }}
+                    disabled={busy || playerGold < (mastery?.respecCost ?? 0)}
+                    onClick={() => { playSfx("ui_click"); setBusy(true); networkManager.sendCraftRespec(); }}
+                  >
+                    ♻️ Respec — clear specializations for 🪙 {(mastery?.respecCost ?? 0).toLocaleString()} (XP is kept)
+                  </button>
+                )}
+              </div>
+            )}
             {tab === "enhance" &&
               (enhanceSlots.length === 0 ? (
                 <div className="chibi-text-muted" style={{ padding: 10, fontSize: "0.76rem" }}>
