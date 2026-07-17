@@ -32,6 +32,7 @@ import { initAssetMarket } from "./zones/assetMarket.js";
 import { initJobs } from "./jobs/jobRegistry.js";
 import { ensureMetricFloor, initMetrics } from "./economy/metrics.js";
 import { initItemFlows } from "./economy/itemFlows.js";
+import { initTownDemand } from "./economy/townDemand.js";
 import { initFarmRegistry } from "./farming/farmRegistry.js";
 import { initGuildRegistry } from "./guild/guildRegistry.js";
 import { initCompanyRegistry, runCompanyDailyPayouts } from "./company/companyRegistry.js";
@@ -146,6 +147,16 @@ await initAssetMarket();
 await initJobs();
 await initMetrics();
 await initItemFlows();
+// Town demand needs the 7-day flows loaded (ambient consumption is throttled
+// by real production), so it boots after initItemFlows.
+initTownDemand((posted) => {
+  for (const order of posted) {
+    ZoneRoom.announceGlobal(
+      "Town Board",
+      `📋 ${order.townLabel} posted an order: ${order.remaining}× ${order.itemId.replace(/^item_/, "").replace(/_/g, " ")} at ${Math.round((order.premium - 1) * 100)}% over market!`,
+    );
+  }
+});
 // Backfill lifetime metrics that predate the tracking system from durable
 // character state, so /stats reflects history rather than starting at zero.
 // Only metrics with an exact durable source are reconstructed (fabricating the

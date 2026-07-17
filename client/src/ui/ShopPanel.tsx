@@ -14,6 +14,7 @@ import {
   type MarketStatePayload,
   type P2PMarketListing,
   type PlayerShopResultPayload,
+  type TownOrdersPayload,
   type ShopOpenPayload,
   type ShopResultPayload,
 } from "@metricbase/shared";
@@ -28,7 +29,7 @@ import { GoldMarketChart } from "./GoldMarketChart";
 import { PipGoldDesk } from "./PipGoldDesk";
 import { WalletConnectBar } from "./WalletConnectBar";
 
-type ShopTab = "gold" | "market" | "p2p";
+type ShopTab = "gold" | "market" | "p2p" | "orders";
 
 function refreshShopCatalog(
   shop: ShopOpenPayload,
@@ -101,6 +102,26 @@ async function waitForP2pMarket() {
   });
 }
 
+async function waitForTownOrders() {
+  return new Promise<TownOrdersPayload | null>((resolve) => {
+    const timeout = window.setTimeout(() => resolve(null), 10000);
+    const unsubscribe = networkManager.onTownOrders((payload) => {
+      window.clearTimeout(timeout);
+      unsubscribe();
+      resolve(payload);
+    });
+    networkManager.requestTownOrders();
+  });
+}
+
+/** Compact time-left label for an order ("5h 12m", "48m"). */
+function formatTimeLeft(expiresAt: number): string {
+  const ms = Math.max(0, expiresAt - Date.now());
+  const mins = Math.floor(ms / 60000);
+  if (mins < 60) return `${mins}m`;
+  return `${Math.floor(mins / 60)}h ${mins % 60}m`;
+}
+
 async function waitForPlayerShopResult() {
   return new Promise<PlayerShopResultPayload>((resolve) => {
     const timeout = window.setTimeout(() => resolve({ ok: false, error: "Shop request timed out." }), 8000);
@@ -150,6 +171,9 @@ export function ShopPanel() {
   // loaded yet (fetched when the tab opens).
   const [p2pListings, setP2pListings] = useState<P2PMarketListing[] | null>(null);
   const [p2pSearch, setP2pSearch] = useState("");
+  // Town order board: fetched when the tab opens; null = loading.
+  const [townOrders, setTownOrders] = useState<TownOrdersPayload | null>(null);
+  const zoneId = useGameStore((state) => state.zoneId);
 
   if (!open || !shop) return null;
 
@@ -267,6 +291,33 @@ export function ShopPanel() {
 
   const refreshP2pMarket = () => {
     void waitForP2pMarket().then(setP2pListings);
+  };
+
+  const refreshTownOrders = () => {
+    void waitForTownOrders().then(setTownOrders);
+  };
+
+  const handleTownOrderFill = async (orderId: string) => {
+    setPending(true);
+    setError(null);
+    const result = await new Promise<{ ok: boolean; error?: string; delivered?: number; goldPaid?: number }>((resolve) => {
+      const timeout = window.setTimeout(() => resolve({ ok: false, error: "Order request timed out." }), 8000);
+      const unsubscribe = networkManager.onTownOrderResult((payload) => {
+        window.clearTimeout(timeout);
+        unsubscribe();
+        resolve(payload);
+      });
+      networkManager.sendTownOrderFill(orderId);
+    });
+    setPending(false);
+    if (!result.ok) {
+      playSfx("shop_fail");
+      setError(result.error ?? "Could not fill the order.");
+      return;
+    }
+    playSfx("shop_buy");
+    setStatus(`Delivered ${result.delivered} — earned 🪙 ${result.goldPaid}.`);
+    refreshTownOrders();
   };
 
   const handleP2pBuy = async (listing: P2PMarketListing) => {
@@ -485,6 +536,7 @@ export function ShopPanel() {
       <div className="chibi-tabs">
         <button type="button" className={`chibi-btn chibi-btn--tab${tab === "gold" ? " active" : ""}`} onClick={() => { playSfx("ui_click"); setTab("gold"); }}>🪙 Gold Shop</button>
         <button type="button" className={`chibi-btn chibi-btn--tab${tab === "p2p" ? " active" : ""}`} onClick={() => { playSfx("ui_click"); setTab("p2p"); refreshP2pMarket(); }}>🤝 P2P Market</button>
+        <button type="button" className={`chibi-btn chibi-btn--tab${tab === "orders" ? " active" : ""}`} onClick={() => { playSfx("ui_click"); setTab("orders"); refreshTownOrders(); }}>📋 Town Orders</button>
         <button type="button" className={`chibi-btn chibi-btn--tab${tab === "market" ? " active" : ""}`} onClick={() => { playSfx("ui_click"); setTab("market"); refreshMarket(currency); }}>📈 Gold Market</button>
       </div>
 
@@ -563,6 +615,64 @@ export function ShopPanel() {
               </div>
             )}
           </div>
+        </>
+      ) : tab === "orders" ? (
+        <>
+          <div className="chibi-card chibi-card--info" style={{ marginTop: 14, fontSize: "0.85rem" }}>
+            <div style={{ fontWeight: 800, marginBottom: 6 }}>📋 Town order board</div>
+            <div style={{ fontSize: 12, opacity: 0.8 }}>
+              Towns buy goods in bulk at a premium over the going price — first come, first served,
+              and every order expires. Deliver <strong>at the town that posted it</strong>.
+            </div>
+          </div>
+          {townOrders && (
+            <div className="chibi-card chibi-card--gold" style={{ marginTop: 12, fontWeight: 800, fontSize: "0.82rem" }}>
+              Your remaining order earnings today: 🪙 {townOrders.playerDailyRemaining.toLocaleString()}
+            </div>
+          )}
+          <div style={{ marginTop: 12, display: "grid", gap: 8 }}>
+            {townOrders === null ? (
+              <div style={{ fontSize: 12, opacity: 0.6 }}>Loading the boards…</div>
+            ) : townOrders.orders.length === 0 ? (
+              <div style={{ fontSize: 12, opacity: 0.6 }}>No open orders right now — boards rotate every few hours.</div>
+            ) : (
+              townOrders.orders.map((order) => {
+                const here = order.zoneId === zoneId;
+                const owned = inventory.items.find((i) => i.itemId === order.itemId)?.quantity ?? 0;
+                return (
+                  <div key={order.id} className="chibi-card" style={orderRowStyle()}>
+                    <div>
+                      <div style={{ fontWeight: 800, fontSize: "0.85rem" }}>
+                        {ITEM_ICONS[order.itemId] ?? "📦"} {getItemDefinition(order.itemId).name} × {order.remaining}
+                        <span style={{ color: "var(--chibi-gold-deep)", marginLeft: 8 }}>+{Math.round((order.premium - 1) * 100)}%</span>
+                      </div>
+                      <div className="chibi-text-muted" style={{ marginTop: 4, fontSize: "0.75rem" }}>
+                        {order.townLabel} · ⏳ {formatTimeLeft(order.expiresAt)} · you have {owned}
+                        {!here && <span> · 🚶 travel there to deliver</span>}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      className="chibi-btn chibi-btn--primary"
+                      disabled={pending || !here || owned <= 0}
+                      onClick={() => void handleTownOrderFill(order.id)}
+                      style={{ padding: "8px 12px", fontSize: "0.78rem" }}
+                    >
+                      {here ? "Deliver" : order.townLabel}
+                    </button>
+                  </div>
+                );
+              })
+            )}
+          </div>
+          <button
+            type="button"
+            className="chibi-btn chibi-btn--secondary"
+            style={{ marginTop: 12, padding: "8px 12px", fontSize: "0.78rem" }}
+            onClick={() => { playSfx("ui_click"); refreshTownOrders(); }}
+          >
+            🔄 Refresh
+          </button>
         </>
       ) : tab === "p2p" ? (
         <>

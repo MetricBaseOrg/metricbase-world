@@ -481,6 +481,7 @@ async function load(){
       ["🧾","Gather tax paid",a["gathertax.gold"]],["👹","Gold from mobs",a["mob.gold"]],["✨","Gold from quests",a["quest.gold"]],
       ["🗺️","World expansions",a["zone.expanded"]],["🎒","Bag expansions",a["bag.expanded"]],
       ["📅","Daily tasks claimed",a["daily.claimed"]],["🔥","Login bonuses",a["daily.login"]],["🪙","Daily gold paid",a["daily.gold"]],
+      ["📋","Town orders filled",a["town.order.filled"]],["🏘️","Town-order gold",a["gold.faucet.townOrders"]],
       ["🧑‍🌾","Jobs posted",a["jobs.posted"]],["🤝","Jobs completed",a["jobs.completed"]],["💵","Job wages paid",a["jobs.goldPaid"]]];
     el("totals").innerHTML=tiles.map(tileHtml).join("");
     rows(el("treasurySrc"),s.treasury.bySource,function(x){return '<div class="row"><span>'+x.source+'</span><b>'+fmt(x.gold)+'g</b></div>';});

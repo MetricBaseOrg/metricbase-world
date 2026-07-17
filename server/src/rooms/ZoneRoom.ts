@@ -438,6 +438,7 @@ import {
   setZoneMeta,
 } from "../zones/zoneRegistry.js";
 import { creditTreasuryGold } from "../economy/treasury.js";
+import { fillTownOrder, getTownOrders, playerOrderGoldRemaining } from "../economy/townDemand.js";
 import { bumpMetric, burnGold, mintGold } from "../economy/metrics.js";
 import { creditGoldForPurchase, isPurchaseRedeemed, recordTokenPurchase } from "../db/tokenPurchases.js";
 import { emptyDailyRow, loadDailyState, saveDailyState, type DailyRow } from "../db/daily.js";
@@ -1316,6 +1317,19 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     this.onMessage("requestCompanies", (client) => {
       const player = this.state.players.get(client.sessionId);
       if (player) client.send("companyState", buildCompanyStatePayload(player.name));
+    });
+
+    // ----- Town order boards -----
+    this.onMessage("townOrders", (client) => {
+      const player = this.state.players.get(client.sessionId);
+      if (!player) return;
+      client.send("townOrders", {
+        orders: getTownOrders(),
+        playerDailyRemaining: playerOrderGoldRemaining(this.pidOf(player)),
+      });
+    });
+    this.onProtectedMessage("townOrderFill", (client, m: { orderId?: string }) => {
+      void this.handleTownOrderFill(client, m.orderId ?? "");
     });
 
     // ----- Stock Exchange -----
@@ -4390,6 +4404,19 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     addPendingGold(name, amount); // offline — collected on next join
   }
 
+  /** System-chat a line into every active room (town board posts, etc.). */
+  public static announceGlobal(senderName: string, body: string) {
+    const msg = {
+      id: crypto.randomUUID(),
+      channel: "system" as const,
+      senderId: "system",
+      senderName,
+      body,
+      sentAt: Date.now(),
+    };
+    for (const room of ZoneRoom.activeRooms) room.broadcastChat(msg);
+  }
+
   private handleAssetMarketList(client: Client, assetId: string, qty: number, price: number) {
     const player = this.state.players.get(client.sessionId);
     if (!player) return;
@@ -4542,6 +4569,59 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     }
     this.sendJobsState(client);
     this.broadcastJobsChanged();
+    await this.persistPlayer(player);
+  }
+
+  /** Deliver items into a town order at its board. Caps + demand recording
+   * live in fillTownOrder (economy/townDemand.ts); this handler verifies the
+   * player is AT the town (travel is the point), owns the goods unequipped,
+   * then removes items and pays via grantGold (guild/company skim applies). */
+  private async handleTownOrderFill(client: Client, orderId: string) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !orderId) return;
+    const order = getTownOrders().find((o) => o.id === orderId);
+    if (!order) {
+      return void client.send("townOrderResult", { ok: false, error: "That order is gone — the board rotates." });
+    }
+    if (order.zoneId !== this.zoneConfig.id) {
+      return void client.send("townOrderResult", {
+        ok: false,
+        error: `Deliver at ${order.townLabel}'s board — orders pay on location.`,
+      });
+    }
+    const current = this.inventories.get(this.pidOf(player)) ?? [];
+    const available = getItemQuantity(current, order.itemId);
+    if (available <= 0) {
+      return void client.send("townOrderResult", {
+        ok: false,
+        error: `You have no ${getItemDefinition(order.itemId).name} to deliver.`,
+      });
+    }
+    if (this.wouldStripEquipped(player, current, order.itemId, available)) {
+      return void client.send("townOrderResult", { ok: false, error: "That's equipped — unequip it first." });
+    }
+    const outcome = fillTownOrder(orderId, this.pidOf(player), available);
+    if (!outcome.ok || outcome.delivered <= 0) {
+      return void client.send("townOrderResult", { ok: false, error: outcome.error ?? "Could not fill the order." });
+    }
+    const { inventory } = removeItemFromInventory(current, order.itemId, outcome.delivered);
+    this.inventories.set(this.pidOf(player), inventory);
+    this.sendInventory(client, player.name);
+    this.grantGold(client, player, outcome.goldPaid, `supplied ${order.townLabel}`);
+    const itemName = getItemDefinition(order.itemId).name;
+    if ((outcome.order?.remaining ?? 0) <= 0) {
+      ZoneRoom.announceGlobal("Town Board", `📋 ${order.townLabel}'s ${itemName} order was filled by ${player.name}!`);
+    }
+    client.send("townOrderResult", {
+      ok: true,
+      orderId,
+      delivered: outcome.delivered,
+      goldPaid: outcome.goldPaid,
+    });
+    client.send("townOrders", {
+      orders: getTownOrders(),
+      playerDailyRemaining: playerOrderGoldRemaining(this.pidOf(player)),
+    });
     await this.persistPlayer(player);
   }
 

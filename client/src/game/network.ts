@@ -43,6 +43,8 @@ import {
   HousingResultPayload,
   HousingMarketListing,
   P2PMarketPayload,
+  TownOrdersPayload,
+  TownOrderFillResult,
   GuildStatePayload,
   GuildResultPayload,
   CompanyStatePayload,
@@ -338,6 +340,8 @@ export class NetworkManager {
   private housingMarketListeners = new Set<(payload: { listings: HousingMarketListing[] }) => void>();
   private housingMarketChangedListeners = new Set<() => void>();
   private p2pMarketListeners = new Set<(payload: P2PMarketPayload) => void>();
+  private townOrdersListeners = new Set<(payload: TownOrdersPayload) => void>();
+  private townOrderResultListeners = new Set<(payload: TownOrderFillResult) => void>();
   private worldsListListeners = new Set<(worlds: WorldDirectoryEntry[]) => void>();
   private myWorldsListeners = new Set<(worlds: MyWorldEntry[]) => void>();
   private zoneResultListeners = new Set<(result: ZoneResultPayload) => void>();
@@ -1093,6 +1097,24 @@ export class NetworkManager {
   onP2pMarket(listener: (payload: P2PMarketPayload) => void) {
     this.p2pMarketListeners.add(listener);
     return () => this.p2pMarketListeners.delete(listener);
+  }
+
+  requestTownOrders() {
+    this.room?.send("townOrders", {});
+  }
+
+  sendTownOrderFill(orderId: string) {
+    this.room?.send("townOrderFill", { orderId });
+  }
+
+  onTownOrders(listener: (payload: TownOrdersPayload) => void) {
+    this.townOrdersListeners.add(listener);
+    return () => this.townOrdersListeners.delete(listener);
+  }
+
+  onTownOrderResult(listener: (payload: TownOrderFillResult) => void) {
+    this.townOrderResultListeners.add(listener);
+    return () => this.townOrderResultListeners.delete(listener);
   }
 
   sendGuildCreate(name: string, tag: string) {
@@ -2083,6 +2105,12 @@ export class NetworkManager {
     });
     this.room.onMessage("p2pMarket", (payload: P2PMarketPayload) => {
       for (const listener of this.p2pMarketListeners) listener(payload);
+    });
+    this.room.onMessage("townOrders", (payload: TownOrdersPayload) => {
+      for (const listener of this.townOrdersListeners) listener(payload);
+    });
+    this.room.onMessage("townOrderResult", (payload: TownOrderFillResult) => {
+      for (const listener of this.townOrderResultListeners) listener(payload);
     });
     this.room.onMessage("emote", (payload: EmotePayload) => {
       for (const listener of this.emoteListeners) {

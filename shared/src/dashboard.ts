@@ -11,6 +11,10 @@ export const MOTTO_MAX_LENGTH = 80;
  */
 export const DASHBOARD_UPDATES: Array<{ title: string; body: string }> = [
   {
+    title: "v0.152 — Town Order Boards",
+    body: "Towns now consume goods and post time-limited bulk orders at a premium over market price! Check the new 📋 Town Orders tab in any shop: the Hub, Wilderness Camp and Grotto Outpost each want different goods — deliver on location before the order expires. First come, first served.",
+  },
+  {
     title: "v0.151 — A More Real Economy",
     body: "Prices now swing wider with real scarcity and gluts (0.4×–3× of base value), repair fees scale with your gear's tier, and the /stats dashboard gained a Money Supply panel: gold minted vs burned this week and a mint-pressure gauge — watch the economy breathe.",
   },
@@ -25,10 +29,6 @@ export const DASHBOARD_UPDATES: Array<{ title: string; body: string }> = [
   {
     title: "v0.146 — Charts, Portfolio & Discovery",
     body: "The Stock Exchange grows up: a price chart and high/low on every company, a Portfolio tab with your total value and profit/loss, and a Discover tab with top gainers, top losers, a market-cap leaderboard and a personal watchlist. Star the companies you're tracking.",
-  },
-  {
-    title: "v0.145 — Limit Orders & Order Book",
-    body: "Set your price: place standing buy or sell limit orders and let the matching engine fill them peer-to-peer at the best available price (with price improvement when you cross the spread). Each company's trade page now shows a live order book of bids and asks.",
   },
 ];
 
