@@ -7403,6 +7403,9 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       skillLevel: newLevel,
       playerName: session.playerName,
       ok: true,
+      // Real banked item for the drop-collect FX (crop fields carry the rolled
+      // seed here — the client shows its art, not a generic log).
+      ...(bankedQty > 0 ? { lootItemId, lootQuantity: bankedQty } : {}),
       ...(caughtSpecies && bankedQty > 0
         ? {
             caughtItemId: caughtSpecies.itemId,
@@ -7734,6 +7737,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       farmingLevel: newLevel,
       inventory: buildInventoryPayload(inventory, weaponId, this.bagCapOf(player.name)),
       playerName: player.name,
+      cropId: active.cropId,
+      cropQuantity: grantedCrop,
     });
     await this.persistPlayer(player);
   }

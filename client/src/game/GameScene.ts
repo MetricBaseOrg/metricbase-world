@@ -810,6 +810,12 @@ export class GameScene extends Phaser.Scene {
       }
       if (isLocal) {
         playSfx(payload.action === "harvest" ? "harvest" : "plant");
+        // Same drop-and-collect juice on harvest: the crop pops from the plot,
+        // lands, then flies into the player (shows the crop's hand-drawn art).
+        if (payload.action === "harvest" && payload.plotId) {
+          const plot = this.renderedFarmPlots.get(payload.plotId);
+          if (plot) this.spawnLootDropFx(plot.worldX, plot.worldY, payload.cropId, "tree");
+        }
       }
     });
 
@@ -912,12 +918,13 @@ export class GameScene extends Phaser.Scene {
               : "wood_gather",
         );
         // Drop-and-collect juice for woodcutting/mining (fishing has its own
-        // catch celebration). The token pops from the node, lands, then flies
-        // into the player.
+        // catch celebration). Shows the real banked item's art — crop fields
+        // drop the rolled seed, trees drop wood, rocks drop ore.
         if (payload.skill !== "fishing") {
           const node = this.renderedResources.find((entry) => entry.id === payload.resourceId);
-          if (node && (node.kind === "tree" || node.kind === "rock")) {
-            this.spawnLootDropFx(node.worldX, node.worldY, node.kind);
+          if (node) {
+            const fallbackKind = node.kind === "rock" ? "rock" : "tree";
+            this.spawnLootDropFx(node.worldX, node.worldY, payload.lootItemId, fallbackKind);
           }
         }
       }
@@ -3865,27 +3872,52 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  /** Loaded Phaser texture key for a gathered item's hand-drawn art, or null
+   * if it has no PNG (falls back to a procedural token). */
+  private lootTextureKey(itemId: string | undefined): string | null {
+    if (!itemId) return null;
+    const key = `loot-${itemId.replace(/^item_/, "").replace(/_/g, "-")}`;
+    return this.textures.exists(key) ? key : null;
+  }
+
   /**
-   * "Wood drops, then you pick it up" juice: a gathered-item token pops out of
-   * the node, arcs to the ground with a bounce + thud, sits a beat, then
-   * magnetizes into the local player with a sparkle + pickup chime. Purely
-   * cosmetic — the item is already banked server-side.
+   * "Item drops, then you pick it up" juice: the gathered item pops out of the
+   * node, arcs to the ground with a bounce + thud, sits a beat, then magnetizes
+   * into the local player with a sparkle + pickup chime. Shows the item's
+   * hand-drawn art when available (wood/ore/seed/crop), else a procedural token
+   * themed by `fallbackKind`. Purely cosmetic — already banked server-side.
    */
-  private spawnLootDropFx(originX: number, originY: number, kind: "tree" | "rock") {
-    const token = this.add.graphics();
-    this.drawLootToken(token, kind);
+  private spawnLootDropFx(
+    originX: number,
+    originY: number,
+    itemId: string | undefined,
+    fallbackKind: "tree" | "rock",
+  ) {
+    const texKey = this.lootTextureKey(itemId);
+    let token: Phaser.GameObjects.Sprite | Phaser.GameObjects.Graphics;
+    let baseScale = 1;
+    if (texKey) {
+      const sprite = this.add.sprite(0, 0, texKey);
+      // Hand-drawn item art is ~256px; normalise to a ~26px world token.
+      baseScale = 26 / Math.max(1, sprite.width);
+      token = sprite;
+    } else {
+      const g = this.add.graphics();
+      this.drawLootToken(g, fallbackKind);
+      token = g;
+    }
     const side = (Math.random() - 0.5) * 30;
     const groundX = originX + side;
     const groundY = originY + 6 + Math.random() * 4;
     token.setPosition(originX, originY - 24);
     token.setDepth(groundY + 13);
-    token.setScale(0.4);
+    token.setScale(baseScale * 0.4);
     // 1) Pop out of the node.
     this.tweens.add({
       targets: token,
       x: groundX,
       y: originY - 34,
-      scale: 1,
+      scale: baseScale,
       angle: (Math.random() - 0.5) * 40,
       duration: 190,
       ease: "Back.easeOut",
@@ -3908,7 +3940,7 @@ export class GameScene extends Phaser.Scene {
                 targets: token,
                 x: targetX,
                 y: targetY,
-                scale: 0.35,
+                scale: baseScale * 0.35,
                 alpha: 0.85,
                 duration: 260,
                 ease: "Cubic.easeIn",

@@ -181,4 +181,10 @@ export interface ChopResultPayload {
   caughtRarity?: string;
   /** Fishing only: how many of the species were landed (incl. bonus catches). */
   caughtQuantity?: number;
+  /** The item actually banked this gather (wood/ore/seed…) — drives the
+   * drop-and-collect FX so it shows the real item's art (e.g. crop fields drop
+   * the rolled seed, not wood). Absent for fishing (uses caughtItemId). */
+  lootItemId?: string;
+  /** How many of lootItemId were banked. */
+  lootQuantity?: number;
 }

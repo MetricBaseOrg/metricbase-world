@@ -55,6 +55,9 @@ export interface FarmResultPayload {
   farmingLevel?: number;
   inventory?: InventoryStatePayload;
   playerName?: string;
+  /** Harvest only: the crop item + count harvested, for the drop-collect FX. */
+  cropId?: string;
+  cropQuantity?: number;
 }
 
 // Seeds are sold by Pip and at player-placed crop markets (gold sinks that

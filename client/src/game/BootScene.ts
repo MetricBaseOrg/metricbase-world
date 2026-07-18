@@ -50,6 +50,16 @@ export class BootScene extends Phaser.Scene {
     this.load.image("npc-warden", "/assets/npcs/npc-warden.webp");
     this.load.image("npc-rook", "/assets/npcs/npc-rook.webp");
 
+    // Hand-drawn gathered-item art for the drop-and-collect FX. Keyed
+    // `loot-<itemName>` (matches ensureLootTexture in GameScene). Only the
+    // items that actually drop from woodcutting/mining/farming are preloaded;
+    // anything without art falls back to a procedural token.
+    for (const name of [
+      "wood", "hardwood", "ore", "iron-ore", "wheat-seed", "carrot-seed", "wheat", "carrot",
+    ]) {
+      this.load.image(`loot-${name}`, `/assets/items/${name}.png`);
+    }
+
     // Hand-drawn Mobs
     this.load.image("mob-slime", "/assets/mobs/mob-slime.webp");
     this.load.image("mob-slime-brute", "/assets/mobs/mob-slime-brute.webp");

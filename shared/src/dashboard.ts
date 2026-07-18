@@ -11,8 +11,8 @@ export const MOTTO_MAX_LENGTH = 80;
  */
 export const DASHBOARD_UPDATES: Array<{ title: string; body: string }> = [
   {
-    title: "v0.160 — Gathering Feels Good",
-    body: "Chop a tree or mine a rock and the loot now pops out, tumbles to the ground with a satisfying thud, then flies into your bag with a sparkle and a chime. Little touch, big difference.",
+    title: "v0.161 — Gathering Feels Good",
+    body: "Chop, mine, or harvest and the actual item — a bundle of wood, an ore chunk, seeds, a ripe crop — pops out in its hand-drawn art, tumbles to the ground with a thud, then flies into your bag with a sparkle and a chime. Crop fields drop their seeds, farms drop their harvest.",
   },
   {
     title: "v0.159 — Spot the Haulers",
