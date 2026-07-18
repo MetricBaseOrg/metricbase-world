@@ -911,6 +911,15 @@ export class GameScene extends Phaser.Scene {
               ? "fish_catch"
               : "wood_gather",
         );
+        // Drop-and-collect juice for woodcutting/mining (fishing has its own
+        // catch celebration). The token pops from the node, lands, then flies
+        // into the player.
+        if (payload.skill !== "fishing") {
+          const node = this.renderedResources.find((entry) => entry.id === payload.resourceId);
+          if (node && (node.kind === "tree" || node.kind === "rock")) {
+            this.spawnLootDropFx(node.worldX, node.worldY, node.kind);
+          }
+        }
       }
       if (payload.depleted) {
         playSfx("chop_fell");
@@ -3823,6 +3832,97 @@ export class GameScene extends Phaser.Scene {
         onComplete: () => chip.destroy(),
       });
     }
+  }
+
+  /** Draw a small gathered-item token (log for wood, ore chunk for rock) into
+   * a graphics object at its own origin. */
+  private drawLootToken(g: Phaser.GameObjects.Graphics, kind: "tree" | "rock") {
+    // Dark outline first (drawn as a slightly larger silhouette) so the token
+    // reads clearly against grass/dirt.
+    if (kind === "tree") {
+      g.fillStyle(0x3b2611, 1);
+      g.fillRoundedRect(-12, -7, 24, 14, 5);
+      g.fillStyle(0x8b5a2b, 1);
+      g.fillRoundedRect(-10, -5, 20, 10, 4);
+      g.fillStyle(0xc9955c, 1);
+      g.fillCircle(-10, 0, 5);
+      g.fillCircle(10, 0, 5);
+      g.fillStyle(0x6b4420, 1);
+      g.fillCircle(-10, 0, 2);
+      g.fillCircle(10, 0, 2);
+      g.fillStyle(0xe0b380, 1); // top highlight
+      g.fillRoundedRect(-9, -5, 18, 3, 2);
+    } else {
+      g.fillStyle(0x333333, 1);
+      g.fillRoundedRect(-10, -9, 20, 18, 6);
+      g.fillStyle(0x8a8a8a, 1);
+      g.fillRoundedRect(-8, -7, 16, 14, 5);
+      g.fillStyle(0xc4c4c4, 1);
+      g.fillTriangle(-7, -6, 3, -6, -3, 3);
+      g.fillStyle(0xe8d27a, 1); // ore flecks
+      g.fillCircle(4, -1, 2);
+      g.fillCircle(-1, 4, 1.8);
+    }
+  }
+
+  /**
+   * "Wood drops, then you pick it up" juice: a gathered-item token pops out of
+   * the node, arcs to the ground with a bounce + thud, sits a beat, then
+   * magnetizes into the local player with a sparkle + pickup chime. Purely
+   * cosmetic — the item is already banked server-side.
+   */
+  private spawnLootDropFx(originX: number, originY: number, kind: "tree" | "rock") {
+    const token = this.add.graphics();
+    this.drawLootToken(token, kind);
+    const side = (Math.random() - 0.5) * 30;
+    const groundX = originX + side;
+    const groundY = originY + 6 + Math.random() * 4;
+    token.setPosition(originX, originY - 24);
+    token.setDepth(groundY + 13);
+    token.setScale(0.4);
+    // 1) Pop out of the node.
+    this.tweens.add({
+      targets: token,
+      x: groundX,
+      y: originY - 34,
+      scale: 1,
+      angle: (Math.random() - 0.5) * 40,
+      duration: 190,
+      ease: "Back.easeOut",
+      onComplete: () => {
+        // 2) Fall to the ground with a bounce.
+        this.tweens.add({
+          targets: token,
+          y: groundY,
+          duration: 300,
+          ease: "Bounce.easeOut",
+          onComplete: () => {
+            playSfx("loot_drop");
+            this.spawnDustPuff(groundX, groundY);
+            // 3) Rest a beat, then fly to the player and get collected.
+            this.time.delayedCall(220, () => {
+              const local = this.findLocalPlayer();
+              const targetX = local ? local.predicted.x : groundX;
+              const targetY = local ? local.predicted.y - 14 : groundY;
+              this.tweens.add({
+                targets: token,
+                x: targetX,
+                y: targetY,
+                scale: 0.35,
+                alpha: 0.85,
+                duration: 260,
+                ease: "Cubic.easeIn",
+                onComplete: () => {
+                  this.spawnImpactBurst(targetX, targetY, false);
+                  playSfx("item_pickup");
+                  token.destroy();
+                },
+              });
+            });
+          },
+        });
+      },
+    });
   }
 
   /** Brief wobble on the node being worked so hits feel like they connect. */

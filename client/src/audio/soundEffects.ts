@@ -43,7 +43,8 @@ export type SfxType =
   | "ore_gather"
   | "craft"
   | "plant"
-  | "harvest";
+  | "harvest"
+  | "loot_drop";
 
 const MASTER_VOLUME = 0.32;
 const MUTE_STORAGE_KEY = "metricbase-sfx-muted";
@@ -217,6 +218,11 @@ export function playSfx(type: SfxType): void {
     case "item_pickup":
       playTone(ctx, masterGain, now, 660, "sine", 0.05, 0.14);
       playTone(ctx, masterGain, now + 0.05, 880, "sine", 0.08, 0.16);
+      break;
+    case "loot_drop":
+      // Soft thud as the gathered item lands on the ground.
+      playTone(ctx, masterGain, now, 150, "triangle", 0.07, 0.16);
+      playNoiseBurst(ctx, masterGain, now, 0.05, 0.06);
       break;
     case "fish_cast":
       playSweep(ctx, masterGain, now, 620, 220, 0.2, "triangle", 0.1);

@@ -11,6 +11,10 @@ export const MOTTO_MAX_LENGTH = 80;
  */
 export const DASHBOARD_UPDATES: Array<{ title: string; body: string }> = [
   {
+    title: "v0.160 — Gathering Feels Good",
+    body: "Chop a tree or mine a rock and the loot now pops out, tumbles to the ground with a satisfying thud, then flies into your bag with a sparkle and a chime. Little touch, big difference.",
+  },
+  {
     title: "v0.159 — Spot the Haulers",
     body: "Caravan haulers now carry a 📦 badge on their nameplate in red and black zones — where cargo drops on death. Escort your company's couriers, or turn bandit and hunt someone else's payday. The cargo is finally visible to everyone in the danger zones.",
   },
