@@ -548,9 +548,20 @@ export function getRecipe(recipeId: string): CraftRecipe | undefined {
   return CRAFT_RECIPES.find((recipe) => recipe.id === recipeId);
 }
 
-/** The recipe that produces `itemId`, if any (first match). */
+/** The recipe that produces `itemId`, if any (first match). Craft-quality
+ * variants (`<base>_fine` / `<base>_master`, craftQuality.ts) resolve to their
+ * base item's recipe, so they can be dismantled and repaired like the base.
+ * (Inline suffix check instead of importing craftQuality — that module imports
+ * CRAFT_RECIPES from here, so importing back would be circular.) */
 export function getRecipeForOutput(itemId: string): CraftRecipe | undefined {
-  return CRAFT_RECIPES.find((recipe) => recipe.output.itemId === itemId);
+  const direct = CRAFT_RECIPES.find((recipe) => recipe.output.itemId === itemId);
+  if (direct) return direct;
+  const quality = /_(fine|master)$/.exec(itemId);
+  if (quality) {
+    const baseId = itemId.slice(0, -quality[0].length);
+    return CRAFT_RECIPES.find((recipe) => recipe.output.itemId === baseId);
+  }
+  return undefined;
 }
 
 /** Fraction of crafting materials recovered when dismantling an item. */
