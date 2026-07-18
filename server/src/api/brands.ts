@@ -70,6 +70,12 @@ brandsRouter.post("/brand/auth", (req, res) => {
   res.json({ accessToken: token, wallet, expiresAt });
 });
 
+/** PUBLIC live-auction board: ranked bids + the slot each holds. Competitor
+ * CPMs are shown by design (transparency drives the auction); balances never. */
+brandsRouter.get("/brand/auction", (_req, res) => {
+  res.json(adService.getAuctionBoard());
+});
+
 /** Balance + campaign list for the signed-in brand. */
 brandsRouter.get("/brand/dashboard", async (req, res) => {
   const wallet = authedWallet(req);

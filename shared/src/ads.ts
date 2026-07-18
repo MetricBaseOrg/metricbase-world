@@ -106,6 +106,30 @@ export interface AdActionResult {
 }
 
 /** One slot's current occupant for the admin dashboard. */
+/** One row of the PUBLIC live-auction board on /brands. Deliberately exposes
+ * competitor CPMs (auction transparency drives bids up) but NEVER balances —
+ * only a funded yes/no. */
+export interface AdAuctionEntry {
+  /** 1-based auction rank; null = out of the auction (unfunded). */
+  rank: number | null;
+  campaignId: string;
+  name: string;
+  cpm: number;
+  /** Slot this rank currently holds, or null (outbid / out of inventory). */
+  slotLabel: string | null;
+  funded: boolean;
+  /** Unfunded admin campaign serving as a free house promo. */
+  housePromo: boolean;
+}
+
+export interface AdAuctionPayload {
+  entries: AdAuctionEntry[];
+  /** Inventory, richest-first, so the UI can show what's up for grabs. */
+  slots: { label: string; weight: number }[];
+  /** CPM needed to beat the current top bid (0 when the top slot is open). */
+  topCpm: number;
+}
+
 export interface AdSlotStat {
   slotId: string;
   label: string;

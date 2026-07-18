@@ -19,6 +19,8 @@ import {
   type BrandDashboardPayload,
   type AdProgramPayload,
   type AdAdminDashboardPayload,
+  type AdAuctionEntry,
+  type AdAuctionPayload,
   type AdSlotStat,
   type AdRankEntry,
   type AdTransparencyPayload,
@@ -425,6 +427,48 @@ class AdService {
   }
 
   // ---- Admin ops ----
+
+  /** PUBLIC live-auction board for /brands: ranked approved campaigns with the
+   * slot each rank holds. Mirrors recompute()'s ordering exactly (funded bids
+   * by CPM, then unfunded house promos); unfunded brand campaigns are listed
+   * rank-less so a drained brand can see they've dropped out. No balances. */
+  getAuctionBoard(): AdAuctionPayload {
+    const slots = [...AD_SLOTS].sort((a, b) => b.weight - a.weight);
+    const approved = [...this.campaigns.values()].filter((c) => c.status === "approved");
+    const funded = approved.filter((c) => this.isFunded(c)).sort((a, b) => b.cpm - a.cpm);
+    const housePromos = approved
+      .filter((c) => !this.isFunded(c) && this.isAdmin(c.brandWallet))
+      .sort((a, b) => b.cpm - a.cpm);
+    const sidelined = approved
+      .filter((c) => !this.isFunded(c) && !this.isAdmin(c.brandWallet))
+      .sort((a, b) => b.cpm - a.cpm);
+    const ordered = [...funded, ...housePromos];
+    const entries: AdAuctionEntry[] = ordered.map((c, i) => ({
+      rank: i + 1,
+      campaignId: c.id,
+      name: c.name,
+      cpm: toUiAmount(c.cpm, "base"),
+      slotLabel: slots[i]?.label ?? null,
+      funded: this.isFunded(c),
+      housePromo: !this.isFunded(c) && this.isAdmin(c.brandWallet),
+    }));
+    for (const c of sidelined) {
+      entries.push({
+        rank: null,
+        campaignId: c.id,
+        name: c.name,
+        cpm: toUiAmount(c.cpm, "base"),
+        slotLabel: null,
+        funded: false,
+        housePromo: false,
+      });
+    }
+    return {
+      entries,
+      slots: slots.map((s) => ({ label: s.label, weight: s.weight })),
+      topCpm: funded[0] ? toUiAmount(funded[0].cpm, "base") : 0,
+    };
+  }
 
   /** Platform-wide ad monitoring snapshot: totals, slot occupancy, bid ranks. */
   async getAdminDashboard(): Promise<AdAdminDashboardPayload> {

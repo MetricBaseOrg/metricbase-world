@@ -1,6 +1,7 @@
 import {
   AD_MIN_CPM,
   validateCampaign,
+  type AdAuctionPayload,
   type AdCampaign,
   type BrandDashboardPayload,
 } from "@metricbase/shared";
@@ -51,6 +52,7 @@ export function BrandPortal() {
   const [wallet, setWallet] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [dash, setDash] = useState<BrandDashboardPayload | null>(null);
+  const [auction, setAuction] = useState<AdAuctionPayload | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   // Multiple wallet extensions installed: let the advertiser choose one.
@@ -91,6 +93,12 @@ export function BrandPortal() {
         setGameStats({ online: s.players?.online ?? 0, registered: s.players?.registered ?? 0 });
       })
       .catch(() => undefined);
+    // Live auction board: public, refreshed every 30s while the page is open.
+    const loadAuction = () =>
+      void fetch(api("/brand/auction")).then(async (r) => setAuction(await r.json())).catch(() => undefined);
+    loadAuction();
+    const auctionTimer = window.setInterval(loadAuction, 30_000);
+    return () => window.clearInterval(auctionTimer);
   }, []);
 
   const authedFetch = async (path: string, body?: unknown) => {
@@ -151,6 +159,7 @@ export function BrandPortal() {
   };
 
   const refresh = async () => {
+    void fetch(api("/brand/auction")).then(async (r) => setAuction(await r.json())).catch(() => undefined);
     if (!token) return;
     try {
       setDash(await authedFetch("/brand/dashboard"));
@@ -501,6 +510,73 @@ export function BrandPortal() {
             </div>
           </>
         )}
+
+        {/* Live auction board — public: every approved bid, ranked by CPM, and
+            the slot each rank currently holds. Own campaigns are highlighted. */}
+        <div style={{ ...card, marginTop: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+            <div style={{ fontWeight: 800, flex: 1 }}>🏆 Live auction — bid ranks</div>
+            {auction && auction.topCpm > 0 && (
+              <div style={{ fontSize: "0.74rem", color: "#9c8a6d" }}>
+                Top slot goes for <b style={{ color: "#b8860b" }}>{auction.topCpm.toLocaleString()} CPM</b> — bid above it to take the Hub Billboard
+              </div>
+            )}
+          </div>
+          {!auction ? (
+            <div style={{ color: "#9c8a6d", fontSize: "0.84rem", marginTop: 8 }}>Loading the board…</div>
+          ) : auction.entries.length === 0 ? (
+            <div style={{ color: "#9c8a6d", fontSize: "0.84rem", marginTop: 8 }}>
+              No live bids yet — the whole board is up for grabs. First funded campaign takes the Hub Billboard.
+            </div>
+          ) : (
+            <div style={{ overflowX: "auto", marginTop: 8 }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.82rem" }}>
+                <thead>
+                  <tr style={{ color: "#9c8a6d", fontSize: "0.72rem", textAlign: "left" }}>
+                    <th style={{ padding: "6px 8px" }}>#</th>
+                    <th style={{ padding: "6px 8px" }}>Campaign</th>
+                    <th style={{ padding: "6px 8px", textAlign: "right" }}>CPM ($BASE)</th>
+                    <th style={{ padding: "6px 8px" }}>Holding</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {auction.entries.map((e) => {
+                    const mine = dash?.campaigns.some((c) => c.id === e.campaignId) ?? false;
+                    return (
+                      <tr
+                        key={e.campaignId}
+                        style={{
+                          borderTop: "1.5px dashed #e6d3aa",
+                          background: mine ? "#fdf3d9" : undefined,
+                          fontWeight: mine ? 800 : 500,
+                        }}
+                      >
+                        <td style={{ padding: "7px 8px" }}>{e.rank ?? "—"}</td>
+                        <td style={{ padding: "7px 8px" }}>
+                          {e.name}
+                          {mine && <span style={{ color: "#b8860b" }}> · yours</span>}
+                          {e.housePromo && <span style={{ color: "#9c8a6d", fontWeight: 500 }}> · house promo</span>}
+                          {!e.funded && !e.housePromo && (
+                            <span style={{ color: "#d9534f", fontWeight: 700 }}> · out of budget</span>
+                          )}
+                        </td>
+                        <td style={{ padding: "7px 8px", textAlign: "right" }}>{e.cpm.toLocaleString()}</td>
+                        <td style={{ padding: "7px 8px" }}>
+                          {e.slotLabel ?? <span style={{ color: "#9c8a6d" }}>outbid — no slot</span>}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              <div style={{ color: "#9c8a6d", fontSize: "0.72rem", marginTop: 8, lineHeight: 1.5 }}>
+                {auction.slots.length} slots, richest-first: {auction.slots.map((s) => s.label).join(" → ")}. Rank
+                1 takes the first, rank 2 the next, and so on. Raise your CPM to climb — the board refreshes
+                every 30 seconds.
+              </div>
+            </div>
+          )}
+        </div>
 
         <footer style={{ textAlign: "center", color: "#9c8a6d", fontSize: "0.74rem", marginTop: 34, lineHeight: 1.7 }}>
           Campaigns are human-reviewed before going live. Spend and payouts are publicly auditable on the{" "}
