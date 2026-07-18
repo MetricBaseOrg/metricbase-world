@@ -205,12 +205,17 @@ interface RenderedResource {
   chopDurationMs?: number;
 }
 
-/** Nameplate text — prefixes the guild tag when the player is in a guild. */
+/** Nameplate text — prefixes the guild tag when the player is in a guild, and
+ * appends a 📦 badge for caravan haulers in PvP zones (where cargo drops on
+ * death), so they can be escorted or intercepted. */
 function nameplateText(player: RemotePlayer): string {
   if (player.spectator) {
     return `[SPECTATOR] ${player.name}`;
   }
-  return player.guildTag ? `[${player.guildTag}] ${player.name}` : player.name;
+  const base = player.guildTag ? `[${player.guildTag}] ${player.name}` : player.name;
+  const tier = useGameStore.getState().zoneDangerTier;
+  const showCargo = player.hauling && (tier === "red" || tier === "black");
+  return showCargo ? `${base} 📦` : base;
 }
 
 // Camera zoom limits + persistence (mouse wheel on desktop, pinch on touch).
@@ -1585,6 +1590,7 @@ export class GameScene extends Phaser.Scene {
       hp: 0,
       maxHp: 0,
       stamina: 0,
+      hauling: false,
       x: spawn.x,
       y: spawn.y,
       level: useGameStore.getState().playerLevel,

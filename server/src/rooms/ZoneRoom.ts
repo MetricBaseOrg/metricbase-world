@@ -2173,6 +2173,10 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       if (player.maxHp !== maxHp) player.maxHp = maxHp;
       if (player.hp !== hp) player.hp = hp;
       if (player.stamina !== stamina) player.stamina = stamina;
+      // Reconcile the public hauling flag with the caravan run registry — one
+      // source of truth covers accept / deliver / drop / seize / spoil.
+      const hauling = activeRunOf(this.pidOf(player)) !== null;
+      if (player.hauling !== hauling) player.hauling = hauling;
     }
 
     for (const client of this.clients) {

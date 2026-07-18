@@ -29,6 +29,10 @@ export const PlayerSchema = schema({
   hp: "number",
   maxHp: "number",
   stamina: "number",
+  /** Carrying a caravan cargo satchel — shown as a 📦 nameplate badge in PvP
+   * zones (where the cargo drops on death), so haulers can be escorted or
+   * intercepted. Reconciled with the active-run registry each tick. */
+  hauling: "boolean",
 });
 
 export type Player = InstanceType<typeof PlayerSchema>;

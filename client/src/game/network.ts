@@ -107,6 +107,8 @@ export interface RemotePlayer {
   hp: number;
   maxHp: number;
   stamina: number;
+  /** Carrying caravan cargo — drives the 📦 nameplate badge in PvP zones. */
+  hauling: boolean;
 }
 
 export interface ItemUsedPayload {
@@ -2524,6 +2526,7 @@ export class NetworkManager {
       hp: Number((player as any).hp) || 0,
       maxHp: Number((player as any).maxHp) || 0,
       stamina: Number((player as any).stamina) || 0,
+      hauling: Boolean((player as any).hauling),
       appearance: normalizeCharacterAppearance({
         bodyColor: player.bodyColor,
         hairColor: player.hairColor,
