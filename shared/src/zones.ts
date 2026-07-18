@@ -138,8 +138,8 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
       {
         id: "hub_merchant",
         name: "Pip",
-        tileX: 14,
-        tileY: 13,
+        tileX: 18,
+        tileY: 6,
         shopId: "pip_general",
         dialogue:
           "Welcome to Pip's Provisions! Trade gold on the open market, or buy gear with in-game gold.",
@@ -336,8 +336,8 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
       {
         id: "wilderness_merchant",
         name: "Mara",
-        tileX: 7,
-        tileY: 11,
+        tileX: 8,
+        tileY: 4,
         shopId: "pip_general",
         dialogue:
           "Camp store's open! Out here we pay what the CAMP needs, not what the Hub does — check the regional prices before you haul your goods to town.",
@@ -660,7 +660,7 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
       {
         id: "grotto_merchant",
         name: "Fen",
-        tileX: 19,
+        tileX: 11,
         tileY: 11,
         shopId: "pip_general",
         dialogue:
