@@ -138,8 +138,8 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
       {
         id: "hub_merchant",
         name: "Pip",
-        tileX: 18,
-        tileY: 6,
+        tileX: 6,
+        tileY: 13,
         shopId: "pip_general",
         dialogue:
           "Welcome to Pip's Provisions! Trade gold on the open market, or buy gear with in-game gold.",
