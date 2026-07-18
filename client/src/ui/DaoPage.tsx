@@ -27,6 +27,7 @@ import {
   resolveWalletConnector,
 } from "../wallet/tokenGate";
 import { WalletPicker } from "./WalletPicker";
+import { isLikelyMobile, openInWalletBrowser, walletBrowserLinks, type MobileWalletLink } from "../wallet/mobileWallet";
 import "./dashboard.css";
 
 /**
@@ -63,6 +64,9 @@ export function DaoPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [walletPickerOpen, setWalletPickerOpen] = useState(false);
   const [detectedWallets, setDetectedWallets] = useState<WalletConnector[]>([]);
+  // On a mobile browser with no injected wallet, offer to reopen in a wallet
+  // app's in-app browser (where connecting works). null = not shown.
+  const [mobileWalletLinks, setMobileWalletLinks] = useState<MobileWalletLink[] | null>(null);
   const [busyPoll, setBusyPoll] = useState<string | null>(null);
   const [delegation, setDelegation] = useState<DaoDelegationStatus | null>(null);
   const [delegBusy, setDelegBusy] = useState(false);
@@ -152,10 +156,18 @@ export function DaoPage() {
 
   const handleConnectWallet = () => {
     setError(null);
+    setMobileWalletLinks(null);
     const preferred = resolveWalletConnector();
     if (preferred) return void connectSelectedWallet(preferred);
     const wallets = listAvailableWallets();
     if (wallets.length === 0) {
+      // No injected provider. On mobile that's expected in a plain browser —
+      // offer to reopen inside a wallet app's in-app browser instead of a
+      // dead-end error.
+      if (isLikelyMobile()) {
+        setMobileWalletLinks(walletBrowserLinks());
+        return;
+      }
       setError("No Solana wallet detected. Install a Solana wallet, then refresh this page.");
       return;
     }
@@ -357,6 +369,32 @@ export function DaoPage() {
         {(error || notice) && (
           <div className="chibi-panel mb-dash-card" style={{ padding: "10px 14px", fontSize: "0.82rem" }}>
             {error ? `⚠️ ${error}` : notice}
+          </div>
+        )}
+
+        {mobileWalletLinks && (
+          <div className="chibi-panel mb-dash-card" style={{ padding: "12px 14px", fontSize: "0.82rem" }}>
+            <div style={{ fontWeight: 700, marginBottom: 6 }}>📱 Open in your wallet app to connect</div>
+            <div style={{ opacity: 0.85, marginBottom: 10 }}>
+              Mobile browsers can't connect to a Solana wallet directly. Tap your wallet below to
+              reopen this page inside its in-app browser, then connect there.
+            </div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {mobileWalletLinks.map((link) => (
+                <button
+                  key={link.name}
+                  type="button"
+                  className="chibi-btn chibi-btn--gold"
+                  onClick={() => openInWalletBrowser(link)}
+                >
+                  Open in {link.name}
+                </button>
+              ))}
+            </div>
+            <div style={{ opacity: 0.7, marginTop: 8, fontSize: "0.76rem" }}>
+              Already in a wallet's browser? Make sure the wallet is unlocked, then tap Connect
+              Wallet again.
+            </div>
           </div>
         )}
 

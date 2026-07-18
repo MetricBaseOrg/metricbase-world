@@ -9,6 +9,7 @@ import bs58 from "bs58";
 import { useEffect, useState } from "react";
 import { getHttpServerUrl } from "../game/serverUrl";
 import { discoverWallets, pickWalletConnector, type WalletConnector } from "../wallet/solanaProvider";
+import { isLikelyMobile, openInWalletBrowser, walletBrowserLinks, type MobileWalletLink } from "../wallet/mobileWallet";
 import { setSelectedWalletId } from "../wallet/discovery";
 import { sendMetricbaseTokenPayment } from "../wallet/tokenPayment";
 
@@ -57,6 +58,7 @@ export function BrandPortal() {
   const [pending, setPending] = useState(false);
   // Multiple wallet extensions installed: let the advertiser choose one.
   const [walletChoices, setWalletChoices] = useState<WalletConnector[] | null>(null);
+  const [mobileWalletLinks, setMobileWalletLinks] = useState<MobileWalletLink[] | null>(null);
   const [depositAmt, setDepositAmt] = useState("");
   // Campaign form.
   const [name, setName] = useState("");
@@ -123,6 +125,12 @@ export function BrandPortal() {
         // truthful error instead of claiming no wallet exists.
         const available = discoverWallets();
         if (available.length === 0) {
+          // Mobile browsers have no injected wallet — offer to reopen inside a
+          // wallet app's in-app browser instead of a dead-end error.
+          if (isLikelyMobile()) {
+            setMobileWalletLinks(walletBrowserLinks());
+            return;
+          }
           throw new Error("No Solana wallet found — install Phantom or Solflare.");
         }
         setWalletChoices(available);
@@ -350,6 +358,33 @@ export function BrandPortal() {
                     >
                       {w.icon && <img src={w.icon} alt="" style={{ width: 18, height: 18, borderRadius: 4 }} />}
                       {w.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {mobileWalletLinks && (
+              <div style={{ marginTop: 14 }}>
+                <div style={{ fontWeight: 800, fontSize: "0.85rem", marginBottom: 4 }}>
+                  📱 Open in your wallet app to connect
+                </div>
+                <div style={{ color: "#9c8a6d", fontSize: "0.78rem", marginBottom: 8 }}>
+                  Mobile browsers can't reach a Solana wallet directly. Tap your wallet to reopen
+                  this page inside its in-app browser, then connect there.
+                </div>
+                <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
+                  {mobileWalletLinks.map((link) => (
+                    <button
+                      key={link.name}
+                      type="button"
+                      onClick={() => openInWalletBrowser(link)}
+                      style={{
+                        cursor: "pointer", fontFamily: "inherit", fontWeight: 800, fontSize: "0.85rem",
+                        color: "#4a3b2a", background: "#fffdf6", border: "2px solid #4a3b2a",
+                        borderRadius: 12, padding: "9px 16px", boxShadow: "0 3px 0 #e4cf9f",
+                      }}
+                    >
+                      Open in {link.name}
                     </button>
                   ))}
                 </div>
