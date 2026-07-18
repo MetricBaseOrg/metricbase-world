@@ -374,6 +374,13 @@ export interface PlayerEquipment {
   wear?: Record<string, number>;
   /** Per-slot enhancement level (+N) for combat gear. */
   enhance?: Partial<Record<EquipmentSlot, number>>;
+  /**
+   * Enhancement (+N) stashed by ITEM id when enhanced gear is unequipped — so
+   * re-equipping the SAME item resumes its enhancement instead of losing it,
+   * and swapping in a DIFFERENT item can't inherit the old slot's +N. Mirrors
+   * `wear`; copies of an item id share the value (accepted approximation).
+   */
+  enhanceStash?: Record<string, number>;
 }
 
 /** Slots that can be enhanced with +N (combat gear; not tool/mount). */
@@ -441,6 +448,7 @@ const GEAR_FIELD_TO_SLOT: Record<keyof PlayerEquipment & string, GearKindSlot | 
   durability: null,
   wear: null,
   enhance: null,
+  enhanceStash: null,
 };
 
 /** Equipment fields that hold armor/accessory items, in display order. */
@@ -546,6 +554,18 @@ export function normalizeEquipment(raw: Partial<PlayerEquipment> | null | undefi
       }
     }
     if (Object.keys(wear).length > 0) next.wear = wear;
+  }
+
+  // Preserve stashed enhancement (+N on unequipped gear, keyed by item id).
+  const rawEnhStash = raw.enhanceStash;
+  if (rawEnhStash && typeof rawEnhStash === "object") {
+    const stash: Record<string, number> = {};
+    for (const [itemId, value] of Object.entries(rawEnhStash as Record<string, unknown>)) {
+      if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+        stash[itemId] = Math.min(MAX_ENHANCE_LEVEL, Math.floor(value));
+      }
+    }
+    if (Object.keys(stash).length > 0) next.enhanceStash = stash;
   }
 
   // Preserve enhancement levels for slots that still hold an item.
@@ -660,6 +680,22 @@ export function stashSlotWear(eq: PlayerEquipment, slot: EquipmentSlot): void {
   const field = fieldForEquipSlot(slot);
   const itemId = field ? (eq[field] as string | null) : null;
   if (!itemId) return;
+
+  // Stash the outgoing item's enhancement by item id and CLEAR the slot's
+  // +N, so unequipping doesn't lose it (normalize drops empty-slot enhance)
+  // and a different item swapped into the slot can't inherit it.
+  if (ENHANCEABLE_SLOTS.includes(slot)) {
+    const level = eq.enhance?.[slot] ?? 0;
+    const stash = { ...(eq.enhanceStash ?? {}) };
+    if (level > 0) stash[itemId] = Math.max(level, stash[itemId] ?? 0);
+    eq.enhanceStash = stash;
+    if (eq.enhance && eq.enhance[slot] !== undefined) {
+      const enh = { ...eq.enhance };
+      delete enh[slot];
+      eq.enhance = enh;
+    }
+  }
+
   const max = maxDurabilityForSlot(slot, itemId);
   if (!Number.isFinite(max) || max <= 0) return;
   const current = eq.durability?.[slot] ?? max;
@@ -670,8 +706,20 @@ export function stashSlotWear(eq: PlayerEquipment, slot: EquipmentSlot): void {
   eq.wear = wear;
 }
 
-/** Set `slot` durability for a newly equipped item, resuming any stashed wear. */
+/** Set `slot` durability + enhancement for a newly equipped item, resuming any
+ * stashed wear and +N for that item id. */
 export function restoreSlotWear(eq: PlayerEquipment, slot: EquipmentSlot, itemId: string): void {
+  // Resume stashed enhancement for this exact item id.
+  if (ENHANCEABLE_SLOTS.includes(slot)) {
+    const level = eq.enhanceStash?.[itemId] ?? 0;
+    if (level > 0) {
+      eq.enhance = { ...(eq.enhance ?? {}), [slot]: level };
+      const stash = { ...eq.enhanceStash };
+      delete stash[itemId];
+      eq.enhanceStash = stash;
+    }
+  }
+
   const max = maxDurabilityForSlot(slot, itemId);
   if (!Number.isFinite(max) || max <= 0) return;
   const stashed = eq.wear?.[itemId] ?? 0;
