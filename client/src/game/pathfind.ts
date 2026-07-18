@@ -69,7 +69,10 @@ export function buildCollisionGrid(zoneId: string, builtLandPlots: Set<string> =
       const n = zonePropFootprint(node.prop);
       for (let dy = 0; dy < n; dy++) for (let dx = 0; dx < n; dx++) stamp(node.tileX + dx, node.tileY + dy);
     } else if (node.solid) {
-      stamp(node.tileX, node.tileY);
+      // Solid built-in scenery blocks its whole footprint (1×1 arcade/table, or
+      // a 2×2 market building), mirroring the server. Anchored at the back corner.
+      const n = zonePropFootprint(node.prop);
+      for (let dy = 0; dy < n; dy++) for (let dx = 0; dx < n; dx++) stamp(node.tileX + dx, node.tileY + dy);
     }
   }
   if (!player) {

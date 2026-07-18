@@ -110,8 +110,11 @@ function getCollisionGrid(zoneId: string): number[][] {
       const n = zonePropFootprint(node.prop);
       for (let dy = 0; dy < n; dy++) for (let dx = 0; dx < n; dx++) block(node.tileX + dx, node.tileY + dy);
     } else if (node.solid) {
-      // Built-in solid scenery (arcade cabinet / blackjack table) blocks its tile.
-      block(node.tileX, node.tileY);
+      // Built-in solid scenery blocks its whole footprint: a 1×1 prop (arcade
+      // cabinet / blackjack table) is one tile; a 2×2 building (market stall)
+      // blocks all four, anchored at its back corner.
+      const n = zonePropFootprint(node.prop);
+      for (let dy = 0; dy < n; dy++) for (let dx = 0; dx < n; dx++) block(node.tileX + dx, node.tileY + dy);
     }
   }
 

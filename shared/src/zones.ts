@@ -280,13 +280,13 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
       { id: "hub_land_7", tileX: 21, tileY: 8 },
     ],
     billboards: [{ id: "hub_billboard", tileX: 12, tileY: 7 }],
-    // Pip's market: a stall directly behind him (he stands at 14,13) with a
-    // crate and a produce basket flanking his counter at the same screen row,
-    // so it reads as a real marketplace instead of a lone NPC.
+    // Pip's marketplace: two 2×2 market stalls flanking him on free grass east
+    // of his counter (he stands at 6,13). They're solid buildings — their whole
+    // footprint blocks walking like other buildings — and functional: visitors
+    // buy seeds and sell crops at the wheat & carrot markets.
     scenery: [
-      { id: "pip_stall", tileX: 13, tileY: 12, prop: "stall" },
-      { id: "pip_crate_l", tileX: 13, tileY: 14, prop: "crate" },
-      { id: "pip_produce_r", tileX: 15, tileY: 12, prop: "produce" },
+      { id: "pip_market_wheat", tileX: 7, tileY: 13, prop: "market-wheat", solid: true },
+      { id: "pip_market_carrot", tileX: 9, tileY: 13, prop: "market-carrot", solid: true },
       // Brenna's forge (she stands at 13,10): furnace behind, anvil + quench
       // barrel flanking her at the same screen row.
       { id: "forge_furnace", tileX: 12, tileY: 9, prop: "forge" },
