@@ -138,8 +138,8 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
       {
         id: "hub_merchant",
         name: "Rudi",
-        tileX: 9,
-        tileY: 15,
+        tileX: 7,
+        tileY: 11,
         shopId: "pip_general",
         dialogue:
           "Welcome to Rudi's Provisions! Trade gold on the open market, or buy gear with in-game gold.",
@@ -280,12 +280,13 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
       { id: "hub_land_7", tileX: 21, tileY: 8 },
     ],
     billboards: [{ id: "hub_billboard", tileX: 12, tileY: 7 }],
-    // Rudi's market stall: the Sweet Harvest "stall" building (2×2) set back on
-    // the grass, with Rudi standing at the counter in front of it (9,15) so the
-    // tall awning never hides him. It's a solid building — its whole footprint
-    // blocks walking like other buildings.
+    // Rudi's market stall: the Sweet Harvest "stall" building (2×2) on the open
+    // grass north of the west lane — deliberately clear of the SW farm field so
+    // the "Plant seed" prompt never competes with talking to Rudi. Rudi stands
+    // at the counter in front of it (7,11) so the tall awning never hides him.
+    // It's a solid building — its whole footprint blocks walking.
     scenery: [
-      { id: "rudi_market", tileX: 7, tileY: 13, prop: "stall", solid: true },
+      { id: "rudi_market", tileX: 6, tileY: 9, prop: "stall", solid: true },
       // Brenna's forge (she stands at 13,10): furnace behind, anvil + quench
       // barrel flanking her at the same screen row.
       { id: "forge_furnace", tileX: 12, tileY: 9, prop: "forge" },

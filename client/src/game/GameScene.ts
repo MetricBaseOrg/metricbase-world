@@ -1883,6 +1883,15 @@ export class GameScene extends Phaser.Scene {
       for (const f of config.farmPlots ?? []) {
         for (let dy = 0; dy < 2; dy++) for (let dx = 0; dx < 2; dx++) covered.add(`${f.tileX + dx},${f.tileY + dy}`);
       }
+      // Multi-tile building props (e.g. Rudi's stall) bake their own ground base,
+      // so hide the grass under their footprint too — otherwise the front grass
+      // tile occludes the building's base edge (same reason as farm plots above).
+      for (const s of config.scenery ?? []) {
+        const art = getZoneAsset(SCENERY_ART_ALIAS[s.prop] ?? s.prop);
+        if (!art?.clearsGround || art.footprint < 2) continue;
+        for (let dy = 0; dy < art.footprint; dy++)
+          for (let dx = 0; dx < art.footprint; dx++) covered.add(`${s.tileX + dx},${s.tileY + dy}`);
+      }
       for (let y = 0; y < MAP_HEIGHT; y++) {
         for (let x = 0; x < MAP_WIDTH; x++) {
           if (covered.has(`${x},${y}`)) continue;
