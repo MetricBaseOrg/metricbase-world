@@ -247,6 +247,9 @@ export function denyJoinRequest(
 export interface CompanyRefund {
   name: string;
   amount: number;
+  /** When set, the escrow was funded by this company's treasury (B2B contract),
+   *  so the refund goes back there rather than to the poster's personal gold. */
+  companyId?: string | null;
 }
 
 /** Remove a member. On the owner leaving, leadership passes to the first
@@ -284,7 +287,7 @@ function disbandCompany(company: StoredCompany): CompanyRefund[] {
   for (const contract of contracts.values()) {
     if (contract.companyId !== company.id) continue;
     if (contract.status === "open" || contract.status === "accepted") {
-      refunds.push({ name: contract.posterName, amount: contract.rewardGold });
+      refunds.push({ name: contract.posterName, amount: contract.rewardGold, companyId: contract.posterCompanyId });
     }
     contracts.delete(contract.id);
     void deleteCompanyContract(contract.id);
@@ -451,6 +454,16 @@ export function creditCompanyTreasury(id: string, amount: number, source: "vendo
   void saveCompany(company);
 }
 
+/** Return escrowed gold to a company treasury WITHOUT booking revenue (a
+ *  cancelled/refunded B2B contract — the gold was only ever held, not earned). */
+export function refundCompanyTreasury(id: string, amount: number): boolean {
+  const company = companies.get(id);
+  if (!company || amount <= 0) return false;
+  company.treasury += Math.floor(amount);
+  void saveCompany(company);
+  return true;
+}
+
 /** Lifetime revenue across every source. */
 export function companyLifetimeRevenue(company: StoredCompany): number {
   const r = company.stats.revenue;
@@ -609,8 +622,10 @@ function companyContracts(companyId: string): StoredCompanyContract[] {
   return [...contracts.values()].filter((c) => c.companyId === companyId);
 }
 
-/** Post a contract to a company (escrow already debited by the caller). Rejects
- * posting to a company you belong to (self-dealing guard). Returns the contract. */
+/** Post a contract to another company, funded by the POSTER's own company
+ * treasury (B2B). Requires the poster to be in a company with the postContracts
+ * permission; the reward is escrowed out of that treasury here. Rejects posting
+ * to your own company (self-dealing guard). Returns the contract + poster company. */
 export function postCompanyContract(
   poster: string,
   posterWallet: string | null,
@@ -619,42 +634,62 @@ export function postCompanyContract(
   itemId: string | null,
   qty: number,
   rewardGold: number,
-): CompanyActionResult & { contract?: StoredCompanyContract } {
+): CompanyActionResult & { contract?: StoredCompanyContract; posterCompanyId?: string } {
   const company = companies.get(companyId);
   if (!company) return { ok: false, error: "That company no longer exists." };
-  if (getCompanyForMember(poster)?.id === companyId) {
+  const posterCompany = getCompanyForMember(poster);
+  if (!posterCompany) return { ok: false, error: "You must be in a company to post a contract." };
+  if (posterCompany.id === companyId) {
     return { ok: false, error: "You can't post a contract to your own company." };
+  }
+  if (!companyCan(companyRankOf(poster, posterCompany.ownerName, posterCompany.managers, posterCompany.trainees), "postContracts")) {
+    return { ok: false, error: "You don't have permission to post contracts for your company." };
   }
   const err = validateCompanyContract(kind, itemId, qty, rewardGold, isSupplyItem);
   if (err) return { ok: false, error: err };
+  const reward = Math.floor(rewardGold);
+  if (posterCompany.treasury < reward) {
+    return {
+      ok: false,
+      error: `Your treasury needs ${reward.toLocaleString()}g to escrow the reward (it has ${posterCompany.treasury.toLocaleString()}).`,
+    };
+  }
   const open = companyContracts(companyId).filter((c) => c.status === "open" || c.status === "accepted");
   if (open.length >= COMPANY_MAX_OPEN_CONTRACTS) {
     return { ok: false, error: "That company already has the maximum open contracts." };
   }
+  // Escrow the reward out of the poster company's treasury (held on the contract,
+  // refunded on cancel/disband, transferred to the fulfiller on completion).
+  posterCompany.treasury -= reward;
+  void saveCompany(posterCompany);
   const contract: StoredCompanyContract = {
     id: crypto.randomUUID(),
     companyId,
     posterName: poster,
     posterWallet,
+    posterCompanyId: posterCompany.id,
     kind,
     itemId: kind === "supply" ? itemId : null,
     qty: Math.floor(qty),
     progress: 0,
-    rewardGold: Math.floor(rewardGold),
+    rewardGold: reward,
     status: "open",
     itemsToCollect: 0,
     createdAt: Date.now(),
   };
   contracts.set(contract.id, contract);
   void saveCompanyContract(contract);
-  return { ok: true, contract };
+  return { ok: true, contract, posterCompanyId: posterCompany.id };
 }
 
-/** Poster cancels an open/accepted contract. Returns the escrow to refund. */
+/** Poster cancels an open/accepted contract. Refunds the escrow: to the poster
+ * company treasury for a B2B contract (credited here), or to personal gold for a
+ * legacy contract (returned for the caller to credit). `refundedToCompany` tells
+ * the caller which path ran. */
 export function cancelCompanyContract(
   poster: string,
   id: string,
-): CompanyActionResult & { refund?: number } {
+): CompanyActionResult & { refund?: number; refundedToCompany?: boolean } {
   const contract = contracts.get(id);
   if (!contract) return { ok: false, error: "That contract is gone." };
   if (contract.posterName !== poster) return { ok: false, error: "That's not your contract." };
@@ -664,7 +699,12 @@ export function cancelCompanyContract(
   const refund = contract.rewardGold;
   contracts.delete(id);
   void deleteCompanyContract(id);
-  return { ok: true, refund };
+  // B2B: return the escrow to the poster company treasury. Legacy (no poster
+  // company): hand the refund back for the caller to credit personal gold.
+  if (contract.posterCompanyId && refundCompanyTreasury(contract.posterCompanyId, refund)) {
+    return { ok: true, refund, refundedToCompany: true };
+  }
+  return { ok: true, refund, refundedToCompany: false };
 }
 
 /** A company member with the acceptContracts permission accepts a contract. */
@@ -765,14 +805,14 @@ function completeContract(
 export function peekContractCollect(
   poster: string,
   id: string,
-): CompanyActionResult & { itemId?: string; qty?: number } {
+): CompanyActionResult & { itemId?: string; qty?: number; posterCompanyId?: string | null } {
   const contract = contracts.get(id);
   if (!contract) return { ok: false, error: "That contract is gone." };
   if (contract.posterName !== poster) return { ok: false, error: "That's not your contract." };
   if (contract.status !== "completed" || contract.itemsToCollect <= 0 || !contract.itemId) {
     return { ok: false, error: "Nothing to collect." };
   }
-  return { ok: true, itemId: contract.itemId, qty: contract.itemsToCollect };
+  return { ok: true, itemId: contract.itemId, qty: contract.itemsToCollect, posterCompanyId: contract.posterCompanyId };
 }
 
 /** Deduct collected goods from a completed contract; delete it once emptied. */

@@ -195,7 +195,7 @@ export function CompanyPanel() {
         <WarehouseTab company={mine} inventory={inventory} can={can} pending={pending} setPending={setPending} />
       )}
       {state && tab === "contracts" && (
-        <ContractsTab state={state} myName={myName} gold={gold} can={can} pending={pending} setPending={setPending} />
+        <ContractsTab state={state} myName={myName} can={can} pending={pending} setPending={setPending} />
       )}
     </div>
   );
@@ -852,14 +852,12 @@ function WarehouseTab({
 function ContractsTab({
   state,
   myName: _,
-  gold,
   can,
   pending,
   setPending,
 }: {
   state: CompanyStatePayload;
   myName: string;
-  gold: number;
   can: (perm: Parameters<typeof companyCan>[1]) => boolean;
   pending: boolean;
   setPending: (v: boolean) => void;
@@ -888,7 +886,12 @@ function ContractsTab({
   };
   const kindDef = CONTRACT_KINDS.find((k) => k.kind === kind)!;
   const rewardNum = Math.floor(Number(reward) || 0);
-  const canPost = !!targetId && rewardNum >= COMPANY_CONTRACT_MIN_REWARD && rewardNum <= gold && !pending;
+  // Contracts are B2B: the reward is escrowed from the poster's OWN company
+  // treasury, so only an owner/manager of a company can post.
+  const treasury = mine?.treasury ?? 0;
+  const mayPost = !!mine && can("postContracts");
+  const canPost =
+    mayPost && !!targetId && rewardNum >= COMPANY_CONTRACT_MIN_REWARD && rewardNum <= treasury && !pending;
 
   const myContracts = mine?.contracts ?? [];
   const myPosted = state.myPostedContracts;
@@ -941,6 +944,15 @@ function ContractsTab({
       )}
 
       <div className="chibi-label" style={{ margin: "14px 0 4px" }}>Post a contract to a company</div>
+      {!mayPost ? (
+        <div className="chibi-card" style={{ padding: "10px 12px" }}>
+          <div className="chibi-text-muted" style={{ fontSize: "0.72rem" }}>
+            {mine
+              ? "Only an owner or manager can post contracts — they're funded by the company treasury."
+              : "Join a company to post contracts — they're funded by your company treasury, and delivered goods go to your warehouse."}
+          </div>
+        </div>
+      ) : (
       <div className="chibi-card" style={{ padding: "10px 12px" }}>
         <select className="chibi-input" style={{ width: "100%" }} value={targetId} onChange={(e) => setTargetId(e.target.value)}>
           {postable.length === 0 && <option value="">No other companies to hire</option>}
@@ -981,8 +993,8 @@ function ContractsTab({
         </div>
 
         <div className="chibi-text-muted" style={{ fontSize: "0.66rem", marginTop: 6 }}>
-          The {rewardNum.toLocaleString()}g reward is escrowed from your gold now (refunded if you cancel) and paid to the
-          company's treasury on completion. Reward {COMPANY_CONTRACT_MIN_REWARD}–{COMPANY_CONTRACT_MAX_REWARD.toLocaleString()}g. You have {gold.toLocaleString()}g.
+          The {rewardNum.toLocaleString()}g reward is escrowed from your company treasury now (refunded if you cancel) and paid
+          to the fulfilling company on completion; delivered goods go to your warehouse. Reward {COMPANY_CONTRACT_MIN_REWARD}–{COMPANY_CONTRACT_MAX_REWARD.toLocaleString()}g. Treasury: {treasury.toLocaleString()}g.
         </div>
         <button type="button" className="chibi-btn chibi-btn--gold" style={{ width: "100%", marginTop: 8, padding: "8px 10px" }}
           disabled={!canPost}
@@ -990,6 +1002,7 @@ function ContractsTab({
           📋 Post contract ({rewardNum.toLocaleString()}g escrow)
         </button>
       </div>
+      )}
 
       {myPosted.length > 0 && (
         <>

@@ -386,6 +386,7 @@ import {
   takeFromWarehouse,
   applyCompanyCut,
   creditCompanyTreasury,
+  refundCompanyTreasury,
   tickCompanyActivity,
   postCompanyContract,
   cancelCompanyContract,
@@ -8804,9 +8805,15 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     const members = companyMemberNames(player.name);
     const result = leaveCompany(player.name);
     if (!result.ok) return void client.send("companyResult", { ok: false, error: result.error });
-    // Refund escrow of any contracts orphaned by a disband.
+    // Refund escrow of any contracts orphaned by a disband — to the poster
+    // company treasury (B2B) or the poster's personal gold (legacy contracts).
     for (const refund of result.refunds ?? []) {
-      this.creditPlayerByName(refund.name, refund.amount);
+      if (refund.companyId && refundCompanyTreasury(refund.companyId, refund.amount)) {
+        const posterCompany = getCompanyById(refund.companyId);
+        if (posterCompany) this.broadcastCompanyState(posterCompany.members);
+      } else {
+        this.creditPlayerByName(refund.name, refund.amount);
+      }
     }
     // A disbanded company that was listed on the exchange is delisted; its
     // reserve is returned to shareholders pro-rata by shares held.
@@ -9009,27 +9016,21 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   ) {
     const player = this.state.players.get(client.sessionId);
     if (!player) return;
-    const reward = Math.floor(rewardGold);
-    const gold = this.playerGold.get(this.pidOf(player)) ?? STARTING_GOLD;
-    if (gold < reward) {
-      return void client.send("companyResult", {
-        ok: false,
-        error: `Need ${reward.toLocaleString()}g to escrow the reward (you have ${gold.toLocaleString()}).`,
-      });
-    }
+    // Escrow is debited from the POSTER's company treasury inside the registry
+    // (B2B) — the poster must be in a company with the postContracts permission.
     const wallet = this.playerWallets.get(client.sessionId) ?? null;
-    const result = postCompanyContract(player.name, wallet, companyId, kind, itemId, qty, reward);
+    const result = postCompanyContract(player.name, wallet, companyId, kind, itemId, qty, rewardGold);
     if (!result.ok || !result.contract) {
       return void client.send("companyResult", { ok: false, error: result.error });
     }
-    const nextGold = gold - reward; // escrow held on the contract, refunded on cancel
-    this.playerGold.set(this.pidOf(player), nextGold);
     bumpMetric("company.contract.posted");
-    this.sendProfile(client, player);
-    await this.persistPlayer(player);
-    client.send("companyResult", { ok: true, gold: nextGold, message: "Contract posted." });
+    client.send("companyResult", { ok: true, message: "Contract posted — reward escrowed from your treasury." });
     client.send("companyState", buildCompanyStatePayload(player.name));
-    // Notify the target company's members so their board updates.
+    // Refresh both companies: the poster's (treasury dropped) and the target's (board grew).
+    if (result.posterCompanyId) {
+      const posterCompany = getCompanyById(result.posterCompanyId);
+      if (posterCompany) this.broadcastCompanyState(posterCompany.members);
+    }
     const company = getCompanyById(companyId);
     if (company) this.broadcastCompanyState(company.members);
   }
@@ -9041,15 +9042,24 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     if (!result.ok || result.refund == null) {
       return void client.send("companyResult", { ok: false, error: result.error });
     }
-    const nextGold = (this.playerGold.get(this.pidOf(player)) ?? STARTING_GOLD) + result.refund;
-    this.playerGold.set(this.pidOf(player), nextGold);
-    this.sendProfile(client, player);
-    await this.persistPlayer(player);
-    client.send("companyResult", {
-      ok: true,
-      gold: nextGold,
-      message: `Contract cancelled — ${result.refund.toLocaleString()}g refunded.`,
-    });
+    if (result.refundedToCompany) {
+      // B2B: the registry already returned the escrow to the poster company treasury.
+      client.send("companyResult", {
+        ok: true,
+        message: `Contract cancelled — ${result.refund.toLocaleString()}g refunded to your treasury.`,
+      });
+    } else {
+      // Legacy contract escrowed from personal gold — refund it there.
+      const nextGold = (this.playerGold.get(this.pidOf(player)) ?? STARTING_GOLD) + result.refund;
+      this.playerGold.set(this.pidOf(player), nextGold);
+      this.sendProfile(client, player);
+      await this.persistPlayer(player);
+      client.send("companyResult", {
+        ok: true,
+        gold: nextGold,
+        message: `Contract cancelled — ${result.refund.toLocaleString()}g refunded.`,
+      });
+    }
     client.send("companyState", buildCompanyStatePayload(player.name));
   }
 
@@ -9085,6 +9095,28 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     if (!peek.ok || !peek.itemId || !peek.qty) {
       return void client.send("companyResult", { ok: false, error: peek.error });
     }
+    const item = getItemDefinition(peek.itemId);
+    // B2B: goods land in the poster company's warehouse. Legacy contracts (no
+    // poster company) fall back to the poster's personal bag.
+    const posterCompany = peek.posterCompanyId ? getCompanyById(peek.posterCompanyId) : null;
+    if (peek.posterCompanyId && posterCompany) {
+      const added = stockWarehouse(peek.posterCompanyId, peek.itemId, peek.qty);
+      if (added <= 0) {
+        return void client.send("companyResult", { ok: false, error: "Your company warehouse is full." });
+      }
+      reduceContractCollect(id, added);
+      const leftover = peek.qty - added;
+      client.send("companyResult", {
+        ok: true,
+        message:
+          leftover > 0
+            ? `Collected ${added}× ${item.name} into the warehouse — full, ${leftover} left to collect.`
+            : `Collected ${added}× ${item.name} into the warehouse.`,
+      });
+      this.broadcastCompanyState(posterCompany.members);
+      client.send("companyState", buildCompanyStatePayload(player.name));
+      return;
+    }
     const pid = this.pidOf(player);
     const inv = this.inventories.get(pid) ?? [];
     const { inventory, added } = addItemToInventory(inv, peek.itemId, peek.qty, this.bagCapOf(player.name));
@@ -9095,7 +9127,6 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     reduceContractCollect(id, added);
     this.sendInventory(client, player.name);
     await this.persistPlayer(player);
-    const item = getItemDefinition(peek.itemId);
     const leftover = peek.qty - added;
     client.send("companyResult", {
       ok: true,

@@ -52,6 +52,9 @@ export interface StoredCompanyContract {
   companyId: string;
   posterName: string;
   posterWallet: string | null;
+  /** Poster's own company (B2B): escrow debits/refunds here and delivered goods
+   *  land in its warehouse. NULL for legacy contracts settled to personal gold. */
+  posterCompanyId: string | null;
   kind: CompanyContractKind;
   itemId: string | null;
   qty: number;
@@ -265,6 +268,7 @@ export async function loadCompanyContracts(): Promise<StoredCompanyContract[]> {
       company_id: string;
       poster_name: string;
       poster_wallet: string | null;
+      poster_company_id: string | null;
       kind: string;
       item_id: string | null;
       qty: number;
@@ -274,7 +278,7 @@ export async function loadCompanyContracts(): Promise<StoredCompanyContract[]> {
       items_to_collect: number;
       created_at: Date | null;
     }>(
-      `SELECT id, company_id, poster_name, poster_wallet, kind, item_id, qty, progress,
+      `SELECT id, company_id, poster_name, poster_wallet, poster_company_id, kind, item_id, qty, progress,
               reward_gold, status, items_to_collect, created_at
        FROM company_contracts WHERE status IN ('open','accepted','completed')`,
     );
@@ -283,6 +287,7 @@ export async function loadCompanyContracts(): Promise<StoredCompanyContract[]> {
       companyId: row.company_id,
       posterName: row.poster_name,
       posterWallet: row.poster_wallet ?? null,
+      posterCompanyId: row.poster_company_id ?? null,
       kind: row.kind as CompanyContractKind,
       itemId: row.item_id ?? null,
       qty: Math.max(0, Math.floor(row.qty)),
@@ -303,9 +308,9 @@ export async function saveCompanyContract(contract: StoredCompanyContract): Prom
   if (!pool) return;
   try {
     await pool.query(
-      `INSERT INTO company_contracts (id, company_id, poster_name, poster_wallet, kind, item_id,
+      `INSERT INTO company_contracts (id, company_id, poster_name, poster_wallet, poster_company_id, kind, item_id,
                                       qty, progress, reward_gold, status, items_to_collect)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
        ON CONFLICT (id) DO UPDATE SET
          progress = EXCLUDED.progress, status = EXCLUDED.status,
          items_to_collect = EXCLUDED.items_to_collect`,
@@ -314,6 +319,7 @@ export async function saveCompanyContract(contract: StoredCompanyContract): Prom
         contract.companyId,
         contract.posterName,
         contract.posterWallet,
+        contract.posterCompanyId,
         contract.kind,
         contract.itemId,
         contract.qty,

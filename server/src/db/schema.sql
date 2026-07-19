@@ -534,6 +534,10 @@ CREATE TABLE IF NOT EXISTS company_contracts (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS company_contracts_company_idx ON company_contracts (company_id, status);
+-- Poster's OWN company: contracts are B2B, so escrow is debited from and refunded
+-- to this treasury, and delivered goods land in its warehouse. NULL for legacy
+-- contracts posted before v0.162 (those settle to the poster's personal balance).
+ALTER TABLE company_contracts ADD COLUMN IF NOT EXISTS poster_company_id VARCHAR(64);
 
 -- Daily payout audit log (one row per company per UTC day actually paid).
 CREATE TABLE IF NOT EXISTS company_payouts (

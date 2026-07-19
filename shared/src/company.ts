@@ -170,6 +170,8 @@ export interface CompanyPermissions {
   sellWarehouse: boolean;
   /** Accept inbound contracts on the company's behalf. */
   acceptContracts: boolean;
+  /** Post outbound contracts to other companies, funded by this treasury. */
+  postContracts: boolean;
   /** Edit the company announcement (MOTD). */
   setMotd: boolean;
   /** Set the revenue-share and dividend rates. */
@@ -191,6 +193,7 @@ export const COMPANY_PERMISSIONS: Record<CompanyRank, CompanyPermissions> = {
     withdrawItems: true,
     sellWarehouse: true,
     acceptContracts: true,
+    postContracts: true,
     setMotd: true,
     setRates: true,
     setSalaries: true,
@@ -205,6 +208,7 @@ export const COMPANY_PERMISSIONS: Record<CompanyRank, CompanyPermissions> = {
     withdrawItems: true,
     sellWarehouse: true,
     acceptContracts: true,
+    postContracts: true,
     setMotd: true,
     setRates: false,
     setSalaries: false,
@@ -219,6 +223,7 @@ export const COMPANY_PERMISSIONS: Record<CompanyRank, CompanyPermissions> = {
     withdrawItems: false,
     sellWarehouse: false,
     acceptContracts: false,
+    postContracts: false,
     setMotd: false,
     setRates: false,
     setSalaries: false,
@@ -233,6 +238,7 @@ export const COMPANY_PERMISSIONS: Record<CompanyRank, CompanyPermissions> = {
     withdrawItems: false,
     sellWarehouse: false,
     acceptContracts: false,
+    postContracts: false,
     setMotd: false,
     setRates: false,
     setSalaries: false,
