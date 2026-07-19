@@ -102,4 +102,8 @@ export interface AttackResultPayload {
   attackerName?: string;
   /** True when the hit rolled a critical strike (Phase 1+). Drives gold crit numbers. */
   crit?: boolean;
+  /** Gold actually granted to the killer on this hit (0/absent unless defeated). Drives the coin-burst FX. */
+  goldReward?: number;
+  /** XP granted to the killer on this hit (absent unless defeated). Drives the +XP float. */
+  xpReward?: number;
 }

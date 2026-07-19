@@ -83,6 +83,8 @@ interface GameStore {
   lastCatch: { itemId: string; rarity: string; quantity: number; at: number } | null;
   /** One-shot fishing moments the game scene animates (bite ❗, splashes…). */
   fishingFx: { type: "bite" | "hit" | "catch" | "escape"; at: number } | null;
+  /** One-shot in-world FX requested by UI panels (craft sparks over the avatar…). */
+  worldFx: { type: "craft"; label?: string; at: number } | null;
   /** Current PvP opponent (duel or recent hits) — drives the target frame. */
   pvpOpponent: { name: string; until: number; duel: boolean } | null;
   /** Notification centre (🔔): mentions, mail, invites. Newest first. */
@@ -172,6 +174,7 @@ interface GameStore {
   setFishing: (fishing: { resourceId: string; endsAt: number } | null) => void;
   setLastCatch: (c: { itemId: string; rarity: string; quantity: number; at: number } | null) => void;
   setFishingFx: (fx: { type: "bite" | "hit" | "catch" | "escape"; at: number } | null) => void;
+  setWorldFx: (fx: { type: "craft"; label?: string; at: number } | null) => void;
   setPvpOpponent: (o: { name: string; until: number; duel: boolean } | null) => void;
   addNotification: (icon: string, text: string) => void;
   markNotificationsRead: () => void;
@@ -283,6 +286,7 @@ export const useGameStore = create<GameStore>((set) => ({
   fishing: null,
   lastCatch: null,
   fishingFx: null,
+  worldFx: null,
   pvpOpponent: null,
   notifications: [],
   profileFor: null,
@@ -399,6 +403,7 @@ export const useGameStore = create<GameStore>((set) => ({
   setFishing: (fishing) => set({ fishing }),
   setLastCatch: (lastCatch) => set({ lastCatch }),
   setFishingFx: (fishingFx) => set({ fishingFx }),
+  setWorldFx: (worldFx) => set({ worldFx }),
   setPvpOpponent: (pvpOpponent) => set({ pvpOpponent }),
   addNotification: (icon, text) =>
     set((state) => ({

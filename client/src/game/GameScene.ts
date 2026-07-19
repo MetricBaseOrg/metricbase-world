@@ -668,6 +668,23 @@ export class GameScene extends Phaser.Scene {
         this.time.delayedCall(150, () => npc.sprite.clearTint());
       }
 
+      // Kill juice: a smoke poof everyone sees; the killer also gets a coin
+      // burst flying into them plus "+gold / +XP" floats with the real spoils.
+      if (payload.defeated && npc) {
+        this.spawnMobDeathFx(npc.worldX, npc.worldY - 8);
+        if (localAttacker) {
+          const gold = payload.goldReward ?? 0;
+          const xp = payload.xpReward ?? 0;
+          if (gold > 0) {
+            this.spawnCoinBurstFx(npc.worldX, npc.worldY, Math.min(6, 1 + Math.ceil(gold / 5)));
+            this.showFloatingLabel(npc.worldX, npc.worldY - 58, `+${gold} gold`, "#ffd75e");
+          }
+          if (xp > 0) {
+            this.showFloatingLabel(npc.worldX + 16, npc.worldY - 42, `+${xp} XP`, "#7fd4ff", { size: 12 });
+          }
+        }
+      }
+
       // Trigger attack action on remote attacker (renderedPlayers is keyed by
       // sessionId — look the attacker up by name).
       if (payload.attackerName && payload.attackerName !== useGameStore.getState().playerName) {
@@ -805,6 +822,71 @@ export class GameScene extends Phaser.Scene {
       if (!fx || fx.at === lastFishingFxAt) return;
       lastFishingFxAt = fx.at;
       this.playFishingFx(fx.type);
+    });
+
+    // In-world celebration juice over the local avatar: LEVEL UP banner,
+    // skill-up labels, quest-complete stars. Prev values seed from the current
+    // store so logging in never fires a stale celebration.
+    let prevLevel = useGameStore.getState().playerLevel;
+    const unsubscribeLevelFx = useGameStore.subscribe((state) => {
+      if (state.playerLevel > prevLevel && this.localAvatar) {
+        const { x, y } = this.localAvatar.sprite;
+        this.spawnCelebrationFx(x, y, 0xffd75e);
+        this.showFloatingLabel(x, y - 62, "LEVEL UP!", "#ffd75e", { size: 20, rise: 46, duration: 1400 });
+      }
+      prevLevel = state.playerLevel;
+    });
+
+    const skillSnapshot = (s = useGameStore.getState()) => ({
+      woodcutting: s.woodcuttingLevel,
+      mining: s.miningLevel,
+      fishing: s.fishingLevel,
+      farming: s.farmingLevel,
+    });
+    const SKILL_TAGS: Record<keyof ReturnType<typeof skillSnapshot>, string> = {
+      woodcutting: "🪓 Woodcutting",
+      mining: "⛏️ Mining",
+      fishing: "🎣 Fishing",
+      farming: "🌾 Farming",
+    };
+    let prevSkills = skillSnapshot();
+    const unsubscribeSkillFx = useGameStore.subscribe((state) => {
+      const next = skillSnapshot(state);
+      for (const key of Object.keys(next) as (keyof typeof next)[]) {
+        if (next[key] > prevSkills[key] && this.localAvatar) {
+          const { x, y } = this.localAvatar.sprite;
+          this.spawnCelebrationFx(x, y, 0x69d97e);
+          this.showFloatingLabel(x, y - 58, `${SKILL_TAGS[key]} Lv ${next[key]}!`, "#8ef2a0", { size: 15, rise: 40, duration: 1200 });
+        }
+      }
+      prevSkills = next;
+    });
+
+    let prevQuestsDone = useGameStore.getState().questState.completed.length;
+    const unsubscribeQuestFx = useGameStore.subscribe((state) => {
+      const done = state.questState.completed.length;
+      if (done > prevQuestsDone && this.localAvatar) {
+        const { x, y } = this.localAvatar.sprite;
+        this.spawnCelebrationFx(x, y, 0xf7c948);
+        this.showFloatingLabel(x, y - 58, "Quest complete!", "#ffe08a", { size: 16, rise: 42, duration: 1300 });
+      }
+      prevQuestsDone = done;
+    });
+
+    // One-shot FX requested by UI panels (craft sparks over the avatar).
+    let lastWorldFxAt = 0;
+    const unsubscribeWorldFx = useGameStore.subscribe((state) => {
+      const fx = state.worldFx;
+      if (!fx || fx.at === lastWorldFxAt) return;
+      lastWorldFxAt = fx.at;
+      if (!this.localAvatar) return;
+      const { x, y } = this.localAvatar.sprite;
+      if (fx.type === "craft") {
+        this.spawnCraftSparksFx(x, y);
+        if (fx.label) {
+          this.showFloatingLabel(x, y - 54, fx.label, "#ffc46b", { size: 14, rise: 36, duration: 1100 });
+        }
+      }
     });
 
     const unsubscribeWorldStats = networkManager.onWorldStats((payload) => {
@@ -970,6 +1052,10 @@ export class GameScene extends Phaser.Scene {
       unsubscribeHousingState();
       unsubscribeEmote();
       unsubscribeFishingFx();
+      unsubscribeLevelFx();
+      unsubscribeSkillFx();
+      unsubscribeQuestFx();
+      unsubscribeWorldFx();
       unsubscribeWorldStats();
       unsubscribeLootBags();
       unsubscribeAdServing();
@@ -4123,6 +4209,188 @@ export class GameScene extends Phaser.Scene {
       }
     });
     graphics.setPosition(x + (Math.random() - 0.5) * 4, y);
+  }
+
+  /** Generic floating world-space label (level-ups, spoils, skill gains). */
+  private showFloatingLabel(
+    x: number,
+    y: number,
+    message: string,
+    color: string,
+    opts: { size?: number; rise?: number; duration?: number } = {},
+  ) {
+    const text = this.add
+      .text(x, y, message, {
+        fontFamily: "Segoe UI, sans-serif",
+        fontSize: `${opts.size ?? 14}px`,
+        color,
+        fontStyle: "bold",
+        stroke: "#2d1b2e",
+        strokeThickness: 3,
+      })
+      .setOrigin(0.5)
+      .setDepth(220)
+      .setScale(0.6);
+    this.tweens.add({ targets: text, scale: 1, duration: 140, ease: "Back.easeOut" });
+    this.tweens.add({
+      targets: text,
+      y: y - (opts.rise ?? 34),
+      alpha: 0,
+      duration: opts.duration ?? 950,
+      delay: 140,
+      ease: "Cubic.easeOut",
+      onComplete: () => text.destroy(),
+    });
+  }
+
+  /** Smoke poof where a mob keels over: gray puffs + a fading ground ring. */
+  private spawnMobDeathFx(x: number, y: number) {
+    playSfx("mob_die");
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2 + Math.random() * 0.6;
+      const puff = this.add.circle(x, y, 4 + Math.random() * 3, 0xcfcfd6, 0.55).setDepth(y + 14);
+      this.tweens.add({
+        targets: puff,
+        x: x + Math.cos(a) * (14 + Math.random() * 10),
+        y: y - 8 + Math.sin(a) * 8 - Math.random() * 12,
+        scale: 2.1,
+        alpha: 0,
+        duration: 420 + Math.random() * 160,
+        ease: "Sine.easeOut",
+        onComplete: () => puff.destroy(),
+      });
+    }
+    const ring = this.add.graphics().setDepth(y + 13);
+    ring.lineStyle(2, 0xffffff, 0.7);
+    ring.strokeEllipse(0, 0, 24, 12);
+    ring.setPosition(x, y + 6);
+    ring.setScale(0.4);
+    this.tweens.add({
+      targets: ring,
+      scaleX: 1.8,
+      scaleY: 1.8,
+      alpha: 0,
+      duration: 380,
+      ease: "Cubic.easeOut",
+      onComplete: () => ring.destroy(),
+    });
+  }
+
+  /** Gold coins burst from a kill, scatter, then fly into the local player. */
+  private spawnCoinBurstFx(x: number, y: number, count: number) {
+    const coins = Math.max(1, Math.min(6, count));
+    for (let i = 0; i < coins; i++) {
+      const g = this.add.graphics().setDepth(y + 15);
+      g.fillStyle(0xf5c542, 1);
+      g.fillCircle(0, 0, 4);
+      g.lineStyle(1, 0xa87b1c, 1);
+      g.strokeCircle(0, 0, 4);
+      g.fillStyle(0xffe28a, 0.9);
+      g.fillCircle(-1, -1, 1.4);
+      g.setPosition(x, y - 10);
+      const scatterX = x + (Math.random() - 0.5) * 44;
+      const scatterY = y + 2 + Math.random() * 8;
+      this.tweens.add({
+        targets: g,
+        x: scatterX,
+        y: scatterY,
+        angle: (Math.random() - 0.5) * 180,
+        duration: 240 + Math.random() * 120,
+        ease: "Back.easeOut",
+        onComplete: () => {
+          // Stagger the pickups so the coins stream into the player.
+          this.time.delayedCall(160 + i * 70, () => {
+            const local = this.findLocalPlayer();
+            const targetX = local ? local.predicted.x : scatterX;
+            const targetY = local ? local.predicted.y - 14 : scatterY;
+            this.tweens.add({
+              targets: g,
+              x: targetX,
+              y: targetY,
+              scale: 0.5,
+              alpha: 0.9,
+              duration: 230,
+              ease: "Cubic.easeIn",
+              onComplete: () => {
+                if (i === coins - 1) playSfx("coin");
+                g.destroy();
+              },
+            });
+          });
+        },
+      });
+    }
+  }
+
+  /** Expanding ring + rising sparkles for big personal moments (level-up,
+   *  skill-up, quest complete). Color sets the mood: gold XP, green skills. */
+  private spawnCelebrationFx(x: number, y: number, color: number) {
+    for (let i = 0; i < 2; i++) {
+      const ring = this.add.graphics().setDepth(y + 22);
+      ring.lineStyle(3, color, 0.9);
+      ring.strokeEllipse(0, 0, 30, 15);
+      ring.setPosition(x, y - 4);
+      ring.setScale(0.3);
+      this.tweens.add({
+        targets: ring,
+        scaleX: 2.2,
+        scaleY: 2.2,
+        alpha: 0,
+        duration: 520,
+        delay: i * 140,
+        ease: "Cubic.easeOut",
+        onComplete: () => ring.destroy(),
+      });
+    }
+    for (let i = 0; i < 10; i++) {
+      const a = (i / 10) * Math.PI * 2;
+      const spark = this.add
+        .rectangle(x + Math.cos(a) * 10, y - 6 + Math.sin(a) * 5, 3, 3, i % 2 ? 0xfff3c4 : color)
+        .setDepth(y + 23)
+        .setAlpha(0.95);
+      this.tweens.add({
+        targets: spark,
+        x: x + Math.cos(a + 1.6) * 24,
+        y: y - 46 - Math.random() * 26,
+        alpha: 0,
+        angle: 180,
+        duration: 560 + Math.random() * 200,
+        ease: "Sine.easeOut",
+        onComplete: () => spark.destroy(),
+      });
+    }
+  }
+
+  /** Orange anvil sparks fanning up over the player when a craft lands. */
+  private spawnCraftSparksFx(x: number, y: number) {
+    for (let i = 0; i < 8; i++) {
+      // Fan the embers upward and outward from chest height.
+      const a = -Math.PI / 2 + (i / 7 - 0.5) * 1.8;
+      const spark = this.add
+        .rectangle(x, y - 16, 2, 5, i % 2 ? 0xffb347 : 0xfff1b8)
+        .setDepth(y + 20)
+        .setAlpha(0.95)
+        .setAngle((a * 180) / Math.PI + 90);
+      this.tweens.add({
+        targets: spark,
+        x: x + Math.cos(a) * (16 + Math.random() * 14),
+        y: y - 16 + Math.sin(a) * (18 + Math.random() * 12),
+        alpha: 0,
+        duration: 320 + Math.random() * 140,
+        ease: "Cubic.easeOut",
+        onComplete: () => spark.destroy(),
+      });
+    }
+    // A brief hot glow at the anvil point.
+    const flash = this.add.circle(x, y - 14, 7, 0xffdf9e, 0.8).setDepth(y + 19);
+    this.tweens.add({
+      targets: flash,
+      scale: 1.9,
+      alpha: 0,
+      duration: 220,
+      ease: "Cubic.easeOut",
+      onComplete: () => flash.destroy(),
+    });
   }
 
   private updateNpcHealth(npcId: string, currentHp: number, maxHp: number) {

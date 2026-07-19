@@ -184,6 +184,14 @@ export function CraftPanel() {
       return;
     }
     playSfx("craft");
+    // In-world juice: anvil sparks over the avatar + the crafted item's name.
+    const recipe = CRAFT_RECIPES.find((r) => r.id === recipeId);
+    const outputName = recipe ? getItemDefinition(recipe.output.itemId).name : undefined;
+    useGameStore.getState().setWorldFx({
+      type: "craft",
+      label: outputName ? `+ ${outputName}` : undefined,
+      at: Date.now(),
+    });
   };
 
   const handleDismantle = async (itemId: string) => {

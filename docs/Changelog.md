@@ -33,6 +33,10 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **Combat & celebration juice (v0.163.0)** — mob kills now poof (smoke burst + fading ring + deflate sfx) and, for the killer, spill gold coins that scatter and stream into the player with "+N gold" / "+N XP" floats (real spoils echoed on `attackResult`). Level-ups, gather-skill-ups, and quest completions fire an in-world ring-and-sparkle celebration with a floating banner over the avatar. Crafting an item throws anvil sparks over the character plus the crafted item's name.
+
 ### Fixed
 
 - **Ad claims were impossible** — `takeMemberEarnings` ran `UPDATE … SET earnings = 0 … RETURNING earnings`, but Postgres `RETURNING` yields the **post-update** value (0), so every claim returned "Nothing to claim yet." It now captures the pre-update balance via a `FROM` subquery. Also enforces the **10,000 $BASE minimum claim** server-side and loads brand `lifetime_spent` on init so a restart no longer clobbers it.

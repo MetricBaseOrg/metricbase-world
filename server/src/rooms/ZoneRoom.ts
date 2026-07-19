@@ -2683,6 +2683,10 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     }
 
     const defeated = nextHp === 0;
+    // Actual kill spoils, echoed on the broadcast so the client can render
+    // the coin-burst + "+XP" juice with real numbers (0 = nothing granted).
+    let killGold = 0;
+    let killXp = 0;
     if (defeated) {
       bumpMetric("mob.kills", 1);
       this.bumpDaily(player.name, "mobs");
@@ -2692,7 +2696,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       // Party play: nearby party members fighting in this zone share the spoils.
       const allies = this.nearbyPartyMembers(player, npcPosition);
       const baseXp = npc.combat.rewardXp;
-      this.grantXp(client, player, partyKillXp(baseXp, allies.length), `defeated ${npc.name}`);
+      killXp = partyKillXp(baseXp, allies.length);
+      this.grantXp(client, player, killXp, `defeated ${npc.name}`);
       for (const ally of allies) {
         this.grantXp(ally.client, ally.player, partyAssistXp(baseXp), `assisted vs ${npc.name}`);
         await this.checkDefeatObjectives(ally.client, ally.player.name, npcId);
@@ -2705,11 +2710,13 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
           const claimed = { ...(this.mobGoldClaimed.get(this.pidOf(player)) ?? {}) };
           if (!claimed[npcId]) {
             this.grantGold(client, player, rewards.goldReward, `defeated ${npc.name}`);
+            killGold = rewards.goldReward;
             claimed[npcId] = true;
             this.mobGoldClaimed.set(this.pidOf(player), claimed);
           }
         } else {
           this.grantGold(client, player, rewards.goldReward, `defeated ${npc.name}`);
+          killGold = rewards.goldReward;
         }
       }
 
@@ -2736,6 +2743,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       defeated,
       attackerName: player.name,
       crit: hit.crit,
+      goldReward: defeated ? killGold : undefined,
+      xpReward: defeated ? killXp : undefined,
     });
 
     // Refresh the HUD so the stamina gauge reflects the swing's energy cost.

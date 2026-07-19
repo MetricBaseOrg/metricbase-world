@@ -44,7 +44,8 @@ export type SfxType =
   | "craft"
   | "plant"
   | "harvest"
-  | "loot_drop";
+  | "loot_drop"
+  | "mob_die";
 
 const MASTER_VOLUME = 0.32;
 const MUTE_STORAGE_KEY = "metricbase-sfx-muted";
@@ -223,6 +224,11 @@ export function playSfx(type: SfxType): void {
       // Soft thud as the gathered item lands on the ground.
       playTone(ctx, masterGain, now, 150, "triangle", 0.07, 0.16);
       playNoiseBurst(ctx, masterGain, now, 0.05, 0.06);
+      break;
+    case "mob_die":
+      // Deflating poof as a mob keels over: downward slide + soft dust hiss.
+      playSweep(ctx, masterGain, now, 300, 80, 0.26, "triangle", 0.14);
+      playNoiseBurst(ctx, masterGain, now + 0.03, 0.14, 0.07);
       break;
     case "fish_cast":
       playSweep(ctx, masterGain, now, 620, 220, 0.2, "triangle", 0.1);
