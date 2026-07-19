@@ -28,7 +28,7 @@ export const DASHBOARD_UPDATES: Array<{ title: string; body: string }> = [
   },
   {
     title: "v0.155 — Crafting Professions",
-    body: "Master your craft! Pick up to 2 of 6 craft families (🎓 Mastery tab at the forge). Specialists roll ✨ Fine and 🌟 Master gear — stronger, longer-lasting, and NEVER sold by Pip. Chefs and smelters cook bonus portions instead. Want top-tier gear outside your specialty? Trade with another player.",
+    body: "Master your craft! Pick up to 2 of 6 craft families (🎓 Mastery tab at the forge). Specialists roll ✨ Fine and 🌟 Master gear — stronger, longer-lasting, and NEVER sold by Rudi. Chefs and smelters cook bonus portions instead. Want top-tier gear outside your specialty? Trade with another player.",
   },
   {
     title: "v0.154 — Caravan Runs",

@@ -227,7 +227,7 @@ export function HUD({ onLeave }: HUDProps) {
           ) : (
             !mobileLayout && (
               <div style={{ marginTop: 8 }}>
-                <WalletConnectBar compact hint="Connect wallet to trade on the gold market (E at Pip)." />
+                <WalletConnectBar compact hint="Connect wallet to trade on the gold market (E at Rudi)." />
               </div>
             )
           )}

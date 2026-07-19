@@ -2127,7 +2127,7 @@ export class GameScene extends Phaser.Scene {
             label: `Trade at ${market.label}`,
           });
         } else if (node.prop === "shop-blue") {
-          this.interactableScenery.push({ id: node.id, worldX: px, worldY: py, label: "Shop with Pip" });
+          this.interactableScenery.push({ id: node.id, worldX: px, worldY: py, label: "Shop with Rudi" });
         }
         continue;
       }

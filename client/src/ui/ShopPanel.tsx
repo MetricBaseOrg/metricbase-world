@@ -914,7 +914,7 @@ export function ShopPanel() {
           <div className="chibi-card chibi-card--info" style={{ marginTop: 14, fontSize: "0.85rem" }}>
             <div style={{ fontWeight: 800, marginBottom: 6 }}>Open peer-to-peer gold market</div>
             <div style={{ fontSize: 11, fontFamily: "monospace", wordBreak: "break-all", opacity: 0.85 }}>{tokenMint}</div>
-            <div style={{ marginTop: 8, fontSize: 12, opacity: 0.8 }}>Tokens go directly player-to-player. Pip does not take a cut.</div>
+            <div style={{ marginTop: 8, fontSize: 12, opacity: 0.8 }}>Tokens go directly player-to-player. Rudi does not take a cut.</div>
           </div>
 
           <div style={{ marginTop: 14 }}>

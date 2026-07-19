@@ -53,7 +53,7 @@ export function PipGoldDesk() {
         setNotice(
           r.viaPending
             ? `Bought ${(r.gold ?? 0).toLocaleString()} gold — it'll appear on your next relog.`
-            : `Bought ${(r.gold ?? 0).toLocaleString()} gold from Pip!`,
+            : `Bought ${(r.gold ?? 0).toLocaleString()} gold from Rudi!`,
         );
         return;
       }
@@ -86,7 +86,7 @@ export function PipGoldDesk() {
   const buyGoldFromPip = async () => {
     const amount = Number(buyGold) || 0;
     if (!walletAddress) return setNotice("Connect your wallet first.");
-    if (!pipInfo?.enabled || !pipInfo.treasury) return setNotice("Pip's gold desk is closed right now.");
+    if (!pipInfo?.enabled || !pipInfo.treasury) return setNotice("Rudi's gold desk is closed right now.");
     if (amount <= 0) return setNotice("Enter how much gold to buy.");
     playSfx("ui_click");
     setPending(true);
@@ -112,7 +112,7 @@ export function PipGoldDesk() {
 
   return (
     <div className="chibi-card" style={{ marginTop: 10, padding: "10px 12px" }}>
-      <div className="chibi-label" style={{ marginBottom: 4 }}>💰 Buy gold from Pip (1 gold = 1 $BASE)</div>
+      <div className="chibi-label" style={{ marginBottom: 4 }}>💰 Buy gold from Rudi (1 gold = 1 $BASE)</div>
       <div style={{ display: "flex", gap: 6 }}>
         <input
           className="chibi-input"

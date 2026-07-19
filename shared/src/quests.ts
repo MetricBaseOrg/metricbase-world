@@ -138,7 +138,7 @@ export const QUESTS: Record<string, QuestDefinition> = {
   [QUEST_SLIME_SAMPLES]: {
     id: QUEST_SLIME_SAMPLES,
     title: "Gel Collection",
-    description: "Harvest slime gel for Pip's alchemy supplies.",
+    description: "Harvest slime gel for Rudi's alchemy supplies.",
     objectives: [
       {
         type: "collect_item",

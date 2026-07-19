@@ -818,7 +818,7 @@ function WarehouseTab({
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: "0.8rem", fontWeight: 700 }}>{getItemDefinition(e.itemId).name} ×{e.quantity}</div>
               <div className="chibi-text-muted" style={{ fontSize: "0.66rem" }}>
-                base {Math.round(getItemBaseValue(e.itemId)).toLocaleString()}g{pip > 0 ? ` · Pip ~${pip}g ea` : " · Pip won't buy"}
+                base {Math.round(getItemBaseValue(e.itemId)).toLocaleString()}g{pip > 0 ? ` · Rudi ~${pip}g ea` : " · Rudi won't buy"}
               </div>
             </div>
             {can("withdrawItems") && (
@@ -838,7 +838,7 @@ function WarehouseTab({
       })}
       {can("sellWarehouse") && (
         <div className="chibi-text-muted" style={{ fontSize: "0.66rem", marginTop: 6 }}>
-          Selling sends items to Pip at the current price — proceeds go straight to the treasury.
+          Selling sends items to Rudi at the current price — proceeds go straight to the treasury.
         </div>
       )}
     </div>

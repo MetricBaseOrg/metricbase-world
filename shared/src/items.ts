@@ -181,7 +181,7 @@ export const ITEMS: Record<string, ItemDefinition> = {
   item_wood: {
     id: "item_wood",
     name: "Wood",
-    description: "Logs from felled trees. Pip buys these for crafting supplies.",
+    description: "Logs from felled trees. Rudi buys these for crafting supplies.",
     stackable: true,
     maxStack: 99,
     kind: "material",
@@ -189,7 +189,7 @@ export const ITEMS: Record<string, ItemDefinition> = {
   item_ore: {
     id: "item_ore",
     name: "Copper Ore",
-    description: "Chunks of raw copper from the rocks. Pip buys these for the forge.",
+    description: "Chunks of raw copper from the rocks. Rudi buys these for the forge.",
     stackable: true,
     maxStack: 99,
     kind: "material",
@@ -197,7 +197,7 @@ export const ITEMS: Record<string, ItemDefinition> = {
   item_fish: {
     id: "item_fish",
     name: "River Fish",
-    description: "A fresh catch from the shallows. Pip buys these for the kitchen.",
+    description: "A fresh catch from the shallows. Rudi buys these for the kitchen.",
     stackable: true,
     maxStack: 99,
     kind: "material",
@@ -205,7 +205,7 @@ export const ITEMS: Record<string, ItemDefinition> = {
   item_slime_gel: {
     id: "item_slime_gel",
     name: "Slime Gel",
-    description: "Sticky residue from a defeated slime. Pip buys these for alchemy.",
+    description: "Sticky residue from a defeated slime. Rudi buys these for alchemy.",
     stackable: true,
     maxStack: 99,
     kind: "material",
@@ -213,7 +213,7 @@ export const ITEMS: Record<string, ItemDefinition> = {
   item_slime_core: {
     id: "item_slime_core",
     name: "Slime Core",
-    description: "A dense nucleus from a Slime Brute. Pip pays top gold for these.",
+    description: "A dense nucleus from a Slime Brute. Rudi pays top gold for these.",
     stackable: true,
     maxStack: 20,
     kind: "material",
@@ -261,7 +261,7 @@ export const ITEMS: Record<string, ItemDefinition> = {
   item_berries: {
     id: "item_berries",
     name: "Berries",
-    description: "A handful of wild berries foraged from a bush. Pip buys them for the kitchen.",
+    description: "A handful of wild berries foraged from a bush. Rudi buys them for the kitchen.",
     stackable: true,
     maxStack: 99,
     kind: "material",
@@ -447,7 +447,7 @@ export const ITEMS: Record<string, ItemDefinition> = {
   item_bluegill: {
     id: "item_bluegill",
     name: "Bluegill",
-    description: "A plucky little panfish from the shallows. Pip buys these for the kitchen.",
+    description: "A plucky little panfish from the shallows. Rudi buys these for the kitchen.",
     stackable: true,
     maxStack: 99,
     kind: "material",
@@ -455,7 +455,7 @@ export const ITEMS: Record<string, ItemDefinition> = {
   item_carp: {
     id: "item_carp",
     name: "Striped Carp",
-    description: "An uncommon river carp with bold stripes. Worth a decent price at Pip's.",
+    description: "An uncommon river carp with bold stripes. Worth a decent price at Rudi's.",
     stackable: true,
     maxStack: 99,
     kind: "material",
@@ -463,7 +463,7 @@ export const ITEMS: Record<string, ItemDefinition> = {
   item_catfish: {
     id: "item_catfish",
     name: "Whiskered Catfish",
-    description: "An uncommon bottom-feeder with impressive whiskers. Pip pays well for the meat.",
+    description: "An uncommon bottom-feeder with impressive whiskers. Rudi pays well for the meat.",
     stackable: true,
     maxStack: 99,
     kind: "material",
@@ -519,7 +519,7 @@ export const ITEMS: Record<string, ItemDefinition> = {
   item_abyssal_leviathan: {
     id: "item_abyssal_leviathan",
     name: "Abyssal Leviathan",
-    description: "A legendary juvenile leviathan hauled from the abyss. Pip won't believe it.",
+    description: "A legendary juvenile leviathan hauled from the abyss. Rudi won't believe it.",
     stackable: true,
     maxStack: 20,
     kind: "material",
@@ -617,7 +617,7 @@ export const ITEMS: Record<string, ItemDefinition> = {
   item_amber: {
     id: "item_amber",
     name: "Amber",
-    description: "A rare bead of fossilised resin, sometimes found in old trees. Pip pays handsomely.",
+    description: "A rare bead of fossilised resin, sometimes found in old trees. Rudi pays handsomely.",
     stackable: true,
     maxStack: 50,
     kind: "material",
@@ -625,7 +625,7 @@ export const ITEMS: Record<string, ItemDefinition> = {
   item_gemstone: {
     id: "item_gemstone",
     name: "Gemstone",
-    description: "A rare cut stone struck from deep rock. Pip pays handsomely — or forge it into a blade.",
+    description: "A rare cut stone struck from deep rock. Rudi pays handsomely — or forge it into a blade.",
     stackable: true,
     maxStack: 50,
     kind: "material",
@@ -633,7 +633,7 @@ export const ITEMS: Record<string, ItemDefinition> = {
   item_pearl: {
     id: "item_pearl",
     name: "Pearl",
-    description: "A rare lustrous pearl pulled from the deep. Pip pays handsomely.",
+    description: "A rare lustrous pearl pulled from the deep. Rudi pays handsomely.",
     stackable: true,
     maxStack: 50,
     kind: "material",

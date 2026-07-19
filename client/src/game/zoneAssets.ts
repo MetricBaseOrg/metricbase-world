@@ -51,6 +51,9 @@ const ANCHOR: Record<string, number> = {
   // footprint centre so the base tile replaces the 3×3/2×2 ground 1:1.
   house: 0.71, mansion: 0.622, cabin: 0.629, "shop-blue": 0.64, "market-wheat": 0.697,
   "market-carrot": 0.699, windmill: 0.717, fence: 0.684, gate: 0.723, bridge: 0.499,
+  // Sweet Harvest market stall (world/scenery-stall.webp): tall awning + sign
+  // above, baked cobblestone base in the lower third → base sits fairly low.
+  stall: 0.78,
   bakery: 0.65, "bakery-stall": 0.65, barn: 0.65, blacksmith: 0.65, church: 0.65,
   "guard-tower": 0.65, library: 0.65, mosque: 0.65, stable: 0.65, tavern: 0.65, townhall: 0.65,
   // resources (base surface)
@@ -86,6 +89,7 @@ const DESC: Record<string, string> = {
   "shop-blue": "Blue-roofed shop building. 3×3, blocks walking.",
   "market-wheat": "Working market: visitors buy wheat seeds & sell wheat here. 2×2, blocks walking.",
   "market-carrot": "Working market: visitors buy carrot seeds & sell carrots here. 2×2, blocks walking.",
+  stall: "Sweet Harvest market stall — a cozy vendor booth. 2×2, blocks walking.",
   windmill: "Countryside windmill. 2×2, blocks walking.",
   fence: "Thin barrier — blocks walking. Chain into walls.",
   gate: "Ornate fence gate — solid; leave an open tile beside it.",
@@ -207,6 +211,20 @@ export const ZONE_ASSETS: ZoneAsset[] = [
   b("shop-blue", "Shop"),
   b("market-wheat", "Wheat Market", { footprint: 2 }),
   b("market-carrot", "Carrot Market", { footprint: 2 }),
+  // Market stall lives under /assets/world (not the flat /assets root like the
+  // other buildings), so it can't use the b() helper's `${id}.webp` path.
+  {
+    id: "stall",
+    file: "world/scenery-stall.webp",
+    label: "Market Stall",
+    desc: desc("stall"),
+    category: "structure",
+    worldWidth: buildingWidth(2),
+    anchorY: anchor("stall", 0.78),
+    footprint: 2,
+    clearsGround: true,
+    bakedTile: true,
+  },
   b("windmill", "Windmill", { footprint: 2 }),
   b("bakery", "Bakery"),
   b("bakery-stall", "Bakery Stall", { footprint: 2 }),

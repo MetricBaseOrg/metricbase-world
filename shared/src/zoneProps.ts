@@ -10,6 +10,7 @@ export const ZONE_BUILDING_FOOTPRINTS: Record<string, number> = {
   "shop-blue": 3,
   "market-wheat": 2,
   "market-carrot": 2,
+  stall: 2,
   windmill: 2,
   // The bridge spans 2×2 but is a WALKWAY, not a solid building.
   bridge: 2,
@@ -33,6 +34,7 @@ export const SOLID_ZONE_PROPS = new Set<string>([
   "shop-blue",
   "market-wheat",
   "market-carrot",
+  "stall",
   "windmill",
   "fence",
   "gate",

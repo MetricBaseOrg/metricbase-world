@@ -2526,10 +2526,10 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
           // prices, and price-pressure as Pip's in the Hub.
           await this.openShopForNpc(client, player, {
             id: "hub_merchant",
-            name: "Pip",
+            name: "Rudi",
             tileX: prop.tileX,
             tileY: prop.tileY,
-            dialogue: "Welcome to Pip's Provisions — now serving this World!",
+            dialogue: "Welcome to Rudi's Provisions — now serving this World!",
             shopId: "pip_general",
           });
         }
@@ -3849,14 +3849,14 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     if (!player) return;
     const wallet = this.playerWallets.get(client.sessionId) ?? null;
     if (!wallet) {
-      return void client.send("pipGoldResult", { ok: false, error: "Link a wallet first to buy gold from Pip." });
+      return void client.send("pipGoldResult", { ok: false, error: "Link a wallet first to buy gold from Rudi." });
     }
     if (!signature || signature.length < 32) {
       return void client.send("pipGoldResult", { ok: false, error: "Missing payment transaction." });
     }
     const treasury = getTreasuryWallet();
     if (!treasury) {
-      return void client.send("pipGoldResult", { ok: false, error: "Pip's gold desk is closed right now." });
+      return void client.send("pipGoldResult", { ok: false, error: "Rudi's gold desk is closed right now." });
     }
     if (await isPurchaseRedeemed(signature)) {
       return void client.send("pipGoldResult", { ok: false, signature, error: "That payment was already credited." });
@@ -7024,7 +7024,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
           skill: gather.skill,
           skillLevel,
           ok: false,
-          error: `You need ${baitCost}g of bait to cast. Sell a catch or two to Pip first.`,
+          error: `You need ${baitCost}g of bait to cast. Sell a catch or two to Rudi first.`,
         });
         return;
       }
@@ -7610,7 +7610,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
           ok: false,
           plotId,
           action: "plant",
-          error: `You need a ${ITEMS[crop.seedItemId]?.name ?? "seed"} (buy from Pip or a crop market).`,
+          error: `You need a ${ITEMS[crop.seedItemId]?.name ?? "seed"} (buy from Rudi or a crop market).`,
         });
         return;
       }
@@ -8982,7 +8982,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     if (!player || !itemId) return;
     const basePrice = getPipSellPrice(itemId);
     if (!basePrice) {
-      return void client.send("companyResult", { ok: false, error: "Pip won't buy that item." });
+      return void client.send("companyResult", { ok: false, error: "Rudi won't buy that item." });
     }
     const taken = takeFromWarehouse(player.name, itemId, qty, "sellWarehouse");
     if (!taken.ok || !taken.removed || !taken.companyId) {

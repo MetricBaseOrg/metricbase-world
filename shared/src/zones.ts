@@ -133,16 +133,16 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
         tileX: 10,
         tileY: 10,
         dialogue:
-          "Welcome to MetricBase Hub! Chop the oaks in the northwest woods, mine the western quarry, or fish the southeast lake. Sell your haul to Pip. The east gate leads to the Wilderness.",
+          "Welcome to MetricBase Hub! Chop the oaks in the northwest woods, mine the western quarry, or fish the southeast lake. Sell your haul to Rudi. The east gate leads to the Wilderness.",
       },
       {
         id: "hub_merchant",
-        name: "Pip",
-        tileX: 6,
-        tileY: 13,
+        name: "Rudi",
+        tileX: 9,
+        tileY: 15,
         shopId: "pip_general",
         dialogue:
-          "Welcome to Pip's Provisions! Trade gold on the open market, or buy gear with in-game gold.",
+          "Welcome to Rudi's Provisions! Trade gold on the open market, or buy gear with in-game gold.",
       },
       {
         id: "hub_smith",
@@ -280,13 +280,12 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
       { id: "hub_land_7", tileX: 21, tileY: 8 },
     ],
     billboards: [{ id: "hub_billboard", tileX: 12, tileY: 7 }],
-    // Pip's marketplace: two 2×2 market stalls flanking him on free grass east
-    // of his counter (he stands at 6,13). They're solid buildings — their whole
-    // footprint blocks walking like other buildings — and functional: visitors
-    // buy seeds and sell crops at the wheat & carrot markets.
+    // Rudi's market stall: the Sweet Harvest "stall" building (2×2) set back on
+    // the grass, with Rudi standing at the counter in front of it (9,15) so the
+    // tall awning never hides him. It's a solid building — its whole footprint
+    // blocks walking like other buildings.
     scenery: [
-      { id: "pip_market_wheat", tileX: 7, tileY: 13, prop: "market-wheat", solid: true },
-      { id: "pip_market_carrot", tileX: 9, tileY: 13, prop: "market-carrot", solid: true },
+      { id: "rudi_market", tileX: 7, tileY: 13, prop: "stall", solid: true },
       // Brenna's forge (she stands at 13,10): furnace behind, anvil + quench
       // barrel flanking her at the same screen row.
       { id: "forge_furnace", tileX: 12, tileY: 9, prop: "forge" },
@@ -672,7 +671,7 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
         tileX: 10,
         tileY: 10,
         dialogue:
-          "Drip… drip… The Slime Brute guards the deepest pool. Defeat it if you dare — its core fetches a fine price at Pip's.",
+          "Drip… drip… The Slime Brute guards the deepest pool. Defeat it if you dare — its core fetches a fine price at Rudi's.",
       },
       {
         id: "slime_brute",
