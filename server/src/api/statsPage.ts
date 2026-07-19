@@ -7,13 +7,13 @@ export const STATS_PAGE_HTML = `<!doctype html>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>MetricBase World — Solana MMO Economy</title>
-<meta name="description" content="MetricBase World 🌎 in numbers — live, fully transparent economy dashboard for the Solana MMO powered by the $BASE token (mint DN2PNrZ8Jn65ioJw4QBwXv49j5JiBBL3wPLUDZcrpump): players, gold flow, $BASE burned, player Worlds, markets and ads." />
+<meta name="description" content="MetricBase World 🌎 in numbers — live, fully transparent economy dashboard for the Solana MMO powered by the $BASE token (mint DN2PNrZ8Jn65ioJw4QBwXv49j5JiBBL3wPLUDZcrpump): players, gold flow, $BASE burned, player Worlds, companies & a player stock exchange, markets and ads." />
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@type": "Dataset",
   "name": "MetricBase World live economy stats",
-  "description": "Live transparency dashboard for MetricBase World, a browser-based Solana MMO powered by the $BASE token (mint DN2PNrZ8Jn65ioJw4QBwXv49j5JiBBL3wPLUDZcrpump). Players online, gold supply, $BASE burned, player-built Worlds, markets, jobs and ad revenue.",
+  "description": "Live transparency dashboard for MetricBase World, a browser-based Solana MMO powered by the $BASE token (mint DN2PNrZ8Jn65ioJw4QBwXv49j5JiBBL3wPLUDZcrpump). Players online, gold supply, $BASE burned, player-built Worlds, companies & a player stock exchange, markets, jobs and ad revenue.",
   "url": "https://world.metricbase.org/stats",
   "isBasedOn": "https://world.metricbase.org",
   "creator": { "@type": "Organization", "name": "MetricBase", "url": "https://world.metricbase.org" },
@@ -25,12 +25,12 @@ export const STATS_PAGE_HTML = `<!doctype html>
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="MetricBase World" />
 <meta property="og:title" content="MetricBase World 🌎 in numbers" />
-<meta property="og:description" content="Live, fully transparent economy dashboard — players, gold flow, $BASE burned, player-built Worlds, markets & ads. Updated every 20s." />
+<meta property="og:description" content="Live, fully transparent economy dashboard — players, gold flow, $BASE burned, player-built Worlds, companies & a stock exchange, markets & ads. Updated every 20s." />
 <meta property="og:url" content="https://world.metricbase.org/stats" />
 <meta property="og:image" content="https://world.metricbase.org/metricbase-world.png" />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="MetricBase World 🌎 in numbers" />
-<meta name="twitter:description" content="Live, fully transparent economy dashboard — players, gold flow, $BASE burned, player-built Worlds, markets & ads." />
+<meta name="twitter:description" content="Live, fully transparent economy dashboard — players, gold flow, $BASE burned, player-built Worlds, companies & a stock exchange, markets & ads." />
 <meta name="twitter:image" content="https://world.metricbase.org/metricbase-world.png" />
 <style>
   :root{

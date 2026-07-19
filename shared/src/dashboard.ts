@@ -11,6 +11,10 @@ export const MOTTO_MAX_LENGTH = 80;
  */
 export const DASHBOARD_UPDATES: Array<{ title: string; body: string }> = [
   {
+    title: "v0.162 — Companies Do Business",
+    body: "Company contracts are now business-to-business. An owner or manager posts a supply order to another company; the reward is escrowed from YOUR treasury, the hired company fills it from its warehouse, and the delivered goods land in your warehouse — every gold in and out shown on both companies' financial statements. Also: say hi to Rudi at his new Sweet Harvest Market stall in the Hub.",
+  },
+  {
     title: "v0.161 — Gathering Feels Good",
     body: "Chop, mine, or harvest and the actual item — a bundle of wood, an ore chunk, seeds, a ripe crop — pops out in its hand-drawn art, tumbles to the ground with a thud, then flies into your bag with a sparkle and a chime. Crop fields drop their seeds, farms drop their harvest.",
   },
@@ -25,14 +29,6 @@ export const DASHBOARD_UPDATES: Array<{ title: string; body: string }> = [
   {
     title: "v0.156 — Company Perks",
     body: "Your company type now works for you! Mining crews roll bonus ore, farming co-ops grow crops faster, fishing companies pay half bait, blacksmiths roll better quality and repair cheaper, merchants trade shares at reduced fees, and logistics crews earn +25% freight with half the caravan cooldown.",
-  },
-  {
-    title: "v0.155 — Crafting Professions",
-    body: "Master your craft! Pick up to 2 of 6 craft families (🎓 Mastery tab at the forge). Specialists roll ✨ Fine and 🌟 Master gear — stronger, longer-lasting, and NEVER sold by Rudi. Chefs and smelters cook bonus portions instead. Want top-tier gear outside your specialty? Trade with another player.",
-  },
-  {
-    title: "v0.154 — Caravan Runs",
-    body: "Become a hauler! Accept a sealed cargo satchel at any town board and walk it to another town for a flat freight fee — riskier routes pay more. Die in a PvP zone and your cargo DROPS for anyone to seize and deliver. Employers can also pin supply jobs to a delivery town for player-to-player hauling.",
   },
 ];
 
