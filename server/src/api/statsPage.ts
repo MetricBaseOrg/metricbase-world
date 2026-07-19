@@ -384,20 +384,33 @@ setInterval(function(){if(!lastLoad)return;var s=Math.round((Date.now()-lastLoad
   set("updated","updated "+(s<3?"just now":s+"s ago"));},1000);
 
 // 𝕏 share: compose a "World in numbers" post from the freshest stats.
+// X's intent page hard-errors ("Something went wrong…") when the prefilled
+// text runs past the post limit, so stat lines are only added while the
+// whole post still fits. xLen mirrors X's counting (emoji/astral chars = 2;
+// we count the URL raw, which over-counts vs t.co's 23 — safe direction).
+function xLen(t){var n=0;for(var i=0;i<t.length;i++){var c=t.charCodeAt(i);if(c>=0xD800&&c<=0xDBFF){n+=2;i++;}else{n++;}}return n;}
 el("shareX").onclick=function(){
   var s=lastStats;
-  var lines=["MetricBase World 🌎 in numbers",""];
+  var head=["MetricBase World 🌎 in numbers",""];
+  var tail=["","Live transparent dashboard 👇","https://world.metricbase.org/stats"];
+  var stats=[];
   if(s){
-    lines.push("👥 "+fmt(s.players.registered)+" adventurers · 🟢 "+fmt(s.players.online)+" online now");
-    lines.push("🪙 "+kfmt(s.players.circulatingGold)+" gold in circulation");
-    lines.push("🔥 "+kfmt((s.baseToken||{}).burned||0)+" $BASE burned");
+    stats.push("👥 "+fmt(s.players.registered)+" adventurers · 🟢 "+fmt(s.players.online)+" online now");
+    stats.push("🪙 "+kfmt(s.players.circulatingGold)+" gold in circulation");
+    stats.push("🔥 "+kfmt((s.baseToken||{}).burned||0)+" $BASE burned");
     var w=s.worlds||{};
-    lines.push("🌍 "+fmt(w.total||0)+" player-built Worlds · 👣 "+fmt(w.visits||0)+" visits");
+    stats.push("🌍 "+fmt(w.total||0)+" player-built Worlds · 👣 "+fmt(w.visits||0)+" visits");
     var ad=s.ads||{};
-    if(ad.totalRevenue>0)lines.push("📣 "+kfmt(ad.totalRevenue)+" $BASE ad revenue — "+fmt(ad.sharePct||50)+"% paid to players");
+    if(ad.totalRevenue>0)stats.push("📣 "+kfmt(ad.totalRevenue)+" $BASE ad revenue — "+fmt(ad.sharePct||50)+"% paid to players");
   }
-  lines.push("","Live transparent dashboard 👇","https://world.metricbase.org/stats");
-  window.open("https://x.com/intent/post?text="+encodeURIComponent(lines.join("\\n")),"_blank","noopener");
+  var lines=head.slice();
+  var budget=272-xLen(head.join("\\n")+"\\n"+tail.join("\\n"));
+  for(var i=0;i<stats.length;i++){
+    var cost=xLen(stats[i])+1;
+    if(cost<=budget){lines.push(stats[i]);budget-=cost;}
+  }
+  var text=lines.concat(tail).join("\\n");
+  window.open("https://x.com/intent/post?text="+encodeURIComponent(text),"_blank","noopener");
 };
 
 async function load(){
