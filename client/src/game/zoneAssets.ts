@@ -264,9 +264,11 @@ export const ZONE_ASSETS: ZoneAsset[] = [
   r("crop-field", "Crop Field", "tree", 72),
   r("crop-wheat", "Wheat Crop", "tree", 64),
   r("crop-carrot", "Carrot Crop", "tree", 67),
-  // Mob dens — virtual: they spawn real combat NPCs rather than a PNG prop.
-  { id: "slime-den", file: "", emoji: "🟢", virtual: true, label: "Slime Den", desc: desc("slime-den"), category: "resource", worldWidth: 0, anchorY: 0.5, footprint: 1, clearsGround: false, bakedTile: false },
-  { id: "brute-den", file: "", emoji: "🐸", virtual: true, label: "Brute Den", desc: desc("brute-den"), category: "resource", worldWidth: 0, anchorY: 0.5, footprint: 1, clearsGround: false, bakedTile: false },
+  // Mob dens — virtual: they spawn real combat NPCs rather than a PNG prop. The
+  // `file` points at the mob art so the palette icon, detail card, and drag ghost
+  // show the actual slime (not a placeholder emoji); worldWidth sizes that ghost.
+  { id: "slime-den", file: "mobs/mob-slime.webp", emoji: "🟢", virtual: true, label: "Slime Den", desc: desc("slime-den"), category: "resource", worldWidth: 40, anchorY: 0.82, footprint: 1, clearsGround: false, bakedTile: false },
+  { id: "brute-den", file: "mobs/mob-slime-brute.webp", emoji: "🐸", virtual: true, label: "Brute Den", desc: desc("brute-den"), category: "resource", worldWidth: 60, anchorY: 0.86, footprint: 1, clearsGround: false, bakedTile: false },
   // Decor (1×1, ground-anchored)
   d("well", "Well", 64),
   d("lamp", "Lamp"),

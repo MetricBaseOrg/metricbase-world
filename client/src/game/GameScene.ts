@@ -270,6 +270,14 @@ const SCENERY_ART_ALIAS: Record<string, string> = {
   // aliased to the torch prop; its prop-driven light still fires via node.prop.
 };
 
+// Build-mode preview art for virtual mob dens (they render as live NPCs at play
+// time). Keyed by prop id; uses the same baked mob textures as renderNpcs so the
+// owner sees the actual slime while placing a den, not a blank tile.
+const MOB_DEN_PREVIEW: Record<string, { key: string; size: number; originY: number }> = {
+  "slime-den": { key: "mob-slime", size: 48, originY: 0.82 },
+  "brute-den": { key: "mob-slime-brute", size: 80, originY: 0.86 },
+};
+
 export class GameScene extends Phaser.Scene {
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private wasd!: {
@@ -2086,8 +2094,23 @@ export class GameScene extends Phaser.Scene {
       // lamppost→lamp, lantern→torch) while keeping their prop-driven lights.
       const artProp = SCENERY_ART_ALIAS[node.prop] ?? node.prop;
       const asset = useArt ? getZoneAsset(artProp) : undefined;
-      // Virtual assets (mob dens) are rendered as live NPCs, not props.
-      if (asset?.virtual) continue;
+      // Virtual assets (mob dens) become live NPCs at play time (the server moves
+      // them from scenery→npcs), so they never appear in config.scenery during
+      // normal play. But WHILE EDITING the client renders the raw draft, whose
+      // scenery still holds the dens — draw a static preview sprite so the owner
+      // can see the den they just dropped (otherwise placement looks like a no-op).
+      if (asset?.virtual) {
+        const denKey = MOB_DEN_PREVIEW[node.prop];
+        if (denKey && this.textures.exists(denKey.key)) {
+          const den = this.add
+            .sprite(x, y, denKey.key)
+            .setOrigin(0.5, denKey.originY)
+            .setDepth(y);
+          den.setDisplaySize(denKey.size, denKey.size);
+          this.renderedScenery.push(den);
+        }
+        continue;
+      }
       if (asset) {
         const key = zoneAssetTextureKey(artProp);
         const N = asset.footprint;
