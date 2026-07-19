@@ -2285,12 +2285,17 @@ export class GameScene extends Phaser.Scene {
     this.clearLandPlots();
     this.clearFarmPlots();
     this.clearPortals();
+    this.clearNpcs();
     this.renderGroundPaint(zoneId);
     this.renderResources(zoneId);
     this.renderLandPlots(zoneId);
     this.renderFarmPlots(zoneId);
     this.renderScenery(zoneId);
     this.renderPortals(zoneId);
+    // NPCs (e.g. player-World slime dens) are config-driven too. Without this,
+    // a direct login to a World renders the placeholder config (no NPCs) and the
+    // slimes never appear until a gate round-trip re-caches the config.
+    this.renderNpcs(zoneId);
     this.rebuildCollisionGrid(zoneId);
   }
 
