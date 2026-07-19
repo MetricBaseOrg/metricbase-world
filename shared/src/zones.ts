@@ -138,7 +138,7 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
       {
         id: "hub_merchant",
         name: "Rudi",
-        tileX: 7,
+        tileX: 9,
         tileY: 11,
         shopId: "pip_general",
         dialogue:
@@ -281,12 +281,14 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
     ],
     billboards: [{ id: "hub_billboard", tileX: 12, tileY: 7 }],
     // Rudi's market stall: the Sweet Harvest "stall" building (2×2) on the open
-    // grass north of the west lane — deliberately clear of the SW farm field so
-    // the "Plant seed" prompt never competes with talking to Rudi. Rudi stands
-    // at the counter in front of it (7,11) so the tall awning never hides him.
-    // It's a solid building — its whole footprint blocks walking.
+    // grass north of the west lane. Placed clear of everything that would clash:
+    // far enough from the SW farm field (FARM_RANGE) and the N land plots
+    // (HOUSE_RANGE) that neither prompt competes with talking to Rudi, and east
+    // of the NW saplings so the tall art doesn't cover a tree behind it. Rudi
+    // stands at the counter in front of it (9,11); it's a solid building whose
+    // whole footprint blocks walking.
     scenery: [
-      { id: "rudi_market", tileX: 6, tileY: 9, prop: "stall", solid: true },
+      { id: "rudi_market", tileX: 8, tileY: 9, prop: "stall", solid: true },
       // Brenna's forge (she stands at 13,10): furnace behind, anvil + quench
       // barrel flanking her at the same screen row.
       { id: "forge_furnace", tileX: 12, tileY: 9, prop: "forge" },
