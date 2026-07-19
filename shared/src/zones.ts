@@ -300,8 +300,10 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
       { id: "plaza_lamp_sw", tileX: 10, tileY: 13, prop: "lamppost" },
       { id: "plaza_lamp_ne", tileX: 16, tileY: 9, prop: "lamppost" },
       { id: "plaza_lamp_se", tileX: 16, tileY: 13, prop: "lamppost" },
-      { id: "plaza_hedge_1", tileX: 9, tileY: 10, prop: "hedge" },
-      { id: "plaza_hedge_2", tileX: 9, tileY: 11, prop: "hedge" },
+      // Hedge border on the SE plaza edge (moved off the SW corner, which Rudi's
+      // market now occupies — they were covering the stall and Rudi).
+      { id: "plaza_hedge_1", tileX: 13, tileY: 13, prop: "hedge" },
+      { id: "plaza_hedge_2", tileX: 14, tileY: 13, prop: "hedge" },
       { id: "plaza_bench", tileX: 16, tileY: 11, prop: "bench" },
       { id: "plaza_sign", tileX: 17, tileY: 12, prop: "signpost" },
     ],
@@ -836,14 +838,16 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
       { id: "grotto_lamp_1", tileX: 6, tileY: 8, prop: "lamppost" },
       { id: "grotto_lamp_2", tileX: 14, tileY: 10, prop: "lamppost" },
       { id: "grotto_lamp_3", tileX: 17, tileY: 13, prop: "lamppost" },
-      // Cavern dressing: crates of ore, mossy plants, and a few lanterns.
+      // Cavern dressing: crates of ore, mossy plants, and torches pushed out to
+      // opposite edges (NE + SW) to light the cave at night without crowding
+      // the other props.
       { id: "grotto_crate_1", tileX: 11, tileY: 4, prop: "crate" }, // clear of grotto_plot_1's 2×2
       { id: "grotto_crate_2", tileX: 18, tileY: 5, prop: "crate" },
       { id: "grotto_plant_1", tileX: 3, tileY: 18, prop: "plant" },
       { id: "grotto_plant_2", tileX: 10, tileY: 17, prop: "plant" },
       { id: "grotto_plant_3", tileX: 20, tileY: 7, prop: "plant" },
-      { id: "grotto_lantern_1", tileX: 10, tileY: 5, prop: "lantern" },
-      { id: "grotto_lantern_2", tileX: 13, tileY: 15, prop: "lantern" },
+      { id: "grotto_torch_1", tileX: 18, tileY: 2, prop: "torch" },
+      { id: "grotto_torch_2", tileX: 3, tileY: 20, prop: "torch" },
     ],
     capturePoints: [{ id: "grotto_point", name: "Grotto Heart", tileX: 12, tileY: 10 }],
   },
@@ -1037,11 +1041,12 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
       { id: "black_lamp_1", tileX: 6, tileY: 6, prop: "lamppost" },
       { id: "black_lamp_2", tileX: 17, tileY: 17, prop: "lamppost" },
       { id: "black_sign", tileX: 3, tileY: 14, prop: "signpost" },
-      // Eerie braziers + scorched debris around the obsidian arena.
-      { id: "black_lantern_1", tileX: 9, tileY: 5, prop: "lantern" },
-      { id: "black_lantern_2", tileX: 15, tileY: 5, prop: "lantern" },
-      { id: "black_lantern_3", tileX: 8, tileY: 17, prop: "lantern" }, // was on the Ancient Hardwood's tile
-      { id: "black_lantern_4", tileX: 15, tileY: 18, prop: "lantern" },
+      // Corner torches lighting the obsidian arena at night + scorched debris.
+      // Pushed to the four arena corners, clear of the lava, pillars, and nodes.
+      { id: "black_torch_1", tileX: 2, tileY: 2, prop: "torch" },
+      { id: "black_torch_2", tileX: 21, tileY: 2, prop: "torch" },
+      { id: "black_torch_3", tileX: 2, tileY: 21, prop: "torch" },
+      { id: "black_torch_4", tileX: 21, tileY: 21, prop: "torch" },
       { id: "black_crate_1", tileX: 5, tileY: 18, prop: "crate" },
       { id: "black_crate_2", tileX: 18, tileY: 6, prop: "crate" },
     ],
