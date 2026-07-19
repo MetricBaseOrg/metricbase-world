@@ -746,13 +746,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
 
 
-    for (const npc of this.zoneConfig.npcs) {
-      if (npc.combat) {
-        this.mobHp.set(npc.id, npc.combat.maxHp);
-        const spawnPos = tileToWorld(npc.tileX, npc.tileY);
-        this.npcPositions.set(npc.id, { x: spawnPos.x, y: spawnPos.y });
-      }
-    }
+    this.syncMobStateToConfig();
 
     this.setSimulationInterval((deltaTime) => this.tick(deltaTime), 1000 / TICK_RATE);
 
@@ -2599,6 +2593,32 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     await this.handleAttack(client, npcId, ability);
   }
 
+  /**
+   * Initialise (and reconcile) per-mob combat state to the CURRENT zoneConfig.
+   * Called from onCreate and after every live `zoneConfig` swap (build save,
+   * expand, tier change). Newly placed dens get full HP + a spawn position;
+   * mobs that still exist keep their live HP (a save won't heal a mob mid-fight);
+   * combat state for removed dens is pruned. Without this, a den placed & saved
+   * while the room is live has no `mobHp` entry, so `handleAttack` early-returns
+   * on `currentHp === undefined` and the mob takes no damage.
+   */
+  syncMobStateToConfig() {
+    const liveCombatIds = new Set<string>();
+    for (const npc of this.zoneConfig.npcs) {
+      if (!npc.combat) continue;
+      liveCombatIds.add(npc.id);
+      if (!this.mobHp.has(npc.id)) this.mobHp.set(npc.id, npc.combat.maxHp);
+      if (!this.npcPositions.has(npc.id)) {
+        const spawnPos = tileToWorld(npc.tileX, npc.tileY);
+        this.npcPositions.set(npc.id, { x: spawnPos.x, y: spawnPos.y });
+      }
+    }
+    // Drop combat state for mobs whose den was erased/moved out of existence.
+    for (const id of [...this.mobHp.keys()]) if (!liveCombatIds.has(id)) this.mobHp.delete(id);
+    for (const id of [...this.npcPositions.keys()]) if (!liveCombatIds.has(id)) this.npcPositions.delete(id);
+    for (const id of [...this.mobRespawnAt.keys()]) if (!liveCombatIds.has(id)) this.mobRespawnAt.delete(id);
+  }
+
   private async handleAttack(client: Client, npcId: string, ability?: AbilityDef) {
     const player = this.state.players.get(client.sessionId);
     if (!player || !npcId) return;
@@ -4027,6 +4047,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         if (room.zoneConfig.id === zoneId) {
           const cfg = playerZoneToConfig(record);
           room.zoneConfig = cfg;
+          // Re-init combat state so dens placed this save are attackable at once.
+          room.syncMobStateToConfig();
           room.broadcast("playerZoneConfig", cfg);
         }
       }
@@ -4096,6 +4118,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
           if (room.zoneConfig.id === zoneId) {
             const cfg = playerZoneToConfig(record);
             room.zoneConfig = cfg;
+            room.syncMobStateToConfig();
             room.broadcast("playerZoneConfig", cfg);
             room.broadcast("chat", room.systemChat("Worlds", `⚔️ This World is now a ${label}.`));
           }
@@ -4373,6 +4396,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         if (room.zoneConfig.id === zoneId) {
           const cfg = playerZoneToConfig(record);
           room.zoneConfig = cfg;
+          room.syncMobStateToConfig();
           room.broadcast("playerZoneConfig", cfg);
         }
       }

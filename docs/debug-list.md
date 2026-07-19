@@ -26,3 +26,11 @@
  **Root cause:** The server derives a live NPC from each den but **leaves the den node in `scenery`** (only `RESOURCE_PROPS` are filtered out, not `MOB_DENS`). So at play time `config.scenery` still holds the den *and* `config.npcs` holds its live NPC. The v0.162.4 preview then drew a static slime on top of the real, wandering NPC. Clicks that landed on the static decoy (which is not a combat target) selected nothing, so attacks registered no damage — especially once the real Wild Slime wandered off its spawn tile.
 
  **Fix:** The `renderScenery` den-preview now only draws when there is **no** live NPC derived from that node (`pzmob_<prop>_<id>` absent from `config.npcs`) — i.e. only for a freshly-placed, unsaved den during editing. Saved dens (play mode and re-editing) are drawn solely by `renderNpcs` as the real combat slime, so no duplicate and clicks always hit the real target. See [GameScene.ts](../client/src/game/GameScene.ts#L2089).
+
+## ✅ FIXED (v0.162.6) — Dens built while inside your World couldn't be attacked (the real cause)
+
+ The **actual** reason dens took no damage: purely server-side, independent of any rendering.
+
+ **Root cause:** `mobHp` (per-mob HP) is initialized in `onCreate`, iterating `zoneConfig.npcs` once at room start. But when a World is **saved / expanded / tier-changed while the room is live**, all three handlers do `room.zoneConfig = cfg` (swapping in the new NPC list) **without re-initializing `mobHp`**. A den you place and Save gets a brand-new NPC id (`pzmob_<prop>_<sceneryId>`) that has **no `mobHp` entry**, so `handleAttack` hits `if (currentHp === undefined ...) return;` and every swing silently no-ops. It only "worked" after fully leaving until the room disposed and `onCreate` re-ran. (This is also why the earlier gate-round-trip masked it.)
+
+ **Fix:** Added `syncMobStateToConfig()` — initializes HP + spawn position for any new combat NPC, preserves HP for mobs that still exist (a save won't heal mid-fight), and prunes state for removed dens. It's called from `onCreate` and after **every** live `zoneConfig` swap (build save, expand, tier change). Dens are now attackable the instant you Save. See [ZoneRoom.ts](../server/src/rooms/ZoneRoom.ts#L2596).
