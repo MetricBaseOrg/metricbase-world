@@ -7,6 +7,7 @@ import {
   directionTowardTarget,
   SLIME_BRUTE_NPC_ID,
   WILD_SLIME_NPC_ID,
+  PZ_MOB_PREFIX,
   type AvatarAction,
   type AvatarDirection,
   type CharacterAppearance,
@@ -2094,14 +2095,18 @@ export class GameScene extends Phaser.Scene {
       // lamppost→lamp, lantern→torch) while keeping their prop-driven lights.
       const artProp = SCENERY_ART_ALIAS[node.prop] ?? node.prop;
       const asset = useArt ? getZoneAsset(artProp) : undefined;
-      // Virtual assets (mob dens) become live NPCs at play time (the server moves
-      // them from scenery→npcs), so they never appear in config.scenery during
-      // normal play. But WHILE EDITING the client renders the raw draft, whose
-      // scenery still holds the dens — draw a static preview sprite so the owner
-      // can see the den they just dropped (otherwise placement looks like a no-op).
+      // Virtual assets (mob dens) also spawn a live combat NPC (the server derives
+      // an npc `pzmob_<prop>_<id>` from the same scenery node, but leaves the node
+      // IN scenery). That live NPC — drawn by renderNpcs — is the real slime, so
+      // we must NOT also draw a preview here or it double-renders on top of it.
+      // Only a freshly-placed, unsaved den (no derived npc yet) needs a preview so
+      // the owner can see what they just dropped while editing.
       if (asset?.virtual) {
+        const hasLiveNpc = (config.npcs ?? []).some(
+          (n) => n.id === `${PZ_MOB_PREFIX}${node.prop}_${node.id}`,
+        );
         const denKey = MOB_DEN_PREVIEW[node.prop];
-        if (denKey && this.textures.exists(denKey.key)) {
+        if (!hasLiveNpc && denKey && this.textures.exists(denKey.key)) {
           const den = this.add
             .sprite(x, y, denKey.key)
             .setOrigin(0.5, denKey.originY)
