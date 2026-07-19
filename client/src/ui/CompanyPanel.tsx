@@ -291,12 +291,13 @@ function OverviewTab({
           <div style={{ fontSize: "0.74rem", marginTop: 4, lineHeight: 1.7 }}>
             <div>Revenue-share skim: <b>{rev.skim.toLocaleString()}g</b></div>
             <div>Warehouse vendor sales: <b>{rev.vendor.toLocaleString()}g</b></div>
-            <div>Completed contracts: <b>{rev.contracts.toLocaleString()}g</b></div>
+            <div>Contract income (fulfilled): <b>{rev.contracts.toLocaleString()}g</b></div>
             <div>Share-trade fees: <b>{rev.shares.toLocaleString()}g</b></div>
             <div>Member deposits: <b>{rev.deposits.toLocaleString()}g</b></div>
             <div style={{ marginTop: 4 }}>
               Paid out: <b>{mine.stats.paidOut.salaries.toLocaleString()}g</b> salaries ·{" "}
-              <b>{mine.stats.paidOut.dividends.toLocaleString()}g</b> dividends
+              <b>{mine.stats.paidOut.dividends.toLocaleString()}g</b> dividends ·{" "}
+              <b>{mine.stats.paidOut.contracts.toLocaleString()}g</b> contracts
             </div>
             <div>Contracts completed: <b>{mine.stats.contractsCompleted}</b></div>
           </div>

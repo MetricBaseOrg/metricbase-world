@@ -306,7 +306,7 @@ function Financials({
   const rev = f.revenue;
   const totalRev = rev.skim + rev.vendor + rev.contracts + rev.deposits + rev.shares;
   const out = f.paidOut;
-  const totalOut = out.salaries + out.dividends + out.shareDividends;
+  const totalOut = out.salaries + out.dividends + out.shareDividends + out.contracts;
   const assets = f.treasury + f.warehouseValue;
 
   return (
@@ -342,6 +342,7 @@ function Financials({
             {line("Salaries paid", `-${g(out.salaries)}`, false, "#c0392b")}
             {line("Member dividends paid", `-${g(out.dividends)}`, false, "#c0392b")}
             {line("Share dividends paid", `-${g(out.shareDividends)}`, false, "#c0392b")}
+            {line("Contracts commissioned", `-${g(out.contracts)}`, false, "#c0392b")}
             {rule}
             {line("Net cash retained", g(f.lifetimeRevenue - totalOut), true, f.lifetimeRevenue - totalOut >= 0 ? "#2f9e5e" : "#c0392b")}
             <div className="chibi-text-muted" style={{ fontSize: "0.66rem", marginTop: 2 }}>

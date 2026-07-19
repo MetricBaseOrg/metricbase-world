@@ -117,6 +117,7 @@ function normalizeStats(value: unknown): CompanyStats {
     base.paidOut.salaries = Math.max(0, Math.floor(raw.paidOut.salaries ?? 0));
     base.paidOut.dividends = Math.max(0, Math.floor(raw.paidOut.dividends ?? 0));
     base.paidOut.shareDividends = Math.max(0, Math.floor(raw.paidOut.shareDividends ?? 0));
+    base.paidOut.contracts = Math.max(0, Math.floor(raw.paidOut.contracts ?? 0));
   }
   base.contractsCompleted = Math.max(0, Math.floor(raw.contractsCompleted ?? 0));
   if (raw.contrib && typeof raw.contrib === "object") {

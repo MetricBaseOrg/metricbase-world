@@ -287,7 +287,7 @@ export interface CompanyFinancialsView {
   /** Lifetime revenue by source (for the income statement). */
   revenue: { skim: number; vendor: number; contracts: number; deposits: number; shares: number };
   /** Lifetime cash paid out by kind (for the cash-flow statement). */
-  paidOut: { salaries: number; dividends: number; shareDividends: number };
+  paidOut: { salaries: number; dividends: number; shareDividends: number; contracts: number };
 }
 
 export interface DividendRecordView {

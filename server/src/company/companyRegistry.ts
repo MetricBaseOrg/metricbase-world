@@ -470,10 +470,11 @@ export function companyLifetimeRevenue(company: StoredCompany): number {
   return r.skim + r.vendor + r.contracts + r.deposits + r.shares;
 }
 
-/** Lifetime operating expenses (wages + member dividends; NOT share dividends,
- * which are paid out OF net profit and would otherwise be circular). */
+/** Lifetime operating expenses (wages + member dividends + outbound contract
+ * spend; NOT share dividends, which are paid OF net profit and would otherwise
+ * be circular). */
 export function companyLifetimeOpex(company: StoredCompany): number {
-  return company.stats.paidOut.salaries + company.stats.paidOut.dividends;
+  return company.stats.paidOut.salaries + company.stats.paidOut.dividends + company.stats.paidOut.contracts;
 }
 
 /** Gold value of everything in the warehouse (for the balance sheet). */
@@ -788,12 +789,20 @@ function completeContract(
   // poster's to collect (they paid for them). Activity contracts deliver no
   // items — the poster commissioned labour.
   contract.itemsToCollect = contract.kind === "supply" ? contract.qty : 0;
-  // Escrowed reward becomes company revenue — a transfer, no mint.
+  // Escrowed reward becomes fulfilling-company revenue — a transfer, no mint.
   company.treasury += contract.rewardGold;
   company.stats.revenue.contracts += contract.rewardGold;
   company.stats.contractsCompleted += 1;
   void saveCompany(company);
   void saveCompanyContract(contract);
+  // Book the spend on the poster's company (its treasury was already debited at
+  // post time — this records the now-realized expense for the balance sheet).
+  const posterCompany = contract.posterCompanyId ? companies.get(contract.posterCompanyId) : undefined;
+  if (posterCompany) {
+    posterCompany.stats.paidOut.contracts += contract.rewardGold;
+    void saveCompany(posterCompany);
+    broadcastCompanyState(posterCompany.members);
+  }
   // Refresh the poster (an outsider) so they see the completion + any goods to collect.
   sendToPlayer(contract.posterName, "companyState", buildCompanyStatePayload(contract.posterName));
   return { reward: contract.rewardGold };
