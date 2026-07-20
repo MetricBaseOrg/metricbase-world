@@ -17,8 +17,10 @@ tile (front view, slight top-down tilt). Drop a batch → say so → it ships sa
 **Marks:** ✅ = art file is in its folder · 🎨 = MISSING — draw this · (opt) = optional, covered
 by an existing file.
 
-**Folder layout:** source art lives in category subfolders — `tiles/`, `buildings/`, `nodes/`,
-`mobs/`, `npcs/`, `items/`, `characters/`, plus `world/` for interiors/farm/portal. Drop each new
+**Folder layout:** this doc lives in `docs/`; source art lives in the sibling `assets/` tree, in
+category subfolders — `assets/tiles/`, `assets/buildings/`, `assets/nodes/`, `assets/mobs/`,
+`assets/npcs/`, `assets/items/`, `assets/characters/`, plus `assets/world/` for
+interiors/farm/portal. Paths in the section headers below are repo-root-relative — drop each new
 file into the folder named in its section header.
 
 ## 👉 START HERE

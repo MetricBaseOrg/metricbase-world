@@ -239,4 +239,4 @@ DAU · Avg session time · PvP participation · Guild participation · Crafted i
 
 # References
 
-Design refs in `docs/`: `design.png`, `farmer.png`, `fisher.png`, `hair.png`, `miner.png`, `outfit.png`, `pvp.png`.
+Design refs in `assets/`: `design.png`, `farmer.png`, `fisher.png`, `hair.png`, `miner.png`, `outfit.png`, `pvp.png`.

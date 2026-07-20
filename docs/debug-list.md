@@ -34,3 +34,25 @@
  **Root cause:** `mobHp` (per-mob HP) is initialized in `onCreate`, iterating `zoneConfig.npcs` once at room start. But when a World is **saved / expanded / tier-changed while the room is live**, all three handlers do `room.zoneConfig = cfg` (swapping in the new NPC list) **without re-initializing `mobHp`**. A den you place and Save gets a brand-new NPC id (`pzmob_<prop>_<sceneryId>`) that has **no `mobHp` entry**, so `handleAttack` hits `if (currentHp === undefined ...) return;` and every swing silently no-ops. It only "worked" after fully leaving until the room disposed and `onCreate` re-ran. (This is also why the earlier gate-round-trip masked it.)
 
  **Fix:** Added `syncMobStateToConfig()` — initializes HP + spawn position for any new combat NPC, preserves HP for mobs that still exist (a save won't heal mid-fight), and prunes state for removed dens. It's called from `onCreate` and after **every** live `zoneConfig` swap (build save, expand, tier change). Dens are now attackable the instant you Save. See [ZoneRoom.ts](../server/src/rooms/ZoneRoom.ts#L2596).
+
+## ✅ FIXED (v0.163.1) — /stats "Share the numbers" X post errored out
+
+ The Share button on `/stats` opened an X (Twitter) intent that hard-errored ("Something went wrong… privacy related extensions"), so the share appeared broken.
+
+ **Root cause:** The composed post (title + 5 stat lines + footer + URL) hit **287 X-counted characters** once the ad-revenue stat line was active (emoji count as 2). `x.com/intent/post` now rejects any over-280 prefill outright instead of truncating.
+
+ **Fix:** The composer adds stat lines in priority order only while the whole post still fits a **272-char budget**; `xLen` mirrors X's counting (astral chars = 2; the raw URL counted at 34 vs t.co's 23, i.e. over-counting in the safe direction). Worst-case big-number simulation: old 287 → new 239. See [statsPage.ts](../server/src/api/statsPage.ts).
+
+## ✅ FIXED (v0.163.2) — Jewelry lost its +N on unequip + mail bell rang late
+
+ Two player-reported bugs:
+
+ **1. Enhanced rings/necklaces lost their +N when unequipped** (and a swapped-in piece silently inherited the old slot's +N).
+
+ - **Root cause:** The v0.158.1 stash/restore fix only ran for `WEARABLE_SLOTS` (durability gear) in the equip path, but jewelry is enhanceable without being wearable — so unequip stashed the +N and re-equip never restored it.
+ - **Fix:** `handleEquipItem` now runs stash/restore for **every** gear slot; each helper already no-ops the wear/enhance part that doesn't apply. Self-healing: previously "lost" +N still sits in `enhanceStash` and returns on the next re-equip. See [ZoneRoom.ts](../server/src/rooms/ZoneRoom.ts).
+
+ **2. The mail bell only rang when the recipient next opened the mail panel.**
+
+ - **Root cause:** New-mail nudges used `clientForName` (same room only) and job-completion mail never nudged at all.
+ - **Fix:** New `pushMailToRecipient` delivers a fresh `mailState` + chat notice through the cross-room presence registry the moment mail is inserted (player mail and Job Board reports alike), so the bell rings on arrival in any zone. See [ZoneRoom.ts](../server/src/rooms/ZoneRoom.ts).
