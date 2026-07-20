@@ -21,6 +21,7 @@
 import { ITEMS, ITEM_ICONS, type ItemDefinition } from "./items.js";
 import { CRAFT_RECIPES } from "./crafting.js";
 import {
+  GATHER_ACCESSORY,
   GEAR_STATS,
   TOOL_GATHER,
   TOOL_GROWTH,
@@ -185,6 +186,19 @@ function registerVariant(baseId: string, quality: CraftQuality): void {
   if (growth !== undefined) {
     // Lower is faster crop growth — shrink the discount's remainder.
     TOOL_GROWTH[id] = Math.max(0.4, Math.round((1 - (1 - growth) * statMult) * 100) / 100);
+  }
+  // Gather accessories (Angler's Ring/Cap, Grower's Ring, Farmer's Hat, Lucky
+  // Lure) carry their perk in GATHER_ACCESSORY, not GEAR_STATS — without this a
+  // Fine/Master variant equips but grants ZERO bonus, making the whole item
+  // pointless. Scale its xp/rare/yield bonuses like the tool gather perks.
+  const accessory = GATHER_ACCESSORY[baseId];
+  if (accessory) {
+    GATHER_ACCESSORY[id] = {
+      ...accessory,
+      xpBonus: scale(accessory.xpBonus, statMult),
+      rareBonus: scale(accessory.rareBonus, statMult),
+      yieldBonus: scale(accessory.yieldBonus, statMult),
+    };
   }
   const gear = GEAR_STATS[baseId];
   if (gear) {
