@@ -226,5 +226,5 @@ setInterval(runShareDividends, 60 * 60 * 1000).unref();
 
 httpServer.listen(PORT, () => {
   console.log(`MetricBase game server listening on ws://localhost:${PORT}`);
-  console.log("[Anti-Bot] Anti-Bot System v1.0.0 is ACTIVATED and monitoring player inputs.");
+  console.log("[Moderation] Bot/abuse handling is admin-driven via the ban tools; no automated input monitoring or AFK kicks.");
 });

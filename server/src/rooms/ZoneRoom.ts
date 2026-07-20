@@ -1922,15 +1922,6 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       sentAt: Date.now(),
     });
 
-    client.send("chat", {
-      id: crypto.randomUUID(),
-      channel: "system",
-      senderId: "system",
-      senderName: "Anti-Bot",
-      body: "🛡️ Anti-Bot System is active. Automated macros or pathing will result in a permanent ban.",
-      sentAt: Date.now(),
-    });
-
     void this.checkVisitZoneObjectives(client, player.name, this.zoneConfig.id);
   }
 
