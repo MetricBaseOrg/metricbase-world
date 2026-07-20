@@ -4,6 +4,7 @@ import { getPool } from "./pool.js";
 type MailRow = {
   id: string | number;
   sender: string;
+  recipient?: string;
   subject: string;
   body: string;
   gold: number | null;
@@ -22,6 +23,7 @@ function mapRow(row: MailRow): MailMessage {
   return {
     id: Number(row.id),
     sender: row.sender,
+    ...(row.recipient ? { recipient: row.recipient } : {}),
     subject: row.subject,
     body: row.body,
     gold: row.gold ?? 0,
@@ -59,9 +61,23 @@ export async function getInbox(recipient: string): Promise<MailMessage[]> {
   if (!db) return [];
   const result = await db.query<MailRow>(
     `SELECT id, sender, subject, body, gold, claimed, read, created_at
-     FROM mail WHERE recipient = $1
+     FROM mail WHERE recipient = $1 AND recipient_deleted = false
      ORDER BY created_at DESC LIMIT $2`,
     [recipient, MAIL_MAX_INBOX],
+  );
+  return result.rows.map(mapRow);
+}
+
+/** Letters this player sent (outbox), newest first. Survives the recipient's
+ * delete (that only hides the inbox copy) so senders keep their record. */
+export async function getSentBox(sender: string): Promise<MailMessage[]> {
+  const db = getPool();
+  if (!db) return [];
+  const result = await db.query<MailRow>(
+    `SELECT id, sender, recipient, subject, body, gold, claimed, read, created_at
+     FROM mail WHERE sender = $1
+     ORDER BY created_at DESC LIMIT $2`,
+    [sender, MAIL_MAX_INBOX],
   );
   return result.rows.map(mapRow);
 }
@@ -70,7 +86,7 @@ export async function countUnread(recipient: string): Promise<number> {
   const db = getPool();
   if (!db) return 0;
   const result = await db.query<{ n: string }>(
-    `SELECT COUNT(*)::int AS n FROM mail WHERE recipient = $1 AND read = false`,
+    `SELECT COUNT(*)::int AS n FROM mail WHERE recipient = $1 AND read = false AND recipient_deleted = false`,
     [recipient],
   );
   return Number(result.rows[0]?.n ?? 0);
@@ -101,5 +117,10 @@ export async function claimMailGold(id: number, recipient: string): Promise<numb
 export async function deleteMail(id: number, recipient: string): Promise<void> {
   const db = getPool();
   if (!db) return;
-  await db.query(`DELETE FROM mail WHERE id = $1 AND recipient = $2`, [id, recipient]);
+  // Soft delete: hide from the inbox but keep the row for the sender's outbox.
+  // Attached gold stays claimable-once semantics (claimed flag is untouched).
+  await db.query(`UPDATE mail SET recipient_deleted = true WHERE id = $1 AND recipient = $2`, [
+    id,
+    recipient,
+  ]);
 }

@@ -11,7 +11,7 @@ import { useGameStore } from "../store/gameStore";
 import { renderMarkdown } from "./markdown";
 import { filterMentionNames, MentionDropdown, useMentionAutocomplete } from "./mentionPicker";
 
-type Tab = "inbox" | "compose";
+type Tab = "inbox" | "sent" | "compose";
 
 export function MailPanel() {
   const open = useGameStore((s) => s.mailOpen);
@@ -19,7 +19,9 @@ export function MailPanel() {
 
   const [tab, setTab] = useState<Tab>("inbox");
   const [messages, setMessages] = useState<MailMessage[]>([]);
+  const [sentMessages, setSentMessages] = useState<MailMessage[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [selectedSentId, setSelectedSentId] = useState<number | null>(null);
   const [to, setTo] = useState("");
   const [toFocused, setToFocused] = useState(false);
   const [subject, setSubject] = useState("");
@@ -48,7 +50,10 @@ export function MailPanel() {
   const bodyMention = useMentionAutocomplete(body, (next) => setBody(next.slice(0, MAIL_MAX_BODY)));
 
   useEffect(() => {
-    const offState = networkManager.onMailState((s) => setMessages(s.messages));
+    const offState = networkManager.onMailState((s) => {
+      setMessages(s.messages);
+      setSentMessages(s.sent ?? []);
+    });
     const offResult = networkManager.onMailResult((r) => {
       setBusy(false);
       if (!r.ok) {
@@ -79,6 +84,7 @@ export function MailPanel() {
   if (!open) return null;
 
   const selected = messages.find((m) => m.id === selectedId) ?? null;
+  const selectedSent = sentMessages.find((m) => m.id === selectedSentId) ?? null;
 
   const openMessage = (m: MailMessage) => {
     setSelectedId(m.id);
@@ -111,6 +117,17 @@ export function MailPanel() {
               }}
             >
               📥 Inbox{messages.some((m) => !m.read) ? ` (${messages.filter((m) => !m.read).length})` : ""}
+            </button>
+            <button
+              type="button"
+              className={`chibi-btn ${tab === "sent" ? "chibi-btn--primary" : "chibi-btn--ghost"}`}
+              style={{ padding: "4px 10px", fontSize: "0.76rem" }}
+              onClick={() => {
+                setTab("sent");
+                setError(null);
+              }}
+            >
+              📤 Sent
             </button>
             <button
               type="button"
@@ -209,6 +226,69 @@ export function MailPanel() {
                     </span>
                     {m.gold > 0 && (
                       <span className="chibi-mail__rowgold" title="Has a gold attachment">
+                        {m.claimed ? "✓" : "🪙"}
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : tab === "sent" ? (
+          <div className="chibi-mail__body">
+            {sentMessages.length === 0 ? (
+              <div className="chibi-card chibi-text-muted" style={{ padding: "18px 0", textAlign: "center" }}>
+                You haven't sent any letters yet.
+              </div>
+            ) : selectedSent ? (
+              <div className="chibi-mail__read">
+                <button
+                  type="button"
+                  className="chibi-btn chibi-btn--ghost"
+                  style={{ alignSelf: "flex-start", padding: "3px 8px", fontSize: "0.72rem" }}
+                  onClick={() => setSelectedSentId(null)}
+                >
+                  ‹ Back
+                </button>
+                <div className="chibi-mail__subject">{selectedSent.subject}</div>
+                <div className="chibi-text-muted" style={{ fontSize: "0.72rem" }}>
+                  To{" "}
+                  <strong
+                    className="chibi-chat-name-btn"
+                    style={{ color: "#2f74c0", cursor: "pointer" }}
+                    onClick={() => useGameStore.getState().setProfileFor(selectedSent.recipient ?? "")}
+                  >
+                    {selectedSent.recipient ?? "?"}
+                  </strong>{" "}
+                  · {new Date(selectedSent.sentAt).toLocaleDateString()}
+                  {selectedSent.read ? " · 👁 read" : " · unread"}
+                </div>
+                <div className="chibi-mail__text">
+                  {selectedSent.body ? renderMarkdown(selectedSent.body) : <em>(no message)</em>}
+                </div>
+                {selectedSent.gold > 0 && (
+                  <div className="chibi-text-muted" style={{ fontSize: "0.76rem" }}>
+                    🪙 {selectedSent.gold.toLocaleString()} gold attached
+                    {selectedSent.claimed ? " — claimed ✓" : " — not claimed yet"}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="chibi-mail__list">
+                {sentMessages.map((m) => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    className="chibi-mail__row"
+                    onClick={() => setSelectedSentId(m.id)}
+                  >
+                    <span className="chibi-mail__dot" aria-hidden="true" />
+                    <span className="chibi-mail__rowmain">
+                      <span className="chibi-mail__rowsubject">{m.subject}</span>
+                      <span className="chibi-mail__rowfrom">to {m.recipient ?? "?"}</span>
+                    </span>
+                    {m.gold > 0 && (
+                      <span className="chibi-mail__rowgold" title={m.claimed ? "Gold claimed" : "Gold not claimed yet"}>
                         {m.claimed ? "✓" : "🪙"}
                       </span>
                     )}

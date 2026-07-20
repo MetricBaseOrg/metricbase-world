@@ -12,6 +12,8 @@ export const MAIL_MAX_GOLD = 1_000_000;
 export interface MailMessage {
   id: number;
   sender: string;
+  /** Present on sent-box rows so the outbox can show who the letter went to. */
+  recipient?: string;
   subject: string;
   body: string;
   gold: number;
@@ -22,6 +24,8 @@ export interface MailMessage {
 
 export interface MailStatePayload {
   messages: MailMessage[];
+  /** Letters this player sent (outbox), newest first. */
+  sent?: MailMessage[];
   unread: number;
 }
 

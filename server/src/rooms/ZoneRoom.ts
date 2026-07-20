@@ -284,6 +284,7 @@ import {
   characterExists,
   insertMail,
   getInbox,
+  getSentBox,
   countUnread,
   markMailRead,
   claimMailGold,
@@ -6581,15 +6582,19 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   private async sendMailState(client: Client, playerName?: string) {
     const name = playerName ?? this.state.players.get(client.sessionId)?.name;
     if (!name) return;
-    const [messages, unread] = await Promise.all([getInbox(name), countUnread(name)]);
-    client.send("mailState", { messages, unread });
+    const [messages, sent, unread] = await Promise.all([getInbox(name), getSentBox(name), countUnread(name)]);
+    client.send("mailState", { messages, sent, unread });
   }
 
   /** Push a fresh inbox to a recipient in ANY zone (cross-room presence), so
    * the 🔔 rings when mail arrives — not on the next mail-panel open. */
   private async pushMailToRecipient(recipient: string, notice: string) {
-    const [messages, unread] = await Promise.all([getInbox(recipient), countUnread(recipient)]);
-    if (sendToPlayer(recipient, "mailState", { messages, unread })) {
+    const [messages, sent, unread] = await Promise.all([
+      getInbox(recipient),
+      getSentBox(recipient),
+      countUnread(recipient),
+    ]);
+    if (sendToPlayer(recipient, "mailState", { messages, sent, unread })) {
       sendToPlayer(recipient, "chat", this.systemChat("Mail", notice));
     }
   }

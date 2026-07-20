@@ -80,6 +80,10 @@ CREATE TABLE IF NOT EXISTS mail (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS mail_recipient_idx ON mail (recipient, created_at DESC);
+-- Outbox support: recipient "delete" only hides the letter from the inbox so
+-- the sender's sent-box copy survives; senders query by the sender column.
+ALTER TABLE mail ADD COLUMN IF NOT EXISTS recipient_deleted BOOLEAN NOT NULL DEFAULT false;
+CREATE INDEX IF NOT EXISTS mail_sender_idx ON mail (sender, created_at DESC);
 
 -- Casino daily login bonus: one claim per UTC day, with a consecutive-day streak.
 CREATE TABLE IF NOT EXISTS casino_daily (
