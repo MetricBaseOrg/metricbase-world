@@ -4882,7 +4882,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     this.bumpDaily(job.workerName, "jobs");
     const def = JOB_KINDS[job.kind];
     const desc = def.describe(job.qty, job.itemId ? getItemDefinition(job.itemId).name : undefined);
-    void insertMail(
+    await insertMail(
       "Job Board",
       job.employerName,
       `${def.emoji} Job completed by ${job.workerName}`,
@@ -4892,6 +4892,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
           : "The escrowed reward has been paid out."),
       0,
     );
+    // Ring the employer's bell right away instead of on their next inbox open.
+    void this.pushMailToRecipient(job.employerName, `📬 Job completed by ${job.workerName} — report in your mailbox.`);
     this.broadcastJobsChanged();
   }
 
@@ -6583,6 +6585,15 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     client.send("mailState", { messages, unread });
   }
 
+  /** Push a fresh inbox to a recipient in ANY zone (cross-room presence), so
+   * the 🔔 rings when mail arrives — not on the next mail-panel open. */
+  private async pushMailToRecipient(recipient: string, notice: string) {
+    const [messages, unread] = await Promise.all([getInbox(recipient), countUnread(recipient)]);
+    if (sendToPlayer(recipient, "mailState", { messages, unread })) {
+      sendToPlayer(recipient, "chat", this.systemChat("Mail", notice));
+    }
+  }
+
   private async handleMailSend(client: Client, to: string, subject: string, body: string, gold: number) {
     const player = this.state.players.get(client.sessionId);
     if (!player) return;
@@ -6614,12 +6625,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     client.send("mailResult", { ok: true });
     await this.persistPlayer(player);
 
-    // Nudge the recipient if they're online so their inbox badge updates.
-    const recipientClient = this.clientForName(recipient);
-    if (recipientClient) {
-      void this.sendMailState(recipientClient, recipient);
-      recipientClient.send("chat", this.systemChat("Mail", `📬 New mail from ${player.name}.`));
-    }
+    // Nudge the recipient if they're online — in any zone, not just this room.
+    void this.pushMailToRecipient(recipient, `📬 New mail from ${player.name}.`);
   }
 
   private async handleMailRead(client: Client, id: number) {
@@ -6918,9 +6925,12 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       const preferSecond = gear.slot === "ring" && current.ring1Id !== null && current.ring2Id === null;
       const gearField = fieldForGearSlot(gear.slot as GearKindSlot, preferSecond);
       field = `${gearField}Id` as keyof PlayerEquipment & string;
-      if (WEARABLE_SLOTS.includes(gearField as EquipmentSlot)) {
-        wearSlot = gearField as EquipmentSlot;
-      }
+      // Every gear slot needs the stash/restore bookkeeping: jewelry has no
+      // durability but IS enhanceable, and skipping it here meant a re-equipped
+      // ring/necklace lost its +N (stashed on unequip, never restored) while a
+      // swapped-in one silently inherited the old slot's +N. Each helper
+      // no-ops the part (wear / enhance) that doesn't apply to the slot.
+      wearSlot = gearField as EquipmentSlot;
     }
 
     if (!field) {
