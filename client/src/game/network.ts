@@ -414,6 +414,13 @@ export class NetworkManager {
   private latestInventory: InventoryStatePayload = { items: [], capacity: 16 };
   private latestSkillState: SkillStatePayload = { woodcutting: { level: 1, xp: 0 } };
   private isTransferring = false;
+  /** Token used to resume the same server session after an unexpected drop. */
+  private reconnectionToken: string | null = null;
+  /** True while a deliberate leave is in flight (Leave World button, rename,
+   *  disconnect) so its socket close isn't mistaken for an AFK drop. */
+  private intentionalLeave = false;
+  /** True while a silent reconnect is being attempted after an unexpected drop. */
+  private reconnecting = false;
   private mobHealth = new Map<string, MobHealthPayload>();
   private resourceHealth = new Map<string, ResourceHealthPayload>();
   private lastPlayerSnapshot = "";
@@ -1543,6 +1550,10 @@ export class NetworkManager {
   }
 
   async disconnect() {
+    // Mark the leave as intentional up front so any in-flight reconnect loop
+    // stops and the socket close isn't treated as an AFK drop.
+    this.intentionalLeave = true;
+    this.reconnecting = false;
     await this.leaveCurrentRoom();
     this.clearPlayerTracking();
     this.client = null;
@@ -1843,11 +1854,22 @@ export class NetworkManager {
       ...(inviteCode ? { inviteCode } : {}),
       ...(spectate !== undefined ? { spectate } : {}),
     };
+    this.intentionalLeave = false;
     try {
       this.room = await this.client.joinOrCreate(roomName, options, ZoneState);
     } catch (error) {
       throw new Error(formatJoinError(error));
     }
+    this.afterRoomReady(zoneId);
+  }
+
+  /** Bind every room state/message handler and announce the connection. Reused
+   *  by the initial join and by silent reconnection after an unexpected drop,
+   *  so a dropped AFK player resumes their session with all handlers intact. */
+  private afterRoomReady(zoneId: string) {
+    if (!this.room) return;
+    this.intentionalLeave = false;
+    this.reconnectionToken = this.room.reconnectionToken ?? null;
     this.currentZoneId = zoneId;
     this.mobHealth.clear();
     this.resourceHealth.clear();
@@ -2352,12 +2374,22 @@ export class NetworkManager {
         listener(payload);
       }
     });
-    this.room.onLeave(() => {
+    this.room.onLeave((code) => {
+      const token = this.reconnectionToken;
       this.room = null;
-      if (!this.isTransferring) {
-        this.emitConnection(false, 0);
+      // A deliberate leave (Leave World button, rename, disconnect) or a zone
+      // transfer: tear down as normal. Anything else is an unexpected drop —
+      // a backgrounded tab or flaky network — so keep the character in the
+      // world and silently rejoin the same session. Being AFK never removes
+      // the player; only pressing Leave World does.
+      if (this.intentionalLeave || this.isTransferring) {
+        if (!this.isTransferring) {
+          this.emitConnection(false, 0);
+        }
+        this.emitPlayers();
+        return;
       }
-      this.emitPlayers();
+      void this.attemptReconnect(zoneId, token, code);
     });
 
     this.emitZone(zoneId);
@@ -2369,8 +2401,44 @@ export class NetworkManager {
   private async leaveCurrentRoom() {
     this.clearPlayerTracking();
     if (!this.room) return;
+    // The onLeave handler fires from room.leave() — flag it as intentional so
+    // it tears down cleanly instead of trying to reconnect. The flag is reset
+    // on the next join (afterRoomReady / joinZone).
+    this.intentionalLeave = true;
     await this.room.leave();
     this.room = null;
+  }
+
+  /** Silently rejoin the same server session after an unexpected disconnect so
+   *  an AFK / backgrounded player's character stays in the world. The server
+   *  holds the session open (allowReconnection) for a grace window; we retry
+   *  with backoff across it. A Leave World press cancels the loop. */
+  private async attemptReconnect(zoneId: string, token: string | null, code?: number): Promise<void> {
+    if (!this.client || !token) {
+      this.emitConnection(false, 0);
+      this.emitPlayers();
+      return;
+    }
+    if (this.reconnecting) return;
+    this.reconnecting = true;
+    console.warn(`[net] connection dropped (code ${code ?? "?"}); reconnecting…`);
+    const backoffs = [500, 1000, 2000, 3000, 5000, 5000, 8000, 8000];
+    for (const wait of backoffs) {
+      if (this.intentionalLeave || !this.client) break;
+      try {
+        this.room = await this.client.reconnect(token, ZoneState);
+        this.reconnecting = false;
+        this.afterRoomReady(zoneId);
+        console.warn("[net] reconnected");
+        return;
+      } catch {
+        await new Promise((resolve) => setTimeout(resolve, wait));
+      }
+    }
+    this.reconnecting = false;
+    this.room = null;
+    this.emitConnection(false, 0);
+    this.emitPlayers();
   }
 
   private clearPlayerTracking() {

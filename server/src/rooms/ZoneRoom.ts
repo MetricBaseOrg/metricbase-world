@@ -612,6 +612,12 @@ function countBuildAssets(build: PlayerZoneBuild): Map<string, number> {
   return counts;
 }
 
+/** How long (seconds) the server keeps a dropped player's character in the
+ *  world, waiting for a silent client reconnect, before actually removing them.
+ *  Covers a backgrounded tab or a brief network blip; must comfortably exceed
+ *  the client's reconnect-retry span (see attemptReconnect in network.ts). */
+const RECONNECT_GRACE_SECONDS = 60;
+
 export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   public static activeRooms = new Set<ZoneRoom>();
 
@@ -1925,9 +1931,26 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     void this.checkVisitZoneObjectives(client, player.name, this.zoneConfig.id);
   }
 
-  async onLeave(client: Client) {
+  async onLeave(client: Client, consented?: boolean) {
     const player = this.state.players.get(client.sessionId);
     const isTransferring = this.transferring.has(client.sessionId);
+
+    // Keep AFK / briefly-disconnected players in the world. An unexpected drop
+    // (backgrounded tab, flaky network) arrives with consented=false; hold the
+    // session open so the character stays put and the client can silently
+    // reconnect. Only an explicit Leave World (consented=true) — or the grace
+    // window elapsing without a reconnect — actually removes them. Zone
+    // transfers manage their own handoff, so they skip this.
+    if (player && !consented && !isTransferring) {
+      try {
+        await this.allowReconnection(client, RECONNECT_GRACE_SECONDS);
+        // Reconnected within the window: the same session resumes with all its
+        // in-memory state intact — nothing to tear down.
+        return;
+      } catch {
+        // Grace window elapsed without a reconnect — fall through to teardown.
+      }
+    }
 
     if (player && !isTransferring) {
       await this.persistPlayer(player);

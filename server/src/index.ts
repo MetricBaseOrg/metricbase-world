@@ -116,7 +116,16 @@ const gameServer = new Server({
   // makes `ws` terminate the connection mid-save — the room drops the client and
   // the online counter flips to 0. Raise the limit; builds are already bounded
   // by sanitizeBuild (grid size), so a few MB is safe headroom.
-  transport: new WebSocketTransport({ server: httpServer, maxPayload: 4 * 1024 * 1024 }),
+  // Generous ping tolerance (~48s: 8s × 6 missed pongs) so a briefly
+  // backgrounded / AFK tab — whose timers the browser throttles — isn't dropped
+  // for missing a couple of heartbeats. A genuine drop past this still hands off
+  // to the room's allowReconnection grace window (see ZoneRoom.onLeave).
+  transport: new WebSocketTransport({
+    server: httpServer,
+    maxPayload: 4 * 1024 * 1024,
+    pingInterval: 8_000,
+    pingMaxRetries: 6,
+  }),
 });
 
 gameServer.define(ZONE_HUB, ZoneRoom, { zoneId: ZONE_HUB });
