@@ -602,8 +602,9 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
             disabled={bootstrapping || joining || !nameReady}
             onClick={handleSpectate}
             style={{ flex: 1, padding: "13px 12px", fontSize: "1rem" }}
+            title="Explore the live world free — no wallet needed"
           >
-            👀 Spectate World
+            👀 Watch free — no wallet
           </button>
         </div>
       </form>

@@ -43,6 +43,7 @@ import { CompanyPanel } from "./ui/CompanyPanel";
 import { ExchangePanel } from "./ui/ExchangePanel";
 import { ZoneTransitionOverlay } from "./ui/ZoneTransitionOverlay";
 import { AdminPanel } from "./ui/AdminPanel";
+import { SpectatorBanner } from "./ui/SpectatorBanner";
 import { CatchCelebration } from "./ui/CatchCelebration";
 import { FishingMinigame } from "./ui/FishingMinigame";
 import { DuelControls } from "./ui/DuelControls";
@@ -425,6 +426,7 @@ export function App() {
       {joined && <ExchangePanel />}
       {joined && <ZoneTransitionOverlay />}
       {joined && <AdminPanel />}
+      {joined && <SpectatorBanner />}
       {joined && <FishingMinigame />}
       {joined && <CatchCelebration />}
       {joined && !worldEditing && !panelOpen && <PvpFlagButton />}
