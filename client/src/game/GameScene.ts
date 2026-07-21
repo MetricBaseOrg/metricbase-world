@@ -3382,6 +3382,9 @@ export class GameScene extends Phaser.Scene {
       "npc-smith": { size: 64, originY: 0.9, shadowW: 26, headOffset: 58 },
       "npc-warden": { size: 64, originY: 0.9, shadowW: 26, headOffset: 58 },
       "npc-rook": { size: 64, originY: 0.9, shadowW: 26, headOffset: 58 },
+      "npc-mara": { size: 64, originY: 0.9, shadowW: 26, headOffset: 58 },
+      "npc-fen": { size: 64, originY: 0.9, shadowW: 26, headOffset: 58 },
+      "npc-moss": { size: 64, originY: 0.9, shadowW: 26, headOffset: 58 },
       "mob-slime": { size: 48, originY: 0.82, shadowW: 24, headOffset: 38 },
       "mob-slime-brute": { size: 80, originY: 0.86, shadowW: 36, headOffset: 68 },
       "mob-ember-slime": { size: 48, originY: 0.82, shadowW: 24, headOffset: 38 },
@@ -3397,9 +3400,10 @@ export class GameScene extends Phaser.Scene {
       let npcTextureKey = "npc";
       if (!isCombat) {
         const npcKeyMap: Record<string, string> = {
-          hub_merchant: "npc-pip",
-          wilderness_merchant: "npc-pip",
-          grotto_merchant: "npc-pip",
+          hub_merchant: "npc-pip", // Rudi — the red-panda shopkeeper
+          wilderness_merchant: "npc-mara", // Mara — frontier camp trader
+          grotto_merchant: "npc-fen", // Fen — mole grotto merchant
+          grotto_warden: "npc-moss", // Moss — mossy cave guardian
           hub_guide: "npc-guide",
           hub_smith: "npc-smith",
           jail_guard: "npc-warden",

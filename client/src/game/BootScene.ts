@@ -49,6 +49,9 @@ export class BootScene extends Phaser.Scene {
     this.load.image("npc-smith", "/assets/npcs/npc-smith.webp");
     this.load.image("npc-warden", "/assets/npcs/npc-warden.webp");
     this.load.image("npc-rook", "/assets/npcs/npc-rook.webp");
+    this.load.image("npc-mara", "/assets/npcs/npc-mara.webp");
+    this.load.image("npc-fen", "/assets/npcs/npc-fen.webp");
+    this.load.image("npc-moss", "/assets/npcs/npc-moss.webp");
 
     // Hand-drawn gathered-item art for the drop-and-collect FX. Keyed
     // `loot-<itemName>` (matches ensureLootTexture in GameScene). Only the
