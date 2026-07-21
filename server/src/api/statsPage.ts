@@ -132,6 +132,7 @@ export const STATS_PAGE_HTML = `<!doctype html>
 
 <nav>
   <a href="#overview">🏠 Overview</a>
+  <a href="#season">🏆 Season</a>
   <a href="#richest">👑 Richest</a>
   <a href="#token">🪙 $BASE</a>
   <a href="#economy">💰 Economy</a>
@@ -150,6 +151,17 @@ export const STATS_PAGE_HTML = `<!doctype html>
       <div class="card"><h2>🪙 Circulating gold</h2><div class="big gold" id="circulating">—</div><div class="sub">held by all players</div></div>
       <div class="card"><h2>🌍 Player Worlds</h2><div class="big mint" id="worlds">—</div><div class="sub"><span id="worldsPub">—</span> published</div></div>
       <div class="card"><h2>🏛️ Treasury (burned)</h2><div class="big burn" id="treasury">—</div><div class="sub">gold removed from circulation</div></div>
+    </div>
+  </section>
+
+  <section id="season">
+    <div class="sec"><span class="em">🏆</span><h2>Season</h2></div>
+    <div class="card wide">
+      <h2>🏆 Season <span id="seasonNum">—</span> · <span id="seasonMeta">—</span></h2>
+      <div style="overflow-x:auto"><table class="ptable" id="seasonTable"><thead><tr>
+        <th>Player</th><th>Points</th><th>Est. $BASE</th>
+      </tr></thead><tbody></tbody></table></div>
+      <div class="legend" style="margin-top:10px"><span>Earn points by playing — gather, craft, trade, win PvP, refer friends, and top the Richest board. At season end the live prize pool (admin wallet + accumulated ad revenue) is split pro-rata by points. Points never mint $BASE — the pool is a fixed treasury allocation.</span></div>
     </div>
   </section>
 
@@ -519,6 +531,20 @@ async function load(){
       {k:"🗺️ Expanded Worlds",v:fmt(w.expanded||0)+" / "+fmt(w.total||0)}
     ],function(x){return '<div class="row"><span>'+x.k+'</span><b>'+x.v+'</b></div>';});
     rows(el("holders"),s.topHolders,function(x,i){return '<div class="row"><span><span class="rk">'+(i<3?["🥇","🥈","🥉"][i]:"#"+(i+1))+'</span>'+x.name+'</span><b>'+fmt(x.gold)+'g</b></div>';});
+
+    // ---- Season points leaderboard ----
+    (function(){
+      var q=s.season||{number:1,endsAt:0,rewardPool:0,players:0,totalPoints:0,top:[]};
+      set("seasonNum",fmt(q.number));
+      var ms=Math.max(0,q.endsAt-Date.now()),d=Math.floor(ms/86400000),h=Math.floor((ms%86400000)/3600000);
+      set("seasonMeta","ends in "+(d>0?d+"d "+h+"h":h+"h")+" · 💰 "+fmt(q.rewardPool)+" $BASE pool · "+fmt(q.players)+" competing");
+      var tb=el("seasonTable").querySelector("tbody");
+      tb.innerHTML=(q.top||[]).map(function(x,i){
+        var rk=i<3?["🥇","🥈","🥉"][i]:"#"+(i+1);
+        var est=q.totalPoints>0?Math.floor(x.points/q.totalPoints*q.rewardPool):0;
+        return '<tr><td class="nm"><span class="rk">'+rk+'</span>'+x.name+'</td><td>'+fmt(x.points)+'</td><td class="gold">'+fmt(est)+'</td></tr>';
+      }).join("")||'<tr><td colspan="3" class="base">Nothing here yet 🌱</td></tr>';
+    })();
 
     // ---- Richest players (net worth + daily change, seasonal) ----
     (function(){

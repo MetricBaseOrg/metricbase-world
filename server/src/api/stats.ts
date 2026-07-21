@@ -7,7 +7,9 @@ import {
   SHOPS,
   getItemBaseValue,
   supplyDemandMultiplier,
+  currentSeason,
 } from "@metricbase/shared";
+import { loadSeasonAggregate, getSeasonRewardPool } from "../db/season.js";
 import { getPool } from "../db/pool.js";
 import { getRichestBoard, type RichestBoard } from "../db/networth.js";
 import { ZoneRoom } from "../rooms/ZoneRoom.js";
@@ -68,6 +70,15 @@ interface EconomyStats {
   topHolders: { name: string; gold: number }[];
   /** Richest players by net worth with day-over-day change; resets each season. */
   richest: RichestBoard;
+  /** Current competitive Season: live prize pool + points leaderboard. */
+  season: {
+    number: number;
+    endsAt: number;
+    rewardPool: number;
+    players: number;
+    totalPoints: number;
+    top: { name: string; points: number }[];
+  };
   activity: Record<string, number>;
   daily: { day: string; metric: string; value: number }[];
   /** Live economic events + the adaptive-sink state (v0.157). */
@@ -190,6 +201,8 @@ export async function buildStats(): Promise<EconomyStats> {
   const playerHeld = await getPlayerHeldBase();
   const ads = await adService.getPublicStats();
   const richest = await getRichestBoard();
+  const seasonInfo = currentSeason();
+  const [seasonAgg, seasonPool] = await Promise.all([loadSeasonAggregate(seasonInfo.id, 10), getSeasonRewardPool()]);
   const activity = getMetricTotals();
   const daily = await getDailySeries(14);
   // Fold in the $BASE gold-market volume per day from market_trades.
@@ -253,6 +266,14 @@ export async function buildStats(): Promise<EconomyStats> {
     ads,
     topHolders,
     richest,
+    season: {
+      number: seasonInfo.number,
+      endsAt: seasonInfo.endMs,
+      rewardPool: seasonPool,
+      players: seasonAgg.totalPlayers,
+      totalPoints: seasonAgg.totalPoints,
+      top: seasonAgg.leaderboard.map((e) => ({ name: e.name, points: e.points })),
+    },
     activity,
     daily,
     itemPrices: buildItemPrices(),
