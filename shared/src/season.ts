@@ -16,9 +16,10 @@ export const SEASON_LENGTH_MS = SEASON_LENGTH_DAYS * 24 * 60 * 60 * 1000;
  * from the PvP-rank season anchor in pvprank.ts.) */
 const SEASON_EPOCH_MS = Date.UTC(2026, 6, 21);
 
-/** Fixed $BASE reward pool split among players by points at season end.
- * Display + distribution use the same number; it is NOT minted — it's a
- * pre-committed treasury allocation. Tune freely. */
+/** Season-1 baseline / floor for the $BASE reward pool. The ACTUAL pool is the
+ * live admin (house) wallet balance — which grows with ad revenue — floored at
+ * this amount. It is NOT minted; points only decide how the pool is divided at
+ * season end (see the no-emission invariant in docs/company-coin.md). */
 export const SEASON_REWARD_POOL_BASE = 1_000_000;
 
 export interface SeasonInfo {

@@ -51,7 +51,6 @@ import {
   currentSeason,
   estimateReward,
   SEASON_POINTS,
-  SEASON_REWARD_POOL_BASE,
   type SeasonCategory,
   type SeasonStatePayload,
   nextBagExpansion,
@@ -500,6 +499,7 @@ import {
   saveSeasonState,
   loadSeasonAggregate,
   loadSeasonRank,
+  getSeasonRewardPool,
   type SeasonRow,
 } from "../db/season.js";
 import { adjustAsset, getAssetInventory, getAssetQty } from "../zones/assetInventory.js";
@@ -4399,20 +4399,21 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     if (!player) return;
     const state = await this.ensureSeason(player.name);
     const season = currentSeason();
-    const [agg, rank] = await Promise.all([
+    const [agg, rank, rewardPool] = await Promise.all([
       loadSeasonAggregate(season.id, 25),
       loadSeasonRank(season.id, player.name),
+      getSeasonRewardPool(),
     ]);
     const payload: SeasonStatePayload = {
       seasonId: season.id,
       seasonNumber: season.number,
       endsAt: season.endMs,
-      rewardPool: SEASON_REWARD_POOL_BASE,
+      rewardPool,
       points: state.points,
       breakdown: state.breakdown,
       rank: state.points > 0 ? Math.max(1, rank) : 0,
       totalPlayers: agg.totalPlayers,
-      estimatedReward: estimateReward(state.points, agg.totalPoints),
+      estimatedReward: estimateReward(state.points, agg.totalPoints, rewardPool),
       leaderboard: agg.leaderboard,
     };
     client.send("seasonState", payload);

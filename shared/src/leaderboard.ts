@@ -19,6 +19,8 @@ export interface LeaderboardEntry {
   rating?: number;
   /** PvP rank label (only set on the PvP board). */
   rank?: string;
+  /** Season points (only set on the season board). */
+  points?: number;
 }
 
 export interface LeaderboardPayload {
@@ -28,6 +30,15 @@ export interface LeaderboardPayload {
   topSkill: LeaderboardEntry[];
   /** Top players by PvP rating this season. */
   topPvp: LeaderboardEntry[];
+  /** Top players by Season points this season. */
+  topSeason: LeaderboardEntry[];
   /** Current PvP season number. */
   season: number;
+  /** Current competitive Season number (the 30-day points season). */
+  seasonNumber: number;
+  /** When the current Season ends (epoch ms). */
+  seasonEndsAt: number;
+  /** Live $BASE reward pool for the current Season (admin wallet balance, incl.
+   * ad revenue; floored at the Season-1 baseline). */
+  rewardPool: number;
 }

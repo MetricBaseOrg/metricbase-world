@@ -10,9 +10,16 @@ const MEDALS = ["🥇", "🥈", "🥉"];
 export function LeaderboardPanel() {
   const mobileLayout = useMobileLayout();
   const [open, setOpen] = useState(false);
-  const [tab, setTab] = useState<"level" | "gold" | "skill" | "pvp">("level");
+  const [tab, setTab] = useState<"season" | "level" | "gold" | "skill" | "pvp">("season");
   const [data, setData] = useState<LeaderboardPayload | null>(null);
   const playerName = useGameStore((s) => s.playerName);
+
+  const seasonTimeLeft = (endsAt: number) => {
+    const ms = Math.max(0, endsAt - Date.now());
+    const days = Math.floor(ms / 86_400_000);
+    const hours = Math.floor((ms % 86_400_000) / 3_600_000);
+    return days > 0 ? `${days}d ${hours}h` : `${hours}h`;
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -26,13 +33,15 @@ export function LeaderboardPanel() {
   }, [open]);
 
   const rows: LeaderboardEntry[] =
-    (tab === "level"
-      ? data?.topLevel
-      : tab === "gold"
-        ? data?.topGold
-        : tab === "skill"
-          ? data?.topSkill
-          : data?.topPvp) ?? [];
+    (tab === "season"
+      ? data?.topSeason
+      : tab === "level"
+        ? data?.topLevel
+        : tab === "gold"
+          ? data?.topGold
+          : tab === "skill"
+            ? data?.topSkill
+            : data?.topPvp) ?? [];
 
   return (
     <div className="chibi-leaderboard">
@@ -50,7 +59,15 @@ export function LeaderboardPanel() {
       </button>
       {open && (
         <div className="chibi-who-list" style={{ width: 224 }}>
-          <div style={{ display: "flex", gap: 6, marginBottom: 6 }}>
+          <div style={{ display: "flex", gap: 4, marginBottom: 6, flexWrap: "wrap" }}>
+            <button
+              type="button"
+              className={`chibi-btn ${tab === "season" ? "chibi-btn--mint" : "chibi-btn--ghost"}`}
+              style={{ flex: 1, padding: "4px 6px", fontSize: "0.72rem" }}
+              onClick={() => setTab("season")}
+            >
+              🏆 Season
+            </button>
             <button
               type="button"
               className={`chibi-btn ${tab === "level" ? "chibi-btn--primary" : "chibi-btn--ghost"}`}
@@ -84,6 +101,19 @@ export function LeaderboardPanel() {
               PvP
             </button>
           </div>
+          {tab === "season" && data && (
+            <div
+              className="chibi-card"
+              style={{ padding: "6px 8px", marginBottom: 6, borderColor: "#4FB8A8", background: "rgba(79,184,168,0.08)", textAlign: "center" }}
+            >
+              <div style={{ fontWeight: 800, fontSize: "0.74rem" }}>
+                Season {data.seasonNumber} · ends in {seasonTimeLeft(data.seasonEndsAt)}
+              </div>
+              <div className="chibi-text-muted" style={{ fontSize: "0.66rem", marginTop: 2 }}>
+                💰 {data.rewardPool.toLocaleString()} $BASE prize pool · split by points
+              </div>
+            </div>
+          )}
           {tab === "gold" && (
             <div className="chibi-text-muted" style={{ fontSize: "0.68rem", textAlign: "center", marginBottom: 4 }}>
               Net worth · gold + items + property
@@ -110,13 +140,15 @@ export function LeaderboardPanel() {
                 {entry.name}
               </span>
               <span className="chibi-who-lvl">
-                {tab === "level"
-                  ? `Lv ${entry.level}`
-                  : tab === "gold"
-                    ? `🪙 ${(entry.netWorth ?? entry.gold).toLocaleString()}`
-                    : tab === "skill"
-                      ? `⛏️ ${entry.skill ?? 0}`
-                      : `⚔️ ${entry.rating ?? 0} · ${entry.rank ?? "Bronze"}`}
+                {tab === "season"
+                  ? `🏆 ${(entry.points ?? 0).toLocaleString()}`
+                  : tab === "level"
+                    ? `Lv ${entry.level}`
+                    : tab === "gold"
+                      ? `🪙 ${(entry.netWorth ?? entry.gold).toLocaleString()}`
+                      : tab === "skill"
+                        ? `⛏️ ${entry.skill ?? 0}`
+                        : `⚔️ ${entry.rating ?? 0} · ${entry.rank ?? "Bronze"}`}
               </span>
             </div>
           ))}

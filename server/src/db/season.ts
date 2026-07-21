@@ -1,5 +1,12 @@
 import { getPool } from "./pool.js";
-import type { SeasonCategory, SeasonLeaderEntry } from "@metricbase/shared";
+import {
+  SEASON_REWARD_POOL_BASE,
+  METRICBASE_TOKEN_MINT,
+  currentSeason,
+  type SeasonCategory,
+  type SeasonLeaderEntry,
+} from "@metricbase/shared";
+import { getHouseWalletAddress, getHouseBalanceUi } from "../solana/housePayout.js";
 
 /** Per-player season points, one row per player. `season_id` bumps when the
  * season rolls over (handled in code); points/breakdown reset with it. */
@@ -88,6 +95,54 @@ export async function loadSeasonAggregate(seasonId: string, limit = 25): Promise
   } catch (error) {
     console.warn("[season] aggregate failed:", error);
     return empty;
+  }
+}
+
+/** The live Season reward pool: the admin (house) wallet's $BASE balance —
+ * which includes accumulated ad revenue — floored at the Season-1 baseline
+ * (SEASON_REWARD_POOL_BASE). Cached 5 min; getHouseBalanceUi caches too. */
+let poolCache = { at: 0, value: SEASON_REWARD_POOL_BASE };
+export async function getSeasonRewardPool(): Promise<number> {
+  if (Date.now() - poolCache.at < 300_000) return poolCache.value;
+  let pool = SEASON_REWARD_POOL_BASE;
+  const house = getHouseWalletAddress();
+  if (house) {
+    try {
+      const mint = process.env.TOKEN_MINT?.trim() || METRICBASE_TOKEN_MINT;
+      const bal = await getHouseBalanceUi(house, "base", mint);
+      if (bal != null) pool = Math.max(SEASON_REWARD_POOL_BASE, Math.floor(bal));
+    } catch (error) {
+      console.warn("[season] pool balance failed:", error);
+    }
+  }
+  poolCache = { at: Date.now(), value: pool };
+  return pool;
+}
+
+/** Award season points directly in the DB (for offline players, e.g. a referrer
+ * whose invitee just registered). Handles season rollover in SQL and increments
+ * the category breakdown. */
+export async function awardSeasonPointsDb(playerName: string, category: SeasonCategory, points: number): Promise<void> {
+  const pool = getPool();
+  if (!pool || points <= 0) return;
+  const seasonId = currentSeason().id;
+  try {
+    await pool.query(
+      `INSERT INTO season_state (player_name, season_id, points, breakdown)
+       VALUES ($1, $2, $3, jsonb_build_object($4::text, $3))
+       ON CONFLICT (player_name) DO UPDATE SET
+         season_id = $2,
+         points = CASE WHEN season_state.season_id = $2 THEN season_state.points + $3 ELSE $3 END,
+         breakdown = CASE WHEN season_state.season_id = $2
+           THEN jsonb_set(
+                  COALESCE(season_state.breakdown, '{}'::jsonb),
+                  ARRAY[$4::text],
+                  to_jsonb(COALESCE((season_state.breakdown ->> $4)::int, 0) + $3))
+           ELSE jsonb_build_object($4::text, $3) END`,
+      [playerName, seasonId, points, category],
+    );
+  } catch (error) {
+    console.warn("[season] award failed:", error);
   }
 }
 

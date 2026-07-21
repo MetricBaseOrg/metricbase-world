@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import { getPool } from "./pool.js";
 import { getGrantedCodesCount } from "@metricbase/shared";
+import { awardSeasonPointsDb } from "./season.js";
 
 export function isInvitationSystemActive(): boolean {
   // Local test servers (like TOKEN_GATE_DISABLED) skip the invite gate.
@@ -137,6 +138,19 @@ export async function validateAndUseInviteCode(code: string, inviteeWallet: stri
     `UPDATE invitations SET invitee_wallet = $1, used_at = NOW() WHERE code = $2`,
     [inviteeWallet, trimmedCode],
   );
+
+  // Season points: reward the referrer for a successful invite (they may be
+  // offline, so credit the DB directly). Referral is the highest-value category.
+  try {
+    const inviter = await db.query<{ name: string }>(
+      "SELECT name FROM characters WHERE wallet_address = $1 LIMIT 1",
+      [invitation.inviter_wallet],
+    );
+    const inviterName = inviter.rows[0]?.name;
+    if (inviterName) await awardSeasonPointsDb(inviterName, "referral", 1);
+  } catch (error) {
+    console.warn("[invitations] season referral award failed:", error);
+  }
 }
 
 export interface InvitationsLeaderboardEntry {

@@ -1,12 +1,14 @@
 import {
   getPvpRank,
   getPvpSeason,
+  currentSeason,
   normalizeSkills,
   totalSkillLevel,
   type LeaderboardEntry,
   type LeaderboardPayload,
 } from "@metricbase/shared";
 import { fetchExternalWealth, resolveNetWorth, PROBE_FILTER } from "./networth.js";
+import { loadSeasonAggregate, getSeasonRewardPool } from "./season.js";
 import { getPool } from "./pool.js";
 
 const TTL_MS = 60_000;
@@ -29,7 +31,11 @@ const EMPTY: LeaderboardPayload = {
   topGold: [],
   topSkill: [],
   topPvp: [],
+  topSeason: [],
   season: 0,
+  seasonNumber: 1,
+  seasonEndsAt: 0,
+  rewardPool: 0,
 };
 
 const toEntry = (row: Row): LeaderboardEntry => ({
@@ -50,9 +56,10 @@ export async function getLeaderboard(): Promise<LeaderboardPayload> {
   // DeployCheck, WSProbe) so they don't clutter the boards.
   const FILTER = `WHERE ${PROBE_FILTER}`;
   const season = getPvpSeason(now);
+  const comp = currentSeason(now);
 
   try {
-    const [byLevel, all, byPvp, wealth] = await Promise.all([
+    const [byLevel, all, byPvp, wealth, seasonAgg, rewardPool] = await Promise.all([
       pool.query<Row>(
         `SELECT name, level, gold FROM characters ${FILTER} ORDER BY level DESC, xp DESC LIMIT 10`,
       ),
@@ -65,6 +72,8 @@ export async function getLeaderboard(): Promise<LeaderboardPayload> {
         [season],
       ),
       fetchExternalWealth(pool),
+      loadSeasonAggregate(comp.id, 10),
+      getSeasonRewardPool(),
     ]);
     const topSkill = all.rows
       .map((row) => ({ ...toEntry(row), skill: totalSkillLevel(normalizeSkills(row.skills as never)) }))
@@ -84,12 +93,22 @@ export async function getLeaderboard(): Promise<LeaderboardPayload> {
       const rating = row.pvp_rating ?? 1000;
       return { ...toEntry(row), rating, rank: getPvpRank(rating) };
     });
+    const topSeason: LeaderboardEntry[] = seasonAgg.leaderboard.map((e) => ({
+      name: e.name,
+      level: 0,
+      gold: 0,
+      points: e.points,
+    }));
     cache = {
       topLevel: byLevel.rows.map(toEntry),
       topGold: topRich,
       topSkill,
       topPvp,
+      topSeason,
       season,
+      seasonNumber: comp.number,
+      seasonEndsAt: comp.endMs,
+      rewardPool,
     };
     cachedAt = now;
     return cache;
