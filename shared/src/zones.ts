@@ -351,7 +351,7 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
         name: "Training Dummy",
         tileX: 14,
         tileY: 10,
-        dialogue: "A sturdy straw dummy. It swings back when you attack — press Space or tap Attack.",
+        dialogue: "A sturdy straw dummy — safe to practice on, it never hits back. Press Space or tap Attack.",
         combat: { maxHp: 90, rewardXp: 35, respawnMs: 12_000 },
       },
       {

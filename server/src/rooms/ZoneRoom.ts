@@ -211,6 +211,7 @@ import {
   RESPAWN_GOLD_COST,
   RESPAWN_WAIT_MS,
   TRAINING_DUMMY_COUNTER_DAMAGE,
+  TRAINING_DUMMY_NPC_ID,
   PlayerSchema,
   partyAssistXp,
   partyGatherShareXp,
@@ -2688,13 +2689,19 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     this.wearGear(client, player, ["weapon"]);
 
     if (npc.combat) {
+      // The training dummy is a safe practice target — it never hits back.
       const counterRaw =
-        npcId.startsWith("wild_slime") ? 30 : npcId === "slime_brute" ? 72 : TRAINING_DUMMY_COUNTER_DAMAGE;
-      // Armor mitigates incoming counter-damage with diminishing returns.
-      const counterDamage = Math.max(1, Math.round(counterRaw * (1 - armorReduction(stats.armor))));
-      this.damagePlayer(client, player, counterDamage, `${npc.name} counter-attack`);
-      // Taking a hit wears a random worn armor piece.
-      this.wearGear(client, player, this.randomWornArmorSlots(equipment));
+        npcId === TRAINING_DUMMY_NPC_ID ? 0
+        : npcId.startsWith("wild_slime") ? 30
+        : npcId === "slime_brute" ? 72
+        : TRAINING_DUMMY_COUNTER_DAMAGE;
+      if (counterRaw > 0) {
+        // Armor mitigates incoming counter-damage with diminishing returns.
+        const counterDamage = Math.max(1, Math.round(counterRaw * (1 - armorReduction(stats.armor))));
+        this.damagePlayer(client, player, counterDamage, `${npc.name} counter-attack`);
+        // Taking a hit wears a random worn armor piece.
+        this.wearGear(client, player, this.randomWornArmorSlots(equipment));
+      }
     }
 
     const defeated = nextHp === 0;
