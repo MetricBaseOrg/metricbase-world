@@ -496,11 +496,10 @@ import { emptyDailyRow, loadDailyState, saveDailyState, type DailyRow } from "..
 import {
   emptySeasonRow,
   loadSeasonState,
-  saveSeasonState,
+  awardSeasonPointsDb,
   loadSeasonAggregate,
   loadSeasonRank,
   getSeasonRewardPool,
-  type SeasonRow,
 } from "../db/season.js";
 import { adjustAsset, getAssetInventory, getAssetQty } from "../zones/assetInventory.js";
 import {
@@ -1891,8 +1890,6 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         this.bumpDaily(player.name, "visitWorld");
       }
     });
-    // Load season-points state so points accrue from the moment they join.
-    void this.ensureSeason(player.name);
     setOnline(player.name, client, (type, payload) => client.send(type, payload));
     this.inputs.set(client.sessionId, { dx: 0, dy: 0 });
     this.questProgress.set(this.pidOf(player), saved?.questProgress ?? { active: [], objectiveIndex: {}, completed: [] });
@@ -4358,47 +4355,29 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   }
 
   // ── Season points ──────────────────────────────────────────────────────────
-  private static seasonStates = new Map<string, SeasonRow>();
+  // The DB is the single source of truth. Every award — activity points here,
+  // referral + richest-daily bonuses in the invitations/leaderboard modules — is
+  // an ATOMIC increment (awardSeasonPointsDb) that composes without clobbering.
+  // No in-memory cache to go stale or lose updates, and no join-race: points
+  // count from the very first action, and season rollover is handled in the
+  // upsert (a stale-season row is reset on the next award).
 
-  /** Reset a player's points when the season rolls over. */
-  private static rollSeason(state: SeasonRow): void {
-    const id = currentSeason().id;
-    if (state.seasonId === id) return;
-    state.seasonId = id;
-    state.points = 0;
-    state.breakdown = {};
-  }
-
-  /** Load (or create) a player's season-points row into the static cache. */
-  private async ensureSeason(playerName: string): Promise<SeasonRow> {
-    let state = ZoneRoom.seasonStates.get(playerName);
-    if (!state) {
-      state = (await loadSeasonState(playerName)) ?? emptySeasonRow(currentSeason().id);
-      ZoneRoom.seasonStates.set(playerName, state);
-    }
-    ZoneRoom.rollSeason(state);
-    return state;
-  }
-
-  /** Award season points for an activity (no-op until the row is loaded via
-   * ensureSeason on join; unknown categories are ignored). */
+  /** Award season points for an activity (atomic DB increment; unknown or
+   * zero-value categories are ignored). */
   private bumpSeason(playerName: string, category: SeasonCategory, n = 1): void {
     const pts = SEASON_POINTS[category];
     if (!pts || n <= 0) return;
-    const state = ZoneRoom.seasonStates.get(playerName);
-    if (!state) return;
-    ZoneRoom.rollSeason(state);
-    const gained = pts * n;
-    state.points += gained;
-    state.breakdown[category] = (state.breakdown[category] ?? 0) + gained;
-    void saveSeasonState(playerName, state);
+    void awardSeasonPointsDb(playerName, category, pts * n);
   }
 
   private async handleSeasonState(client: Client): Promise<void> {
     const player = this.state.players.get(client.sessionId);
     if (!player) return;
-    const state = await this.ensureSeason(player.name);
     const season = currentSeason();
+    const row = (await loadSeasonState(player.name)) ?? emptySeasonRow(season.id);
+    // A row left over from a previous season reads as zero for the new one.
+    const points = row.seasonId === season.id ? row.points : 0;
+    const breakdown = row.seasonId === season.id ? row.breakdown : {};
     const [agg, rank, rewardPool] = await Promise.all([
       loadSeasonAggregate(season.id, 25),
       loadSeasonRank(season.id, player.name),
@@ -4409,11 +4388,11 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       seasonNumber: season.number,
       endsAt: season.endMs,
       rewardPool,
-      points: state.points,
-      breakdown: state.breakdown,
-      rank: state.points > 0 ? Math.max(1, rank) : 0,
+      points,
+      breakdown,
+      rank: points > 0 ? Math.max(1, rank) : 0,
       totalPlayers: agg.totalPlayers,
-      estimatedReward: estimateReward(state.points, agg.totalPoints, rewardPool),
+      estimatedReward: estimateReward(points, agg.totalPoints, rewardPool),
       leaderboard: agg.leaderboard,
     };
     client.send("seasonState", payload);

@@ -129,17 +129,19 @@ export async function awardSeasonPointsDb(playerName: string, category: SeasonCa
   const seasonId = currentSeason().id;
   try {
     await pool.query(
+      // $3 is cast to int at every use — Postgres can't infer a bind param's
+      // type inside jsonb_build_object()/to_jsonb() otherwise (error 42P08).
       `INSERT INTO season_state (player_name, season_id, points, breakdown)
-       VALUES ($1, $2, $3, jsonb_build_object($4::text, $3))
+       VALUES ($1, $2, $3::int, jsonb_build_object($4::text, $3::int))
        ON CONFLICT (player_name) DO UPDATE SET
          season_id = $2,
-         points = CASE WHEN season_state.season_id = $2 THEN season_state.points + $3 ELSE $3 END,
+         points = CASE WHEN season_state.season_id = $2 THEN season_state.points + $3::int ELSE $3::int END,
          breakdown = CASE WHEN season_state.season_id = $2
            THEN jsonb_set(
                   COALESCE(season_state.breakdown, '{}'::jsonb),
                   ARRAY[$4::text],
-                  to_jsonb(COALESCE((season_state.breakdown ->> $4)::int, 0) + $3))
-           ELSE jsonb_build_object($4::text, $3) END`,
+                  to_jsonb(COALESCE((season_state.breakdown ->> $4)::int, 0) + $3::int))
+           ELSE jsonb_build_object($4::text, $3::int) END`,
       [playerName, seasonId, points, category],
     );
   } catch (error) {
