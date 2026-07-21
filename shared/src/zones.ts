@@ -673,8 +673,10 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
       {
         id: "grotto_warden",
         name: "Moss",
-        tileX: 10,
-        tileY: 10,
+        // Stationed by the SE Deep Grotto Pool he warns about (clear of Fen,
+        // who trades over near the west settlement).
+        tileX: 13,
+        tileY: 15,
         dialogue:
           "Drip… drip… The Slime Brute guards the deepest pool. Defeat it if you dare — its core fetches a fine price at Rudi's.",
       },
