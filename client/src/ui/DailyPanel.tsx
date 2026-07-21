@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { playSfx } from "../audio/soundEffects";
 import { networkManager } from "../game/network";
 import { useGameStore } from "../store/gameStore";
+import { SeasonShareModal } from "./SeasonShareModal";
 
 /**
  * Daily rewards board: the day's 3 rotating tasks with progress bars + claim
@@ -13,6 +14,7 @@ export function DailyPanel() {
   const setOpen = useGameStore((s) => s.setDailyOpen);
   const [state, setState] = useState<DailyStatePayload | null>(null);
   const [season, setSeason] = useState<SeasonStatePayload | null>(null);
+  const [shareOpen, setShareOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -127,8 +129,21 @@ export function DailyPanel() {
               ))}
             </div>
           )}
+          <button
+            type="button"
+            className="chibi-btn chibi-btn--gold"
+            style={{ width: "100%", marginTop: 10, padding: "8px 10px", fontWeight: 800 }}
+            onClick={() => {
+              playSfx("ui_open");
+              setShareOpen(true);
+            }}
+          >
+            📢 Share my Season
+          </button>
         </div>
       )}
+
+      {shareOpen && season && <SeasonShareModal season={season} onClose={() => setShareOpen(false)} />}
 
       {!state && (
         <div className="chibi-text-muted" style={{ fontSize: "0.8rem", marginTop: 10 }}>
