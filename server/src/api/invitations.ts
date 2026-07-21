@@ -6,6 +6,7 @@ import {
   getGeneratedCount,
   createInvitation,
   isInvitationSystemActive,
+  isInvitationRequired,
   getInvitationsLeaderboard,
 } from "../db/invitations.js";
 import { getGrantedCodesCount } from "@metricbase/shared";
@@ -13,7 +14,7 @@ import { getGrantedCodesCount } from "@metricbase/shared";
 export const invitationsRouter = Router();
 
 invitationsRouter.get("/invitations/config", (_req, res) => {
-  res.json({ active: isInvitationSystemActive() });
+  res.json({ active: isInvitationSystemActive(), required: isInvitationRequired() });
 });
 
 invitationsRouter.get("/invitations", requireAuth, async (req, res) => {

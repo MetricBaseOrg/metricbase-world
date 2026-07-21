@@ -15,6 +15,15 @@ export function isInvitationSystemActive(): boolean {
   return Date.now() >= new Date("2026-06-29T00:00:00+08:00").getTime();
 }
 
+/** Whether a valid invite code is REQUIRED to register. The invitation system
+ * stays active either way (codes still work + reward referrers with season
+ * points); this only controls whether a code is mandatory. Optional by default
+ * — a code is a growth reward, not a barrier. Set INVITATION_REQUIRED=true to
+ * hard-gate registration behind a code again. */
+export function isInvitationRequired(): boolean {
+  return process.env.INVITATION_REQUIRED === "true";
+}
+
 export interface InvitationRecord {
   code: string;
   inviteeWallet: string | null;

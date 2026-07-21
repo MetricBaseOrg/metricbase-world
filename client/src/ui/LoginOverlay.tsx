@@ -61,6 +61,7 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
   const [walletPickerOpen, setWalletPickerOpen] = useState(false);
   const [inviteCode, setInviteCode] = useState("");
   const [invitationsActive, setInvitationsActive] = useState(false);
+  const [invitationsRequired, setInvitationsRequired] = useState(false);
   const [leaderboardOpen, setLeaderboardOpen] = useState(false);
   const [detectedWallets, setDetectedWallets] = useState<WalletConnector[]>([]);
   const walletConnectResolver = useRef<{
@@ -71,6 +72,7 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
   useEffect(() => {
     getInvitationConfig().then(cfg => {
       setInvitationsActive(cfg.active);
+      setInvitationsRequired(Boolean(cfg.required));
     }).catch(err => {
       console.error("Failed to load invitation config", err);
     });
@@ -320,7 +322,7 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
 
         const isNew = !(bonded.found && bonded.bonded && bonded.name);
         const codeToUse = inviteCode.trim();
-        if (isNew && invitationsActive && !codeToUse) {
+        if (isNew && invitationsActive && invitationsRequired && !codeToUse) {
           throw new Error("Invitation code is required to register.");
         }
 
@@ -329,7 +331,7 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
         await onJoin(finalName, accessToken, normalized, codeToUse || undefined);
       } else {
         const codeToUse = inviteCode.trim();
-        if (invitationsActive && !codeToUse) {
+        if (invitationsActive && invitationsRequired && !codeToUse) {
           throw new Error("Invitation code is required to register.");
         }
         await onJoin(trimmed, accessToken, normalized, codeToUse || undefined);
@@ -465,17 +467,21 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
 
             {invitationsActive && !nameBonded && (
               <div>
-                <label className="chibi-label">Invitation Code</label>
+                <label className="chibi-label">
+                  Invitation Code{invitationsRequired ? "" : " (optional)"}
+                </label>
                 <input
                   className="chibi-input"
                   value={inviteCode}
                   onChange={(event) => setInviteCode(event.target.value)}
                   maxLength={32}
                   placeholder="INV-XXXX-XXXX"
-                  required
+                  required={invitationsRequired}
                 />
                 <div style={{ fontSize: 11, opacity: 0.6, marginTop: 6 }}>
-                  An invitation code is required to register.
+                  {invitationsRequired
+                    ? "An invitation code is required to register."
+                    : "Got a friend's code? Enter it — they'll earn Season points. Otherwise, jump right in."}
                 </div>
               </div>
             )}

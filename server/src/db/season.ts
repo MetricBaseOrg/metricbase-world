@@ -156,6 +156,106 @@ export async function awardRichestDailyBonus(seasonId: string, rankedNames: stri
   }
 }
 
+// ── End-of-season payout ─────────────────────────────────────────────────────
+
+export interface PayoutTarget {
+  name: string;
+  wallet: string;
+  points: number;
+}
+
+/** Players eligible for a season payout: points > 0 AND a bonded wallet. */
+export async function loadSeasonPayoutTargets(seasonId: string): Promise<PayoutTarget[]> {
+  const pool = getPool();
+  if (!pool) return [];
+  try {
+    const res = await pool.query<{ player_name: string; wallet_address: string; points: number }>(
+      `SELECT s.player_name, c.wallet_address, s.points
+       FROM season_state s
+       JOIN characters c ON c.name = s.player_name
+       WHERE s.season_id = $1 AND s.points > 0 AND c.wallet_address IS NOT NULL
+       ORDER BY s.points DESC, s.player_name ASC`,
+      [seasonId],
+    );
+    return res.rows.map((r) => ({ name: r.player_name, wallet: r.wallet_address, points: r.points }));
+  } catch (error) {
+    console.warn("[season] payout targets failed:", error);
+    return [];
+  }
+}
+
+/** Atomically claim the payout slot for a player. Returns true only for the
+ * caller that inserted the row (idempotency guard before the on-chain send). */
+export async function claimSeasonPayout(
+  seasonId: string,
+  playerName: string,
+  wallet: string,
+  amount: number,
+): Promise<boolean> {
+  const pool = getPool();
+  if (!pool) return false;
+  try {
+    const res = await pool.query(
+      `INSERT INTO season_payout (season_id, player_name, wallet, amount)
+       VALUES ($1, $2, $3, $4::bigint)
+       ON CONFLICT (season_id, player_name) DO NOTHING
+       RETURNING player_name`,
+      [seasonId, playerName, wallet, amount],
+    );
+    return (res.rowCount ?? 0) > 0;
+  } catch (error) {
+    console.warn("[season] claim payout failed:", error);
+    return false;
+  }
+}
+
+/** Stamp a claimed payout with its confirmed tx signature. */
+export async function finalizeSeasonPayout(seasonId: string, playerName: string, signature: string): Promise<void> {
+  const pool = getPool();
+  if (!pool) return;
+  try {
+    await pool.query(
+      "UPDATE season_payout SET signature = $3, paid_at = NOW() WHERE season_id = $1 AND player_name = $2",
+      [seasonId, playerName, signature],
+    );
+  } catch (error) {
+    console.warn("[season] finalize payout failed:", error);
+  }
+}
+
+/** Release an unpaid claim (payout failed) so a retry can attempt it again. */
+export async function unclaimSeasonPayout(seasonId: string, playerName: string): Promise<void> {
+  const pool = getPool();
+  if (!pool) return;
+  try {
+    await pool.query(
+      "DELETE FROM season_payout WHERE season_id = $1 AND player_name = $2 AND signature IS NULL",
+      [seasonId, playerName],
+    );
+  } catch (error) {
+    console.warn("[season] unclaim payout failed:", error);
+  }
+}
+
+/** Count + sum of already-completed payouts for a season (signature present). */
+export async function getSeasonPayoutSummary(seasonId: string): Promise<{ paid: number; total: number }> {
+  const pool = getPool();
+  if (!pool) return { paid: 0, total: 0 };
+  try {
+    const res = await pool.query<{ paid: string; total: string }>(
+      `SELECT COUNT(*) FILTER (WHERE signature IS NOT NULL)::text AS paid,
+              COALESCE(SUM(amount) FILTER (WHERE signature IS NOT NULL), 0)::text AS total
+       FROM season_payout WHERE season_id = $1`,
+      [seasonId],
+    );
+    const r = res.rows[0];
+    return { paid: r ? Number(r.paid) : 0, total: r ? Number(r.total) : 0 };
+  } catch (error) {
+    console.warn("[season] payout summary failed:", error);
+    return { paid: 0, total: 0 };
+  }
+}
+
 /** This player's 1-based rank within the season (0 if unranked / no points). */
 export async function loadSeasonRank(seasonId: string, playerName: string): Promise<number> {
   const pool = getPool();

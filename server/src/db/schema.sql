@@ -339,6 +339,20 @@ CREATE TABLE IF NOT EXISTS season_richest_award (
   PRIMARY KEY (season_id, day)
 );
 
+-- End-of-season $BASE payouts, one row per (season, player). The row is claimed
+-- (inserted) atomically BEFORE the on-chain transfer, then stamped with the tx
+-- signature on success (or deleted on failure to allow a retry) — so a re-run
+-- of the distribution never double-pays a player.
+CREATE TABLE IF NOT EXISTS season_payout (
+  season_id VARCHAR(12) NOT NULL,
+  player_name VARCHAR(16) NOT NULL,
+  wallet VARCHAR(44) NOT NULL,
+  amount BIGINT NOT NULL,
+  signature VARCHAR(128),
+  paid_at TIMESTAMPTZ,
+  PRIMARY KEY (season_id, player_name)
+);
+
 -- Player-to-player jobs: employer escrows the reward at posting; the worker
 -- is paid on verified completion. delivered items await employer pickup.
 CREATE TABLE IF NOT EXISTS jobs (

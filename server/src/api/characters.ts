@@ -7,7 +7,7 @@ import {
 } from "@metricbase/shared";
 import { Router } from "express";
 import { type AuthenticatedRequest, requireAuth } from "../auth/requireAuth.js";
-import { isInvitationSystemActive, validateAndUseInviteCode } from "../db/invitations.js";
+import { isInvitationSystemActive, isInvitationRequired, validateAndUseInviteCode } from "../db/invitations.js";
 import {
   bindCharacterToWallet,
   CharacterBindingError,
@@ -105,15 +105,24 @@ characterRouter.post("/character", requireAuth, async (req, res) => {
   if (!existing && isInvitationSystemActive()) {
     const inviteCode = req.body?.inviteCode ? String(req.body.inviteCode).trim() : "";
     if (!inviteCode) {
-      res.status(400).json({ error: "Invitation code is required to register." });
-      return;
-    }
-    try {
-      await validateAndUseInviteCode(inviteCode, wallet);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Invalid invitation code.";
-      res.status(400).json({ error: msg });
-      return;
+      // Invites are optional by default — only block when explicitly required.
+      if (isInvitationRequired()) {
+        res.status(400).json({ error: "Invitation code is required to register." });
+        return;
+      }
+    } else {
+      try {
+        await validateAndUseInviteCode(inviteCode, wallet);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Invalid invitation code.";
+        // A bad code blocks only when codes are required; otherwise the player
+        // registers without a referral credit rather than being turned away.
+        if (isInvitationRequired()) {
+          res.status(400).json({ error: msg });
+          return;
+        }
+        console.warn(`[characters] optional invite code rejected (${msg}); registering without referral`);
+      }
     }
   }
 

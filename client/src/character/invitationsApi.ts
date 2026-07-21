@@ -10,6 +10,8 @@ function authHeaders(accessToken: string): HeadersInit {
 
 export interface InvitationConfig {
   active: boolean;
+  /** Whether a valid code is mandatory to register (optional by default). */
+  required?: boolean;
 }
 
 export interface InvitationInfo {
