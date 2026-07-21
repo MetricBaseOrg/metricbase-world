@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { playSfx } from "../audio/soundEffects";
 import { networkManager } from "../game/network";
 import { useGameStore } from "../store/gameStore";
+import { requestSeasonPayout, type SeasonPayoutReport } from "../character/seasonApi";
 
 /** Admin moderation panel: ban a player by name (optionally deleting their
  *  character), and review/lift existing bans. Every action is re-verified
@@ -17,6 +18,46 @@ export function AdminPanel() {
   const [deleteChar, setDeleteChar] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  // Season payout
+  const [seasonInput, setSeasonInput] = useState("");
+  const [payoutBusy, setPayoutBusy] = useState(false);
+  const [payoutNotice, setPayoutNotice] = useState<string | null>(null);
+  const [report, setReport] = useState<SeasonPayoutReport | null>(null);
+
+  const runPayout = async (execute: boolean) => {
+    const token = networkManager.getAccessToken();
+    if (!token) {
+      setPayoutNotice("⚠️ No wallet session — connect an admin wallet first.");
+      return;
+    }
+    const n = seasonInput.trim() ? Number(seasonInput.trim()) : undefined;
+    if (execute) {
+      const total = report?.totalToPay ?? 0;
+      if (!window.confirm(`Pay out ${total.toLocaleString()} $BASE to ${report?.eligible ?? 0} players for Season ${report?.seasonNumber ?? n}? This moves real funds.`)) {
+        return;
+      }
+    }
+    setPayoutBusy(true);
+    setPayoutNotice(null);
+    playSfx("ui_click");
+    try {
+      const res = await requestSeasonPayout(token, n, execute);
+      if (res.report) setReport(res.report);
+      if (!res.ok || res.report?.error) {
+        setPayoutNotice(`⚠️ ${res.error ?? res.report?.error ?? "Payout failed."}`);
+      } else if (execute) {
+        const paid = res.report?.lines.filter((l) => l.status === "paid").length ?? 0;
+        setPayoutNotice(`✅ Paid ${paid} players.`);
+      } else {
+        setPayoutNotice("Preview ready — review below, then Execute.");
+      }
+    } catch (e) {
+      setPayoutNotice(`⚠️ ${e instanceof Error ? e.message : "Payout failed."}`);
+    } finally {
+      setPayoutBusy(false);
+    }
+  };
 
   useEffect(() => {
     const offList = networkManager.onAdminBanList((p: AdminBanListPayload) => {
@@ -110,6 +151,71 @@ export function AdminPanel() {
           {notice}
         </div>
       )}
+
+      {/* Season-end payout */}
+      <div className="chibi-card" style={{ marginTop: 12, padding: "10px 12px", borderColor: "#4FB8A8" }}>
+        <div style={{ fontWeight: 700, fontSize: "0.82rem" }}>🏆 Season payout</div>
+        <div className="chibi-text-muted" style={{ fontSize: "0.68rem", marginTop: 2 }}>
+          Split the season's fixed $BASE pool by points. Preview is a safe dry-run; Execute moves real funds. Only ended seasons; idempotent (never double-pays).
+        </div>
+        <input
+          className="chibi-input"
+          style={{ width: "100%", marginTop: 8 }}
+          placeholder="Season number (blank = last ended)"
+          value={seasonInput}
+          inputMode="numeric"
+          onChange={(e) => setSeasonInput(e.target.value.replace(/[^0-9]/g, ""))}
+        />
+        <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
+          <button
+            type="button"
+            className="chibi-btn chibi-btn--secondary"
+            style={{ flex: 1, padding: "8px 10px" }}
+            disabled={payoutBusy}
+            onClick={() => void runPayout(false)}
+          >
+            {payoutBusy ? "⏳…" : "🔍 Preview"}
+          </button>
+          <button
+            type="button"
+            className="chibi-btn chibi-btn--gold"
+            style={{ flex: 1, padding: "8px 10px" }}
+            disabled={payoutBusy || !report || !report.solvent || !report.withdrawEnabled || (report.eligible - report.alreadyPaid) <= 0}
+            onClick={() => void runPayout(true)}
+          >
+            💸 Execute
+          </button>
+        </div>
+        {payoutNotice && (
+          <div style={{ marginTop: 8, fontSize: "0.76rem" }}>{payoutNotice}</div>
+        )}
+        {report && !report.error && (
+          <div style={{ marginTop: 8, fontSize: "0.72rem" }}>
+            <div className="chibi-text-muted">
+              Season {report.seasonNumber} · pool {report.pool.toLocaleString()} $BASE · {report.eligible} eligible · pay {report.totalToPay.toLocaleString()} $BASE
+            </div>
+            <div className="chibi-text-muted" style={{ marginTop: 2 }}>
+              House balance: {report.houseBalance == null ? "—" : report.houseBalance.toLocaleString()} ·{" "}
+              <span style={{ color: report.solvent ? "#3fae74" : "#e0567a", fontWeight: 700 }}>
+                {report.solvent ? "solvent ✓" : "INSUFFICIENT"}
+              </span>
+              {!report.withdrawEnabled && " · withdrawals disabled"}
+              {report.alreadyPaid > 0 && ` · already paid ${report.alreadyPaid}`}
+            </div>
+            <div style={{ maxHeight: 160, overflowY: "auto", marginTop: 6 }}>
+              {report.lines.map((l) => (
+                <div key={l.name} style={{ display: "flex", justifyContent: "space-between", padding: "2px 0", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
+                  <span>
+                    {l.status === "paid" ? "✅ " : l.status === "failed" ? "⚠️ " : l.status === "skipped" ? "· " : ""}
+                    {l.name} <span className="chibi-text-muted">({l.points.toLocaleString()}p)</span>
+                  </span>
+                  <span style={{ fontWeight: 700 }}>{l.amount.toLocaleString()}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
 
       <div style={{ fontWeight: 700, fontSize: "0.82rem", marginTop: 12 }}>
         Banned accounts {bans.length > 0 && <span className="chibi-text-muted">({bans.length})</span>}

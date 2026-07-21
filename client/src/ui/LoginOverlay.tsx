@@ -538,7 +538,7 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
                     </div>
                     {tokenMint && (
                       <a
-                        href={`https://jup.ag/swap/SOL-${tokenMint}`}
+                        href={`https://jup.ag/swap/So11111111111111111111111111111111111111112-${tokenMint.trim()}`}
                         target="_blank"
                         rel="noopener"
                         className="chibi-btn chibi-btn--gold"
