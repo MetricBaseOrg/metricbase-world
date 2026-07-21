@@ -1,13 +1,11 @@
 import { getPool } from "./pool.js";
 import {
-  SEASON_REWARD_POOL_BASE,
   SEASON_RICHEST_DAILY_BONUS,
-  METRICBASE_TOKEN_MINT,
   currentSeason,
+  seasonRewardPool,
   type SeasonCategory,
   type SeasonLeaderEntry,
 } from "@metricbase/shared";
-import { getHouseWalletAddress, getHouseBalanceUi } from "../solana/housePayout.js";
 
 /** Per-player season points, one row per player. `season_id` bumps when the
  * season rolls over (handled in code); points/breakdown reset with it. */
@@ -99,25 +97,11 @@ export async function loadSeasonAggregate(seasonId: string, limit = 25): Promise
   }
 }
 
-/** The live Season reward pool: the admin (house) wallet's $BASE balance —
- * which includes accumulated ad revenue — floored at the Season-1 baseline
- * (SEASON_REWARD_POOL_BASE). Cached 5 min; getHouseBalanceUi caches too. */
-let poolCache = { at: 0, value: SEASON_REWARD_POOL_BASE };
-export async function getSeasonRewardPool(): Promise<number> {
-  if (Date.now() - poolCache.at < 300_000) return poolCache.value;
-  let pool = SEASON_REWARD_POOL_BASE;
-  const house = getHouseWalletAddress();
-  if (house) {
-    try {
-      const mint = process.env.TOKEN_MINT?.trim() || METRICBASE_TOKEN_MINT;
-      const bal = await getHouseBalanceUi(house, "base", mint);
-      if (bal != null) pool = Math.max(SEASON_REWARD_POOL_BASE, Math.floor(bal));
-    } catch (error) {
-      console.warn("[season] pool balance failed:", error);
-    }
-  }
-  poolCache = { at: Date.now(), value: pool };
-  return pool;
+/** The fixed $BASE prize pool for the current season. Season 1 = 1,000,000
+ * (funded from the dev/admin wallet); later seasons are set by DAO vote via
+ * SEASON_REWARD_POOLS. */
+export function getSeasonRewardPool(): number {
+  return seasonRewardPool(currentSeason().number);
 }
 
 /** Award season points directly in the DB (for offline players, e.g. a referrer

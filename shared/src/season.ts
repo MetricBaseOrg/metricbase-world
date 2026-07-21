@@ -16,11 +16,22 @@ export const SEASON_LENGTH_MS = SEASON_LENGTH_DAYS * 24 * 60 * 60 * 1000;
  * from the PvP-rank season anchor in pvprank.ts.) */
 const SEASON_EPOCH_MS = Date.UTC(2026, 6, 21);
 
-/** Season-1 baseline / floor for the $BASE reward pool. The ACTUAL pool is the
- * live admin (house) wallet balance — which grows with ad revenue — floored at
- * this amount. It is NOT minted; points only decide how the pool is divided at
- * season end (see the no-emission invariant in docs/company-coin.md). */
+/** Default $BASE reward pool for a season with no explicit override. Funded from
+ * the dev/admin wallet; NOT minted — points only decide how the pool is divided
+ * at season end (see the no-emission invariant in docs/company-coin.md). */
 export const SEASON_REWARD_POOL_BASE = 1_000_000;
+
+/** Per-season prize-pool overrides. Season 1 is a fixed 1,000,000 $BASE;
+ * subsequent seasons' prizes are decided by DAO vote (recorded here when a
+ * vote resolves). Falls back to SEASON_REWARD_POOL_BASE until then. */
+export const SEASON_REWARD_POOLS: Record<number, number> = {
+  1: 1_000_000,
+};
+
+/** The fixed $BASE prize pool for a given season number. */
+export function seasonRewardPool(seasonNumber: number): number {
+  return SEASON_REWARD_POOLS[seasonNumber] ?? SEASON_REWARD_POOL_BASE;
+}
 
 export interface SeasonInfo {
   /** 1-based season number. */

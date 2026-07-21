@@ -161,7 +161,7 @@ export const STATS_PAGE_HTML = `<!doctype html>
       <div style="overflow-x:auto"><table class="ptable" id="seasonTable"><thead><tr>
         <th>Player</th><th>Points</th><th>Est. $BASE</th>
       </tr></thead><tbody></tbody></table></div>
-      <div class="legend" style="margin-top:10px"><span>Earn points by playing — gather, craft, trade, win PvP, refer friends, and top the Richest board. At season end the live prize pool (admin wallet + accumulated ad revenue) is split pro-rata by points. Points never mint $BASE — the pool is a fixed treasury allocation.</span></div>
+      <div class="legend" style="margin-top:10px"><span>Earn points by playing — gather, craft, trade, win PvP, refer friends, and top the Richest board. At season end the prize pool is split pro-rata by points. Season 1 is a fixed 1,000,000 $BASE funded from the dev wallet; later seasons' prizes are set by DAO vote. Points never mint $BASE — the pool is a pre-committed allocation.</span></div>
     </div>
   </section>
 
