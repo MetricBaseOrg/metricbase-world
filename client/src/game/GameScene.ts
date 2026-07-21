@@ -3008,8 +3008,12 @@ export class GameScene extends Phaser.Scene {
         soilBase = this.add.sprite(x, y, key).setOrigin(0.5, asset?.anchorY ?? 0.387).setDepth(y - 2);
         const applySoil = () => {
           if (!soilBase?.active) return;
-          // Scale one soil tile to cover the plot's span×span footprint.
-          soilBase.setTexture(key).setScale(zoneAssetScale(this, "soil") * span).setVisible(true);
+          // Scale one soil tile to cover the plot's span×span footprint. The
+          // soil art is a chunky 3D block (raised top + side walls), so abutting
+          // single-tile plots leave grass showing through at the seams; overlap
+          // them ~30% so adjacent beds merge into one solid field.
+          const soilMul = span === 1 ? 1.3 : span;
+          soilBase.setTexture(key).setScale(zoneAssetScale(this, "soil") * soilMul).setVisible(true);
         };
         if (this.textures.exists(key)) applySoil();
         else {
