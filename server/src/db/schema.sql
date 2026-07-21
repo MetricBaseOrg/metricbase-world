@@ -319,6 +319,17 @@ CREATE TABLE IF NOT EXISTS daily_state (
   last_login_day VARCHAR(10)
 );
 
+-- Season points: one row per player. Points/breakdown reset when `season_id`
+-- rolls over (handled in code). At season end a fixed $BASE pool is split by
+-- points. Indexed for the leaderboard query.
+CREATE TABLE IF NOT EXISTS season_state (
+  player_name VARCHAR(16) PRIMARY KEY,
+  season_id VARCHAR(12) NOT NULL,
+  points INTEGER NOT NULL DEFAULT 0,
+  breakdown JSONB NOT NULL DEFAULT '{}'::jsonb
+);
+CREATE INDEX IF NOT EXISTS season_state_board_idx ON season_state (season_id, points DESC);
+
 -- Player-to-player jobs: employer escrows the reward at posting; the worker
 -- is paid on verified completion. delivered items await employer pickup.
 CREATE TABLE IF NOT EXISTS jobs (

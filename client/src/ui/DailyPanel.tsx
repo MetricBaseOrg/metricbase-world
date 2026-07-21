@@ -1,4 +1,4 @@
-import { type DailyStatePayload } from "@metricbase/shared";
+import { type DailyStatePayload, type SeasonStatePayload } from "@metricbase/shared";
 import { useEffect, useState } from "react";
 import { playSfx } from "../audio/soundEffects";
 import { networkManager } from "../game/network";
@@ -12,6 +12,7 @@ export function DailyPanel() {
   const open = useGameStore((s) => s.dailyOpen);
   const setOpen = useGameStore((s) => s.setDailyOpen);
   const [state, setState] = useState<DailyStatePayload | null>(null);
+  const [season, setSeason] = useState<SeasonStatePayload | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -20,6 +21,7 @@ export function DailyPanel() {
       setState(s);
       setPending(false);
     });
+    const offSeason = networkManager.onSeasonState(setSeason);
     const offResult = networkManager.onDailyResult((r) => {
       setPending(false);
       setNotice(r.ok ? r.message ?? "Claimed!" : r.error ?? "Couldn't claim.");
@@ -27,6 +29,7 @@ export function DailyPanel() {
     });
     return () => {
       offState();
+      offSeason();
       offResult();
     };
   }, []);
@@ -35,6 +38,7 @@ export function DailyPanel() {
     if (open) {
       setNotice(null);
       networkManager.requestDailyState();
+      networkManager.requestSeasonState();
     }
   }, [open]);
 
@@ -55,13 +59,20 @@ export function DailyPanel() {
     setOpen(false);
   };
 
+  const timeLeft = (endsAt: number) => {
+    const ms = Math.max(0, endsAt - Date.now());
+    const days = Math.floor(ms / 86_400_000);
+    const hours = Math.floor((ms % 86_400_000) / 3_600_000);
+    return days > 0 ? `${days}d ${hours}h` : `${hours}h`;
+  };
+
   return (
     <div
       className="chibi-panel chibi-panel--floating chibi-anchor chibi-anchor--center"
       style={{ pointerEvents: "auto", maxWidth: 400, width: "92vw", maxHeight: "82vh", overflowY: "auto" }}
     >
       <div className="chibi-close-row">
-        <div className="chibi-title chibi-title--sm chibi-sparkle-title">📅 Daily Rewards</div>
+        <div className="chibi-title chibi-title--sm chibi-sparkle-title">📅 Daily &amp; Season</div>
         <button type="button" className="chibi-btn chibi-btn--ghost" onClick={close} aria-label="Close">
           ✕
         </button>
@@ -70,6 +81,52 @@ export function DailyPanel() {
       {notice && (
         <div className="chibi-card" style={{ marginTop: 8, padding: "8px 12px", fontSize: "0.78rem" }}>
           {notice}
+        </div>
+      )}
+
+      {/* Season standings */}
+      {season && (
+        <div
+          className="chibi-card"
+          style={{ marginTop: 10, padding: "12px 14px", borderColor: "#4FB8A8", background: "rgba(79,184,168,0.08)" }}
+        >
+          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8 }}>
+            <div style={{ fontWeight: 800, fontSize: "0.9rem" }}>🏆 Season {season.seasonNumber}</div>
+            <div className="chibi-text-muted" style={{ fontSize: "0.7rem" }}>ends in {timeLeft(season.endsAt)}</div>
+          </div>
+          <div style={{ display: "flex", gap: 12, marginTop: 8, flexWrap: "wrap" }}>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: "1.1rem" }}>{season.points.toLocaleString()}</div>
+              <div className="chibi-text-muted" style={{ fontSize: "0.64rem" }}>your points</div>
+            </div>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: "1.1rem" }}>{season.rank > 0 ? `#${season.rank}` : "—"}</div>
+              <div className="chibi-text-muted" style={{ fontSize: "0.64rem" }}>of {season.totalPlayers.toLocaleString()}</div>
+            </div>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: "1.1rem" }}>{season.estimatedReward.toLocaleString()}</div>
+              <div className="chibi-text-muted" style={{ fontSize: "0.64rem" }}>est. $BASE</div>
+            </div>
+          </div>
+          <div className="chibi-text-muted" style={{ fontSize: "0.68rem", marginTop: 8 }}>
+            {season.rewardPool.toLocaleString()} $BASE prize pool, split by points at season end. Play, win PvP, and
+            refer friends to climb.
+          </div>
+          {season.leaderboard.length > 0 && (
+            <div style={{ marginTop: 8 }}>
+              {season.leaderboard.slice(0, 5).map((e) => (
+                <div
+                  key={e.rank}
+                  style={{ display: "flex", justifyContent: "space-between", fontSize: "0.72rem", padding: "2px 0" }}
+                >
+                  <span style={{ fontWeight: 700 }}>
+                    #{e.rank} {e.name}
+                  </span>
+                  <span className="chibi-text-muted">{e.points.toLocaleString()} pts</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

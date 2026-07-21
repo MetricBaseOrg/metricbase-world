@@ -34,6 +34,7 @@ import {
   type AdminActionResultPayload,
   CraftResultPayload,
   type DailyStatePayload,
+  type SeasonStatePayload,
   type JobsStatePayload,
   type JobResultPayload,
   type DailyResultPayload,
@@ -320,6 +321,7 @@ export class NetworkManager {
   private openCropMarketListeners = new Set<(payload: OpenCropMarketPayload) => void>();
   private cropMarketResultListeners = new Set<(payload: CropMarketResultPayload) => void>();
   private dailyStateListeners = new Set<(payload: DailyStatePayload) => void>();
+  private seasonStateListeners = new Set<(payload: SeasonStatePayload) => void>();
   private jobsStateListeners = new Set<(payload: JobsStatePayload) => void>();
   private jobResultListeners = new Set<(payload: JobResultPayload) => void>();
   private jobsChangedListeners = new Set<() => void>();
@@ -956,6 +958,15 @@ export class NetworkManager {
 
   requestDailyState() {
     this.room?.send("dailyState", {});
+  }
+
+  onSeasonState(listener: (payload: SeasonStatePayload) => void) {
+    this.seasonStateListeners.add(listener);
+    return () => this.seasonStateListeners.delete(listener);
+  }
+
+  requestSeasonState() {
+    this.room?.send("seasonState", {});
   }
 
   sendDailyClaimTask(taskId: string) {
@@ -2087,6 +2098,9 @@ export class NetworkManager {
     });
     this.room.onMessage("dailyState", (payload: DailyStatePayload) => {
       for (const listener of this.dailyStateListeners) listener(payload);
+    });
+    this.room.onMessage("seasonState", (payload: SeasonStatePayload) => {
+      for (const listener of this.seasonStateListeners) listener(payload);
     });
     this.room.onMessage("dailyResult", (payload: DailyResultPayload) => {
       for (const listener of this.dailyResultListeners) listener(payload);

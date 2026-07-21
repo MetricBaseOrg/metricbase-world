@@ -48,6 +48,12 @@ import {
   isBuildTileBlocked,
   dailyTasksFor,
   loginRewardGold,
+  currentSeason,
+  estimateReward,
+  SEASON_POINTS,
+  SEASON_REWARD_POOL_BASE,
+  type SeasonCategory,
+  type SeasonStatePayload,
   nextBagExpansion,
   nextZoneExpansion,
   zoneGridSize,
@@ -488,6 +494,14 @@ import {
 import { bumpMetric, burnGold, mintGold } from "../economy/metrics.js";
 import { creditGoldForPurchase, isPurchaseRedeemed, recordTokenPurchase } from "../db/tokenPurchases.js";
 import { emptyDailyRow, loadDailyState, saveDailyState, type DailyRow } from "../db/daily.js";
+import {
+  emptySeasonRow,
+  loadSeasonState,
+  saveSeasonState,
+  loadSeasonAggregate,
+  loadSeasonRank,
+  type SeasonRow,
+} from "../db/season.js";
 import { adjustAsset, getAssetInventory, getAssetQty } from "../zones/assetInventory.js";
 import {
   addPendingGold,
@@ -909,6 +923,9 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     });
     this.onProtectedMessage("dailyState", (client) => {
       void this.handleDailyState(client);
+    });
+    this.onProtectedMessage("seasonState", (client) => {
+      void this.handleSeasonState(client);
     });
     this.onProtectedMessage("dailyClaimTask", (client, message: { taskId?: string }) => {
       void this.handleDailyClaimTask(client, String(message.taskId ?? ""));
@@ -1874,6 +1891,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         this.bumpDaily(player.name, "visitWorld");
       }
     });
+    // Load season-points state so points accrue from the moment they join.
+    void this.ensureSeason(player.name);
     setOnline(player.name, client, (type, payload) => client.send(type, payload));
     this.inputs.set(client.sessionId, { dx: 0, dy: 0 });
     this.questProgress.set(this.pidOf(player), saved?.questProgress ?? { active: [], objectiveIndex: {}, completed: [] });
@@ -3370,6 +3389,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         (this.playerPvpRating.get(this.pidForName(attacker.name)) ?? STARTING_PVP_RATING) + PVP_KILL_RATING,
       );
       this.playerPvpKills.set(this.pidForName(attacker.name), (this.playerPvpKills.get(this.pidForName(attacker.name)) ?? 0) + 1);
+      this.bumpSeason(attacker.name, "pvpWin", 1);
       this.playerPvpRating.set(
         this.pidForName(victim.name),
         Math.max(0, (this.playerPvpRating.get(this.pidForName(victim.name)) ?? STARTING_PVP_RATING) - PVP_DEATH_RATING),
@@ -4265,6 +4285,9 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
   /** Tick a daily task counter (no-op unless that task is active today). */
   private bumpDaily(playerName: string, taskId: string, n = 1): void {
+    // Season points accrue from the SAME activities, but unconditionally (not
+    // gated on the daily task being active/unclaimed). One hook feeds both.
+    this.bumpSeason(playerName, taskId as SeasonCategory, n);
     const state = ZoneRoom.dailyStates.get(playerName);
     if (!state) return;
     ZoneRoom.rollDailyDay(state);
@@ -4330,6 +4353,69 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     void saveDailyState(player.name, state);
     client.send("dailyResult", { ok: true, message: `Day ${state.streak} login bonus: ${gold.toLocaleString()}g!` });
     client.send("dailyState", this.buildDailyPayload(state));
+    // Daily login is also worth season points.
+    this.bumpSeason(player.name, "login", 1);
+  }
+
+  // ── Season points ──────────────────────────────────────────────────────────
+  private static seasonStates = new Map<string, SeasonRow>();
+
+  /** Reset a player's points when the season rolls over. */
+  private static rollSeason(state: SeasonRow): void {
+    const id = currentSeason().id;
+    if (state.seasonId === id) return;
+    state.seasonId = id;
+    state.points = 0;
+    state.breakdown = {};
+  }
+
+  /** Load (or create) a player's season-points row into the static cache. */
+  private async ensureSeason(playerName: string): Promise<SeasonRow> {
+    let state = ZoneRoom.seasonStates.get(playerName);
+    if (!state) {
+      state = (await loadSeasonState(playerName)) ?? emptySeasonRow(currentSeason().id);
+      ZoneRoom.seasonStates.set(playerName, state);
+    }
+    ZoneRoom.rollSeason(state);
+    return state;
+  }
+
+  /** Award season points for an activity (no-op until the row is loaded via
+   * ensureSeason on join; unknown categories are ignored). */
+  private bumpSeason(playerName: string, category: SeasonCategory, n = 1): void {
+    const pts = SEASON_POINTS[category];
+    if (!pts || n <= 0) return;
+    const state = ZoneRoom.seasonStates.get(playerName);
+    if (!state) return;
+    ZoneRoom.rollSeason(state);
+    const gained = pts * n;
+    state.points += gained;
+    state.breakdown[category] = (state.breakdown[category] ?? 0) + gained;
+    void saveSeasonState(playerName, state);
+  }
+
+  private async handleSeasonState(client: Client): Promise<void> {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const state = await this.ensureSeason(player.name);
+    const season = currentSeason();
+    const [agg, rank] = await Promise.all([
+      loadSeasonAggregate(season.id, 25),
+      loadSeasonRank(season.id, player.name),
+    ]);
+    const payload: SeasonStatePayload = {
+      seasonId: season.id,
+      seasonNumber: season.number,
+      endsAt: season.endMs,
+      rewardPool: SEASON_REWARD_POOL_BASE,
+      points: state.points,
+      breakdown: state.breakdown,
+      rank: state.points > 0 ? Math.max(1, rank) : 0,
+      totalPlayers: agg.totalPlayers,
+      estimatedReward: estimateReward(state.points, agg.totalPoints),
+      leaderboard: agg.leaderboard,
+    };
+    client.send("seasonState", payload);
   }
 
   /** Inventory slots for a player (base 16, more with purchased bag levels). */
