@@ -37,6 +37,7 @@ import {
   computeMineDurationMs,
   computeFishDurationMs,
   FARM_RANGE,
+  farmPlotCenterOffset,
   getFarmCropBySeed,
   getCropMarket,
   FARM_CROPS,
@@ -7658,7 +7659,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     const plot = (this.zoneConfig.farmPlots ?? []).find((entry) => entry.id === plotId);
     if (!plot) return;
 
-    const plotPos = tileToWorld(plot.tileX + 0.5, plot.tileY + 0.5);
+    const off = farmPlotCenterOffset(plot);
+    const plotPos = tileToWorld(plot.tileX + off, plot.tileY + off);
     if (Math.hypot(player.x - plotPos.x, player.y - plotPos.y) > FARM_RANGE) {
       client.send("farmResult", { ok: false, plotId, error: "Move closer to the plot." });
       return;

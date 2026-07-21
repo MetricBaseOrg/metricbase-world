@@ -16,6 +16,8 @@ import {
   MAP_WIDTH,
   NPC_INTERACT_RANGE,
   FARM_RANGE,
+  farmPlotSpan,
+  farmPlotCenterOffset,
   farmGrowthProgress,
   HOUSE_RANGE,
   PLOT_DECOR_SLOTS,
@@ -148,6 +150,8 @@ interface RenderedFarmPlot {
   /** Persistent soil PNG tile drawn under built-in plots in re-skinned base
    *  zones so the tilled ground uses the new hand-drawn soil art. */
   soilBase?: Phaser.GameObjects.Sprite;
+  /** Tile footprint (2 = classic 2×2 patch, 1 = single-tile plot). */
+  span: number;
 }
 
 interface RenderedLandPlot {
@@ -2137,7 +2141,7 @@ export class GameScene extends Phaser.Scene {
     for (const p of config.portals) mark(p.tileX, p.tileY);
     for (const b of config.billboards ?? []) mark(b.tileX, b.tileY);
     for (const s of config.scenery ?? []) mark(s.tileX, s.tileY);
-    for (const f of config.farmPlots ?? []) for (let dy = 0; dy < 2; dy++) for (let dx = 0; dx < 2; dx++) mark(f.tileX + dx, f.tileY + dy);
+    for (const f of config.farmPlots ?? []) { const span = farmPlotSpan(f); for (let dy = 0; dy < span; dy++) for (let dx = 0; dx < span; dx++) mark(f.tileX + dx, f.tileY + dy); }
     for (const l of config.landPlots ?? []) for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) mark(l.tileX + dx, l.tileY + dy);
     mark(config.spawnTile.x, config.spawnTile.y);
 
@@ -2987,11 +2991,12 @@ export class GameScene extends Phaser.Scene {
     const skinned = Boolean(ZONE_TILE_SKIN[zoneId]);
     for (const plot of config.farmPlots ?? []) {
       // Soil-paint plots (player zones) are single tiles whose painted soil art
-      // is the empty state; built-in plots use the 2×2 procedural patch.
+      // is the empty state; built-in plots use the 2×2 procedural patch (or 1×1
+      // when the plot declares size:1).
       const soilPlot = plot.id.startsWith("soil_");
-      const { x, y } = soilPlot
-        ? tileToWorld(plot.tileX, plot.tileY)
-        : tileToWorld(plot.tileX + 0.5, plot.tileY + 0.5);
+      const span = farmPlotSpan(plot);
+      const centerOffset = farmPlotCenterOffset(plot);
+      const { x, y } = tileToWorld(plot.tileX + centerOffset, plot.tileY + centerOffset);
       // Built-in plots in a re-skinned zone: lay a soil PNG base under the plot
       // and hide the (procedural) crop sprite while empty, so the tilled ground
       // shows the new soil art rather than the old brown patch.
@@ -3003,8 +3008,8 @@ export class GameScene extends Phaser.Scene {
         soilBase = this.add.sprite(x, y, key).setOrigin(0.5, asset?.anchorY ?? 0.387).setDepth(y - 2);
         const applySoil = () => {
           if (!soilBase?.active) return;
-          // ×2 so one soil tile spans the plot's 2×2 footprint.
-          soilBase.setTexture(key).setScale(zoneAssetScale(this, "soil") * 2).setVisible(true);
+          // Scale one soil tile to cover the plot's span×span footprint.
+          soilBase.setTexture(key).setScale(zoneAssetScale(this, "soil") * span).setVisible(true);
         };
         if (this.textures.exists(key)) applySoil();
         else {
@@ -3046,6 +3051,7 @@ export class GameScene extends Phaser.Scene {
         stage: "empty",
         hideWhenEmpty: soilPlot || useSoilArt,
         soilBase,
+        span,
       });
     }
     this.applyFarmState(networkManager.getFarmState());
@@ -3221,7 +3227,9 @@ export class GameScene extends Phaser.Scene {
    */
   private applyPlotVisual(plot: RenderedFarmPlot) {
     const { sprite } = plot;
-    const soilPlot = plot.id.startsWith("soil_");
+    // Single-tile plots (soil paint or size:1 built-ins) draw at the smaller
+    // footprint; classic 2×2 plots keep the full-size art.
+    const singleTile = plot.span === 1;
     // Soil-paint plots show the sprite only once something is planted.
     if (plot.hideWhenEmpty) sprite.setVisible(plot.stage !== "empty");
 
@@ -3231,9 +3239,9 @@ export class GameScene extends Phaser.Scene {
         plot.stage === "ready" ? "plot_ready" : plot.stage === "growing" ? "plot_growing" : "plot_empty";
       sprite.setTexture(texture).setOrigin(0.5, 0.526);
       // Target width scales procedural stages (128px: growing/ready) and the
-      // 512px plot_empty art to the same footprint. 80px soil matches the
-      // classic 0.62×128 look; built-in plots span their real 2×2 (128px).
-      this.scaleSpriteToWidth(sprite, soilPlot ? 80 : 128);
+      // 512px plot_empty art to the same footprint. 80px matches the classic
+      // 0.62×128 single-tile look; 2×2 built-in plots span their real 128px.
+      this.scaleSpriteToWidth(sprite, singleTile ? 80 : 128);
       return;
     }
 
@@ -3244,9 +3252,9 @@ export class GameScene extends Phaser.Scene {
       sprite
         .setTexture(key)
         .setOrigin(0.5, asset?.anchorY ?? 0.5)
-        // Built-in plots span a 2×2 footprint (like their soil base), soil-paint
-        // plots are single tiles.
-        .setScale(zoneAssetScale(this, assetId) * (soilPlot ? 1 : 2))
+        // 2×2 plots span the full footprint (like their soil base); single-tile
+        // plots (soil paint or size:1) draw at 1×.
+        .setScale(zoneAssetScale(this, assetId) * (singleTile ? 1 : 2))
         .setVisible(true);
     };
     if (this.textures.exists(key)) {

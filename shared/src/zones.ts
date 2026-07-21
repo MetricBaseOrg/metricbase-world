@@ -256,18 +256,18 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
         },
       },
     ],
-    // Farms (2x2, anchored top-left) in the SW field; houses (3x3, centred)
-    // in the NE neighbourhood. Empty plots are open ground — only built homes
-    // become solid.
+    // Farms: a tidy 4×2 block of single-tile (1×1) plots tucked into the SW
+    // corner, so the central field stays open. Houses (3x3, centred) sit in the
+    // NE neighbourhood. Empty plots are open ground — only built homes go solid.
     farmPlots: [
-      { id: "hub_plot_1", tileX: 3, tileY: 16 },
-      { id: "hub_plot_2", tileX: 6, tileY: 16 },
-      { id: "hub_plot_3", tileX: 4, tileY: 19 },
-      // Expanded south-central field — more tilled plots for farmers.
-      { id: "hub_plot_4", tileX: 8, tileY: 16 },
-      { id: "hub_plot_5", tileX: 10, tileY: 16 },
-      { id: "hub_plot_6", tileX: 8, tileY: 19 },
-      { id: "hub_plot_7", tileX: 10, tileY: 19 },
+      { id: "hub_plot_1", tileX: 2, tileY: 20, size: 1 },
+      { id: "hub_plot_2", tileX: 3, tileY: 20, size: 1 },
+      { id: "hub_plot_3", tileX: 4, tileY: 20, size: 1 },
+      { id: "hub_plot_4", tileX: 5, tileY: 20, size: 1 },
+      { id: "hub_plot_5", tileX: 2, tileY: 21, size: 1 },
+      { id: "hub_plot_6", tileX: 3, tileY: 21, size: 1 },
+      { id: "hub_plot_7", tileX: 4, tileY: 21, size: 1 },
+      { id: "hub_plot_8", tileX: 5, tileY: 21, size: 1 },
     ],
     landPlots: [
       { id: "hub_land_1", tileX: 16, tileY: 4 },

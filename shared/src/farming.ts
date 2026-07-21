@@ -22,6 +22,25 @@ export interface FarmPlotNode {
   id: string;
   tileX: number;
   tileY: number;
+  /**
+   * Tile footprint (span×span), anchored top-left. Defaults to 2 for built-in
+   * plots (the classic 2×2 patch) and 1 for painted `soil_` plots. Set to 1 for
+   * single-tile built-in plots.
+   */
+  size?: number;
+}
+
+/** A plot's tile span (2×2 by default; 1 for `soil_` paint or explicit size). */
+export function farmPlotSpan(plot: FarmPlotNode): number {
+  return plot.size ?? (plot.id.startsWith("soil_") ? 1 : 2);
+}
+
+/**
+ * Tile-space offset from the plot anchor to its visual/interaction centre.
+ * A 2×2 plot centres half a tile in; a 1×1 plot centres on its own tile.
+ */
+export function farmPlotCenterOffset(plot: FarmPlotNode): number {
+  return (farmPlotSpan(plot) - 1) / 2;
 }
 
 export type FarmPlotStage = "empty" | "growing" | "ready";
