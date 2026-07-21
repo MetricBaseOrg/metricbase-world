@@ -310,6 +310,9 @@ export class GameScene extends Phaser.Scene {
   private renderedNpcs: RenderedNpc[] = [];
   private renderedResources: RenderedResource[] = [];
   private renderedFarmPlots = new Map<string, RenderedFarmPlot>();
+  /** Flat dirt fill under contiguous single-tile plots, so the 3D soil blocks'
+   *  boundary valleys show dirt (not grass) — see renderFarmPlots. */
+  private farmUnderlay?: Phaser.GameObjects.Graphics;
   private renderedLandPlots = new Map<string, RenderedLandPlot>();
   private renderedScenery: Phaser.GameObjects.Sprite[] = [];
   /** Ground-paint overlay sprites for player zones (below props/players). */
@@ -1975,12 +1978,14 @@ export class GameScene extends Phaser.Scene {
     // sitting flush instead of perched on a raised pedestal.
     if (skin) {
       const config = resolveZoneConfig(zoneId);
-      // Built-in farm plots draw their own 2×2 soil PNG base, so hide the grass
+      // Built-in farm plots draw their own soil PNG base, so hide the grass
       // under their footprint (otherwise the front grass tile occludes the soil
-      // edge, the same way it would a building base).
+      // edge, the same way it would a building base). Respect each plot's span so
+      // 1×1 plots hide exactly one tile, not a rogue 2×2.
       const covered = new Set<string>();
       for (const f of config.farmPlots ?? []) {
-        for (let dy = 0; dy < 2; dy++) for (let dx = 0; dx < 2; dx++) covered.add(`${f.tileX + dx},${f.tileY + dy}`);
+        const span = farmPlotSpan(f);
+        for (let dy = 0; dy < span; dy++) for (let dx = 0; dx < span; dx++) covered.add(`${f.tileX + dx},${f.tileY + dy}`);
       }
       // Multi-tile building props (e.g. Rudi's stall) bake their own ground base,
       // so hide the grass under their footprint too — otherwise the front grass
@@ -2989,6 +2994,36 @@ export class GameScene extends Phaser.Scene {
     // Re-skinned base zones render built-in tilled plots on the hand-drawn soil
     // PNG (a persistent 2×2 base tile) instead of the old procedural patch.
     const skinned = Boolean(ZONE_TILE_SKIN[zoneId]);
+    // The soil art is a chunky 3D block, so abutting single-tile plots leave the
+    // (hidden-grass) boundary valleys showing through. Fill the footprint of all
+    // single-tile plots with a flat dirt diamond first — flat diamonds tile
+    // seamlessly, and drawn just below every soil block they hide those gaps.
+    const singleTilePlots = (config.farmPlots ?? []).filter(
+      (p) => skinned && !p.id.startsWith("soil_") && farmPlotSpan(p) === 1,
+    );
+    if (singleTilePlots.length > 0) {
+      const g = this.add.graphics();
+      g.fillStyle(0x5b3f28, 1);
+      const halfW = TILE_WIDTH / 2 + 1;
+      const halfH = TILE_WIDTH / 4 + 1;
+      let minY = Infinity;
+      for (const p of singleTilePlots) {
+        const { x, y } = tileToWorld(p.tileX, p.tileY);
+        minY = Math.min(minY, y);
+        g.fillPoints(
+          [
+            { x, y: y - halfH },
+            { x: x + halfW, y },
+            { x, y: y + halfH },
+            { x: x - halfW, y },
+          ],
+          true,
+        );
+      }
+      // Below every soil block (each sits at its own y − 2) but above the ground.
+      g.setDepth(minY - 3);
+      this.farmUnderlay = g;
+    }
     for (const plot of config.farmPlots ?? []) {
       // Soil-paint plots (player zones) are single tiles whose painted soil art
       // is the empty state; built-in plots use the 2×2 procedural patch (or 1×1
@@ -3008,12 +3043,8 @@ export class GameScene extends Phaser.Scene {
         soilBase = this.add.sprite(x, y, key).setOrigin(0.5, asset?.anchorY ?? 0.387).setDepth(y - 2);
         const applySoil = () => {
           if (!soilBase?.active) return;
-          // Scale one soil tile to cover the plot's span×span footprint. The
-          // soil art is a chunky 3D block (raised top + side walls), so abutting
-          // single-tile plots leave grass showing through at the seams; overlap
-          // them ~30% so adjacent beds merge into one solid field.
-          const soilMul = span === 1 ? 1.3 : span;
-          soilBase.setTexture(key).setScale(zoneAssetScale(this, "soil") * soilMul).setVisible(true);
+          // Scale one soil tile to cover the plot's span×span footprint.
+          soilBase.setTexture(key).setScale(zoneAssetScale(this, "soil") * span).setVisible(true);
         };
         if (this.textures.exists(key)) applySoil();
         else {
@@ -3070,6 +3101,8 @@ export class GameScene extends Phaser.Scene {
       plot.soilBase?.destroy();
     });
     this.renderedFarmPlots.clear();
+    this.farmUnderlay?.destroy();
+    this.farmUnderlay = undefined;
   }
 
   private renderLandPlots(zoneId: string) {
