@@ -12,7 +12,7 @@ The long-term goal (see `PLAN.md`) is a zero-install MMO with:
 - Optional Solana token integration for in-game economy
 - Horizontally scalable infrastructure
 
-The current build (v0.90.x) is a full MMO: the **everyday loop** — Gather
+The current build (v0.167.x) is a full MMO: the **everyday loop** — Gather
 (woodcutting, mining, fishing, farming with wheat + carrot), Craft, Trade, and
 Build (housing + player-run shops) — plus quests, a P2P gold market, the
 complete **open-world PvP** endgame (danger tiers, guild warfare, territory,
@@ -52,8 +52,8 @@ Rush arcade.
 7. **Complete quests** — Starter chain from Aria, slime patrol from Rook, grotto hunt from Moss. Track objectives in the **Quest Log** (desktop HUD or mobile FAB sheet). Progress saves to PostgreSQL.
 8. **Combat** — Press **Space** or tap **Attack** when in range of hostile NPCs. Server-authoritative damage, HP bars, floating damage numbers, counter-attacks, and mob respawn timers.
 9. **Player knockout** — If your HP reaches 0, you are knocked out. Pay **100 gold** to respawn immediately, or wait **30 minutes** for a free respawn. A death overlay shows the countdown.
-10. **Loot and inventory** — Defeated mobs drop items and gold. Open inventory from the HUD (**I**). Equip weapons, use health potions, sell materials at Pip's shop.
-11. **Shop and economy** — Pip's Provisions in the Hub: buy potions and weapons with gold, sell loot. **Gold Market** tab lists peer-to-peer bids and offers for trading in-game gold against MetricBase SPL tokens (on-chain verified).
+10. **Loot and inventory** — Defeated mobs drop items and gold. Open inventory from the HUD (**I**). Equip weapons, use health potions, sell materials at Rudi's shop.
+11. **Shop and economy** — Rudi's Provisions in the Hub: buy potions and weapons with gold, sell loot. **Gold Market** tab lists peer-to-peer bids and offers for trading in-game gold against MetricBase SPL tokens (on-chain verified).
 12. **Earn XP and level up** — Quests, combat, portal travel, and NPC chat grant experience. Out-of-combat HP regen. Level-ups broadcast to the zone with sound.
 13. **Sound effects** — Procedural Web Audio SFX for combat, shop, market, inventory, chat, quests, and level-up. Mute toggle in the HUD.
 14. **Gather** — Chop trees (**F**), mine rocks, and fish the lake (**G**) — Woodcutting, Mining, and Fishing each level up. Plant and harvest crops on **farm plots** (Farming). Skill gauges show in the HUD.
@@ -70,7 +70,7 @@ Rush arcade.
 
 | Zone ID | Display Name | Notes |
 |---------|--------------|-------|
-| `zone_hub` | MetricBase Hub | 🟢 Safe. Themed regions: NW forest, W quarry, central plaza (Aria, Pip, billboard), NE houses, SW farmland, SE lake. Portal to Wilderness; west door to the VIP Community Lodge |
+| `zone_hub` | MetricBase Hub | 🟢 Safe. Themed regions: NW forest, W quarry, central plaza (Aria, Rudi, billboard), NE houses, SW farmland, SE lake. Portal to Wilderness; west door to the VIP Community Lodge |
 | `zone_wilderness` | Wilderness | 🟡 Yellow (opt-in PvP). Rook, Training Dummy, Wild Slimes; extra trees/rocks/fish; a capture point; portals to Hub and Slime Grotto |
 | `zone_grotto` | Slime Grotto | 🔴 Red (open PvP). Moss, Slime Brute; iron/gemstone/hardwood/fish nodes; a capture point; **Black Gate** to the Obsidian Reach |
 | `zone_black` | Obsidian Reach | ⚫ Black (full loot). Burn-gated lifetime entry; richest resources; two capture points; the **King Crystal** siege objective |
@@ -119,13 +119,13 @@ On mobile, the D-pad, Attack, Interact, inventory, and quest log FAB replace key
 
 ### Economy
 
-| Item | Source | Sell price (Pip) |
+| Item | Source | Sell price (Rudi) |
 |------|--------|------------------|
 | Training Scrap | Training Dummy | 8g |
 | Slime Gel | Wild Slime | 12g |
 | Slime Core | Slime Brute | 25g |
-| Health Potion | Pip's shop | — (buy 15g) |
-| Rusty Blade | Pip's shop | — (buy 40g, +12 damage) |
+| Health Potion | Rudi's shop | — (buy 15g) |
+| Rusty Blade | Rudi's shop | — (buy 40g, +12 damage) |
 | Gel-Edged Knife | Commendation quest | — (+8 damage) |
 
 Starting gold: **25g**. Knockout respawn costs **100g**.
@@ -504,7 +504,7 @@ metricbase-world/
 
 **Shop / market flow**
 
-1. Client sends `interact` near Pip; server opens shop catalog with current gold and inventory.
+1. Client sends `interact` near Rudi; server opens shop catalog with current gold and inventory.
 2. `shopBuy` / `shopSell` validated server-side; gold and inventory persisted.
 3. Gold Market orders escrow gold server-side; fills verified against on-chain SPL transfers.
 

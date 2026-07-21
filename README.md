@@ -84,13 +84,23 @@ docs/     Design docs, changelog, dev notes
 assets/   Source art notes
 ```
 
-## What's in the game (v0.90.x)
+## What's in the game (v0.167.x)
 
 - **Everyday loop** — woodcutting, mining, fishing, farming (wheat & carrot),
-  crafting with tool tiers, cooking, energy/food, quests, day/night & weather.
-- **Economy** — NPC shop with price pressure, P2P gold market ($BASE and other
-  currencies), housing + player-run shops, soft currencies (honor / guild
-  coin / gems), daily rewards + login streaks.
+  cooking, energy/food, quests, day/night & weather.
+- **Crafting as a profession** — tool-tier crafting plus six craft families,
+  specialization + mastery XP, and Fine/Master quality tiers (real item ids
+  with boosted stats) rolled by specialists.
+- **Living economy** — NPC shop with supply/demand price pressure, per-town
+  demand & **regional prices**, **caravans** that move goods between zones,
+  world **economic events** with adaptive policy, P2P gold market ($BASE and
+  other currencies), housing + player-run shops (P2P item market), soft
+  currencies (honor / guild coin / gems), daily rewards + login streaks.
+- **Companies & Stock Exchange** — found a company, issue shares, and trade
+  them on an in-game exchange (transfer-only invariants; no gold→$BASE mint).
+- **DAO governance** — token-weighted `$BASE` polls at `/dao`.
+- **Mail** — player-to-player letters with gold attachments, an outbox with
+  delivery/claim receipts, and cross-zone new-mail nudges.
 - **PvP endgame** — danger-tier zones, loot drops, crime/bounties/jail, duels,
   guild warfare (ranks/bank/tax/wars), territory control, Castle Siege,
   seasons & ranks, mounts, pets, gear rarity + enhancement.
@@ -98,7 +108,7 @@ assets/   Source art notes
   editor (rivers/bridges, soil farm plots, working crop markets, gatherable
   nodes), sell visitor passes + gather tax, expand the grid by burning $BASE.
 - **$BASE utility** — token-gated entry, burn sinks (Black Zone, VIP, World &
-  bag expansion), Pip's 1:1 gold desk, casino blackjack.
+  bag expansion), Rudi's 1:1 gold desk, casino blackjack.
 - **Ad marketplace** — brands bid CPM in $BASE; 50% of spend is paid to the
   players viewing; standalone wallet-only **Brand Portal** at `/brands`.
 - **Transparency** — public live dashboard at `/stats` (gold flow, burns,

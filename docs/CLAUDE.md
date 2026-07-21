@@ -127,7 +127,7 @@ authoritative server and rendered by the client.
   server validates ingredients, consumes them, adds the output, and returns the
   updated inventory via `craftResult`. Crafted gear plugs into the existing
   `equipment.ts` weapon-bonus map; crafted food uses the `CONSUMABLE_HEAL` map.
-- **Trade** (`server/src/market/`): Pip's shop buys gathered/crafted materials for
+- **Trade** (`server/src/market/`): Rudi's shop buys gathered/crafted materials for
   gold, and the peer-to-peer gold market swaps gold for SPL tokens (below).
 - **Build — Housing & player shops** (`shared/src/housing.ts`,
   `server/src/housing/landRegistry.ts`): land plots are 3x3 footprints in
