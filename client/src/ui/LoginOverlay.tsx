@@ -530,6 +530,22 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
                     >
                       {tokenMint}
                     </div>
+                    {tokenMint && (
+                      <a
+                        href={`https://jup.ag/swap/SOL-${tokenMint}`}
+                        target="_blank"
+                        rel="noopener"
+                        className="chibi-btn chibi-btn--gold"
+                        style={{ display: "block", textAlign: "center", padding: "9px 12px", marginBottom: 10, textDecoration: "none" }}
+                      >
+                        💰 Get $BASE on Jupiter ↗
+                      </a>
+                    )}
+                    {walletAddress && tokenBalance !== null && tokenBalance < minTokenAmount && (
+                      <div style={{ fontSize: 12, color: "#ffcaa8", marginBottom: 10 }}>
+                        You hold {tokenBalance.toLocaleString()} — grab {(minTokenAmount - tokenBalance).toLocaleString()} more $BASE above to enter.
+                      </div>
+                    )}
                   </>
                 )}
 
