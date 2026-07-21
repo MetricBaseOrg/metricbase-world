@@ -11,6 +11,10 @@ export const MOTTO_MAX_LENGTH = 80;
  */
 export const DASHBOARD_UPDATES: Array<{ title: string; body: string }> = [
   {
+    title: "v0.171 — MetricBase World on Telegram",
+    body: "The world now opens straight inside Telegram — no install, no app store. Share an invite code to any chat with one tap and your friend lands in the game with the code already attached, so you get the Season referral points automatically. Telegram has no built-in Solana wallet, so connecting hands you off to Phantom or Solflare (your invite survives the trip), and you can always spectate first with no wallet at all.",
+  },
+  {
     title: "v0.162 — Companies Do Business",
     body: "Company contracts are now business-to-business. An owner or manager posts a supply order to another company; the reward is escrowed from YOUR treasury, the hired company fills it from its warehouse, and the delivered goods land in your warehouse — every gold in and out shown on both companies' financial statements. Also: say hi to Rudi at his new Sweet Harvest Market stall in the Hub.",
   },

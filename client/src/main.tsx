@@ -7,6 +7,7 @@ import { BrandPortal } from "./ui/BrandPortal";
 import { DaoPage } from "./ui/DaoPage";
 import { DashboardPage } from "./ui/DashboardPage";
 import { LandingPage } from "./ui/LandingPage";
+import { applyTelegramStartParam, initTelegramMiniApp, isTelegramMiniApp } from "./telegram/telegramApp";
 import "./ui/chibiTheme.css";
 import {
   registerMwa,
@@ -26,17 +27,33 @@ if (typeof globalScope.Buffer === "undefined") {
   globalScope.Buffer = Buffer;
 }
 
-registerMwa({
-  appIdentity: {
-    name: "MetricBase World",
-    uri: "https://world.metricbase.org",
-    icon: "pwa-512x512.png",
-  },
-  authorizationCache: createDefaultAuthorizationCache(),
-  chains: ["solana:mainnet", "solana:devnet"],
-  chainSelector: createDefaultChainSelector(),
-  onWalletNotFound: createDefaultWalletNotFoundHandler(),
-});
+// Telegram Mini App. The start-param fold MUST run synchronously here: it
+// rewrites `?startapp=INV-…` into the `?invite=` param that LoginOverlay reads
+// on first render, and that the wallet deep-link copies across to Phantom.
+// Chrome setup (expand, colours, swipe-lock) is async and no-ops elsewhere.
+applyTelegramStartParam();
+void initTelegramMiniApp();
+
+// Mobile Wallet Adapter registers itself as a wallet-standard wallet on any
+// Android UA — including inside Telegram's webview, where it CANNOT work: MWA
+// hands off to a wallet app by intent and needs the response routed back to
+// the browser, a round trip Telegram's webview doesn't support. Registering it
+// there hijacks the connect flow into a hang ("Verifying wallet…") instead of
+// falling through to the Phantom/Solflare deep link, which is the only thing
+// that actually works in Telegram. So: skip MWA entirely inside the Mini App.
+if (!isTelegramMiniApp()) {
+  registerMwa({
+    appIdentity: {
+      name: "MetricBase World",
+      uri: "https://world.metricbase.org",
+      icon: "pwa-512x512.png",
+    },
+    authorizationCache: createDefaultAuthorizationCache(),
+    chains: ["solana:mainnet", "solana:devnet"],
+    chainSelector: createDefaultChainSelector(),
+    onWalletNotFound: createDefaultWalletNotFoundHandler(),
+  });
+}
 
 // Path-based routing (Vercel SPA fallback serves index.html for all of these):
 //   /           → marketing landing page (front door)

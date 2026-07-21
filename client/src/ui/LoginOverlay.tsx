@@ -22,6 +22,13 @@ import {
   listAvailableWallets,
   resolveWalletConnector,
 } from "../wallet/tokenGate";
+import {
+  openInWalletBrowser,
+  shouldOfferWalletDeepLink,
+  walletBrowserLinks,
+  type MobileWalletLink,
+} from "../wallet/mobileWallet";
+import { isTelegramMiniApp, openExternalLink } from "../telegram/telegramApp";
 import { CharacterPreview } from "./CharacterPreview";
 import { WalletPicker } from "./WalletPicker";
 
@@ -64,6 +71,8 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
   const [invitationsRequired, setInvitationsRequired] = useState(false);
   const [leaderboardOpen, setLeaderboardOpen] = useState(false);
   const [detectedWallets, setDetectedWallets] = useState<WalletConnector[]>([]);
+  const [mobileWalletLinks, setMobileWalletLinks] = useState<MobileWalletLink[] | null>(null);
+  const inTelegram = isTelegramMiniApp();
   const walletConnectResolver = useRef<{
     resolve: (value: Awaited<ReturnType<typeof connectAndVerifyWallet>>) => void;
     reject: (reason?: unknown) => void;
@@ -192,12 +201,27 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
     return verified;
   };
 
+  /** No injected provider. Inside Telegram or a plain mobile browser that's
+   *  expected — offer the deep link out to a wallet's in-app browser rather
+   *  than a dead-end "install a wallet" message. */
+  const noWalletError = () => {
+    if (shouldOfferWalletDeepLink()) {
+      setMobileWalletLinks(walletBrowserLinks());
+      return new Error(
+        isTelegramMiniApp()
+          ? "Telegram can't hold a Solana wallet. Tap Phantom or Solflare below to open the game in your wallet and connect."
+          : "No wallet detected in this browser. Tap Phantom or Solflare below to open the game in your wallet app.",
+      );
+    }
+    return new Error(
+      "No Solana wallet detected. Install Jupiter Wallet (or another Solana wallet), then refresh this page.",
+    );
+  };
+
   const requestWalletConnection = async () => {
     const wallets = listAvailableWallets();
     if (wallets.length === 0) {
-      throw new Error(
-        "No Solana wallet detected. Install Jupiter Wallet (or another Solana wallet), then refresh this page.",
-      );
+      throw noWalletError();
     }
 
     const wallet = resolveWalletConnector();
@@ -254,9 +278,7 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
 
       const wallets = listAvailableWallets();
       if (wallets.length === 0) {
-        throw new Error(
-          "No Solana wallet detected. Install Jupiter Wallet (or another Solana wallet), then refresh this page.",
-        );
+        throw noWalletError();
       }
 
       setDetectedWallets(wallets);
@@ -543,6 +565,14 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
                         rel="noopener"
                         className="chibi-btn chibi-btn--gold"
                         style={{ display: "block", textAlign: "center", padding: "9px 12px", marginBottom: 10, textDecoration: "none" }}
+                        onClick={(event) => {
+                          // target="_blank" is swallowed by Telegram's webview.
+                          if (!inTelegram) return;
+                          event.preventDefault();
+                          openExternalLink(
+                            `https://jup.ag/swap/So11111111111111111111111111111111111111112-${tokenMint.trim()}`,
+                          );
+                        }}
                       >
                         💰 Get $BASE on Jupiter ↗
                       </a>
@@ -577,6 +607,33 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
                 >
                   {connectButtonLabel}
                 </button>
+
+                {/* No provider in this browser (Telegram's webview, or a plain
+                    mobile browser). Reopen the game inside a wallet's in-app
+                    browser, where connecting works — the URL carries the
+                    invite code across, since localStorage does not. */}
+                {mobileWalletLinks && !walletAddress && (
+                  <div style={{ marginTop: 10 }}>
+                    <div style={{ fontSize: 11, opacity: 0.7, marginBottom: 6 }}>
+                      {inTelegram
+                        ? "Telegram has no built-in Solana wallet — continue in yours:"
+                        : "Open this page in your wallet's browser to connect:"}
+                    </div>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      {mobileWalletLinks.map((link) => (
+                        <button
+                          key={link.name}
+                          type="button"
+                          className="chibi-btn chibi-btn--gold"
+                          onClick={() => openInWalletBrowser(link)}
+                          style={{ flex: 1, padding: "10px 12px", fontWeight: 700 }}
+                        >
+                          Open in {link.name} ↗
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
           </div>
         </div>

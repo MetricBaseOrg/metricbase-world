@@ -7,6 +7,7 @@ import {
   InvitationStateResponse,
 } from "../character/invitationsApi";
 import { InvitationsLeaderboardModal } from "./InvitationsLeaderboardModal";
+import { isTelegramMiniApp, shareToTelegram, TELEGRAM_BOT } from "../telegram/telegramApp";
 import { useMobileLayout } from "./useMobileLayout";
 
 interface InvitationsModalProps {
@@ -68,6 +69,19 @@ export function InvitationsModal({ onClose }: InvitationsModalProps) {
       setTimeout(() => setCopiedCode(null), 2000);
     });
   };
+
+  // Forward the code to a Telegram chat. The Mini App link carries it as
+  // `startapp`, which the game folds back into `?invite=` on launch — so the
+  // referral survives all the way to registration without a manual paste.
+  const handleTelegramShare = (code: string) => {
+    playSfx("ui_click");
+    shareToTelegram(
+      "🌍 Come play MetricBase World with me — a living player-run economy on Solana. My invite code is attached:",
+      { startParam: code, fallbackUrl: `${window.location.origin}/?invite=${code}` },
+    );
+  };
+
+  const showTelegramShare = isTelegramMiniApp() || Boolean(TELEGRAM_BOT);
 
   return (
     <div className="chibi-overlay" style={{ zIndex: 100 }}>
@@ -212,14 +226,27 @@ export function InvitationsModal({ onClose }: InvitationsModalProps) {
                         </div>
 
                         {!item.inviteeWallet && (
-                          <button
-                            type="button"
-                            className="chibi-btn chibi-btn--secondary"
-                            style={{ padding: "4px 8px", fontSize: "0.72rem", flexShrink: 0 }}
-                            onClick={() => handleCopy(item.code)}
-                          >
-                            {copiedCode === item.code ? "✓ Copied!" : "📋 Copy Link"}
-                          </button>
+                          <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                            <button
+                              type="button"
+                              className="chibi-btn chibi-btn--secondary"
+                              style={{ padding: "4px 8px", fontSize: "0.72rem" }}
+                              onClick={() => handleCopy(item.code)}
+                            >
+                              {copiedCode === item.code ? "✓ Copied!" : "📋 Copy Link"}
+                            </button>
+                            {showTelegramShare && (
+                              <button
+                                type="button"
+                                className="chibi-btn chibi-btn--secondary"
+                                style={{ padding: "4px 8px", fontSize: "0.72rem" }}
+                                onClick={() => handleTelegramShare(item.code)}
+                                title="Forward to a Telegram chat — the code rides along"
+                              >
+                                ✈️
+                              </button>
+                            )}
+                          </div>
                         )}
                       </div>
                     ))

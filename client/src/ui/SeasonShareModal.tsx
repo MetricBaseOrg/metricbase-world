@@ -2,6 +2,7 @@ import { type SeasonStatePayload } from "@metricbase/shared";
 import { useEffect, useRef } from "react";
 import { playSfx } from "../audio/soundEffects";
 import { useGameStore } from "../store/gameStore";
+import { isTelegramMiniApp, openExternalLink, shareToTelegram, TELEGRAM_BOT } from "../telegram/telegramApp";
 
 const PLAY_URL = "world.metricbase.org";
 
@@ -107,8 +108,18 @@ export function SeasonShareModal({ season, onClose }: { season: SeasonStatePaylo
 
   const shareToX = () => {
     playSfx("ui_click");
-    window.open(`https://x.com/intent/post?text=${encodeURIComponent(shareText())}`, "_blank", "noopener");
+    // Inside Telegram, window.open is swallowed by the webview.
+    openExternalLink(`https://x.com/intent/post?text=${encodeURIComponent(shareText())}`, true);
   };
+
+  const shareToTg = () => {
+    playSfx("ui_click");
+    shareToTelegram(shareText(), { fallbackUrl: `https://${PLAY_URL}` });
+  };
+
+  // Offer Telegram sharing where it lands: always inside the Mini App, and on
+  // the web only once a bot is configured (otherwise the link goes nowhere).
+  const showTelegramShare = isTelegramMiniApp() || Boolean(TELEGRAM_BOT);
 
   const saveImage = () => {
     playSfx("ui_click");
@@ -149,6 +160,16 @@ export function SeasonShareModal({ season, onClose }: { season: SeasonStatePaylo
             🖼️ Save image
           </button>
         </div>
+        {showTelegramShare && (
+          <button
+            type="button"
+            className="chibi-btn chibi-btn--secondary"
+            style={{ width: "100%", padding: "10px 12px", marginTop: 8 }}
+            onClick={shareToTg}
+          >
+            ✈️ Share to Telegram
+          </button>
+        )}
         <div className="chibi-text-muted" style={{ fontSize: "0.66rem", marginTop: 8, textAlign: "center" }}>
           Save the card and attach it to your post for the full flex.
         </div>

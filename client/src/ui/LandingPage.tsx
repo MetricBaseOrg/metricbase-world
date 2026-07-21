@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { METRICBASE_TOKEN_MINT } from "@metricbase/shared";
+import { telegramAppLink } from "../telegram/telegramApp";
 import "./landing.css";
 
 /**
@@ -14,6 +15,9 @@ const BUY_URL = `https://pump.fun/coin/${METRICBASE_TOKEN_MINT}`;
 // Play Now button enters the game. Spectate skips the wallet entirely.
 const DASHBOARD_URL = "/dashboard";
 const SPECTATE_URL = "/play?spectate=1";
+// Null until VITE_TELEGRAM_BOT is set at build time, so the CTA stays hidden
+// until the Mini App actually exists.
+const TELEGRAM_APP_URL = telegramAppLink();
 
 interface LiveStats {
   players: number;
@@ -121,6 +125,11 @@ export function LandingPage() {
             <a className="mb-btn mb-btn--ghost" href={SPECTATE_URL}>👀 Spectate</a>
             <a className="mb-btn mb-btn--gold" href={BUY_URL} target="_blank" rel="noopener noreferrer">Buy $BASE</a>
             <a className="mb-btn mb-btn--ghost" href="/docs">📖 How to Play</a>
+            {TELEGRAM_APP_URL && (
+              <a className="mb-btn mb-btn--ghost" href={TELEGRAM_APP_URL} target="_blank" rel="noopener noreferrer">
+                ✈️ Play on Telegram
+              </a>
+            )}
           </div>
           {stats && (
             <div className="mb-livestrip">
