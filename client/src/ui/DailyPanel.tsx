@@ -109,8 +109,8 @@ export function DailyPanel() {
             </div>
           </div>
           <div className="chibi-text-muted" style={{ fontSize: "0.68rem", marginTop: 8 }}>
-            {season.rewardPool.toLocaleString()} $BASE prize pool, split by points at season end. Play, win PvP, and
-            refer friends to climb.
+            {season.rewardPool.toLocaleString()} $BASE prize pool, split by points at season end. Play, win PvP, refer
+            friends, and top the Richest board to climb.
           </div>
           {season.leaderboard.length > 0 && (
             <div style={{ marginTop: 8 }}>

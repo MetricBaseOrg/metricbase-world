@@ -1,6 +1,7 @@
 import { getPool } from "./pool.js";
 import {
   SEASON_REWARD_POOL_BASE,
+  SEASON_RICHEST_DAILY_BONUS,
   METRICBASE_TOKEN_MINT,
   currentSeason,
   type SeasonCategory,
@@ -143,6 +144,29 @@ export async function awardSeasonPointsDb(playerName: string, category: SeasonCa
     );
   } catch (error) {
     console.warn("[season] award failed:", error);
+  }
+}
+
+/** Award the fixed daily "richest" season-point bonus to the top-N players (by
+ * net worth, in order). Idempotent per (season, UTC day) via an atomic marker
+ * insert, so it fires once a day no matter how many rooms call it. */
+export async function awardRichestDailyBonus(seasonId: string, rankedNames: string[]): Promise<void> {
+  const pool = getPool();
+  if (!pool || rankedNames.length === 0) return;
+  const day = new Date().toISOString().slice(0, 10);
+  try {
+    const claim = await pool.query(
+      `INSERT INTO season_richest_award (season_id, day) VALUES ($1, $2)
+       ON CONFLICT (season_id, day) DO NOTHING RETURNING day`,
+      [seasonId, day],
+    );
+    if (!claim.rowCount) return; // already awarded today
+    const n = Math.min(rankedNames.length, SEASON_RICHEST_DAILY_BONUS.length);
+    for (let i = 0; i < n; i++) {
+      await awardSeasonPointsDb(rankedNames[i], "richest", SEASON_RICHEST_DAILY_BONUS[i]);
+    }
+  } catch (error) {
+    console.warn("[season] richest daily bonus failed:", error);
   }
 }
 

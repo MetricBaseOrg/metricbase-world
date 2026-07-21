@@ -8,7 +8,7 @@ import {
   type LeaderboardPayload,
 } from "@metricbase/shared";
 import { fetchExternalWealth, resolveNetWorth, PROBE_FILTER } from "./networth.js";
-import { loadSeasonAggregate, getSeasonRewardPool } from "./season.js";
+import { loadSeasonAggregate, getSeasonRewardPool, awardRichestDailyBonus } from "./season.js";
 import { getPool } from "./pool.js";
 
 const TTL_MS = 60_000;
@@ -99,6 +99,9 @@ export async function getLeaderboard(): Promise<LeaderboardPayload> {
       gold: 0,
       points: e.points,
     }));
+    // Once per UTC day, the top-10 richest earn a fixed, capped season-point
+    // bonus (idempotent — safe to call on every leaderboard fetch).
+    void awardRichestDailyBonus(comp.id, topRich.map((e) => e.name));
     cache = {
       topLevel: byLevel.rows.map(toEntry),
       topGold: topRich,

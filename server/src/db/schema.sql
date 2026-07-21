@@ -330,6 +330,15 @@ CREATE TABLE IF NOT EXISTS season_state (
 );
 CREATE INDEX IF NOT EXISTS season_state_board_idx ON season_state (season_id, points DESC);
 
+-- One row per (season, UTC day) that the top-10 richest daily bonus has been
+-- awarded. The atomic insert-if-absent makes the daily award idempotent across
+-- zone rooms and restarts.
+CREATE TABLE IF NOT EXISTS season_richest_award (
+  season_id VARCHAR(12) NOT NULL,
+  day VARCHAR(10) NOT NULL,
+  PRIMARY KEY (season_id, day)
+);
+
 -- Player-to-player jobs: employer escrows the reward at posting; the worker
 -- is paid on verified completion. delivered items await employer pickup.
 CREATE TABLE IF NOT EXISTS jobs (

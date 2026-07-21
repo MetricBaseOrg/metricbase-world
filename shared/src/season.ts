@@ -55,7 +55,8 @@ export type SeasonCategory =
   | "jobs"
   | "login"
   | "pvpWin"
-  | "referral";
+  | "referral"
+  | "richest";
 
 /** Points awarded per unit of each activity. Balanced so grindy actions pay
  * little and rare/social actions pay more; alt-spam of cheap actions can't
@@ -71,7 +72,16 @@ export const SEASON_POINTS: Record<SeasonCategory, number> = {
   login: 5,
   pvpWin: 10,
   referral: 50,
+  // Richest is awarded on a fixed daily schedule by rank (SEASON_RICHEST_DAILY_BONUS),
+  // not per-unit — this per-unit entry is unused.
+  richest: 0,
 };
+
+/** Fixed DAILY season-point bonus for the top-10 richest players, by rank
+ * (index 0 = richest). Rank-based and capped — NOT gold-proportional — so
+ * wealth rewards being sustainably rich without letting the uncapped gold
+ * faucet farm unlimited $BASE-backed points. Max 50/day → 1,500 over a season. */
+export const SEASON_RICHEST_DAILY_BONUS = [50, 40, 30, 25, 20, 15, 12, 10, 8, 5];
 
 export const SEASON_CATEGORY_LABEL: Record<SeasonCategory, string> = {
   gather: "Gathering",
@@ -84,6 +94,7 @@ export const SEASON_CATEGORY_LABEL: Record<SeasonCategory, string> = {
   login: "Daily login",
   pvpWin: "PvP wins",
   referral: "Referrals",
+  richest: "Richest bonus",
 };
 
 export interface SeasonLeaderEntry {
