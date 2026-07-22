@@ -30,6 +30,7 @@ import { WorldEditBar } from "./ui/WorldEditBar";
 import { BuildShopPanel } from "./ui/BuildShopPanel";
 import { AdBanner } from "./ui/AdBanner";
 import { ObjectiveTracker } from "./ui/ObjectiveTracker";
+import { TelegramLinkPanel } from "./ui/TelegramLinkPanel";
 import { QuestPanel } from "./ui/QuestPanel";
 import { ErrorBoundary } from "./ui/ErrorBoundary";
 import { mentionsLocalPlayer } from "./ui/markdown";
@@ -388,6 +389,7 @@ export function App() {
       {joined && <TopBar onLeave={() => void handleLeave()} />}
       {joined && <QuestPanel />}
       {joined && <ObjectiveTracker />}
+      {joined && <TelegramLinkPanel />}
       {joined && <InventoryPanel />}
       {joined && <CraftPanel />}
       {joined && <SoftShopPanel />}

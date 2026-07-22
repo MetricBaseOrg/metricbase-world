@@ -361,6 +361,9 @@ export function TopBar({ onLeave }: TopBarProps) {
           <a href="/stats" target="_blank" rel="noopener noreferrer" className="chibi-stat-pill" style={{ display: "inline-flex", gap: 6, marginTop: 8, marginLeft: 8, textDecoration: "none", fontSize: "0.78rem" }}>
             📊 Economy
           </a>
+          <a href="/dashboard" target="_blank" rel="noopener noreferrer" className="chibi-stat-pill" style={{ display: "inline-flex", gap: 6, marginTop: 8, marginLeft: 8, textDecoration: "none", fontSize: "0.78rem" }}>
+            🧑 Dashboard
+          </a>
 
           <button type="button" className="chibi-btn chibi-btn--gold" style={{ width: "100%", marginTop: 8, padding: "8px 10px" }}
             onClick={() => { playSfx("ui_open"); useGameStore.getState().setDailyOpen(true); setMenuOpen(false); }}>
@@ -401,6 +404,16 @@ export function TopBar({ onLeave }: TopBarProps) {
             onClick={() => { playSfx("ui_open"); setInvitationsOpen(true); setMenuOpen(false); }}>
             ✉️ Invite Friends
           </button>
+
+          {/* Wallet players only — a `tg:` account IS the Telegram side and has
+              nothing to link. Lives here because the redemption step was
+              otherwise only on /dashboard, which is unreachable on mobile. */}
+          {!useGameStore.getState().walletAddress?.startsWith("tg:") && (
+            <button type="button" className="chibi-btn chibi-btn--secondary" style={{ width: "100%", marginTop: 8, padding: "8px 10px" }}
+              onClick={() => { playSfx("ui_open"); useGameStore.getState().setTelegramLinkOpen(true); setMenuOpen(false); }}>
+              ✈️ Link Telegram
+            </button>
+          )}
 
           {isAdmin && (
             <button type="button" className="chibi-btn chibi-btn--danger" style={{ width: "100%", marginTop: 8, padding: "8px 10px" }}
