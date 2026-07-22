@@ -88,6 +88,18 @@ export const SEASON_POINTS: Record<SeasonCategory, number> = {
   richest: 0,
 };
 
+/**
+ * Combat level an invitee must reach before their referrer is paid the
+ * `referral` bonus.
+ *
+ * Referral is the highest-value category (50 pts) against a fixed $BASE prize
+ * pool, so it is the most attractive thing to farm. Entry became free in
+ * v0.172.0, which removed the only real cost of a throwaway invitee — so the
+ * cost is now "actually play for a bit" instead. Raise this if farming shows
+ * up on the invitations leaderboard.
+ */
+export const REFERRAL_QUALIFY_LEVEL = 5;
+
 /** Fixed DAILY season-point bonus for the top-10 richest players, by rank
  * (index 0 = richest). Rank-based and capped — NOT gold-proportional — so
  * wealth rewards being sustainably rich without letting the uncapped gold

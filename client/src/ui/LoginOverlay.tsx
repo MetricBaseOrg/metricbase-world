@@ -3,6 +3,7 @@ import {
   DEFAULT_CHARACTER_APPEARANCE,
   defaultAppearanceForGender,
   METRICBASE_TOKEN_MINT,
+  REFERRAL_QUALIFY_LEVEL,
   normalizeCharacterAppearance,
   type CharacterAppearance,
 } from "@metricbase/shared";
@@ -503,7 +504,7 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
                 <div style={{ fontSize: 11, opacity: 0.6, marginTop: 6 }}>
                   {invitationsRequired
                     ? "An invitation code is required to register."
-                    : "Got a friend's code? Enter it — they'll earn Season points. Otherwise, jump right in."}
+                    : `Got a friend's code? Enter it — they'll earn Season points once you reach level ${REFERRAL_QUALIFY_LEVEL}. Otherwise, jump right in.`}
                 </div>
               </div>
             )}

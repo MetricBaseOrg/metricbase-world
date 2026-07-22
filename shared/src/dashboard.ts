@@ -11,6 +11,10 @@ export const MOTTO_MAX_LENGTH = 80;
  */
 export const DASHBOARD_UPDATES: Array<{ title: string; body: string }> = [
   {
+    title: "v0.173 — Referrals Reward Real Players",
+    body: "Now that entry is free, referral Season points are paid when your invitee actually starts playing — once they reach level 5 — instead of the moment they redeem your code. Same 50 points, they just land a little later. This keeps the Season prize pool going to people who bring in real players rather than empty sign-ups.",
+  },
+  {
     title: "v0.172 — Free to Play",
     body: "The 1,000 $BASE entry requirement is gone. Connect a Solana wallet and you're in — no tokens needed. Your wallet is still your identity: it saves your character, keeps your name bonded, and it's where Season prize-pool rewards get paid. $BASE now buys the optional things — gold at Rudi's desk, VIP passes, land plots and World slots. Tell your friends; entry costs nothing now.",
   },

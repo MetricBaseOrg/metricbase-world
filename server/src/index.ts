@@ -24,6 +24,7 @@ import { tokenShopRouter } from "./api/tokenShop.js";
 import { invitationsRouter } from "./api/invitations.js";
 import { seasonRouter } from "./api/season.js";
 import { getPool, initDatabase } from "./db/pool.js";
+import { sweepQualifiedReferrals } from "./db/invitations.js";
 import { captureNetWorthSnapshot } from "./db/networth.js";
 import { initSellPressure } from "./market/sellPressure.js";
 import { initLandRegistry } from "./housing/landRegistry.js";
@@ -213,6 +214,11 @@ setInterval(() => void getBaseHolderCount(), 5 * 60 * 1000).unref();
 // hourly — the day's row is upserted, so the last capture converges on EOD.
 void captureNetWorthSnapshot();
 setInterval(() => void captureNetWorthSnapshot(), 60 * 60 * 1000).unref();
+
+// Pay referrers whose invitee has actually started playing (see
+// sweepQualifiedReferrals — anti-farming, idempotent via rewarded_at).
+void sweepQualifiedReferrals();
+setInterval(() => void sweepQualifiedReferrals(), 10 * 60 * 1000).unref();
 
 // Merchant Company daily payouts (salaries + dividends). Runs hourly and on
 // boot; each company is paid at most once per UTC day (idempotent via

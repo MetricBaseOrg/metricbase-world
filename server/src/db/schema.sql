@@ -429,6 +429,23 @@ CREATE TABLE IF NOT EXISTS invitations (
 CREATE INDEX IF NOT EXISTS invitations_inviter_wallet_idx ON invitations (inviter_wallet);
 CREATE INDEX IF NOT EXISTS invitations_invitee_wallet_idx ON invitations (invitee_wallet);
 
+-- Anti-farming: referral season points are no longer paid the moment a code is
+-- redeemed (free-to-play made throwaway invitees nearly costless). They're paid
+-- by a sweep once the invitee actually plays; rewarded_at makes that idempotent.
+ALTER TABLE invitations ADD COLUMN IF NOT EXISTS rewarded_at TIMESTAMPTZ;
+
+-- One-time backfill: invites redeemed under the OLD rule were already credited
+-- at redemption, so settle them or the sweep would pay them a second time. The
+-- fixed cutoff (not "IS NULL" alone) is what keeps this idempotent — without it
+-- every reboot would also stamp fresh, not-yet-qualified invites as rewarded.
+UPDATE invitations SET rewarded_at = COALESCE(used_at, created_at)
+ WHERE invitee_wallet IS NOT NULL
+   AND rewarded_at IS NULL
+   AND COALESCE(used_at, created_at) < TIMESTAMPTZ '2026-07-22 13:00:00+08';
+
+CREATE INDEX IF NOT EXISTS invitations_pending_reward_idx
+  ON invitations (invitee_wallet) WHERE invitee_wallet IS NOT NULL AND rewarded_at IS NULL;
+
 -- MetricBase DAO: $BASE-holder polls + token-weighted votes (see shared/dao.ts).
 CREATE TABLE IF NOT EXISTS dao_polls (
   id VARCHAR(40) PRIMARY KEY,

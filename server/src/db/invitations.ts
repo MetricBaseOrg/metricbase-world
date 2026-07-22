@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import { getPool } from "./pool.js";
-import { getGrantedCodesCount } from "@metricbase/shared";
+import { getGrantedCodesCount, REFERRAL_QUALIFY_LEVEL } from "@metricbase/shared";
 import { awardSeasonPointsDb } from "./season.js";
 
 export function isInvitationSystemActive(): boolean {
@@ -148,17 +148,54 @@ export async function validateAndUseInviteCode(code: string, inviteeWallet: stri
     [inviteeWallet, trimmedCode],
   );
 
-  // Season points: reward the referrer for a successful invite (they may be
-  // offline, so credit the DB directly). Referral is the highest-value category.
+  // NOTE: no season points are awarded here. Referral is the highest-value
+  // category (50 pts) and entry is free, so paying at redemption would let
+  // anyone farm the prize pool with throwaway wallets. The referrer is paid by
+  // sweepQualifiedReferrals() once the invitee actually reaches
+  // REFERRAL_QUALIFY_LEVEL.
+}
+
+/**
+ * Pay referrers whose invitee has reached REFERRAL_QUALIFY_LEVEL.
+ *
+ * Runs on a timer rather than in the level-up hot path: it's a single indexed
+ * query over a tiny set, and keeping it out of gameplay code means a slow or
+ * failing DB can never stall a level-up. Idempotent — `rewarded_at` is stamped
+ * in the same statement that selects the row, so a concurrent or repeated run
+ * can't double-pay.
+ */
+export async function sweepQualifiedReferrals(): Promise<void> {
+  const db = getPool();
+  if (!db) return;
+
   try {
-    const inviter = await db.query<{ name: string }>(
-      "SELECT name FROM characters WHERE wallet_address = $1 LIMIT 1",
-      [invitation.inviter_wallet],
+    // Claim qualifying rows atomically, returning the inviter to credit.
+    const claimed = await db.query<{ inviter_wallet: string; invitee_name: string }>(
+      `UPDATE invitations i
+          SET rewarded_at = NOW()
+         FROM characters c
+        WHERE c.wallet_address = i.invitee_wallet
+          AND i.invitee_wallet IS NOT NULL
+          AND i.rewarded_at IS NULL
+          AND c.level >= $1
+      RETURNING i.inviter_wallet, c.name AS invitee_name`,
+      [REFERRAL_QUALIFY_LEVEL],
     );
-    const inviterName = inviter.rows[0]?.name;
-    if (inviterName) await awardSeasonPointsDb(inviterName, "referral", 1);
+
+    for (const row of claimed.rows) {
+      const inviter = await db.query<{ name: string }>(
+        "SELECT name FROM characters WHERE wallet_address = $1 LIMIT 1",
+        [row.inviter_wallet],
+      );
+      const inviterName = inviter.rows[0]?.name;
+      if (!inviterName) continue;
+      await awardSeasonPointsDb(inviterName, "referral", 1);
+      console.log(
+        `[invitations] referral qualified: ${row.invitee_name} reached level ${REFERRAL_QUALIFY_LEVEL} → +referral for ${inviterName}`,
+      );
+    }
   } catch (error) {
-    console.warn("[invitations] season referral award failed:", error);
+    console.warn("[invitations] referral sweep failed:", error);
   }
 }
 
