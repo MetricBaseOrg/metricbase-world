@@ -464,9 +464,12 @@ async function load(){
       setBig("flowPool",bf.seasonPool," $BASE");
       set("flowPaid",kfmt(bf.paidOut)+" $BASE");
       set("flowLast",bf.daysSinceLastPurchase===null?"never":fmt(bf.daysSinceLastPurchase)+"d");
+      // rows(node, items, fn) — the third argument is REQUIRED; it renders each
+      // item. Omitting it made items.map(undefined) throw, and the page-level
+      // catch swallowed it, silently blanking every field after this point.
       rows(el("flowProducts"),(bf.byProduct||[]).map(function(p){
         return {k:"• "+p.productId+" ("+fmt(p.purchases)+")",v:kfmt(p.base)+" $BASE"};
-      }));
+      }),function(x){return '<div class="row"><span>'+x.k+'</span><b>'+x.v+'</b></div>';});
       // State the ratio plainly rather than leaving it to be eyeballed: this is
       // the number the demand plan turns on.
       var cover=bf.seasonPool>0?(bf.inflowTotal/bf.seasonPool):0;
@@ -635,7 +638,13 @@ async function load(){
       ["👁️","Impressions",ad.totalImpressions],["🏦","Platform cut ($BASE)",ad.platformCut],
       ["💤","Unclaimed to players ($BASE)",ad.unclaimed],["💳","Brand deposits ($BASE)",ad.brandDeposits]];
     el("adTotals").innerHTML=adTiles.map(tileHtml).join("");
-  }catch(e){/* keep last values */}
+  }catch(e){
+    // Keep the last good values rather than blanking the page on a transient
+    // bad payload — but SAY SO. Swallowing silently let a render bug blank
+    // every field below the failure point for a whole release with no visible
+    // error anywhere.
+    console.error("[stats] render failed; showing last known values:",e);
+  }
 }
 load();setInterval(load,20000);
 </script>
