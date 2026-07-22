@@ -85,10 +85,26 @@ export const MOB_COUNTER_DAMAGE: Record<string, number> = {
   training_dummy: 0, // safe practice target — never hits back
   wild_slime: 30,
   slime_brute: 72,
-  ember_slime: 90,
-  void_brute: 130,
-  black_warden: 180, // apex boss
+  ember_slime: 78,
+  void_brute: 88,
+  black_warden: 105, // apex boss
 };
+
+/**
+ * BALANCE NOTE — mobs counter on EVERY player swing, so the damage a fight
+ * costs is (mobHp / playerDamage) x counter, and it scales with mob HP whether
+ * you intend it to or not. The Slime Brute is the reference the game is
+ * currently tuned around: 150hp / 72 counter ~= 650 damage taken to kill it.
+ *
+ * That is why counter values FLATTEN as HP rises instead of climbing with it.
+ * A first pass gave the 1,100hp boss a 180 counter, which works out at ~11,000
+ * damage to kill — unbeatable for a level-34 player with ~400 HP. Tougher mobs
+ * are meant to take longer and out-sustain you, not to one-shot harder.
+ *
+ * Rough cost at the current values: Ember ~870, Void Brute ~2,050, Sentinel
+ * ~6,400 (a geared party fight with food, not a solo kill). These are derived,
+ * NOT playtested — expect to tune after someone actually fights them.
+ */
 
 export function mobCounterDamage(npcId: string): number {
   if (npcId in MOB_COUNTER_DAMAGE) return MOB_COUNTER_DAMAGE[npcId];

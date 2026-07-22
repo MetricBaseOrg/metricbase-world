@@ -911,7 +911,7 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
           "You burned your way in. Few leave the Obsidian Reach with their loot — fall here and you lose everything.",
         // The apex fight: ~7x a Slime Brute's health and a long respawn, so
         // killing it is an event rather than a farm. Drops the Obsidian Shard.
-        combat: { maxHp: 1100, rewardXp: 600, respawnMs: 180_000 },
+        combat: { maxHp: 900, rewardXp: 600, respawnMs: 180_000 },
       },
       {
         id: "void_brute",
