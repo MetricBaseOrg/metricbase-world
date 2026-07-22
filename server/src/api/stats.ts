@@ -19,6 +19,7 @@ import type { ActiveEconEvent } from "@metricbase/shared";
 import { getItemFlows } from "../economy/itemFlows.js";
 import { getPlayerHeldBase } from "../solana/playerHeldBase.js";
 import { getBaseFlows, type BaseFlows } from "../db/baseFlows.js";
+import { getRetention, type Retention } from "../db/retention.js";
 import { adService, type AdPublicStats } from "../ads/adService.js";
 import { countOpenJobs } from "../jobs/jobRegistry.js";
 
@@ -55,6 +56,7 @@ interface EconomyStats {
   assetMarket: { listings: number; askValue: number; totalOwned: number };
   baseToken: { burned: number; heldByPlayers: number; holders: number };
   baseFlows: BaseFlows | null;
+  retention: Retention | null;
   /** On-chain $BASE burn sinks, broken down by feature. */
   burnSinks: {
     blackPasses: number;
@@ -202,6 +204,7 @@ export async function buildStats(): Promise<EconomyStats> {
 
   const playerHeld = await getPlayerHeldBase();
   const baseFlows = await getBaseFlows();
+  const retention = await getRetention();
   const ads = await adService.getPublicStats();
   const richest = await getRichestBoard();
   const seasonInfo = currentSeason();
@@ -241,6 +244,7 @@ export async function buildStats(): Promise<EconomyStats> {
     goldMarket: { trades: gmTrades, goldVolume: gmVol },
     assetMarket: { listings: alCount, askValue: alValue, totalOwned: aiOwned },
     baseFlows,
+    retention,
     baseToken: {
       burned: activity["base.burned"] ?? 0,
       heldByPlayers: playerHeld?.totalHeld ?? 0,

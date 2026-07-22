@@ -134,6 +134,7 @@ export const STATS_PAGE_HTML = `<!doctype html>
   <a href="#overview">🏠 Overview</a>
   <a href="#season">🏆 Season</a>
   <a href="#richest">👑 Richest</a>
+  <a href="#retention">🌱 Retention</a>
   <a href="#token">🪙 $BASE</a>
   <a href="#economy">💰 Economy</a>
   <a href="#prices">🏷️ Prices</a>
@@ -173,6 +174,25 @@ export const STATS_PAGE_HTML = `<!doctype html>
         <th>Player</th><th>Net worth</th><th>Today</th>
       </tr></thead><tbody></tbody></table></div>
       <div class="legend" style="margin-top:10px"><span>Net worth = gold on hand + inventory items + build assets + player Worlds, houses &amp; shops, all at their gold value. <b>Today</b> = change since the previous daily snapshot. The board resets every 90-day season; days count from game launch.</span></div>
+    </div>
+  </section>
+
+  <section id="retention">
+    <div class="sec"><span class="em">🌱</span><h2>Player Retention</h2></div>
+    <div class="grid">
+      <div class="card"><h2>🔥 Active players</h2><div class="big mint" id="ret24">—</div><div class="sub">last 24h · <span id="ret7">—</span> in 7 days · <span id="ret30">—</span> in 30 days</div></div>
+      <div class="card"><h2>🚪 One and done</h2><div class="big burn" id="retOnce">—</div><div class="sub">played a single session and never returned</div></div>
+      <div class="card"><h2>📶 Where players are</h2><div id="retBuckets"></div></div>
+    </div>
+    <div class="card wide" style="margin-top:14px">
+      <h2>🧭 Did the objective tracker help?</h2>
+      <div class="sub" style="margin-bottom:10px">Until v0.178.0 every quest was gated behind finding Aria, so new players spawned with an empty log — 71% never passed level 3. New players now start with an objective on screen. These are the same measurements either side of that change; the "since" cohort needs time (and players) before it means much.</div>
+      <div id="retCohorts"></div>
+      <div class="sub" id="retNote" style="margin-top:10px"></div>
+    </div>
+    <div class="card wide" style="margin-top:14px">
+      <h2>📈 New players per week</h2>
+      <div id="retSignups"></div>
     </div>
   </section>
 
@@ -455,6 +475,39 @@ async function load(){
     setBig("baseBurned",bt.burned," $BASE");
     setBig("baseHeld",bt.heldByPlayers," $BASE");
     set("baseHolders",fmt(bt.holders));
+
+    var rt=s.retention;
+    if(rt){
+      var rowHtml=function(x){return '<div class="row"><span>'+x.k+'</span><b>'+x.v+'</b></div>';};
+      setBig("ret24",rt.active24h,"");
+      set("ret7",fmt(rt.active7d));
+      set("ret30",fmt(rt.active30d));
+      setBig("retOnce",(rt.before.oneAndDone||0)+(rt.after.oneAndDone||0),"");
+      rows(el("retBuckets"),(rt.levelBuckets||[]).map(function(b){
+        var pct=rt.totalPlayers>0?Math.round(b.players/rt.totalPlayers*100):0;
+        return {k:"Lv "+b.label,v:fmt(b.players)+" ("+pct+"%)"};
+      }),rowHtml);
+      // Percentages are suppressed server-side under a small sample; show the
+      // raw count rather than a number that invites over-reading.
+      rows(el("retCohorts"),[rt.before,rt.after].map(function(c){
+        var stuck=c.stuckLowPct===null
+          ? c.stuckLow+" of "+c.players+" (too few to rate)"
+          : c.stuckLowPct+"% stuck at Lv 1-3";
+        return {k:c.label+" — "+fmt(c.players)+" player"+(c.players===1?"":"s"),v:stuck};
+      }),rowHtml);
+      var note=el("retNote");
+      if(note){
+        note.textContent=rt.after.players===0
+          ? "No new players since the change yet — check back once some have arrived."
+          : rt.after.players<8
+            ? "Only "+rt.after.players+" player"+(rt.after.players===1?" has":"s have")+" joined since the change — not enough to judge it yet."
+            : "Before: "+rt.before.stuckLowPct+"% stuck at Lv 1-3 · Since: "+rt.after.stuckLowPct+"%. "
+              +(rt.after.stuckLowPct<rt.before.stuckLowPct?"Moving the right way.":"No improvement yet.");
+      }
+      rows(el("retSignups"),(rt.signupsByWeek||[]).slice().reverse().map(function(w){
+        return {k:"Week of "+w.week,v:fmt(w.players)+" new"};
+      }),rowHtml);
+    }
 
     var bf=s.baseFlows;
     if(bf){
