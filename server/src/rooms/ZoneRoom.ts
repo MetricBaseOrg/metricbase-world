@@ -224,6 +224,7 @@ import {
   partyKillXp,
   PARTY_ASSIST_RANGE,
   startQuest,
+  QUEST_GREET_ARIA,
   TICK_RATE,
   tileToWorld,
   worldToTile,
@@ -1894,7 +1895,18 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     });
     setOnline(player.name, client, (type, payload) => client.send(type, payload));
     this.inputs.set(client.sessionId, { dx: 0, dy: 0 });
-    this.questProgress.set(this.pidOf(player), saved?.questProgress ?? { active: [], objectiveIndex: {}, completed: [] });
+    // Every quest is gated behind walking up to Aria, so a brand-new player
+    // spawned with an EMPTY log and no indication anything existed — 71% of all
+    // characters never passed level 3, and 14 never returned after one session.
+    // Auto-start the opening quest so there is an objective on screen from the
+    // first second. Only for a genuinely fresh log: a returning player who has
+    // finished or abandoned it is left alone.
+    const loadedProgress = saved?.questProgress ?? { active: [], objectiveIndex: {}, completed: [] };
+    const isFreshLog = loadedProgress.active.length === 0 && loadedProgress.completed.length === 0;
+    this.questProgress.set(
+      this.pidOf(player),
+      isFreshLog && !player.spectator ? startQuest(loadedProgress, QUEST_GREET_ARIA) : loadedProgress,
+    );
     this.inventories.set(this.pidOf(player), normalizeInventory(saved?.inventory));
     // Collect any gold owed from asset sales made while offline.
     const owed = takePendingGold(player.name);

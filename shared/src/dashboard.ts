@@ -11,6 +11,10 @@ export const MOTTO_MAX_LENGTH = 80;
  */
 export const DASHBOARD_UPDATES: Array<{ title: string; body: string }> = [
   {
+    title: "v0.178 — Always know what to do next",
+    body: "New adventurers now start with their first quest already active, and everyone gets an on-screen objective tracker showing the current quest and its next step — no more wondering where to begin in a world full of companies, markets, farms and guilds. It sits out of the way, updates as you progress, and you can dismiss it once you know your way around.",
+  },
+  {
     title: "v0.176 — Link Telegram to your wallet account",
     body: "Already play with a wallet? You can now attach your Telegram account to it. Open the Mini App, tap “Already play with a wallet?” for a 6-character code, then enter it on your dashboard under Telegram. After that, tapping Continue with Telegram signs you straight into your existing character — no more hopping out to a wallet browser every session. Your wallet stays your identity; nothing moves or merges.",
   },

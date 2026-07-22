@@ -29,6 +29,7 @@ import { WorldsPanel } from "./ui/WorldsPanel";
 import { WorldEditBar } from "./ui/WorldEditBar";
 import { BuildShopPanel } from "./ui/BuildShopPanel";
 import { AdBanner } from "./ui/AdBanner";
+import { ObjectiveTracker } from "./ui/ObjectiveTracker";
 import { QuestPanel } from "./ui/QuestPanel";
 import { ErrorBoundary } from "./ui/ErrorBoundary";
 import { mentionsLocalPlayer } from "./ui/markdown";
@@ -386,6 +387,7 @@ export function App() {
       {joined && <PhaserGame />}
       {joined && <TopBar onLeave={() => void handleLeave()} />}
       {joined && <QuestPanel />}
+      {joined && <ObjectiveTracker />}
       {joined && <InventoryPanel />}
       {joined && <CraftPanel />}
       {joined && <SoftShopPanel />}
