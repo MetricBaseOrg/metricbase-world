@@ -21,6 +21,7 @@ import {
   fetchTokenGateInfo,
   getValidWalletSession,
   listAvailableWallets,
+  loginWithTelegram,
   resolveWalletConnector,
 } from "../wallet/tokenGate";
 import {
@@ -73,6 +74,7 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
   const [leaderboardOpen, setLeaderboardOpen] = useState(false);
   const [detectedWallets, setDetectedWallets] = useState<WalletConnector[]>([]);
   const [mobileWalletLinks, setMobileWalletLinks] = useState<MobileWalletLink[] | null>(null);
+  const [telegramLoginAvailable, setTelegramLoginAvailable] = useState(false);
   const inTelegram = isTelegramMiniApp();
   const walletConnectResolver = useRef<{
     resolve: (value: Awaited<ReturnType<typeof connectAndVerifyWallet>>) => void;
@@ -127,6 +129,7 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
         setGateEnabled(info.enabled);
         setTokenMint(info.mint);
         setMinTokenAmount(info.minUiAmount);
+        setTelegramLoginAvailable(Boolean(info.telegramLogin));
 
         const session = await getValidWalletSession();
         if (session) {
@@ -301,6 +304,25 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
       setConnectingWallet(false);
       setWalletPickerOpen(false);
       walletConnectResolver.current = null;
+    }
+  };
+
+  /** Telegram sign-in: same session shape as a wallet connect, so the rest of
+   *  the form (name, hero, invite code) proceeds unchanged from here. */
+  const handleTelegramLogin = async () => {
+    setError(null);
+    setConnectingWallet(true);
+    try {
+      const session = await loginWithTelegram();
+      setWalletAddressLocal(session.wallet);
+      setWalletAddress(session.wallet);
+      setTokenBalance(session.tokenBalance);
+      setMobileWalletLinks(null);
+      await loadBondedCharacter(session.accessToken);
+    } catch (tgError) {
+      setError(tgError instanceof Error ? tgError.message : "Telegram sign-in failed.");
+    } finally {
+      setConnectingWallet(false);
     }
   };
 
@@ -620,6 +642,27 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
                 >
                   {connectButtonLabel}
                 </button>
+
+                {/* Inside Telegram, signing in with Telegram avoids the hop out
+                    to a wallet browser entirely. Full play; a wallet is only
+                    needed later to receive $BASE. Shown only when the server
+                    can actually verify it (TELEGRAM_BOT_TOKEN set). */}
+                {inTelegram && telegramLoginAvailable && !walletAddress && (
+                  <div style={{ marginTop: 10 }}>
+                    <button
+                      type="button"
+                      className="chibi-btn chibi-btn--mint"
+                      onClick={() => void handleTelegramLogin()}
+                      disabled={connectingWallet || joining || bootstrapping}
+                      style={{ width: "100%", padding: "10px 12px", fontWeight: 800 }}
+                    >
+                      ✈️ Continue with Telegram — no wallet
+                    </button>
+                    <div style={{ fontSize: 11, opacity: 0.6, marginTop: 6 }}>
+                      Play straight away. Link a wallet later to collect Season rewards.
+                    </div>
+                  </div>
+                )}
 
                 {/* No provider in this browser (Telegram's webview, or a plain
                     mobile browser). Reopen the game inside a wallet's in-app

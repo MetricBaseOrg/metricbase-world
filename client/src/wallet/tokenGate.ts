@@ -5,6 +5,7 @@ import {
 } from "@metricbase/shared";
 import bs58 from "bs58";
 import { getHttpServerUrl } from "../game/serverUrl";
+import { getTelegramInitData } from "../telegram/telegramApp";
 import { fetchWithTimeout, withTimeout } from "../utils/fetchWithTimeout";
 import {
   clearSelectedWalletId,
@@ -40,6 +41,38 @@ export async function fetchTokenGateInfo(): Promise<TokenGateInfoResponse> {
     throw new Error("Failed to load token gate settings");
   }
   return response.json() as Promise<TokenGateInfoResponse>;
+}
+
+/**
+ * Sign in with Telegram instead of a wallet.
+ *
+ * Sends the launch's signed initData for server-side HMAC verification and
+ * receives the same kind of access token a wallet sign-in yields, keyed to a
+ * `tg:<id>` identity. Walletless players can play fully; a wallet is only
+ * needed to receive $BASE (season payouts) or make on-chain purchases.
+ */
+export async function loginWithTelegram(): Promise<AuthVerifyResponse> {
+  const initData = await getTelegramInitData();
+  if (!initData) {
+    throw new Error("Telegram sign-in is only available inside the Telegram app.");
+  }
+
+  const response = await fetchWithTimeout(
+    `${getHttpServerUrl()}/api/auth/telegram`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ initData }),
+    },
+    VERIFY_TIMEOUT_MS,
+  );
+
+  const data = (await response.json()) as AuthVerifyResponse & { error?: string };
+  if (!response.ok) {
+    throw new Error(data.error ?? "Telegram sign-in failed.");
+  }
+  sessionStorage.setItem(STORAGE_KEY, data.accessToken);
+  return data;
 }
 
 export function listAvailableWallets(): WalletConnector[] {

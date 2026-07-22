@@ -11,6 +11,11 @@ import {
   isTokenGateEnabled,
   isTokenHoldingRequired,
 } from "../auth/tokenGate.js";
+import {
+  isTelegramLoginConfigured,
+  telegramIdentity,
+  verifyTelegramInitData,
+} from "../auth/telegramAuth.js";
 import { isWalletBanned } from "../db/bans.js";
 import { getWalletTokenBalance } from "../solana/tokenBalance.js";
 import { verifyWalletSignature } from "../solana/verifySignature.js";
@@ -103,6 +108,44 @@ authRouter.post("/auth/verify", async (req, res) => {
     const messageText = error instanceof Error ? error.message : "Token verification failed";
     res.status(502).json({ error: messageText });
   }
+});
+
+/**
+ * Telegram Mini App login — the walletless entry point.
+ *
+ * Issues the SAME access token as a wallet sign-in, but keyed to a synthetic
+ * `tg:<id>` identity. The player can then do everything a wallet player can
+ * EXCEPT anything on-chain (season payouts, gold desk, VIP, land) — those
+ * require linking a real wallet, since there is no address to pay.
+ */
+authRouter.post("/auth/telegram", async (req, res) => {
+  if (!isTelegramLoginConfigured()) {
+    res.status(503).json({ error: "Telegram login is not configured on this server." });
+    return;
+  }
+
+  const initData = String((req.body as { initData?: unknown })?.initData ?? "");
+  const user = verifyTelegramInitData(initData);
+  if (!user) {
+    // Deliberately vague: don't help a forger distinguish bad HMAC from stale.
+    res.status(401).json({ error: "Telegram verification failed. Reopen the app from Telegram." });
+    return;
+  }
+
+  const identity = telegramIdentity(user.id);
+
+  if (await isWalletBanned(identity)) {
+    res.status(403).json({ error: "This account has been banned." });
+    return;
+  }
+
+  const { token, expiresAt } = createAccessToken(identity);
+  res.json({
+    accessToken: token,
+    wallet: identity,
+    tokenBalance: 0,
+    expiresAt,
+  } satisfies AuthVerifyResponse);
 });
 
 authRouter.get("/auth/session", (req, res) => {

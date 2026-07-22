@@ -1,3 +1,4 @@
+import { isWalletIdentity } from "../auth/telegramAuth.js";
 import { getPool } from "./pool.js";
 import {
   SEASON_RICHEST_DAILY_BONUS,
@@ -164,7 +165,15 @@ export interface PayoutTarget {
   points: number;
 }
 
-/** Players eligible for a season payout: points > 0 AND a bonded wallet. */
+/**
+ * Players eligible for a season payout: points > 0 AND a REAL bonded wallet.
+ *
+ * Telegram players are stored under a synthetic `tg:<id>` key in the same
+ * column (see auth/telegramAuth.ts). They earn points like anyone else, but
+ * there is no address to send $BASE to — so they are excluded here and must
+ * link a wallet to collect. Filtering at the source means no downstream caller
+ * can accidentally hand `tg:123` to a transfer.
+ */
 export async function loadSeasonPayoutTargets(seasonId: string): Promise<PayoutTarget[]> {
   const pool = getPool();
   if (!pool) return [];
@@ -174,10 +183,13 @@ export async function loadSeasonPayoutTargets(seasonId: string): Promise<PayoutT
        FROM season_state s
        JOIN characters c ON c.name = s.player_name
        WHERE s.season_id = $1 AND s.points > 0 AND c.wallet_address IS NOT NULL
+         AND c.wallet_address NOT LIKE 'tg:%'
        ORDER BY s.points DESC, s.player_name ASC`,
       [seasonId],
     );
-    return res.rows.map((r) => ({ name: r.player_name, wallet: r.wallet_address, points: r.points }));
+    return res.rows
+      .filter((r) => isWalletIdentity(r.wallet_address))
+      .map((r) => ({ name: r.player_name, wallet: r.wallet_address, points: r.points }));
   } catch (error) {
     console.warn("[season] payout targets failed:", error);
     return [];

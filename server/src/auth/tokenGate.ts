@@ -1,4 +1,5 @@
 import { METRICBASE_TOKEN_MINT, MIN_TOKEN_UI_AMOUNT } from "@metricbase/shared";
+import { isTelegramLoginConfigured } from "./telegramAuth.js";
 
 /**
  * Whether WALLET AUTHENTICATION is enforced. This is not the "free to play"
@@ -50,5 +51,6 @@ export function getTokenGateInfo() {
     mint: process.env.TOKEN_MINT ?? METRICBASE_TOKEN_MINT,
     minUiAmount: getMinTokenUiAmount(),
     enabled: isTokenGateEnabled(),
+    telegramLogin: isTelegramLoginConfigured(),
   };
 }

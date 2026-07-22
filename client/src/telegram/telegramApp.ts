@@ -163,6 +163,20 @@ export function openExternalLink(url: string, newTab = false): void {
   else window.location.href = url;
 }
 
+/**
+ * The raw signed `initData` blob for this launch, or null outside Telegram.
+ *
+ * Loads the SDK first if needed — initData only exists once telegram-web-app.js
+ * has run. This string is what the server HMAC-verifies against the bot token;
+ * it must be sent verbatim (re-encoding it would break the signature).
+ */
+export async function getTelegramInitData(): Promise<string | null> {
+  if (!isTelegramMiniApp()) return null;
+  const app = (await loadTelegramSdk()) ?? webApp();
+  const data = app?.initData;
+  return data && data.length > 0 ? data : null;
+}
+
 /** Open a t.me link (share sheets, the bot itself) inside Telegram. */
 export function openTelegramLink(url: string): void {
   const app = webApp();

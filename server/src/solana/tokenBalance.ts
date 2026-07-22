@@ -1,5 +1,6 @@
 import { METRICBASE_TOKEN_MINT } from "@metricbase/shared";
 import { PublicKey } from "@solana/web3.js";
+import { isWalletIdentity } from "../auth/telegramAuth.js";
 import { getMinTokenUiAmount, isTokenHoldingRequired } from "../auth/tokenGate.js";
 import { jsonRpcCall, withRpcFallback } from "./rpc.js";
 
@@ -96,6 +97,13 @@ export async function checkWalletTokenGate(wallet: string): Promise<TokenGateRes
   // Free to play — never touch the chain on a zone join.
   if (!isTokenHoldingRequired()) {
     return { allowed: true, reason: "free-to-play" };
+  }
+
+  // A Telegram player has no wallet to inspect; `tg:<id>` is not an address.
+  // Never hand it to an RPC — admit them and let the wallet-link flow gate the
+  // on-chain features instead.
+  if (!isWalletIdentity(wallet)) {
+    return { allowed: true, reason: "telegram identity" };
   }
 
   const cachedUntil = gatePassCache.get(wallet);

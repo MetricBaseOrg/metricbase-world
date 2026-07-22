@@ -37,4 +37,7 @@ export interface TokenGateInfoResponse {
   /** Whether wallet authentication is enforced at all. Only ever false on
    *  local dev servers — see isTokenGateEnabled() on the server. */
   enabled: boolean;
+  /** Whether this server can verify Telegram logins (TELEGRAM_BOT_TOKEN set).
+   *  False = don't offer the button; the endpoint would only 503. */
+  telegramLogin?: boolean;
 }
