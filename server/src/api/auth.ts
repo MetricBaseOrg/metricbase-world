@@ -1,12 +1,16 @@
 import {
   type AuthVerifyRequest,
   type AuthVerifyResponse,
-  MIN_TOKEN_UI_AMOUNT,
 } from "@metricbase/shared";
 import { Router } from "express";
 import { createAccessToken, verifyAccessToken } from "../auth/accessToken.js";
 import { consumeChallenge, createChallenge } from "../auth/challenges.js";
-import { getTokenGateInfo, isTokenGateEnabled } from "../auth/tokenGate.js";
+import {
+  getMinTokenUiAmount,
+  getTokenGateInfo,
+  isTokenGateEnabled,
+  isTokenHoldingRequired,
+} from "../auth/tokenGate.js";
 import { isWalletBanned } from "../db/bans.js";
 import { getWalletTokenBalance } from "../solana/tokenBalance.js";
 import { verifyWalletSignature } from "../solana/verifySignature.js";
@@ -71,16 +75,21 @@ authRouter.post("/auth/verify", async (req, res) => {
   }
 
   try {
-    const balance = await getWalletTokenBalance(wallet);
-    const minUiAmount = Number(process.env.MIN_TOKEN_UI_AMOUNT ?? MIN_TOKEN_UI_AMOUNT);
-    if (balance < minUiAmount) {
-      res.status(403).json({
-        error: "Insufficient token balance",
-        mint: getTokenGateInfo().mint,
-        balance,
-        required: minUiAmount,
-      });
-      return;
+    // Free to play: the wallet is proven (signature + ban check above), which
+    // is all we need for identity. Skip the balance RPC entirely.
+    let balance = 0;
+    if (isTokenHoldingRequired()) {
+      balance = await getWalletTokenBalance(wallet);
+      const minUiAmount = getMinTokenUiAmount();
+      if (balance < minUiAmount) {
+        res.status(403).json({
+          error: "Insufficient token balance",
+          mint: getTokenGateInfo().mint,
+          balance,
+          required: minUiAmount,
+        });
+        return;
+      }
     }
 
     const { token, expiresAt } = createAccessToken(wallet);

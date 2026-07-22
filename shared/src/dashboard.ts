@@ -11,6 +11,10 @@ export const MOTTO_MAX_LENGTH = 80;
  */
 export const DASHBOARD_UPDATES: Array<{ title: string; body: string }> = [
   {
+    title: "v0.172 — Free to Play",
+    body: "The 1,000 $BASE entry requirement is gone. Connect a Solana wallet and you're in — no tokens needed. Your wallet is still your identity: it saves your character, keeps your name bonded, and it's where Season prize-pool rewards get paid. $BASE now buys the optional things — gold at Rudi's desk, VIP passes, land plots and World slots. Tell your friends; entry costs nothing now.",
+  },
+  {
     title: "v0.171 — MetricBase World on Telegram",
     body: "The world now opens straight inside Telegram — no install, no app store. Share an invite code to any chat with one tap and your friend lands in the game with the code already attached, so you get the Season referral points automatically. Telegram has no built-in Solana wallet, so connecting hands you off to Phantom or Solflare (your invite survives the trip), and you can always spectate first with no wallet at all.",
   },

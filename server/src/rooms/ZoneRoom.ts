@@ -258,7 +258,7 @@ import {
   shareTradeFee,
 } from "@metricbase/shared";
 import { verifyAccessToken } from "../auth/accessToken.js";
-import { isTokenGateEnabled } from "../auth/tokenGate.js";
+import { getMinTokenUiAmount, isTokenGateEnabled } from "../auth/tokenGate.js";
 import {
   CharacterBindingError,
   loadCharacterByName,
@@ -1669,7 +1669,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     if (!gate.allowed) {
       throw new ServerError(
         403,
-        `You need at least ${process.env.MIN_TOKEN_UI_AMOUNT ?? MIN_TOKEN_UI_AMOUNT} MetricBase tokens to enter.`,
+        `You need at least ${getMinTokenUiAmount()} MetricBase tokens to enter.`,
       );
     }
 

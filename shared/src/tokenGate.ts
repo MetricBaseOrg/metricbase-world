@@ -1,7 +1,15 @@
 export const METRICBASE_TOKEN_MINT = "DN2PNrZ8Jn65ioJw4QBwXv49j5JiBBL3wPLUDZcrpump";
 
-/** Minimum token balance required to enter the world. */
-export const MIN_TOKEN_UI_AMOUNT = 1000;
+/**
+ * Minimum $BASE balance required to enter the world.
+ *
+ * 0 = FREE TO PLAY. A connected, signature-verified wallet is still required
+ * (it is the player's identity — characters, bans, season payouts and every
+ * on-chain purchase are keyed to it); holders just aren't screened on balance.
+ * Override per-environment with MIN_TOKEN_UI_AMOUNT to re-introduce a
+ * threshold without a code change.
+ */
+export const MIN_TOKEN_UI_AMOUNT = 0;
 
 export interface AuthChallengeResponse {
   wallet: string;
@@ -24,6 +32,9 @@ export interface AuthVerifyResponse {
 
 export interface TokenGateInfoResponse {
   mint: string;
+  /** Tokens needed to enter. 0 = free to play; a wallet is still required. */
   minUiAmount: number;
+  /** Whether wallet authentication is enforced at all. Only ever false on
+   *  local dev servers — see isTokenGateEnabled() on the server. */
   enabled: boolean;
 }

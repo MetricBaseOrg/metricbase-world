@@ -540,12 +540,24 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
                 <div className="chibi-label">Wallet</div>
                 {gateEnabled && (
                   <>
+                    {/* minTokenAmount 0 = free to play: the wallet is still
+                        required (it IS the player's identity), but there's no
+                        balance requirement to announce. */}
                     <div style={{ fontSize: 13, marginBottom: 8 }}>
-                      Hold at least{" "}
-                      <span style={{ color: "#9ad7ff", fontWeight: 700 }}>
-                        {minTokenAmount.toLocaleString()}
-                      </span>{" "}
-                      tokens to enter
+                      {minTokenAmount > 0 ? (
+                        <>
+                          Hold at least{" "}
+                          <span style={{ color: "#9ad7ff", fontWeight: 700 }}>
+                            {minTokenAmount.toLocaleString()}
+                          </span>{" "}
+                          tokens to enter
+                        </>
+                      ) : (
+                        <>
+                          <span style={{ color: "#7ed6df", fontWeight: 700 }}>Free to play</span> — no
+                          tokens needed. Your wallet just saves your character.
+                        </>
+                      )}
                     </div>
                     <div
                       style={{

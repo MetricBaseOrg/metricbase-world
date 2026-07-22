@@ -78,28 +78,33 @@ export function SpectatorBanner() {
                 world, and earn <b>Season points</b> toward the $BASE prize pool — you need to actually play.
               </p>
               <div className="chibi-card" style={{ padding: "10px 12px", margin: "10px 0", fontSize: "0.78rem" }}>
-                <b>Two quick steps:</b>
-                <div style={{ marginTop: 4 }}>1. Get <b>1,000 $BASE</b> in your Solana wallet.</div>
-                <div>2. Connect that wallet and jump in.</div>
+                <b>It's free — one step:</b>
+                <div style={{ marginTop: 4 }}>
+                  Connect a Solana wallet and jump in. <b>No tokens needed</b> — your wallet just saves
+                  your character and collects your Season rewards.
+                </div>
               </div>
+              {/* Entry is free, so playing is the primary action — buying
+                  $BASE is now an optional upsell (gold, VIP, land), not a
+                  prerequisite, and must not sit above the play button. */}
+              <button
+                type="button"
+                className="chibi-btn chibi-btn--mint"
+                style={{ width: "100%", padding: "11px 12px", marginBottom: 8, fontWeight: 800 }}
+                onClick={play}
+              >
+                🎮 Connect wallet &amp; play free
+              </button>
               <a
                 href={JUPITER_BUY}
                 target="_blank"
                 rel="noopener"
-                className="chibi-btn chibi-btn--gold"
-                style={{ display: "block", textAlign: "center", padding: "11px 12px", marginBottom: 8, textDecoration: "none", fontWeight: 800 }}
+                className="chibi-btn chibi-btn--secondary"
+                style={{ display: "block", textAlign: "center", padding: "9px 12px", textDecoration: "none", fontSize: "0.8rem" }}
                 onClick={() => playSfx("ui_click")}
               >
                 💰 Get $BASE on Jupiter ↗
               </a>
-              <button
-                type="button"
-                className="chibi-btn chibi-btn--mint"
-                style={{ width: "100%", padding: "11px 12px", fontWeight: 800 }}
-                onClick={play}
-              >
-                🎮 Connect wallet &amp; play
-              </button>
             </div>
           </div>
         </div>

@@ -1,5 +1,6 @@
-import { METRICBASE_TOKEN_MINT, MIN_TOKEN_UI_AMOUNT } from "@metricbase/shared";
+import { METRICBASE_TOKEN_MINT } from "@metricbase/shared";
 import { PublicKey } from "@solana/web3.js";
+import { getMinTokenUiAmount, isTokenHoldingRequired } from "../auth/tokenGate.js";
 import { jsonRpcCall, withRpcFallback } from "./rpc.js";
 
 const ASSOCIATED_TOKEN_PROGRAM_ID = new PublicKey("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL");
@@ -68,9 +69,9 @@ export async function getWalletTokenBalance(wallet: string): Promise<number> {
 }
 
 export async function walletMeetsTokenGate(wallet: string): Promise<boolean> {
-  const minUiAmount = Number(process.env.MIN_TOKEN_UI_AMOUNT ?? MIN_TOKEN_UI_AMOUNT);
+  if (!isTokenHoldingRequired()) return true;
   const balance = await getWalletTokenBalance(wallet);
-  return balance >= minUiAmount;
+  return balance >= getMinTokenUiAmount();
 }
 
 export interface TokenGateResult {
@@ -92,12 +93,17 @@ const GATE_FAILOPEN_TTL_MS = 60 * 1000;
  * locking everyone out on a flaky RPC is far worse than the rare stale check.
  */
 export async function checkWalletTokenGate(wallet: string): Promise<TokenGateResult> {
+  // Free to play — never touch the chain on a zone join.
+  if (!isTokenHoldingRequired()) {
+    return { allowed: true, reason: "free-to-play" };
+  }
+
   const cachedUntil = gatePassCache.get(wallet);
   if (cachedUntil && cachedUntil > Date.now()) {
     return { allowed: true, reason: "cached" };
   }
 
-  const minUiAmount = Number(process.env.MIN_TOKEN_UI_AMOUNT ?? MIN_TOKEN_UI_AMOUNT);
+  const minUiAmount = getMinTokenUiAmount();
 
   try {
     const balance = await getWalletTokenBalance(wallet);
