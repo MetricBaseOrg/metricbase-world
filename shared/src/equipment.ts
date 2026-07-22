@@ -10,6 +10,10 @@ export const WEAPON_BONUS_DAMAGE: Record<string, number> = {
   [ITEM_GEL_KNIFE]: 8,
   [ITEM_COPPER_DAGGER]: 18,
   [ITEM_GEM_BLADE]: 30,
+  // Damage is PLAYER_ATTACK_DAMAGE (18) + this, so these read 62 and 78 total
+  // against the Gem Blade's 48 — the step that makes the new mobs killable.
+  item_ember_blade: 44,
+  item_obsidian_blade: 60,
 };
 
 export function getWeaponBonusDamage(weaponId: string | null | undefined): number {
@@ -274,6 +278,13 @@ export const GEAR_STATS: Record<string, GearStat> = {
   item_steel_chest: { slot: "chest", rarity: "rare", armor: 60, maxDurability: 240 },
   item_steel_gloves: { slot: "gloves", rarity: "rare", armor: 24, maxDurability: 200 },
   item_steel_boots: { slot: "boots", rarity: "rare", armor: 28, maxDurability: 200 },
+  // Ember set — epic. Crafted from Ember Cores, the drop from the new
+  // accessible mid-game mob, so the tier is reachable without the black-zone
+  // $BASE burn. Roughly 1.45x steel, matching the steel-over-iron step.
+  item_ember_helm: { slot: "helmet", rarity: "epic", armor: 50, maxDurability: 300 },
+  item_ember_chest: { slot: "chest", rarity: "epic", armor: 88, maxDurability: 320 },
+  item_ember_gloves: { slot: "gloves", rarity: "epic", armor: 36, maxDurability: 280 },
+  item_ember_boots: { slot: "boots", rarity: "epic", armor: 42, maxDurability: 280 },
   // Accessories (no durability wear)
   item_gem_ring: { slot: "ring", rarity: "rare", critChance: 0.06, critMult: 0.1, maxDurability: Infinity },
   item_pearl_amulet: {
@@ -295,6 +306,8 @@ export const GEAR_STATS: Record<string, GearStat> = {
 
 /** Max durability for wearable weapons (jewelry/none excluded). */
 export const WEAPON_MAX_DURABILITY: Record<string, number> = {
+  item_ember_blade: 320,
+  item_obsidian_blade: 460,
   [ITEM_RUSTY_BLADE]: 60,
   [ITEM_GEL_KNIFE]: 50,
   [ITEM_COPPER_DAGGER]: 110,

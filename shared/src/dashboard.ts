@@ -11,6 +11,10 @@ export const MOTTO_MAX_LENGTH = 80;
  */
 export const DASHBOARD_UPDATES: Array<{ title: string; body: string }> = [
   {
+    title: "v0.182 — Ember gear & the Obsidian Edge",
+    body: "Those Ember Cores now build something. A full epic Ember set (helm, cuirass, gauntlets, greaves) plus the Ember Blade craft from cores and steel — the first gear tier above Steel. And if you can bring down the Charred Sentinel, its Obsidian Shard forges the Obsidian Edge, the strongest weapon in the world at +60 damage. Fair warning: even in full Ember gear the Sentinel will take you to your last few HP.",
+  },
+  {
     title: "v0.180 — Ember Slimes, and the Sentinel finally fights back",
     body: "New monsters! ❤️‍🔥 Ember Slimes now prowl the north of the Wilderness and the southern depths of the Grotto — tougher than a Slime Brute, and they drop the Ember Core, a valuable new material. In the Obsidian Reach the Charred Sentinel is no longer just standing there: it is now a real boss fight (1,100 HP) dropping the Obsidian Shard, the most valuable material in the game. Void Brutes also finally pay out — they were dropping nothing at all.",
   },

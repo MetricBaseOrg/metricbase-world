@@ -518,6 +518,73 @@ export const CRAFT_RECIPES: CraftRecipe[] = [
     goldCost: 320,
   },
   {
+    id: "craft_ember_helm",
+    name: "Ember Helm",
+    description: "Forge a helm around an Ember Core. +50 armor.",
+    inputs: [
+      { itemId: "item_steel_bar", quantity: 3 },
+      { itemId: "item_ember_core", quantity: 2 },
+    ],
+    output: { itemId: "item_ember_helm", quantity: 1 },
+    goldCost: 200,
+  },
+  {
+    id: "craft_ember_chest",
+    name: "Ember Cuirass",
+    description: "Forge a cuirass banded with ember-steel. +88 armor.",
+    inputs: [
+      { itemId: "item_steel_bar", quantity: 5 },
+      { itemId: "item_ember_core", quantity: 4 },
+    ],
+    output: { itemId: "item_ember_chest", quantity: 1 },
+    goldCost: 340,
+  },
+  {
+    id: "craft_ember_gloves",
+    name: "Ember Gauntlets",
+    description: "Ember-lined gauntlets. +36 armor.",
+    inputs: [
+      { itemId: "item_steel_bar", quantity: 2 },
+      { itemId: "item_ember_core", quantity: 2 },
+    ],
+    output: { itemId: "item_ember_gloves", quantity: 1 },
+    goldCost: 160,
+  },
+  {
+    id: "craft_ember_boots",
+    name: "Ember Greaves",
+    description: "Greaves banded with cooled ember-steel. +42 armor.",
+    inputs: [
+      { itemId: "item_steel_bar", quantity: 2 },
+      { itemId: "item_ember_core", quantity: 3 },
+    ],
+    output: { itemId: "item_ember_boots", quantity: 1 },
+    goldCost: 180,
+  },
+  {
+    id: "craft_ember_blade",
+    name: "Ember Blade",
+    description: "Set an Ember Core into a steel hilt. +44 attack damage.",
+    inputs: [
+      { itemId: "item_steel_bar", quantity: 4 },
+      { itemId: "item_ember_core", quantity: 3 },
+    ],
+    output: { itemId: "item_ember_blade", quantity: 1 },
+    goldCost: 300,
+  },
+  {
+    id: "craft_obsidian_blade",
+    name: "Obsidian Edge",
+    description: "Strike a blade from the Charred Sentinel's own shard. +60 attack damage.",
+    inputs: [
+      { itemId: "item_obsidian_shard", quantity: 2 },
+      { itemId: "item_ember_core", quantity: 4 },
+      { itemId: "item_steel_bar", quantity: 6 },
+    ],
+    output: { itemId: "item_obsidian_blade", quantity: 1 },
+    goldCost: 900,
+  },
+  {
     id: "craft_dire_wolf",
     name: "Dire Wolf",
     description: "Tame a dire wolf with steel barding. +70% movement speed.",
