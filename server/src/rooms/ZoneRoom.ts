@@ -9778,12 +9778,18 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   }
 }
 
-/** Match quest defeat targets against NPC IDs.  Wild slimes use IDs like
- *  "wild_slime", "wild_slime_2", etc. — all prefixed with "wild_slime". */
+/**
+ * Match quest defeat targets against NPC IDs.
+ *
+ * Mobs are placed as numbered variants — "ember_slime_1", "wild_slime_2" — so a
+ * quest targets the FAMILY ("ember_slime") and any member counts. This used to
+ * be hardcoded to wild_slime, which meant every new mob family silently failed
+ * to progress its own quest; the underscore keeps it from matching an unrelated
+ * id that merely starts with the same letters.
+ */
 function defeatTargetMatch(target: string, npcId: string): boolean {
   if (target === npcId) return true;
-  if (target === "wild_slime" && npcId.startsWith("wild_slime")) return true;
-  return false;
+  return npcId.startsWith(`${target}_`);
 }
 
 function clamp(value: number, min: number, max: number): number {

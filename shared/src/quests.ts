@@ -16,6 +16,13 @@ export const QUEST_SMITH_IRON = "quest_smith_iron";
 export const QUEST_SMITH_STEEL = "quest_smith_steel";
 export const QUEST_SMITH_RARE = "quest_smith_rare";
 export const QUEST_SMITH_MASTER = "quest_smith_master";
+// Ember chain — the guided route into the level 5-9 content. Without it the
+// Ember Slimes and the world boss were undiscoverable: the objective tracker
+// runs dry after the smith chain and nothing tells a player they exist.
+export const QUEST_EMBER_HUNTER = "quest_ember_hunter";
+export const QUEST_EMBER_CORES = "quest_ember_cores";
+export const QUEST_EMBER_ARMS = "quest_ember_arms";
+export const QUEST_SENTINEL = "quest_sentinel";
 
 export type QuestObjectiveType = "talk_npc" | "visit_zone" | "defeat_npc" | "collect_item";
 
@@ -241,6 +248,57 @@ export const QUESTS: Record<string, QuestDefinition> = {
     rewardItemQuantity: 1,
     startNpcId: "hub_smith",
     requiresCompleted: [QUEST_SMITH_RARE],
+  },
+  [QUEST_EMBER_HUNTER]: {
+    id: QUEST_EMBER_HUNTER,
+    title: "Something Hotter",
+    description:
+      "Moss has seen slimes with burning cores — north in the Wilderness, and deep in the Grotto. They hit far harder than a Brute.",
+    objectives: [{ type: "defeat_npc", target: "ember_slime", label: "Defeat an Ember Slime" }],
+    rewardXp: 220,
+    rewardGold: 90,
+    startNpcId: "grotto_warden",
+    requiresCompleted: [QUEST_DEFEAT_BRUTE],
+  },
+  [QUEST_EMBER_CORES]: {
+    id: QUEST_EMBER_CORES,
+    title: "Fire in the Forge",
+    description: "Brenna wants Ember Cores — she thinks she can work the heat straight into steel.",
+    objectives: [
+      { type: "collect_item", target: "item_ember_core", count: 3, label: "Collect 3 Ember Cores" },
+    ],
+    rewardXp: 260,
+    rewardGold: 120,
+    startNpcId: "hub_smith",
+    requiresCompleted: [QUEST_EMBER_HUNTER],
+  },
+  [QUEST_EMBER_ARMS]: {
+    id: QUEST_EMBER_ARMS,
+    title: "Ember-Forged",
+    description:
+      "Brenna has the technique. Forge an Ember Blade at the crafting bench and show her what it can do.",
+    objectives: [
+      { type: "collect_item", target: "item_ember_blade", count: 1, label: "Craft an Ember Blade" },
+    ],
+    rewardXp: 400,
+    rewardGold: 200,
+    rewardItemId: "item_ember_helm",
+    rewardItemQuantity: 1,
+    startNpcId: "hub_smith",
+    requiresCompleted: [QUEST_EMBER_CORES],
+  },
+  [QUEST_SENTINEL]: {
+    id: QUEST_SENTINEL,
+    title: "The Charred Sentinel",
+    description:
+      "Something enormous guards the Obsidian Reach. Moss doubts it can be done — bring back a shard and prove otherwise.",
+    objectives: [
+      { type: "defeat_npc", target: "black_warden", label: "Defeat the Charred Sentinel" },
+    ],
+    rewardXp: 1200,
+    rewardGold: 600,
+    startNpcId: "grotto_warden",
+    requiresCompleted: [QUEST_EMBER_ARMS],
   },
 };
 

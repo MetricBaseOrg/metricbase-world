@@ -11,6 +11,10 @@ export const MOTTO_MAX_LENGTH = 80;
  */
 export const DASHBOARD_UPDATES: Array<{ title: string; body: string }> = [
   {
+    title: "v0.183 — The Ember trail leads to the boss",
+    body: "Four new quests carry on from the blacksmith chain: hunt your first Ember Slime for Moss, gather Ember Cores for Brenna, forge the Ember Blade (she gives you an Ember Helm for it), and finally face the Charred Sentinel itself for 1,200 XP and 600 gold. Your objective tracker now has a trail all the way from your first steps in the Hub to the world boss.",
+  },
+  {
     title: "v0.182 — Ember gear & the Obsidian Edge",
     body: "Those Ember Cores now build something. A full epic Ember set (helm, cuirass, gauntlets, greaves) plus the Ember Blade craft from cores and steel — the first gear tier above Steel. And if you can bring down the Charred Sentinel, its Obsidian Shard forges the Obsidian Edge, the strongest weapon in the world at +60 damage. Fair warning: even in full Ember gear the Sentinel will take you to your last few HP.",
   },
