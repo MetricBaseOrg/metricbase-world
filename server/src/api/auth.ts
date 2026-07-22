@@ -15,6 +15,7 @@ import {
   isTelegramLoginConfigured,
   telegramIdentity,
   verifyTelegramInitData,
+  verifyTelegramLoginWidget,
 } from "../auth/telegramAuth.js";
 import { createLinkCode } from "../auth/telegramLink.js";
 import { isWalletBanned } from "../db/bans.js";
@@ -142,6 +143,41 @@ authRouter.post("/auth/telegram", async (req, res) => {
 
   // Ban check runs on the RESOLVED identity: linking must not become a way to
   // slip past a ban on the underlying wallet.
+  if (await isWalletBanned(identity)) {
+    res.status(403).json({ error: "This account has been banned." });
+    return;
+  }
+
+  const { token, expiresAt } = createAccessToken(identity);
+  res.json({
+    accessToken: token,
+    wallet: identity,
+    tokenBalance: 0,
+    expiresAt,
+  } satisfies AuthVerifyResponse);
+});
+
+/**
+ * Telegram Login Widget sign-in — the same account as the Mini App, for people
+ * arriving from the website or the Android app rather than inside Telegram.
+ * Different signature scheme (see verifyTelegramLoginWidget), identical
+ * identity resolution, so both routes land on the same character.
+ */
+authRouter.post("/auth/telegram/widget", async (req, res) => {
+  if (!isTelegramLoginConfigured()) {
+    res.status(503).json({ error: "Telegram login is not configured on this server." });
+    return;
+  }
+
+  const user = verifyTelegramLoginWidget((req.body ?? {}) as Record<string, unknown>);
+  if (!user) {
+    res.status(401).json({ error: "Telegram verification failed. Try signing in again." });
+    return;
+  }
+
+  const linkedWallet = await findWalletByTelegramId(user.id);
+  const identity = linkedWallet ?? telegramIdentity(user.id);
+
   if (await isWalletBanned(identity)) {
     res.status(403).json({ error: "This account has been banned." });
     return;

@@ -85,6 +85,55 @@ export function verifyTelegramInitData(initData: string): TelegramUser | null {
 }
 
 /**
+ * Verify a **Telegram Login Widget** payload (the "Log in with Telegram" button
+ * on the website / Android app, for people who aren't inside the Mini App).
+ *
+ * NOTE THE DIFFERENT SECRET. The Mini App's initData uses
+ *   secret = HMAC_SHA256(key="WebAppData", msg=bot_token)
+ * but the Login Widget uses
+ *   secret = SHA256(bot_token)
+ * Using the wrong one doesn't fail loudly — it rejects every genuine login, or
+ * (if reversed) would accept nothing at all. They are deliberately separate
+ * functions rather than a shared one with a flag, so neither can drift into
+ * the other.
+ *
+ * Docs: "Telegram Login Widget → Checking authorization".
+ */
+export function verifyTelegramLoginWidget(payload: Record<string, unknown>): TelegramUser | null {
+  const botToken = process.env.TELEGRAM_BOT_TOKEN;
+  if (!botToken || !payload || typeof payload !== "object") return null;
+
+  const hash = typeof payload.hash === "string" ? payload.hash : null;
+  if (!hash) return null;
+
+  const pairs: string[] = [];
+  for (const [key, value] of Object.entries(payload)) {
+    if (key === "hash" || value === undefined || value === null) continue;
+    pairs.push(`${key}=${String(value)}`);
+  }
+  pairs.sort();
+
+  const secret = crypto.createHash("sha256").update(botToken).digest();
+  const expected = crypto.createHmac("sha256", secret).update(pairs.join("\n")).digest("hex");
+
+  const a = Buffer.from(expected, "hex");
+  const b = Buffer.from(hash, "hex");
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
+
+  const authDate = Number(payload.auth_date ?? 0);
+  if (!Number.isFinite(authDate) || authDate <= 0) return null;
+  if (Date.now() - authDate * 1000 > MAX_AUTH_AGE_MS) return null;
+
+  const id = Number(payload.id);
+  if (!Number.isFinite(id) || id <= 0) return null;
+  return {
+    id,
+    username: typeof payload.username === "string" ? payload.username : undefined,
+    firstName: typeof payload.first_name === "string" ? payload.first_name : undefined,
+  };
+}
+
+/**
  * The identity key a Telegram player is stored under.
  *
  * Player identity is wallet-canonical everywhere (characters.wallet_address is

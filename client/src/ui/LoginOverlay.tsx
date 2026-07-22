@@ -33,6 +33,7 @@ import {
 } from "../wallet/mobileWallet";
 import { isTelegramMiniApp, openExternalLink } from "../telegram/telegramApp";
 import { CharacterPreview } from "./CharacterPreview";
+import { TelegramLoginButton } from "./TelegramLoginButton";
 import { WalletPicker } from "./WalletPicker";
 
 interface LoginOverlayProps {
@@ -716,6 +717,23 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
                       </div>
                     )}
                   </div>
+                )}
+
+                {/* OUTSIDE Telegram there is no initData, so the Mini App
+                    button can't work — this is the equivalent for the website
+                    and the Android app. Same account either way. */}
+                {!inTelegram && telegramLoginAvailable && !walletAddress && (
+                  <TelegramLoginButton
+                    onSuccess={(session) => {
+                      setWalletAddressLocal(session.wallet);
+                      setWalletAddress(session.wallet);
+                      setTokenBalance(0);
+                      setMobileWalletLinks(null);
+                      setError(null);
+                      void loadBondedCharacter(session.accessToken);
+                    }}
+                    onError={(message) => setError(message)}
+                  />
                 )}
 
                 {/* No provider in this browser (Telegram's webview, or a plain
