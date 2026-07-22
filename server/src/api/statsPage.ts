@@ -184,6 +184,18 @@ export const STATS_PAGE_HTML = `<!doctype html>
       <div class="card"><h2>🕳️ Burn sinks</h2><div id="burnSinks"></div></div>
     </div>
     <div class="card wide" style="margin-top:14px">
+      <h2>⚖️ Treasury flow — in vs out</h2>
+      <div class="sub" style="margin-bottom:10px">$BASE paid <em>into</em> the treasury by players (gold desk, expansions, passes) against the fixed Season prize pool paid <em>out</em>. Entry is free, so inflow now depends entirely on optional purchases.</div>
+      <div class="grid">
+        <div class="card"><h2>📥 Paid in (all time)</h2><div class="big gold" id="flowIn">—</div><div class="sub"><span id="flowIn30">—</span> in the last 30 days · <span id="flowBuyers">—</span> distinct wallets ever</div></div>
+        <div class="card"><h2>📤 Season pool (out)</h2><div class="big burn" id="flowPool">—</div><div class="sub">fixed, pre-funded · <span id="flowPaid">—</span> paid out so far</div></div>
+        <div class="card"><h2>⏳ Last purchase</h2><div class="big" id="flowLast">—</div><div class="sub">days since any $BASE reached the treasury</div></div>
+      </div>
+      <div id="flowProducts" style="margin-top:10px"></div>
+      <div class="sub" id="flowNote" style="margin-top:10px"></div>
+    </div>
+
+    <div class="card wide" style="margin-top:14px">
       <h2>🔥 $BASE burned per day (last 14 days)</h2>
       <svg id="burnChart" viewBox="0 0 720 220" role="img" aria-label="$BASE tokens burned per day"></svg>
       <div class="legend"><span><span class="dot" style="background:var(--burn)"></span>$BASE burned by in-game sinks (passes, World &amp; bag expansions)</span></div>
@@ -443,6 +455,27 @@ async function load(){
     setBig("baseBurned",bt.burned," $BASE");
     setBig("baseHeld",bt.heldByPlayers," $BASE");
     set("baseHolders",fmt(bt.holders));
+
+    var bf=s.baseFlows;
+    if(bf){
+      setBig("flowIn",bf.inflowTotal," $BASE");
+      set("flowIn30",kfmt(bf.inflow30d)+" $BASE");
+      set("flowBuyers",fmt(bf.distinctBuyers));
+      setBig("flowPool",bf.seasonPool," $BASE");
+      set("flowPaid",kfmt(bf.paidOut)+" $BASE");
+      set("flowLast",bf.daysSinceLastPurchase===null?"never":fmt(bf.daysSinceLastPurchase)+"d");
+      rows(el("flowProducts"),(bf.byProduct||[]).map(function(p){
+        return {k:"• "+p.productId+" ("+fmt(p.purchases)+")",v:kfmt(p.base)+" $BASE"};
+      }));
+      // State the ratio plainly rather than leaving it to be eyeballed: this is
+      // the number the demand plan turns on.
+      var cover=bf.seasonPool>0?(bf.inflowTotal/bf.seasonPool):0;
+      var note=el("flowNote");
+      if(note){
+        note.textContent="All-time inflow covers "+(cover*100).toFixed(0)+"% of the current Season pool"
+          +(bf.distinctBuyers<=3?" · concentrated in "+bf.distinctBuyers+" wallet"+(bf.distinctBuyers===1?"":"s")+", so treat the total as a handful of purchases rather than broad demand":"");
+      }
+    }
     var bs=s.burnSinks||{};
     rows(el("burnSinks"),[
       {k:"⚫ Black Zone passes ("+fmt(bs.blackPasses||0)+")",v:kfmt(bs.blackPassBase||0)+" $BASE"},
