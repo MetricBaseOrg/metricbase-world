@@ -71,6 +71,32 @@ export interface PlayerDamagePayload {
 export const TRAINING_DUMMY_NPC_ID = "training_dummy";
 export const TRAINING_DUMMY_GOLD_REWARD = 5;
 export const TRAINING_DUMMY_COUNTER_DAMAGE = 48;
+
+/**
+ * Counter-attack damage per mob, keyed by npc id (numbered variants like
+ * `wild_slime_2` match on prefix).
+ *
+ * A table rather than an if-chain because the old chain fell through to the
+ * TRAINING DUMMY's value for anything unlisted — so the Void Brute, with 420 HP,
+ * hit softer than a Slime Brute. Anything new must be added here deliberately;
+ * an unknown id now falls back to the weakest mob, not a mid-tier one.
+ */
+export const MOB_COUNTER_DAMAGE: Record<string, number> = {
+  training_dummy: 0, // safe practice target — never hits back
+  wild_slime: 30,
+  slime_brute: 72,
+  ember_slime: 90,
+  void_brute: 130,
+  black_warden: 180, // apex boss
+};
+
+export function mobCounterDamage(npcId: string): number {
+  if (npcId in MOB_COUNTER_DAMAGE) return MOB_COUNTER_DAMAGE[npcId];
+  for (const key of Object.keys(MOB_COUNTER_DAMAGE)) {
+    if (npcId.startsWith(key)) return MOB_COUNTER_DAMAGE[key];
+  }
+  return MOB_COUNTER_DAMAGE.wild_slime;
+}
 export const POTION_HEAL_AMOUNT = 25;
 
 export function getPlayerMaxHp(level: number): number {

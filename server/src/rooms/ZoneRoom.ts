@@ -216,7 +216,7 @@ import {
   rainFishingBonus,
   RESPAWN_GOLD_COST,
   RESPAWN_WAIT_MS,
-  TRAINING_DUMMY_COUNTER_DAMAGE,
+  mobCounterDamage,
   TRAINING_DUMMY_NPC_ID,
   PlayerSchema,
   partyAssistXp,
@@ -2748,11 +2748,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
     if (npc.combat) {
       // The training dummy is a safe practice target — it never hits back.
-      const counterRaw =
-        npcId === TRAINING_DUMMY_NPC_ID ? 0
-        : npcId.startsWith("wild_slime") ? 30
-        : npcId === "slime_brute" ? 72
-        : TRAINING_DUMMY_COUNTER_DAMAGE;
+      const counterRaw = mobCounterDamage(npcId);
       if (counterRaw > 0) {
         // Armor mitigates incoming counter-damage with diminishing returns.
         const counterDamage = Math.max(1, Math.round(counterRaw * (1 - armorReduction(stats.armor))));

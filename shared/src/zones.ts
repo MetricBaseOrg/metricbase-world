@@ -371,6 +371,22 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
         combat: { maxHp: 45, rewardXp: 20, respawnMs: 8_000 },
       },
       {
+        id: "ember_slime_1",
+        name: "Ember Slime",
+        tileX: 2,
+        tileY: 2,
+        dialogue: "An ember-cored slime hisses, its shell glowing with trapped heat.",
+        combat: { maxHp: 200, rewardXp: 85, respawnMs: 25_000 },
+      },
+      {
+        id: "ember_slime_2",
+        name: "Ember Slime",
+        tileX: 6,
+        tileY: 2,
+        dialogue: "Heat rolls off this one in waves.",
+        combat: { maxHp: 200, rewardXp: 85, respawnMs: 25_000 },
+      },
+      {
         id: "wild_slime_3",
         name: "Wild Slime",
         tileX: 20,
@@ -681,6 +697,22 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
           "Drip… drip… The Slime Brute guards the deepest pool. Defeat it if you dare — its core fetches a fine price at Rudi's.",
       },
       {
+        id: "ember_slime_1",
+        name: "Ember Slime",
+        tileX: 2,
+        tileY: 21,
+        dialogue: "An ember-cored slime hisses, its shell glowing with trapped heat.",
+        combat: { maxHp: 200, rewardXp: 85, respawnMs: 25_000 },
+      },
+      {
+        id: "ember_slime_2",
+        name: "Ember Slime",
+        tileX: 6,
+        tileY: 21,
+        dialogue: "Heat rolls off this one in waves.",
+        combat: { maxHp: 200, rewardXp: 85, respawnMs: 25_000 },
+      },
+      {
         id: "slime_brute",
         name: "Slime Brute",
         tileX: 16,
@@ -877,6 +909,9 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
         tileY: 4,
         dialogue:
           "You burned your way in. Few leave the Obsidian Reach with their loot — fall here and you lose everything.",
+        // The apex fight: ~7x a Slime Brute's health and a long respawn, so
+        // killing it is an event rather than a farm. Drops the Obsidian Shard.
+        combat: { maxHp: 1100, rewardXp: 600, respawnMs: 180_000 },
       },
       {
         id: "void_brute",

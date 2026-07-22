@@ -84,6 +84,8 @@ export const ITEM_ICONS: Record<string, string> = {
   item_berries: "🫐",
   item_slime_gel: "🫧",
   item_slime_core: "💠",
+  item_ember_core: "🔥",
+  item_obsidian_shard: "🌑",
   item_training_scrap: "🔩",
   // Refined materials
   item_plank: "🟫",
@@ -216,6 +218,22 @@ export const ITEMS: Record<string, ItemDefinition> = {
     description: "A dense nucleus from a Slime Brute. Rudi pays top gold for these.",
     stackable: true,
     maxStack: 20,
+    kind: "material",
+  },
+  item_ember_core: {
+    id: "item_ember_core",
+    name: "Ember Core",
+    description: "A still-burning core torn from an Ember Slime. Rudi pays well for the heat trapped inside.",
+    stackable: true,
+    maxStack: 20,
+    kind: "material",
+  },
+  item_obsidian_shard: {
+    id: "item_obsidian_shard",
+    name: "Obsidian Shard",
+    description: "Torn from the Charred Sentinel itself. Proof you stood in the Reach and walked back out.",
+    stackable: true,
+    maxStack: 10,
     kind: "material",
   },
   item_gel_knife: {

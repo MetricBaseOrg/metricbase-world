@@ -71,6 +71,10 @@ export const RAW_ITEM_VALUES: Record<string, number> = {
   item_iron_ore: 18,
   item_slime_gel: 12,
   item_slime_core: 25,
+  // Tier above the Slime Core — the accessible mid-game combat drop.
+  item_ember_core: 60,
+  // Boss drop — the most valuable non-crafted material in the game.
+  item_obsidian_shard: 220,
   item_amber: 55,
   item_gemstone: 60,
   item_pearl: 55,
