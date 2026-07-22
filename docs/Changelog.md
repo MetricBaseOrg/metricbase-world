@@ -31,6 +31,77 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [0.171.0 – 0.178.2] — 2026-07-22 — Growth: distribution, free-to-play & retention
+
+A single-day push through a prioritised funnel: **P0 onboarding → P1 viral loop
+→ P2 distribution → P3 retention**.
+
+### Added
+
+- **Telegram Mini App (v0.171.0)** — the game runs unchanged inside Telegram
+  ([t.me/MetricBaseWorldBot/play](https://t.me/MetricBaseWorldBot/play)); no
+  separate build. `?startapp=INV-XXXX-XXXX` is folded at boot into the existing
+  `?invite=` referral param, so a code shared in a chat survives all the way to
+  registration — including across the hop to a wallet browser, since the URL is
+  the only channel that carries (localStorage does not). Share-to-chat added to
+  invite codes and the Season card.
+- **Free to play (v0.172.0)** — `MIN_TOKEN_UI_AMOUNT` 1000 → 0. A
+  signature-verified wallet is still required (it *is* the player's identity),
+  but holdings are no longer screened, and the balance RPC is skipped entirely
+  rather than compared against zero — keeping sign-in off-chain.
+- **Telegram login (v0.174.0)** — walletless entry. `initData` is trusted only
+  after HMAC verification against the bot token, with a timing-safe compare and
+  a 24h replay bound; Telegram players get a synthetic `tg:<id>` identity.
+- **Reward wallet (v0.175.0)** — Telegram players nominate an address to
+  receive Season $BASE. A payout *destination*, never an identity: it
+  authenticates nothing, so no signature is needed.
+- **Telegram ↔ wallet account linking (v0.176.0)** — existing wallet players
+  attach a Telegram login via a single-use 6-character code (two steps because
+  the two proofs can never coexist in one browser context). Identity stays the
+  wallet; nothing merges.
+- **$BASE treasury-flow instrumentation (v0.177.0)** — `/stats` now shows
+  inflow vs the Season pool, days since the last purchase, per-product
+  breakdown and **distinct buyers**, all from existing durable records. Plan
+  and measured findings in [`docs/base-demand.md`](base-demand.md).
+- **First-session direction (v0.178.0)** — new players auto-start the opening
+  quest, and an always-on **objective tracker** shows the current step and
+  reward. Every quest was gated behind finding Aria, so a new player spawned
+  with an empty log in a world of companies, markets, guilds and a DAO.
+
+### Changed
+
+- **Referral points require real play (v0.173.0, level in v0.175.1)** — free
+  entry removed the cost of a fake invitee, so referral points are now paid by
+  a sweep once the invitee reaches level 3 (was: instantly at redemption).
+  Idempotent via `rewarded_at`, stamped in the same statement that selects the
+  row; historic invites are backfilled behind a fixed cutoff so they can't be
+  paid twice.
+
+### Fixed
+
+- **`TOKEN_GATE_DISABLED` could bypass auth in production (v0.172.0–0.172.1)**
+  — it is a dev bypass that skips signature *and* ban checks, not a
+  free-to-play switch. Now honoured only under `NODE_ENV=development|test`.
+  The first attempt tested `NODE_ENV === "production"`, which never fires on
+  Railway (it sets no `NODE_ENV`), so the guard protected everywhere except the
+  one environment it existed for; inverted to fail safe.
+- **Mobile Wallet Adapter hijacked connect inside Telegram (v0.171.0)** — MWA
+  registers on any Android UA but cannot complete its intent round-trip in
+  Telegram's webview, turning connect into a permanent "Verifying wallet…".
+  Skipped inside the Mini App so it falls through to the Phantom/Solflare deep
+  link, which is the only thing that works there.
+- **Flows that were unreachable from where players actually are (v0.176.1,
+  v0.178.1)** — setting a reward wallet and redeeming a link code both lived
+  only on `/dashboard`, which the ⚙️ menu never linked to and which mobile
+  players (in a wallet's in-app browser or Telegram) cannot type a URL into.
+  Both are now in-game (⚙️ → 📅 Daily & Season, ⚙️ → ✈️ Link Telegram), plus a
+  Dashboard link in the menu.
+- **`/stats` blanked everything below the new flow card (v0.178.2)** — the
+  card's `rows()` call omitted the required third (renderer) argument, throwing
+  mid-render; the page's `catch(e){/* keep last values */}` swallowed it, so 41
+  fields silently kept their placeholders. The catch now logs while still
+  preserving values.
+
 ## [Unreleased]
 
 ### Added

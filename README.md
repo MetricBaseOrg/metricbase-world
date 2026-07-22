@@ -2,12 +2,44 @@
 
 Browser-native isometric MMO and living economic simulation — gather, craft,
 trade, fight, build your own World, and take part in a fully transparent
-$BASE-powered economy. No download; it runs in your browser.
+$BASE-powered economy. No download; it runs in your browser — or inside
+Telegram, with no wallet at all.
 
-- **Play:** [world.metricbase.org](https://world.metricbase.org)
+**Free to play.** Entry requires no $BASE. A wallet is your identity (it saves
+your character and receives Season rewards), and Telegram players can nominate
+a payout address instead — see [Accounts & identity](#accounts--identity).
+
+- **Play (web):** [world.metricbase.org](https://world.metricbase.org)
+- **Play (Telegram Mini App):** [t.me/MetricBaseWorldBot/play](https://t.me/MetricBaseWorldBot/play)
 - **Wiki / How to play:** [world.metricbase.org/docs](https://world.metricbase.org/docs)
 - **Live economy dashboard:** [world.metricbase.org/stats](https://world.metricbase.org/stats)
 - **Advertise (Brand Portal):** [world.metricbase.org/brands](https://world.metricbase.org/brands)
+
+## Accounts & identity
+
+Three ways in, one economy:
+
+| Sign-in | Identity key | Can play | Can receive $BASE |
+|---|---|---|---|
+| Solana wallet | the wallet address | ✅ | ✅ directly |
+| Telegram (no wallet) | `tg:<telegram-id>` | ✅ | only after setting a **reward wallet** |
+| Spectate | none (`Guest####`) | watch only | — |
+
+- **Entry is free** — `MIN_TOKEN_UI_AMOUNT=0`. $BASE buys optional things
+  (gold at Rudi's desk, VIP passes, land, World slots), never entry.
+- **A `tg:` identity is not a payable address.** `isWalletIdentity()` guards
+  every on-chain path, and season payouts exclude it in SQL. Telegram players
+  set a `payout_wallet` (a destination, never an identity — it authenticates
+  nothing) from ⚙️ → 📅 Daily & Season.
+- **Wallet players can link Telegram** (⚙️ → ✈️ Link Telegram) to sign in from
+  the Mini App as their existing character. `telegram_id` is a second *login*
+  key; identity stays the wallet, so nothing merges.
+
+⚠️ `TOKEN_GATE_DISABLED` is **not** the free-to-play switch — it bypasses
+signature and ban checks and is honoured only under `NODE_ENV=development|test`.
+Use `MIN_TOKEN_UI_AMOUNT` to change entry requirements.
+
+Details: [`docs/telegram-mini-app.md`](docs/telegram-mini-app.md).
 
 ## Stack
 
@@ -84,7 +116,7 @@ docs/     Design docs, changelog, dev notes
 assets/   Source art notes
 ```
 
-## What's in the game (v0.167.x)
+## What's in the game (v0.178.x)
 
 - **Everyday loop** — woodcutting, mining, fishing, farming (wheat & carrot),
   cooking, energy/food, quests, day/night & weather.
@@ -107,12 +139,22 @@ assets/   Source art notes
 - **Player Worlds** 🌍 — buy a zone (1M gold), build it with a full in-game
   editor (rivers/bridges, soil farm plots, working crop markets, gatherable
   nodes), sell visitor passes + gather tax, expand the grid by burning $BASE.
-- **$BASE utility** — token-gated entry, burn sinks (Black Zone, VIP, World &
-  bag expansion), Rudi's 1:1 gold desk, casino blackjack.
+- **$BASE utility** — burn sinks (Black Zone, VIP, World & bag expansion),
+  Rudi's 1:1 gold desk, casino blackjack. Entry is **not** gated (free to play
+  since v0.172.0); see [`docs/base-demand.md`](docs/base-demand.md) for the
+  open work on token demand.
+- **Seasons** — recurring 30-day competitive seasons scored on normal play,
+  paid from a fixed, pre-funded $BASE pool (points never mint tokens). Referral
+  points are credited once the invitee actually reaches level 3, so a free
+  sign-up can't farm the pool.
+- **Telegram Mini App** — the whole game inside Telegram, with walletless
+  Telegram login, invite codes carried through `startapp`, share-to-chat, and
+  account linking for existing wallet players.
 - **Ad marketplace** — brands bid CPM in $BASE; 50% of spend is paid to the
   players viewing; standalone wallet-only **Brand Portal** at `/brands`.
 - **Transparency** — public live dashboard at `/stats` (gold flow, burns,
-  markets, Worlds economy, ads) with an 𝕏 share card.
+  markets, Worlds economy, ads, **$BASE treasury in-vs-out**) with an 𝕏 share
+  card.
 
 Full player documentation lives in the in-game wiki →
 [/docs](https://world.metricbase.org/docs). Developer history: `git log` and
