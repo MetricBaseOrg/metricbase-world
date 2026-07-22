@@ -13,10 +13,16 @@ import { METRICBASE_TOKEN_MINT, MIN_TOKEN_UI_AMOUNT } from "@metricbase/shared";
  */
 export function isTokenGateEnabled(): boolean {
   if (process.env.TOKEN_GATE_DISABLED !== "true") return true;
-  if (process.env.NODE_ENV === "production") {
+  // Fail SAFE: honour the bypass only where a dev environment is declared
+  // explicitly. Railway sets no NODE_ENV at runtime, so a `NODE_ENV ===
+  // "production"` test would never fire there and the bypass would silently
+  // apply in prod — the opposite of what it must do.
+  const env = process.env.NODE_ENV;
+  if (env !== "development" && env !== "test") {
     console.error(
-      "[tokenGate] TOKEN_GATE_DISABLED=true ignored in production — it bypasses " +
-        "signature and ban checks. Set MIN_TOKEN_UI_AMOUNT=0 for free-to-play instead.",
+      "[tokenGate] TOKEN_GATE_DISABLED=true IGNORED — it bypasses signature and " +
+        "ban checks and is only honoured when NODE_ENV=development or test. " +
+        "For free-to-play set MIN_TOKEN_UI_AMOUNT=0 instead.",
     );
     return true;
   }
