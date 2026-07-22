@@ -1969,8 +1969,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         senderName: "Season",
         body:
           "🏆 You're signed in with Telegram, so we don't have a Solana address to send your Season $BASE rewards to. " +
-          "Open your dashboard and paste your wallet address into “Reward wallet” — you can keep playing without it, " +
-          "but rewards can't be paid until it's set.",
+          "Open the ⚙️ menu → 📅 Daily & Season and paste your wallet address under “Where should we send your $BASE?” " +
+          "— you can keep playing without it, but rewards can't be paid until it's set.",
         sentAt: Date.now(),
       });
     } catch (error) {

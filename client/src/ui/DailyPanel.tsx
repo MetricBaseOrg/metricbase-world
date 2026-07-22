@@ -3,6 +3,9 @@ import { useEffect, useState } from "react";
 import { playSfx } from "../audio/soundEffects";
 import { networkManager } from "../game/network";
 import { useGameStore } from "../store/gameStore";
+import { getHttpServerUrl } from "../game/serverUrl";
+import { fetchWithTimeout } from "../utils/fetchWithTimeout";
+import { getStoredAccessToken } from "../wallet/tokenGate";
 import { SeasonShareModal } from "./SeasonShareModal";
 
 /**
@@ -17,6 +20,15 @@ export function DailyPanel() {
   const [shareOpen, setShareOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  // A Telegram identity (`tg:<id>`) is not a payable address — see
+  // server/src/auth/telegramAuth.ts. Detected client-side from the session's
+  // identity, so no extra round trip just to decide whether to show the card.
+  const walletAddress = useGameStore((s) => s.walletAddress);
+  const isTelegramAccount = Boolean(walletAddress?.startsWith("tg:"));
+  const [savedPayout, setSavedPayout] = useState<string | null>(null);
+  const [payoutInput, setPayoutInput] = useState("");
+  const [payoutSaving, setPayoutSaving] = useState(false);
+  const [payoutMsg, setPayoutMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   useEffect(() => {
     const offState = networkManager.onDailyState((s) => {
@@ -43,6 +55,50 @@ export function DailyPanel() {
       networkManager.requestSeasonState();
     }
   }, [open]);
+
+  // Load the current payout address when a Telegram player opens the panel.
+  useEffect(() => {
+    if (!open || !isTelegramAccount) return;
+    const token = getStoredAccessToken();
+    if (!token) return;
+    void (async () => {
+      try {
+        const r = await fetchWithTimeout(`${getHttpServerUrl()}/api/dashboard/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!r.ok) return;
+        const d = (await r.json()) as { payoutWallet?: string | null };
+        setSavedPayout(d.payoutWallet ?? null);
+        setPayoutInput(d.payoutWallet ?? "");
+      } catch {
+        /* non-critical: the card still lets them set one */
+      }
+    })();
+  }, [open, isTelegramAccount]);
+
+  const savePayout = async () => {
+    const token = getStoredAccessToken();
+    if (!token) return;
+    setPayoutSaving(true);
+    setPayoutMsg(null);
+    try {
+      const r = await fetchWithTimeout(`${getHttpServerUrl()}/api/dashboard/payout-wallet`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ payoutWallet: payoutInput }),
+      });
+      const b = (await r.json().catch(() => ({}))) as { error?: string; payoutWallet?: string | null };
+      if (!r.ok) throw new Error(b.error ?? "Could not save that address.");
+      setSavedPayout(b.payoutWallet ?? null);
+      setPayoutInput(b.payoutWallet ?? "");
+      setPayoutMsg({ ok: true, text: "✓ Saved — your Season rewards will be sent here." });
+      playSfx("ui_open");
+    } catch (e) {
+      setPayoutMsg({ ok: false, text: e instanceof Error ? e.message : "Could not save that address." });
+    } finally {
+      setPayoutSaving(false);
+    }
+  };
 
   if (!open) return null;
 
@@ -127,6 +183,61 @@ export function DailyPanel() {
                   <span className="chibi-text-muted">{e.points.toLocaleString()} pts</span>
                 </div>
               ))}
+            </div>
+          )}
+          {/* Telegram players have no wallet, so their points build toward a
+              reward that can't be sent. This sits right under "est. $BASE" —
+              the moment they care — so they never have to leave the game to
+              find the dashboard. */}
+          {isTelegramAccount && (
+            <div className="chibi-card" style={{ marginTop: 10, padding: "10px 12px" }}>
+              <div style={{ fontWeight: 800, fontSize: "0.78rem", marginBottom: 4 }}>
+                🏆 Where should we send your $BASE?
+              </div>
+              {savedPayout ? (
+                <div className="chibi-text-muted" style={{ fontSize: "0.68rem" }}>
+                  Rewards go to{" "}
+                  <b style={{ fontFamily: "monospace", wordBreak: "break-all" }}>{savedPayout}</b>.
+                  Double-check it — on-chain transfers can't be undone.
+                </div>
+              ) : (
+                <div className="chibi-text-muted" style={{ fontSize: "0.68rem", marginBottom: 6 }}>
+                  You signed in with Telegram, so we don't have a Solana address for you. Paste one
+                  to collect your Season rewards — you can keep playing without it.
+                </div>
+              )}
+              <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+                <input
+                  className="chibi-input"
+                  style={{ flex: 1, fontSize: "0.72rem" }}
+                  value={payoutInput}
+                  maxLength={44}
+                  spellCheck={false}
+                  autoComplete="off"
+                  placeholder="Your Solana wallet address"
+                  onChange={(e) => setPayoutInput(e.target.value.trim())}
+                />
+                <button
+                  type="button"
+                  className="chibi-btn chibi-btn--secondary"
+                  style={{ padding: "6px 12px", fontSize: "0.72rem" }}
+                  onClick={() => void savePayout()}
+                  disabled={payoutSaving || payoutInput === (savedPayout ?? "")}
+                >
+                  {payoutSaving ? "..." : savedPayout ? "Update" : "Save"}
+                </button>
+              </div>
+              {payoutMsg && (
+                <div
+                  style={{
+                    fontSize: "0.68rem",
+                    marginTop: 6,
+                    color: payoutMsg.ok ? "#7ed6df" : "#ff9d7a",
+                  }}
+                >
+                  {payoutMsg.text}
+                </div>
+              )}
             </div>
           )}
           <button
