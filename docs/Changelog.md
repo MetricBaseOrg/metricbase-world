@@ -31,6 +31,47 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [0.179.0 – 0.182.0] — 2026-07-22 — Retention readout, PvE ladder & the bot front door
+
+### Added
+
+- **Player Retention panel on `/stats` (v0.179.0)** — active players (24h/7d/30d),
+  one-and-done count, level distribution and new players per week, split into
+  cohorts either side of the objective tracker so the v0.178.0 claim is
+  checkable. Percentages are suppressed below 8 players per cohort — at ~1
+  signup/week a confident-looking number would be noise.
+- **PvE tier for levels 5–9 (v0.180.0)** — the whole bestiary was three mobs and
+  the accessible ladder ended at the Slime Brute; everything harder sat behind
+  the black-zone $BASE burn. **Ember Slimes** (200hp) now prowl the Wilderness
+  and Grotto dropping the **Ember Core**, and the **Charred Sentinel** is a real
+  boss (900hp) dropping the **Obsidian Shard**. No new art was needed — six mob
+  artworks already shipped and the client already mapped them.
+- **Ember & Obsidian gear (v0.182.0)** — the epic **Ember set** and **Ember
+  Blade** (+44) from Ember Cores, and the legendary **Obsidian Edge** (+60) from
+  the boss shard. `epic` and `legendary` existed in the Rarity union with no
+  gear using them. In full Ember gear the Sentinel deals 399 damage against 400
+  HP: winnable on a sliver, fatal without the tier.
+- **Telegram bot front door (v0.181.0)** — `/start` now answers with a Play
+  button (and carries `INV-` codes through as invites), and the server
+  configures the menu button, commands and webhook itself on boot rather than
+  relying on a manual BotFather step.
+
+### Fixed
+
+- **The Charred Sentinel could not be fought (v0.180.0)** — it had art, an NPC
+  entry and menacing dialogue but no `combat` block, so the "boss" was scenery.
+- **Void Brute paid nothing (v0.180.0)** — 420hp and 180xp with no `MOB_REWARDS`
+  entry, so the second-hardest fight in the game dropped no loot and no gold.
+- **Unlisted mobs inherited the training dummy's counter-damage (v0.180.0)** —
+  the if-chain fell through to 48, so the Void Brute hit softer than a Slime
+  Brute. Now a table whose fallback is the *weakest* mob.
+- **The new boss was unkillable (v0.180.1)** — mobs counter on every swing, so a
+  fight costs `(hp / damage) × counter`; a 180 counter on 1,100hp worked out at
+  ~11,000 damage against a level-34 player's 400 HP. Counter values now flatten
+  as HP rises.
+- **`/stats` blanked 41 fields (v0.178.2)** — see the previous section; the
+  page-level `catch` now logs instead of swallowing silently.
+
 ## [0.171.0 – 0.178.2] — 2026-07-22 — Growth: distribution, free-to-play & retention
 
 A single-day push through a prioritised funnel: **P0 onboarding → P1 viral loop
