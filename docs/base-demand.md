@@ -129,13 +129,46 @@ The Telegram cohort may never hold $BASE. Meeting them where they are:
 - **Caution:** this adds a second currency rail and its own accounting. Only
   worth it once Telegram player volume justifies it — check the numbers first.
 
+## MEASURED 2026-07-22 — worse than this document originally assumed
+
+The instrumentation shipped in v0.177.0 (`/stats` → $BASE Token → Treasury
+flow, from `getBaseFlows()`). Production figures on the day it landed:
+
+| Metric | Value |
+|---|---|
+| $BASE ever received by the treasury | 1,220,000 |
+| …of which a single `pip_gold_recovery` transaction | 1,000,000 |
+| …remaining, across 4 `bag_expand` purchases | 220,000 |
+| **Distinct wallets that have ever paid in** | **2** |
+| Days since the last purchase | 16 |
+| Burned via in-game sinks (all time) | 240,000 |
+| **Season 1 pool owed** | **1,000,000** |
+
+Three of the four real purchases came from one wallet, so genuine third-party
+demand is on the order of **10,000 $BASE, ever**.
+
+This document originally said the pool "pays out with no comparable inflow".
+That was too gentle. The accurate statement is that **there is essentially no
+recurring inflow at all** — it stopped on 2026-07-04, *before* free-to-play, so
+that change did not cause this. It removed the mechanism that was masking it.
+
+Consequences for the plan above:
+- **P1 (season entry stake) is no longer "consider it".** It is the decision to
+  make before Season 1 pays out.
+- **P2 cosmetics remain worth shipping** but will not close a 1,000,000 gap at
+  this player count. Do not treat them as the answer.
+- **New question, not in the original plan: is the Season 1 pool the right
+  size?** It is pre-funded so it is not a solvency risk, but it is a large
+  one-directional transfer that repeats every 30 days unless the DAO sets
+  otherwise. Season 2's pool should be sized against measured inflow.
+
+**Watch `distinctBuyers`, not the total.** A large number from one wallet is not
+demand — which is why the /stats card reports buyer concentration in words.
+
 ## What to do first
 
-1. **Instrument before building.** Add a `/stats` panel showing $BASE flows:
-   treasury in vs out, burns by source, gold-desk volume, season liability. We
-   are currently reasoning about this from intuition — the actual numbers may
-   say the outflow is fine for now, or much worse than assumed. **Measure first;
-   it is cheap and it decides everything else.**
+1. ~~Instrument before building.~~ **Done, v0.177.0.** Re-read the panel before
+   each decision below rather than trusting the snapshot above.
 2. **Ship P2 cosmetics.** Safe, popular, no economic risk, works at any player
    count.
 3. **Decide P1 with the owner** once the Season 1 payout has actually happened
