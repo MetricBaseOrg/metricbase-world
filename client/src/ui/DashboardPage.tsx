@@ -79,6 +79,9 @@ export function DashboardPage() {
   const [payoutSaving, setPayoutSaving] = useState(false);
   const [payoutSaved, setPayoutSaved] = useState(false);
   const [payoutError, setPayoutError] = useState<string | null>(null);
+  const [tgCode, setTgCode] = useState("");
+  const [tgLinking, setTgLinking] = useState(false);
+  const [tgError, setTgError] = useState<string | null>(null);
 
   // The game shell locks page scrolling; this is an ordinary web page.
   useEffect(() => {
@@ -223,6 +226,31 @@ export function DashboardPage() {
       setPayoutError(saveError instanceof Error ? saveError.message : "Failed to save reward wallet");
     } finally {
       setPayoutSaving(false);
+    }
+  };
+
+  /** Redeem a code minted inside Telegram, attaching it to THIS wallet account
+   *  as a second login key. Identity is unchanged — nothing moves or merges. */
+  const handleLinkTelegram = async (unlink = false) => {
+    if (!accessToken) return;
+    setTgLinking(true);
+    setTgError(null);
+    try {
+      const path = unlink ? "telegram-unlink" : "telegram-link";
+      const response = await fetchWithTimeout(`${getHttpServerUrl()}/api/dashboard/${path}`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify(unlink ? {} : { code: tgCode }),
+      });
+      const body = (await response.json().catch(() => ({}))) as { error?: string };
+      if (!response.ok) throw new Error(body.error ?? "Could not update Telegram link");
+      setTgCode("");
+      const refreshed = await fetchDashboard(accessToken);
+      setData(refreshed);
+    } catch (linkError) {
+      setTgError(linkError instanceof Error ? linkError.message : "Could not update Telegram link");
+    } finally {
+      setTgLinking(false);
     }
   };
 
@@ -432,6 +460,62 @@ export function DashboardPage() {
                             Rewards go to <b style={{ fontFamily: "monospace" }}>{savedPayoutWallet}</b>.
                             Double-check it — on-chain transfers can't be undone.
                           </p>
+                        )}
+                      </>
+                    )}
+                    {/* Attach a Telegram login to this wallet account, so the
+                        Mini App signs straight into this character instead of
+                        hopping out to a wallet browser every session. */}
+                    {data.found && !data.isTelegramAccount && (
+                      <>
+                        <div className="mb-dash-stat" style={{ marginBottom: 2, marginTop: 10 }}>
+                          ✈️ <span>Telegram</span>
+                        </div>
+                        {data.telegramLinked ? (
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <span style={{ fontSize: "0.8rem", color: "#7ed6df" }}>
+                              ✓ Linked — open the Mini App and tap Continue with Telegram.
+                            </span>
+                            <button
+                              type="button"
+                              className="chibi-btn chibi-btn--ghost"
+                              style={{ padding: "6px 12px", fontSize: "0.75rem" }}
+                              onClick={() => void handleLinkTelegram(true)}
+                              disabled={tgLinking}
+                            >
+                              Unlink
+                            </button>
+                          </div>
+                        ) : (
+                          <>
+                            <p style={{ fontSize: "0.78rem", color: "var(--chibi-ink-soft)", margin: "0 0 6px" }}>
+                              Play from inside Telegram without connecting your wallet each time. Open
+                              the Mini App, tap “Already play with a wallet?”, and enter the code here.
+                            </p>
+                            <div className="mb-dash-motto">
+                              <input
+                                className="chibi-input"
+                                value={tgCode}
+                                maxLength={6}
+                                placeholder="Link code"
+                                spellCheck={false}
+                                style={{ fontFamily: "monospace", letterSpacing: 2, textTransform: "uppercase" }}
+                                onChange={(event) => setTgCode(event.target.value.trim().toUpperCase())}
+                              />
+                              <button
+                                type="button"
+                                className="chibi-btn chibi-btn--secondary"
+                                style={{ padding: "8px 16px", fontSize: "0.8rem" }}
+                                onClick={() => void handleLinkTelegram()}
+                                disabled={tgLinking || tgCode.length < 6}
+                              >
+                                {tgLinking ? "..." : "Link"}
+                              </button>
+                            </div>
+                          </>
+                        )}
+                        {tgError && (
+                          <p style={{ fontSize: "0.75rem", color: "#ff9d7a", margin: "6px 0 0" }}>{tgError}</p>
                         )}
                       </>
                     )}

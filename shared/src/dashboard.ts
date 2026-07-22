@@ -11,6 +11,10 @@ export const MOTTO_MAX_LENGTH = 80;
  */
 export const DASHBOARD_UPDATES: Array<{ title: string; body: string }> = [
   {
+    title: "v0.176 — Link Telegram to your wallet account",
+    body: "Already play with a wallet? You can now attach your Telegram account to it. Open the Mini App, tap “Already play with a wallet?” for a 6-character code, then enter it on your dashboard under Telegram. After that, tapping Continue with Telegram signs you straight into your existing character — no more hopping out to a wallet browser every session. Your wallet stays your identity; nothing moves or merges.",
+  },
+  {
     title: "v0.175 — Play with Telegram, get paid to your wallet",
     body: "You can now sign in with Telegram and play straight away — no wallet, no tokens. Season points build up as normal. When you want to collect your $BASE, just paste your Solana address into the Reward wallet box on your dashboard and rewards go there. Wallet players are unaffected, but can also nominate a different payout address if they prefer.",
   },
@@ -70,6 +74,8 @@ export interface DashboardResponse {
    *  never an identity — it authenticates nothing. Null = use their own wallet
    *  (wallet players) or not set yet (Telegram players, who can't be paid). */
   payoutWallet: string | null;
+  /** Whether a Telegram login is attached to this wallet account. */
+  telegramLinked: boolean;
   /** Epoch ms of the character's last save (last time they played), or null for brand-new. */
   lastSeenAt: number | null;
   unreadMail: number;

@@ -22,6 +22,7 @@ import {
   getValidWalletSession,
   listAvailableWallets,
   loginWithTelegram,
+  requestTelegramLinkCode,
   resolveWalletConnector,
 } from "../wallet/tokenGate";
 import {
@@ -75,6 +76,8 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
   const [detectedWallets, setDetectedWallets] = useState<WalletConnector[]>([]);
   const [mobileWalletLinks, setMobileWalletLinks] = useState<MobileWalletLink[] | null>(null);
   const [telegramLoginAvailable, setTelegramLoginAvailable] = useState(false);
+  const [linkCode, setLinkCode] = useState<string | null>(null);
+  const [linkCodeLoading, setLinkCodeLoading] = useState(false);
   const inTelegram = isTelegramMiniApp();
   const walletConnectResolver = useRef<{
     resolve: (value: Awaited<ReturnType<typeof connectAndVerifyWallet>>) => void;
@@ -323,6 +326,21 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
       setError(tgError instanceof Error ? tgError.message : "Telegram sign-in failed.");
     } finally {
       setConnectingWallet(false);
+    }
+  };
+
+  /** Mint a code proving this Telegram account, to redeem against a wallet
+   *  session on the dashboard (the two proofs can't coexist in one context). */
+  const handleLinkCode = async () => {
+    setError(null);
+    setLinkCodeLoading(true);
+    try {
+      const { code } = await requestTelegramLinkCode();
+      setLinkCode(code);
+    } catch (codeError) {
+      setError(codeError instanceof Error ? codeError.message : "Could not create a link code.");
+    } finally {
+      setLinkCodeLoading(false);
     }
   };
 
@@ -661,6 +679,42 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
                     <div style={{ fontSize: 11, opacity: 0.6, marginTop: 6 }}>
                       Play straight away. Link a wallet later to collect Season rewards.
                     </div>
+                    {/* Existing wallet players: link once here, then this
+                        button signs them into their real character forever
+                        after — no more hop out to a wallet browser. */}
+                    {!linkCode ? (
+                      <button
+                        type="button"
+                        className="chibi-btn chibi-btn--ghost"
+                        onClick={() => void handleLinkCode()}
+                        disabled={linkCodeLoading}
+                        style={{ width: "100%", padding: "8px 12px", marginTop: 8, fontSize: "0.78rem" }}
+                      >
+                        {linkCodeLoading ? "..." : "Already play with a wallet? Link this Telegram"}
+                      </button>
+                    ) : (
+                      <div className="chibi-card" style={{ marginTop: 8, padding: "10px 12px" }}>
+                        <div style={{ fontSize: 11, opacity: 0.75, marginBottom: 4 }}>
+                          Your link code (valid 10 minutes):
+                        </div>
+                        <div
+                          style={{
+                            fontFamily: "monospace",
+                            fontSize: "1.5rem",
+                            fontWeight: 800,
+                            letterSpacing: 3,
+                            textAlign: "center",
+                            color: "#7ed6df",
+                          }}
+                        >
+                          {linkCode}
+                        </div>
+                        <div style={{ fontSize: 11, opacity: 0.7, marginTop: 6 }}>
+                          Open <b>world.metricbase.org/dashboard</b> in your wallet browser, connect
+                          your wallet, and enter this code under “Telegram”.
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 

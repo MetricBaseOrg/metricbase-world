@@ -56,6 +56,14 @@ ALTER TABLE characters ADD COLUMN IF NOT EXISTS motto VARCHAR(80) NOT NULL DEFAU
 -- naming someone else's address would only pay them.
 ALTER TABLE characters ADD COLUMN IF NOT EXISTS payout_wallet VARCHAR(44);
 
+-- A second LOGIN key: lets a wallet player sign in from the Telegram Mini App
+-- without the hop out to a wallet browser. Identity stays the wallet, so this
+-- never merges or moves anything. Unique so one Telegram account can never
+-- point at two characters.
+ALTER TABLE characters ADD COLUMN IF NOT EXISTS telegram_id BIGINT;
+CREATE UNIQUE INDEX IF NOT EXISTS characters_telegram_id_idx
+  ON characters (telegram_id) WHERE telegram_id IS NOT NULL;
+
 -- Casino: custodial per-currency balances (smallest units) + idempotent ledger.
 CREATE TABLE IF NOT EXISTS casino_balances (
   wallet_address VARCHAR(44) NOT NULL,

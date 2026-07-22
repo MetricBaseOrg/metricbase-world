@@ -15,6 +15,8 @@ import {
 import { Router } from "express";
 import { type AuthenticatedRequest, requireAuth } from "../auth/requireAuth.js";
 import { isTelegramIdentity, normalizePayoutWallet } from "../auth/telegramAuth.js";
+import { consumeLinkCode } from "../auth/telegramLink.js";
+import { getLinkedTelegramId, linkTelegramToWallet, unlinkTelegram } from "../db/telegramLink.js";
 import { countUnread } from "../db/mail.js";
 import { getPool } from "../db/pool.js";
 
@@ -68,6 +70,7 @@ dashboardRouter.get("/dashboard/me", requireAuth, async (req, res) => {
       motto: "",
       isTelegramAccount: isTelegramIdentity(wallet),
       payoutWallet: null,
+      telegramLinked: false,
       lastSeenAt: null,
       unreadMail: 0,
       inventory: [],
@@ -96,6 +99,7 @@ dashboardRouter.get("/dashboard/me", requireAuth, async (req, res) => {
     // "where should we send your rewards?" prompt when this is unset.
     isTelegramAccount: isTelegramIdentity(wallet),
     payoutWallet: row.payout_wallet ?? null,
+    telegramLinked: (await getLinkedTelegramId(wallet)) !== null,
     lastSeenAt: row.updated_at ? row.updated_at.getTime() : null,
     unreadMail: await countUnread(row.name),
     inventory: normalizeInventory(row.inventory),
@@ -143,6 +147,41 @@ dashboardRouter.post("/dashboard/payout-wallet", requireAuth, async (req, res) =
     return;
   }
   res.json({ ok: true, payoutWallet });
+});
+
+/**
+ * Step 2 of linking: redeem a code minted inside Telegram against THIS wallet
+ * session. Both identities are now proven — Telegram by the initData that
+ * produced the code, the wallet by this request's session — so neither side
+ * can be attached by someone who doesn't control it.
+ */
+dashboardRouter.post("/dashboard/telegram-link", requireAuth, async (req, res) => {
+  const wallet = (req as AuthenticatedRequest).authWallet;
+  const code = String((req.body as { code?: unknown })?.code ?? "");
+
+  const pending = consumeLinkCode(code);
+  if (!pending) {
+    res.status(400).json({ error: "That link code is invalid or has expired. Generate a new one in Telegram." });
+    return;
+  }
+
+  const result = await linkTelegramToWallet(wallet, pending.telegramUserId);
+  if (!result.ok) {
+    res.status(409).json({ error: result.reason });
+    return;
+  }
+  res.json({ ok: true, telegramLinked: true, telegramUsername: pending.telegramUsername ?? null });
+});
+
+/** Detach the Telegram login from this wallet account. */
+dashboardRouter.post("/dashboard/telegram-unlink", requireAuth, async (req, res) => {
+  const wallet = (req as AuthenticatedRequest).authWallet;
+  const ok = await unlinkTelegram(wallet);
+  if (!ok) {
+    res.status(404).json({ error: "Nothing to unlink." });
+    return;
+  }
+  res.json({ ok: true, telegramLinked: false });
 });
 
 /** Save the profile motto shown on the dashboard. */

@@ -75,6 +75,33 @@ export async function loginWithTelegram(): Promise<AuthVerifyResponse> {
   return data;
 }
 
+/**
+ * Step 1 of linking Telegram to an existing wallet account: exchange this
+ * launch's signed initData for a short code, which is then redeemed against a
+ * wallet session on the dashboard. Two steps because the two proofs can never
+ * exist in the same browser context.
+ */
+export async function requestTelegramLinkCode(): Promise<{ code: string; expiresAt: number }> {
+  const initData = await getTelegramInitData();
+  if (!initData) {
+    throw new Error("Open the game inside Telegram to get a link code.");
+  }
+  const response = await fetchWithTimeout(
+    `${getHttpServerUrl()}/api/auth/telegram/link-code`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ initData }),
+    },
+    VERIFY_TIMEOUT_MS,
+  );
+  const data = (await response.json()) as { code?: string; expiresAt?: number; error?: string };
+  if (!response.ok || !data.code) {
+    throw new Error(data.error ?? "Could not create a link code.");
+  }
+  return { code: data.code, expiresAt: data.expiresAt ?? 0 };
+}
+
 export function listAvailableWallets(): WalletConnector[] {
   return discoverWallets();
 }

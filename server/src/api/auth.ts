@@ -16,7 +16,9 @@ import {
   telegramIdentity,
   verifyTelegramInitData,
 } from "../auth/telegramAuth.js";
+import { createLinkCode } from "../auth/telegramLink.js";
 import { isWalletBanned } from "../db/bans.js";
+import { findWalletByTelegramId } from "../db/telegramLink.js";
 import { getWalletTokenBalance } from "../solana/tokenBalance.js";
 import { verifyWalletSignature } from "../solana/verifySignature.js";
 
@@ -132,8 +134,14 @@ authRouter.post("/auth/telegram", async (req, res) => {
     return;
   }
 
-  const identity = telegramIdentity(user.id);
+  // A wallet player who linked this Telegram account signs into THAT account —
+  // same wallet, same character, no hop out to a wallet browser. Only when no
+  // link exists do we fall back to a standalone `tg:` identity.
+  const linkedWallet = await findWalletByTelegramId(user.id);
+  const identity = linkedWallet ?? telegramIdentity(user.id);
 
+  // Ban check runs on the RESOLVED identity: linking must not become a way to
+  // slip past a ban on the underlying wallet.
   if (await isWalletBanned(identity)) {
     res.status(403).json({ error: "This account has been banned." });
     return;
@@ -146,6 +154,26 @@ authRouter.post("/auth/telegram", async (req, res) => {
     tokenBalance: 0,
     expiresAt,
   } satisfies AuthVerifyResponse);
+});
+
+/**
+ * Step 1 of linking Telegram to an EXISTING wallet account: prove Telegram
+ * here (where initData exists) and get a code to redeem against a wallet
+ * session elsewhere. Requires no session of its own — the initData IS the
+ * proof, and a code alone links nothing.
+ */
+authRouter.post("/auth/telegram/link-code", (req, res) => {
+  if (!isTelegramLoginConfigured()) {
+    res.status(503).json({ error: "Telegram login is not configured on this server." });
+    return;
+  }
+  const user = verifyTelegramInitData(String((req.body as { initData?: unknown })?.initData ?? ""));
+  if (!user) {
+    res.status(401).json({ error: "Telegram verification failed. Reopen the app from Telegram." });
+    return;
+  }
+  const { code, expiresAt } = createLinkCode(user.id, user.username);
+  res.json({ code, expiresAt });
 });
 
 authRouter.get("/auth/session", (req, res) => {
