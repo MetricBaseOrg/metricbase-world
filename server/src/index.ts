@@ -17,6 +17,7 @@ import cors from "cors";
 import express from "express";
 import { createServer } from "node:http";
 import { authRouter } from "./api/auth.js";
+import { setupTelegramBot, telegramBotRouter } from "./api/telegramBot.js";
 import { characterRouter } from "./api/characters.js";
 import { dashboardRouter } from "./api/dashboard.js";
 import { daoRouter } from "./api/dao.js";
@@ -69,6 +70,7 @@ app.get("/health", (_req, res) => {
   });
 });
 
+app.use("/api", telegramBotRouter);
 app.use("/api", authRouter);
 app.use("/api", characterRouter);
 app.use("/api", dashboardRouter);
@@ -212,6 +214,9 @@ setInterval(() => void getBaseHolderCount(), 5 * 60 * 1000).unref();
 
 // Daily net-worth snapshots for the /stats richest board: capture on boot and
 // hourly — the day's row is upserted, so the last capture converges on EOD.
+// Configure the Telegram bot (menu button, /start, webhook) on boot.
+void setupTelegramBot();
+
 void captureNetWorthSnapshot();
 setInterval(() => void captureNetWorthSnapshot(), 60 * 60 * 1000).unref();
 
