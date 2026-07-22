@@ -475,8 +475,18 @@ async function load(){
       var cover=bf.seasonPool>0?(bf.inflowTotal/bf.seasonPool):0;
       var note=el("flowNote");
       if(note){
-        note.textContent="All-time inflow covers "+(cover*100).toFixed(0)+"% of the current Season pool"
-          +(bf.distinctBuyers<=3?" · concentrated in "+bf.distinctBuyers+" wallet"+(bf.distinctBuyers===1?"":"s")+", so treat the total as a handful of purchases rather than broad demand":"");
+        // Lead with concentration when there are barely any buyers. A headline
+        // "covers N% of the pool" reads reassuringly even when the total is one
+        // anomalous payment, which is the opposite of what the data says — so
+        // the caveat goes FIRST and the ratio is labelled nominal.
+        if(bf.distinctBuyers<=3){
+          note.textContent="⚠️ Only "+bf.distinctBuyers+" wallet"+(bf.distinctBuyers===1?" has":"s have")
+            +" ever paid in, so this is a handful of purchases rather than broad demand"
+            +(bf.daysSinceLastPurchase!==null&&bf.daysSinceLastPurchase>7?" — and none in "+bf.daysSinceLastPurchase+" days":"")
+            +". Nominal coverage of the Season pool: "+(cover*100).toFixed(0)+"%.";
+        } else {
+          note.textContent="All-time inflow covers "+(cover*100).toFixed(0)+"% of the current Season pool.";
+        }
       }
     }
     var bs=s.burnSinks||{};
