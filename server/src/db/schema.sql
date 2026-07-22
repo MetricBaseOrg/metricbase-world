@@ -49,6 +49,13 @@ ALTER TABLE characters ADD COLUMN IF NOT EXISTS bag_level INTEGER NOT NULL DEFAU
 -- Player-set profile motto shown on the /dashboard page.
 ALTER TABLE characters ADD COLUMN IF NOT EXISTS motto VARCHAR(80) NOT NULL DEFAULT '';
 
+-- Where to send this player's $BASE season rewards, when that differs from
+-- their identity. Telegram players (wallet_address = 'tg:<id>') have no address
+-- of their own, so they nominate one here. Deliberately NOT an identity: it is
+-- never used to authenticate, so setting it can never take over an account —
+-- naming someone else's address would only pay them.
+ALTER TABLE characters ADD COLUMN IF NOT EXISTS payout_wallet VARCHAR(44);
+
 -- Casino: custodial per-currency balances (smallest units) + idempotent ledger.
 CREATE TABLE IF NOT EXISTS casino_balances (
   wallet_address VARCHAR(44) NOT NULL,

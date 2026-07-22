@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { PublicKey } from "@solana/web3.js";
 
 /**
  * Telegram Mini App login.
@@ -95,6 +96,40 @@ export function verifyTelegramInitData(initData: string): TelegramUser | null {
  */
 export function telegramIdentity(telegramUserId: number): string {
   return `tg:${telegramUserId}`;
+}
+
+/**
+ * Strictly validate a Solana address supplied by a player.
+ *
+ * Season rewards are sent on-chain and are IRREVERSIBLE, so a typo here means
+ * real $BASE lands in a wallet nobody controls.
+ *
+ * LIMIT OF VALIDATION — Solana addresses carry NO CHECKSUM. Dropping the last
+ * character of a 44-char address usually yields a 43-char string that is still
+ * a perfectly valid 32-byte pubkey, just a different one. No validator can
+ * detect that, so this is defence in depth, not a guarantee: the real
+ * safeguard is echoing the stored address back for the player to confirm.
+ *
+ * What this DOES reject: anything that isn't base58, wrong-length input, other
+ * chains' formats, and off-curve keys. Requiring on-curve is right for a user
+ * wallet (only program-derived addresses are off-curve, and no player is paid
+ * at a PDA) and it happens to catch roughly half of truncation typos, since a
+ * random 32-byte value lands off the ed25519 curve about half the time.
+ */
+export function normalizePayoutWallet(raw: string): string | null {
+  const trimmed = String(raw ?? "").trim();
+  if (!trimmed || isTelegramIdentity(trimmed)) return null;
+  try {
+    const key = new PublicKey(trimmed);
+    // toBase58() round-trip rejects any accepted-but-noncanonical form
+    // (e.g. a short string web3.js would left-pad to 32 bytes).
+    const canonical = key.toBase58();
+    if (canonical !== trimmed || key.toBytes().length !== 32) return null;
+    if (!PublicKey.isOnCurve(key.toBytes())) return null;
+    return canonical;
+  } catch {
+    return null;
+  }
 }
 
 /** True when a player key is a Telegram identity rather than a Solana wallet. */

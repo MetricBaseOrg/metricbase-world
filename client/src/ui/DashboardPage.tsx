@@ -74,6 +74,11 @@ export function DashboardPage() {
   const [motto, setMotto] = useState("");
   const [mottoSaving, setMottoSaving] = useState(false);
   const [mottoSaved, setMottoSaved] = useState(false);
+  const [payoutWallet, setPayoutWallet] = useState("");
+  const [savedPayoutWallet, setSavedPayoutWallet] = useState<string | null>(null);
+  const [payoutSaving, setPayoutSaving] = useState(false);
+  const [payoutSaved, setPayoutSaved] = useState(false);
+  const [payoutError, setPayoutError] = useState<string | null>(null);
 
   // The game shell locks page scrolling; this is an ordinary web page.
   useEffect(() => {
@@ -123,6 +128,8 @@ export function DashboardPage() {
     const dashboard = await fetchDashboard(token);
     setData(dashboard);
     setMotto(dashboard.motto);
+    setPayoutWallet(dashboard.payoutWallet ?? "");
+    setSavedPayoutWallet(dashboard.payoutWallet ?? null);
     setStatus("ready");
   };
 
@@ -183,6 +190,39 @@ export function DashboardPage() {
       setError(saveError instanceof Error ? saveError.message : "Failed to save motto");
     } finally {
       setMottoSaving(false);
+    }
+  };
+
+  /** Nominate where season rewards are sent. Not an identity — no signature,
+   *  it authenticates nothing. But the transfer IS irreversible, so the server
+   *  validates the address strictly and we echo back what it stored. */
+  const handleSavePayoutWallet = async () => {
+    if (!accessToken) return;
+    setPayoutSaving(true);
+    setPayoutSaved(false);
+    setPayoutError(null);
+    try {
+      const response = await fetchWithTimeout(`${getHttpServerUrl()}/api/dashboard/payout-wallet`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ payoutWallet }),
+      });
+      const body = (await response.json().catch(() => ({}))) as {
+        error?: string;
+        payoutWallet?: string | null;
+      };
+      if (!response.ok) throw new Error(body.error ?? "Failed to save reward wallet");
+      setPayoutWallet(body.payoutWallet ?? "");
+      setSavedPayoutWallet(body.payoutWallet ?? null);
+      setPayoutSaved(true);
+      window.setTimeout(() => setPayoutSaved(false), 2200);
+    } catch (saveError) {
+      setPayoutError(saveError instanceof Error ? saveError.message : "Failed to save reward wallet");
+    } finally {
+      setPayoutSaving(false);
     }
   };
 
@@ -345,6 +385,56 @@ export function DashboardPage() {
                         {mottoSaving ? "..." : mottoSaved ? "✓ Saved" : "Save"}
                       </button>
                     </div>
+                    {/* Where season rewards get sent. Essential for Telegram
+                        players (their `tg:` identity is not an address, so they
+                        cannot be paid until they set one); optional for wallet
+                        players, who default to their own address. */}
+                    {data.found && (data.isTelegramAccount || savedPayoutWallet) && (
+                      <>
+                        <div className="mb-dash-stat" style={{ marginBottom: 2, marginTop: 10 }}>
+                          🏆 <span>Reward wallet</span>
+                        </div>
+                        {data.isTelegramAccount && !savedPayoutWallet && (
+                          <p style={{ fontSize: "0.78rem", color: "var(--chibi-ink-soft)", margin: "0 0 6px" }}>
+                            You signed in with Telegram, so we don't have a Solana address for you.
+                            Paste one to receive your Season $BASE rewards — you can play without it.
+                          </p>
+                        )}
+                        <div className="mb-dash-motto">
+                          <input
+                            className="chibi-input"
+                            value={payoutWallet}
+                            maxLength={44}
+                            spellCheck={false}
+                            autoComplete="off"
+                            placeholder="Your Solana wallet address"
+                            onChange={(event) => setPayoutWallet(event.target.value.trim())}
+                          />
+                          <button
+                            type="button"
+                            className="chibi-btn chibi-btn--secondary"
+                            style={{ padding: "8px 16px", fontSize: "0.8rem" }}
+                            onClick={() => void handleSavePayoutWallet()}
+                            disabled={payoutSaving || payoutWallet === (savedPayoutWallet ?? "")}
+                          >
+                            {payoutSaving ? "..." : payoutSaved ? "✓ Saved" : "Save"}
+                          </button>
+                        </div>
+                        {payoutError && (
+                          <p style={{ fontSize: "0.75rem", color: "#ff9d7a", margin: "6px 0 0" }}>
+                            {payoutError}
+                          </p>
+                        )}
+                        {/* Echo the STORED address back: rewards are sent
+                            on-chain and can't be recovered from a typo. */}
+                        {savedPayoutWallet && !payoutError && (
+                          <p style={{ fontSize: "0.75rem", color: "var(--chibi-ink-soft)", margin: "6px 0 0" }}>
+                            Rewards go to <b style={{ fontFamily: "monospace" }}>{savedPayoutWallet}</b>.
+                            Double-check it — on-chain transfers can't be undone.
+                          </p>
+                        )}
+                      </>
+                    )}
                     <div className="mb-dash-stat">
                       🧑‍🤝‍🧑 <span>Players Online:</span> <b>{playersOnline ?? "—"}</b>
                     </div>

@@ -11,6 +11,10 @@ export const MOTTO_MAX_LENGTH = 80;
  */
 export const DASHBOARD_UPDATES: Array<{ title: string; body: string }> = [
   {
+    title: "v0.175 — Play with Telegram, get paid to your wallet",
+    body: "You can now sign in with Telegram and play straight away — no wallet, no tokens. Season points build up as normal. When you want to collect your $BASE, just paste your Solana address into the Reward wallet box on your dashboard and rewards go there. Wallet players are unaffected, but can also nominate a different payout address if they prefer.",
+  },
+  {
     title: "v0.173 — Referrals Reward Real Players",
     body: "Now that entry is free, referral Season points are paid when your invitee actually starts playing — once they reach level 5 — instead of the moment they redeem your code. Same 50 points, they just land a little later. This keeps the Season prize pool going to people who bring in real players rather than empty sign-ups.",
   },
@@ -59,6 +63,13 @@ export interface DashboardResponse {
   honor: number;
   guildCoin: number;
   motto: string;
+  /** True when signed in via Telegram (identity `tg:<id>`), so there's no
+   *  wallet of their own to pay season rewards to. */
+  isTelegramAccount: boolean;
+  /** Address nominated to receive $BASE season rewards. A payout DESTINATION,
+   *  never an identity — it authenticates nothing. Null = use their own wallet
+   *  (wallet players) or not set yet (Telegram players, who can't be paid). */
+  payoutWallet: string | null;
   /** Epoch ms of the character's last save (last time they played), or null for brand-new. */
   lastSeenAt: number | null;
   unreadMail: number;

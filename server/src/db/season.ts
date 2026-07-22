@@ -166,24 +166,30 @@ export interface PayoutTarget {
 }
 
 /**
- * Players eligible for a season payout: points > 0 AND a REAL bonded wallet.
+ * Players eligible for a season payout: points > 0 AND a real address to pay.
  *
- * Telegram players are stored under a synthetic `tg:<id>` key in the same
- * column (see auth/telegramAuth.ts). They earn points like anyone else, but
- * there is no address to send $BASE to — so they are excluded here and must
- * link a wallet to collect. Filtering at the source means no downstream caller
- * can accidentally hand `tg:123` to a transfer.
+ * The address is `payout_wallet` when the player nominated one, else their own
+ * identity wallet. Telegram players are stored under a synthetic `tg:<id>` key
+ * (see auth/telegramAuth.ts) and have no address of their own, so they become
+ * payable only once they set a payout wallet on the dashboard.
+ *
+ * The `NOT LIKE 'tg:%'` filter plus the isWalletIdentity() pass are belt and
+ * braces on purpose: this is the last point before an IRREVERSIBLE on-chain
+ * transfer, and handing `tg:123` to a transfer must be impossible.
  */
 export async function loadSeasonPayoutTargets(seasonId: string): Promise<PayoutTarget[]> {
   const pool = getPool();
   if (!pool) return [];
   try {
     const res = await pool.query<{ player_name: string; wallet_address: string; points: number }>(
-      `SELECT s.player_name, c.wallet_address, s.points
+      `SELECT s.player_name,
+              COALESCE(c.payout_wallet, c.wallet_address) AS wallet_address,
+              s.points
        FROM season_state s
        JOIN characters c ON c.name = s.player_name
-       WHERE s.season_id = $1 AND s.points > 0 AND c.wallet_address IS NOT NULL
-         AND c.wallet_address NOT LIKE 'tg:%'
+       WHERE s.season_id = $1 AND s.points > 0
+         AND COALESCE(c.payout_wallet, c.wallet_address) IS NOT NULL
+         AND COALESCE(c.payout_wallet, c.wallet_address) NOT LIKE 'tg:%'
        ORDER BY s.points DESC, s.player_name ASC`,
       [seasonId],
     );

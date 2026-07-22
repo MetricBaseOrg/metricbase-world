@@ -14,6 +14,7 @@ import {
 } from "@metricbase/shared";
 import { Router } from "express";
 import { type AuthenticatedRequest, requireAuth } from "../auth/requireAuth.js";
+import { isTelegramIdentity, normalizePayoutWallet } from "../auth/telegramAuth.js";
 import { countUnread } from "../db/mail.js";
 import { getPool } from "../db/pool.js";
 
@@ -28,6 +29,7 @@ type DashboardRow = {
   honor: number | null;
   guild_coin: number | null;
   motto: string | null;
+  payout_wallet: string | null;
   appearance: CharacterAppearance | null;
   inventory: InventoryEntry[] | null;
   equipment: PlayerEquipment | null;
@@ -43,7 +45,7 @@ dashboardRouter.get("/dashboard/me", requireAuth, async (req, res) => {
   const row = db
     ? (
         await db.query<DashboardRow>(
-          `SELECT name, level, xp, gold, gems, honor, guild_coin, motto,
+          `SELECT name, level, xp, gold, gems, honor, guild_coin, motto, payout_wallet,
                   appearance, inventory, equipment, skills, updated_at
            FROM characters WHERE wallet_address = $1`,
           [wallet],
@@ -64,6 +66,8 @@ dashboardRouter.get("/dashboard/me", requireAuth, async (req, res) => {
       honor: 0,
       guildCoin: 0,
       motto: "",
+      isTelegramAccount: isTelegramIdentity(wallet),
+      payoutWallet: null,
       lastSeenAt: null,
       unreadMail: 0,
       inventory: [],
@@ -88,6 +92,10 @@ dashboardRouter.get("/dashboard/me", requireAuth, async (req, res) => {
     honor: row.honor ?? 0,
     guildCoin: row.guild_coin ?? 0,
     motto: row.motto ?? "",
+    // Telegram players have no address of their own, so the dashboard shows a
+    // "where should we send your rewards?" prompt when this is unset.
+    isTelegramAccount: isTelegramIdentity(wallet),
+    payoutWallet: row.payout_wallet ?? null,
     lastSeenAt: row.updated_at ? row.updated_at.getTime() : null,
     unreadMail: await countUnread(row.name),
     inventory: normalizeInventory(row.inventory),
@@ -95,6 +103,46 @@ dashboardRouter.get("/dashboard/me", requireAuth, async (req, res) => {
     equippedMountId: equipment.mountId,
   };
   res.json(payload);
+});
+
+/**
+ * Nominate where this player's $BASE season rewards should be sent.
+ *
+ * This is a PAYOUT DESTINATION, not an identity: it never authenticates
+ * anything, so no signature is required and setting it cannot take over an
+ * account — naming an address you don't own would only pay its owner. What it
+ * CAN do is lose money to a typo, since the transfer is irreversible, so the
+ * address is strictly validated as a real 32-byte pubkey and echoed back for
+ * the player to confirm.
+ */
+dashboardRouter.post("/dashboard/payout-wallet", requireAuth, async (req, res) => {
+  const wallet = (req as AuthenticatedRequest).authWallet;
+  const raw = String((req.body as { payoutWallet?: unknown })?.payoutWallet ?? "").trim();
+
+  // Empty clears it (wallet players fall back to their own address).
+  const payoutWallet = raw ? normalizePayoutWallet(raw) : null;
+  if (raw && !payoutWallet) {
+    res.status(400).json({
+      error: "That doesn't look like a Solana wallet address. Paste the full address from your wallet.",
+    });
+    return;
+  }
+
+  const db = getPool();
+  if (!db) {
+    res.status(503).json({ error: "Database unavailable" });
+    return;
+  }
+
+  const result = await db.query(
+    `UPDATE characters SET payout_wallet = $1, updated_at = NOW() WHERE wallet_address = $2`,
+    [payoutWallet, wallet],
+  );
+  if (result.rowCount === 0) {
+    res.status(404).json({ error: "No character bonded to this account yet." });
+    return;
+  }
+  res.json({ ok: true, payoutWallet });
 });
 
 /** Save the profile motto shown on the dashboard. */
