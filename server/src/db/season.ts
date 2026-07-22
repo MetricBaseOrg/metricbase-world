@@ -202,6 +202,22 @@ export async function loadSeasonPayoutTargets(seasonId: string): Promise<PayoutT
   }
 }
 
+/** Whether this identity has nominated an address to receive season rewards.
+ *  Used to decide whether to nudge a Telegram player who can't be paid yet. */
+export async function hasPayoutWallet(identity: string): Promise<boolean> {
+  const pool = getPool();
+  if (!pool) return true; // no DB: stay quiet rather than nag on every join
+  try {
+    const res = await pool.query<{ payout_wallet: string | null }>(
+      "SELECT payout_wallet FROM characters WHERE wallet_address = $1 LIMIT 1",
+      [identity],
+    );
+    return isWalletIdentity(res.rows[0]?.payout_wallet ?? null);
+  } catch {
+    return true;
+  }
+}
+
 /** Atomically claim the payout slot for a player. Returns true only for the
  * caller that inserted the row (idempotency guard before the on-chain send). */
 export async function claimSeasonPayout(

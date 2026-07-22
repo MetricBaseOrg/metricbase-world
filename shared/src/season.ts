@@ -98,7 +98,7 @@ export const SEASON_POINTS: Record<SeasonCategory, number> = {
  * cost is now "actually play for a bit" instead. Raise this if farming shows
  * up on the invitations leaderboard.
  */
-export const REFERRAL_QUALIFY_LEVEL = 5;
+export const REFERRAL_QUALIFY_LEVEL = 3;
 
 /** Fixed DAILY season-point bonus for the top-10 richest players, by rank
  * (index 0 = richest). Rank-based and capped — NOT gold-proportional — so

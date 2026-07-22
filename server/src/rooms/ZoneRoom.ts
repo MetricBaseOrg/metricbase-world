@@ -258,6 +258,7 @@ import {
   shareTradeFee,
 } from "@metricbase/shared";
 import { verifyAccessToken } from "../auth/accessToken.js";
+import { isTelegramIdentity } from "../auth/telegramAuth.js";
 import { getMinTokenUiAmount, isTokenGateEnabled } from "../auth/tokenGate.js";
 import {
   CharacterBindingError,
@@ -500,6 +501,7 @@ import {
   loadSeasonAggregate,
   loadSeasonRank,
   getSeasonRewardPool,
+  hasPayoutWallet,
 } from "../db/season.js";
 import { adjustAsset, getAssetInventory, getAssetQty } from "../zones/assetInventory.js";
 import {
@@ -1947,6 +1949,33 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     });
 
     void this.checkVisitZoneObjectives(client, player.name, this.zoneConfig.id);
+    void this.notifyMissingPayoutWallet(client, wallet);
+  }
+
+  /**
+   * Telegram players sign in with no Solana address, so their Season points
+   * accrue toward a payout they CANNOT receive. Nothing else in the game tells
+   * them that, and they'd only discover it at season end — so nudge them to set
+   * a reward wallet. Silent for everyone else, and silent once they've set one.
+   */
+  private async notifyMissingPayoutWallet(client: Client, wallet: string | null) {
+    if (!wallet || !isTelegramIdentity(wallet)) return;
+    try {
+      if (await hasPayoutWallet(wallet)) return;
+      client.send("chat", {
+        id: crypto.randomUUID(),
+        channel: "system",
+        senderId: "system",
+        senderName: "Season",
+        body:
+          "🏆 You're signed in with Telegram, so we don't have a Solana address to send your Season $BASE rewards to. " +
+          "Open your dashboard and paste your wallet address into “Reward wallet” — you can keep playing without it, " +
+          "but rewards can't be paid until it's set.",
+        sentAt: Date.now(),
+      });
+    } catch (error) {
+      console.warn("[season] payout-wallet notice failed:", error);
+    }
   }
 
   async onLeave(client: Client, consented?: boolean) {
