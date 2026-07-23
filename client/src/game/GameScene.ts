@@ -3418,7 +3418,11 @@ export class GameScene extends Phaser.Scene {
       let mobTexture =
         npc.id === SLIME_BRUTE_NPC_ID || npc.name === "Slime Brute"
           ? "brute"
-          : npc.id === WILD_SLIME_NPC_ID || npc.id.startsWith("wild_slime") || npc.name === "Wild Slime"
+          : npc.id === WILD_SLIME_NPC_ID ||
+              npc.id.startsWith("wild_slime") ||
+              npc.id.startsWith("thorn_slime") ||
+              npc.name === "Wild Slime" ||
+              npc.name === "Thornback Slime"
             ? "slime"
             : isCombat
               ? "dummy"
@@ -3428,7 +3432,13 @@ export class GameScene extends Phaser.Scene {
       let mobKey = null;
       if (npc.id === SLIME_BRUTE_NPC_ID || npc.name === "Slime Brute") {
         mobKey = "mob-slime-brute";
-      } else if (npc.id === WILD_SLIME_NPC_ID || npc.id.startsWith("wild_slime") || npc.name === "Wild Slime") {
+      } else if (
+        npc.id === WILD_SLIME_NPC_ID ||
+        npc.id.startsWith("wild_slime") ||
+        npc.id.startsWith("thorn_slime") ||
+        npc.name === "Wild Slime" ||
+        npc.name === "Thornback Slime"
+      ) {
         mobKey = "mob-slime";
       } else if (npc.id === "training_dummy" || npc.name === "Training Dummy") {
         mobKey = "mob-training-dummy";

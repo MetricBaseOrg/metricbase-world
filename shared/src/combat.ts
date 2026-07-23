@@ -84,6 +84,7 @@ export const TRAINING_DUMMY_COUNTER_DAMAGE = 48;
 export const MOB_COUNTER_DAMAGE: Record<string, number> = {
   training_dummy: 0, // safe practice target — never hits back
   wild_slime: 30,
+  thorn_slime: 45, // mid-tier bridge — flatter than the Brute so L5-9 can grind it
   slime_brute: 72,
   ember_slime: 78,
   void_brute: 88,

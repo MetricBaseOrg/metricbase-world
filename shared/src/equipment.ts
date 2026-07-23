@@ -14,6 +14,10 @@ export const WEAPON_BONUS_DAMAGE: Record<string, number> = {
   // against the Gem Blade's 48 — the step that makes the new mobs killable.
   item_ember_blade: 44,
   item_obsidian_blade: 60,
+  // Bridge weapon (54 total) between the Gem Blade (48) and the Ember Blade (62)
+  // — the missing weapon step through the level 5-9 gap. Crafted from Thornback
+  // drops so it's earnable in the safe Wilderness/Grotto, not the black zone.
+  item_thorn_cleaver: 36,
 };
 
 export function getWeaponBonusDamage(weaponId: string | null | undefined): number {
@@ -312,6 +316,7 @@ export const WEAPON_MAX_DURABILITY: Record<string, number> = {
   [ITEM_GEL_KNIFE]: 50,
   [ITEM_COPPER_DAGGER]: 110,
   [ITEM_GEM_BLADE]: 220,
+  item_thorn_cleaver: 260,
 };
 
 /**

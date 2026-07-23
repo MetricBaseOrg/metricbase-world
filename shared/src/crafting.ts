@@ -358,6 +358,17 @@ export const CRAFT_RECIPES: CraftRecipe[] = [
     output: { itemId: "item_gem_blade", quantity: 1 },
     goldCost: 200,
   },
+  {
+    id: "craft_thorn_cleaver",
+    name: "Thorn Cleaver",
+    description: "Barb a steel cleaver with hardened thorn gel. +36 attack — the step before an Ember Blade.",
+    inputs: [
+      { itemId: "item_steel_bar", quantity: 2 },
+      { itemId: "item_thorn_gel", quantity: 5 },
+    ],
+    output: { itemId: "item_thorn_cleaver", quantity: 1 },
+    goldCost: 120,
+  },
 
   // ---- Armor (Phase 1) ----
   {

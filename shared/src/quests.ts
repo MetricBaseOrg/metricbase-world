@@ -11,6 +11,10 @@ export const QUEST_SLIME_SAMPLES = "quest_slime_samples";
 export const QUEST_ARIA_COMMENDATION = "quest_aria_commendation";
 export const QUEST_EXPLORE_GROTTO = "quest_explore_grotto";
 export const QUEST_DEFEAT_BRUTE = "quest_defeat_brute";
+// Level 5-9 bridge — the Thornback tier + its bridge weapon, wedged between the
+// Brute and the Ember chain so the objective tracker never runs dry mid-climb.
+export const QUEST_THORNBACK = "quest_thornback";
+export const QUEST_THORN_ARMS = "quest_thorn_arms";
 export const QUEST_SMITH_INTRO = "quest_smith_intro";
 export const QUEST_SMITH_IRON = "quest_smith_iron";
 export const QUEST_SMITH_STEEL = "quest_smith_steel";
@@ -191,6 +195,32 @@ export const QUESTS: Record<string, QuestDefinition> = {
     startNpcId: "grotto_warden",
     requiresCompleted: [QUEST_EXPLORE_GROTTO],
   },
+  [QUEST_THORNBACK]: {
+    id: QUEST_THORNBACK,
+    title: "Thin the Herd",
+    description:
+      "Moss says thornback slimes have crept up from the deep pools — tougher than the little ones, but nothing like the Brute. Clear a few out.",
+    objectives: [
+      { type: "defeat_npc", target: "thorn_slime", label: "Defeat a Thornback Slime" },
+    ],
+    rewardXp: 180,
+    rewardGold: 80,
+    startNpcId: "grotto_warden",
+    requiresCompleted: [QUEST_DEFEAT_BRUTE],
+  },
+  [QUEST_THORN_ARMS]: {
+    id: QUEST_THORN_ARMS,
+    title: "Cut from Thorn",
+    description:
+      "Brenna can barb a steel cleaver with hardened thorn gel — a real blade to carry into the deep. Gather the gel and forge one.",
+    objectives: [
+      { type: "collect_item", target: "item_thorn_cleaver", count: 1, label: "Forge a Thorn Cleaver" },
+    ],
+    rewardXp: 260,
+    rewardGold: 120,
+    startNpcId: "hub_smith",
+    requiresCompleted: [QUEST_THORNBACK],
+  },
   [QUEST_SMITH_INTRO]: {
     id: QUEST_SMITH_INTRO,
     title: "The Blacksmith's Call",
@@ -258,7 +288,7 @@ export const QUESTS: Record<string, QuestDefinition> = {
     rewardXp: 220,
     rewardGold: 90,
     startNpcId: "grotto_warden",
-    requiresCompleted: [QUEST_DEFEAT_BRUTE],
+    requiresCompleted: [QUEST_THORN_ARMS],
   },
   [QUEST_EMBER_CORES]: {
     id: QUEST_EMBER_CORES,

@@ -11,6 +11,10 @@ export const MOTTO_MAX_LENGTH = 80;
  */
 export const DASHBOARD_UPDATES: Array<{ title: string; body: string }> = [
   {
+    title: "v0.185 — Thornbacks fill the mid-game",
+    body: "There was a wall around level 5: little slimes gave almost no XP, and the next step up — the Slime Brute — hit like a truck. Now Thornback Slimes prowl the Wilderness and Grotto: tougher than a Wild Slime, far from a Brute, and worth real XP. Their Thorn Gel forges the Thorn Cleaver (+36 attack), the missing weapon step between the Gemforged and Ember Blades. Two new quests from Moss and Brenna guide you through it, right between the Brute and the Ember chain.",
+  },
+  {
     title: "v0.183 — The Ember trail leads to the boss",
     body: "Four new quests carry on from the blacksmith chain: hunt your first Ember Slime for Moss, gather Ember Cores for Brenna, forge the Ember Blade (she gives you an Ember Helm for it), and finally face the Charred Sentinel itself for 1,200 XP and 600 gold. Your objective tracker now has a trail all the way from your first steps in the Hub to the world boss.",
   },

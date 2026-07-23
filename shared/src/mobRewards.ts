@@ -4,6 +4,11 @@ export const WILD_SLIME_NPC_ID = "wild_slime";
 export const WILD_SLIME_GOLD_REWARD = 3;
 export const SLIME_BRUTE_NPC_ID = "slime_brute";
 export const SLIME_BRUTE_GOLD_REWARD = 8;
+/** Mid-tier mob that fills the level 5-9 gap between the trivial Wild Slime and
+ *  the Slime Brute wall. Lives in the safe Wilderness/Grotto; drops Thorn Gel
+ *  for the bridge weapon (Thorn Cleaver). */
+export const THORN_SLIME_NPC_ID = "thorn_slime";
+export const THORN_SLIME_GOLD_REWARD = 7;
 /** Accessible tier ABOVE the Slime Brute — fills the level 5-9 gap where the
  *  only remaining content sat behind the black-zone $BASE burn. */
 export const EMBER_SLIME_NPC_ID = "ember_slime";
@@ -42,6 +47,12 @@ export const MOB_REWARDS: Record<string, MobRewardConfig> = {
     goldReward: SLIME_BRUTE_GOLD_REWARD,
     goldOnceOnly: false,
   },
+  [THORN_SLIME_NPC_ID]: {
+    lootItemId: "item_thorn_gel",
+    lootQuantity: 1,
+    goldReward: THORN_SLIME_GOLD_REWARD,
+    goldOnceOnly: false,
+  },
   [EMBER_SLIME_NPC_ID]: {
     lootItemId: "item_ember_core",
     lootQuantity: 1,
@@ -67,6 +78,7 @@ export function getMobRewardConfig(npcId: string): MobRewardConfig | null {
   // Wild slimes across all zones share the same reward config.
   if (npcId.startsWith("wild_slime")) return MOB_REWARDS[WILD_SLIME_NPC_ID];
   // Numbered variants (ember_slime_1, void_brute_2, …) share their base config.
+  if (npcId.startsWith("thorn_slime")) return MOB_REWARDS[THORN_SLIME_NPC_ID];
   if (npcId.startsWith("ember_slime")) return MOB_REWARDS[EMBER_SLIME_NPC_ID];
   if (npcId.startsWith("void_brute")) return MOB_REWARDS[VOID_BRUTE_NPC_ID];
   // Player-World mob dens: loot + XP only — NO direct gold, so a stocked World
