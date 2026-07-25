@@ -23,12 +23,10 @@
 
 /* ---- Masthead ---- */
 .kx header { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; padding: 4px; }
-.kx .seal {
-  flex: none; width: 56px; height: 56px; border-radius: var(--chibi-radius-sm);
-  display: grid; place-items: center; color: #fff;
-  background: linear-gradient(180deg, var(--chibi-pink), var(--chibi-pink-deep));
+.kx .mb-logo {
+  flex: none; width: 58px; height: 58px; border-radius: var(--chibi-radius-sm);
   border: 3px solid var(--chibi-outline); box-shadow: 0 5px 0 var(--chibi-shadow);
-  font-family: var(--chibi-font-display); font-size: 28px; font-weight: 700; line-height: 1;
+  object-fit: cover; background: var(--chibi-cream);
 }
 .kx h1 { margin: 0; font-family: var(--chibi-font-display); font-size: clamp(1.4rem, 1rem + 2vw, 2rem); font-weight: 700; line-height: 1.1; text-wrap: balance; }
 .kx h1 .jp { color: var(--chibi-pink-deep); }
@@ -51,7 +49,7 @@
 }
 .kx .drop:hover, .kx .drop.drag { border-color: var(--chibi-pink); background: #fff2f6; }
 .kx .drop input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
-.kx .thumb { flex: none; width: 56px; height: 56px; border-radius: 10px; border: 2px solid var(--chibi-outline); background: #fff center/cover no-repeat; display: grid; place-items: center; overflow: hidden; }
+.kx .thumb { flex: none; width: 56px; height: 56px; border-radius: 10px; border: 2px solid var(--chibi-outline); background: #fff center/cover no-repeat; display: grid; place-items: center; overflow: hidden; font-size: 26px; }
 .kx .thumb.secret { background-color: #111; }
 .kx .drop .lbl { min-width: 0; }
 .kx .drop .lbl b { display: block; font-size: 0.92rem; }
@@ -75,8 +73,21 @@
 .kx .seg { display: inline-flex; background: var(--chibi-cream-deep); border: 2px solid var(--chibi-outline); border-radius: var(--chibi-radius-sm); padding: 3px; gap: 2px; }
 .kx .seg button { font: inherit; font-weight: 700; font-size: 0.8rem; border: 0; background: none; color: var(--chibi-ink-soft); padding: 6px 12px; border-radius: 8px; cursor: pointer; }
 .kx .seg button[aria-pressed="true"] { background: var(--chibi-pink); color: #fff; }
+.kx .seg-wide { display: flex; width: 100%; }
+.kx .seg-wide button { flex: 1; padding: 9px 8px; }
 
 .kx .row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+
+/* Advanced fine-tune, tucked away so the default flow stays one-tap simple. */
+.kx .advanced { border: 2px dashed var(--chibi-outline-light); border-radius: var(--chibi-radius-sm); padding: 0 12px; background: rgba(255,255,255,0.35); }
+.kx .advanced[open] { padding-bottom: 12px; }
+.kx .advanced > summary { cursor: pointer; list-style: none; font-weight: 700; font-size: 0.82rem; color: var(--chibi-ink-soft); padding: 10px 2px; user-select: none; }
+.kx .advanced > summary::-webkit-details-marker { display: none; }
+.kx .advanced > summary::before { content: "▸ "; color: var(--chibi-pink-deep); }
+.kx .advanced[open] > summary::before { content: "▾ "; }
+.kx .advanced > summary:hover { color: var(--chibi-ink); }
+.kx .advanced .field { margin-bottom: 14px; }
+.kx .advanced .field:last-child { margin-bottom: 0; }
 
 /* ---- Preview hero ---- */
 .kx .stage-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }

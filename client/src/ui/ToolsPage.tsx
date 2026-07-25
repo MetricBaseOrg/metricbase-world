@@ -19,6 +19,13 @@ type Src = HTMLImageElement | HTMLCanvasElement;
 
 const DISP_MAX = 360;
 
+/** One-tap styles so nobody has to touch a slider to get a good result. */
+const PRESETS = [
+  { name: "Subtle", hide: 74, reveal: 44, contrast: 112, blurb: "Best hidden — almost invisible until tapped." },
+  { name: "Balanced", hide: 62, reveal: 54, contrast: 118, blurb: "A clean flip — the everyday choice." },
+  { name: "Bold", hide: 50, reveal: 72, contrast: 145, blurb: "Loudest reveal — the secret pops hard." },
+] as const;
+
 /** Draw an image/canvas cover-fit into a w×h context (center-crop). */
 function drawCover(ctx: CanvasRenderingContext2D, img: Src, w: number, h: number) {
   const iw = (img as HTMLImageElement).naturalWidth || img.width;
@@ -60,12 +67,12 @@ function demo(text: string, sub: string, fg: string, bg: string, emoji?: string)
 
 export function ToolsPage() {
   const [hide, setHide] = useState(62);
-  const [reveal, setReveal] = useState(52);
-  const [contrast, setContrast] = useState(115);
+  const [reveal, setReveal] = useState(54);
+  const [contrast, setContrast] = useState(118);
   const [size, setSize] = useState(900);
   const [checker, setChecker] = useState(false);
-  const [coverName, setCoverName] = useState("what everyone sees");
-  const [secretName, setSecretName] = useState("revealed on tap");
+  const [coverName, setCoverName] = useState("Tap to upload");
+  const [secretName, setSecretName] = useState("Tap to upload");
   const [dims, setDims] = useState("");
   const [status, setStatus] = useState("");
   const [rev, setRev] = useState(0); // bump to force a rebuild when images change
@@ -78,10 +85,17 @@ export function ToolsPage() {
   const thumbCover = useRef<HTMLSpanElement | null>(null);
   const thumbSecret = useRef<HTMLSpanElement | null>(null);
 
-  // Seed the demo images once.
+  // Seed the demo images once, and show them in the thumbnails so the starting
+  // state is obvious (the tool works before any upload).
   useEffect(() => {
-    coverRef.current = demo("HELLO", "scroll on by", "#20242e", "#eef1f6");
-    secretRef.current = demo("BOO!", "you found me", "#ffffff", "#0b0b0b", "👀");
+    const cov = demo("HELLO", "scroll on by", "#20242e", "#eef1f6");
+    const sec = demo("BOO!", "you found me", "#ffffff", "#0b0b0b", "👀");
+    coverRef.current = cov;
+    secretRef.current = sec;
+    if (thumbCover.current) { thumbCover.current.style.backgroundImage = `url(${cov.toDataURL()})`; thumbCover.current.textContent = ""; }
+    if (thumbSecret.current) { thumbSecret.current.style.backgroundImage = `url(${sec.toDataURL()})`; thumbSecret.current.textContent = ""; }
+    setCoverName("Demo — tap to replace");
+    setSecretName("Demo — tap to replace");
     setRev((r) => r + 1);
   }, []);
 
@@ -211,6 +225,8 @@ export function ToolsPage() {
   const dropCover = useRef<HTMLLabelElement | null>(null);
   const dropSecret = useRef<HTMLLabelElement | null>(null);
 
+  const activePreset = PRESETS.find((p) => p.hide === hide && p.reveal === reveal && p.contrast === contrast)?.name ?? "";
+
   return (
     <div className="kx">
       <div className="wrap">
@@ -222,12 +238,12 @@ export function ToolsPage() {
         </nav>
 
         <header>
-          <div className="seal">隠</div>
+          <img className="mb-logo" src="/metricbase-world.png" alt="MetricBase World" />
           <div>
-            <h1>Kakushie Maker <span className="jp">隠し絵</span></h1>
+            <h1>Hidden Image Maker</h1>
             <p className="tagline">
-              Make one image that hides in the X timeline and reveals a <b>secret</b> only when
-              someone taps to enlarge it. No account, no upload — everything runs in your browser.
+              Make one image that looks ordinary in the X timeline but reveals a <b>hidden picture</b> when
+              someone taps to enlarge it. Free, no sign-in — everything runs right here in your browser.
             </p>
           </div>
         </header>
@@ -235,30 +251,45 @@ export function ToolsPage() {
         <div className="grid">
           {/* ---- Controls ---- */}
           <section className="chibi-panel panel-pad" aria-label="Image controls">
-            <div className="eyebrow">Step 1 · Pick two pictures</div>
+            <div className="eyebrow">Step 1 · Choose two pictures</div>
             <h2>Your images</h2>
 
             <div className="drops">
               <label className="drop" ref={dropCover} {...dragHandlers(dropCover)}>
-                <input type="file" accept="image/*" aria-label="Cover image"
+                <input type="file" accept="image/*" aria-label="Visible image"
                   onChange={(e) => loadFile(e.target.files?.[0], coverRef, thumbCover, setCoverName)} />
-                <span className="thumb" ref={thumbCover} aria-hidden="true" />
-                <span className="lbl"><b>Cover</b><span>{coverName}</span></span>
+                <span className="thumb" ref={thumbCover} aria-hidden="true">📷</span>
+                <span className="lbl"><b>Visible picture</b><span>{coverName}</span></span>
                 <span className="role">Shown</span>
               </label>
 
               <label className="drop" ref={dropSecret} {...dragHandlers(dropSecret)}>
-                <input type="file" accept="image/*" aria-label="Secret image"
+                <input type="file" accept="image/*" aria-label="Hidden image"
                   onChange={(e) => loadFile(e.target.files?.[0], secretRef, thumbSecret, setSecretName)} />
-                <span className="thumb secret" ref={thumbSecret} aria-hidden="true" />
-                <span className="lbl"><b>Secret</b><span>{secretName}</span></span>
+                <span className="thumb secret" ref={thumbSecret} aria-hidden="true">🙈</span>
+                <span className="lbl"><b>Hidden picture</b><span>{secretName}</span></span>
                 <span className="role dark">Hidden</span>
               </label>
             </div>
-            <button className="swap" type="button" onClick={swap}>⇅ Swap cover &amp; secret</button>
+            <button className="swap" type="button" onClick={swap}>⇅ Swap the two pictures</button>
 
             <div className="controls">
-              <div className="eyebrow">Step 2 · Tune the illusion</div>
+              <div className="eyebrow">Step 2 · Pick a style</div>
+
+              <div className="field size0">
+                <div className="seg seg-wide" role="group" aria-label="Quick style">
+                  {PRESETS.map((p) => (
+                    <button key={p.name} type="button" aria-pressed={activePreset === p.name}
+                      onClick={() => { setHide(p.hide); setReveal(p.reveal); setContrast(p.contrast); }}>
+                      {p.name}
+                    </button>
+                  ))}
+                </div>
+                <p className="hint">{PRESETS.find((p) => p.name === activePreset)?.blurb ?? "Fine-tune it below if you like."}</p>
+              </div>
+
+              <details className="advanced">
+                <summary>Fine-tune (optional)</summary>
 
               <div className="field">
                 <label htmlFor="kx-hide">Hide strength <span className="val mono">{hide}%</span></label>
@@ -280,6 +311,7 @@ export function ToolsPage() {
                   onChange={(e) => setContrast(+e.target.value)} />
                 <p className="hint">Punch up a flat secret so it reads clearly against black.</p>
               </div>
+              </details>
 
               <div className="row">
                 <div className="field size0">
@@ -331,18 +363,18 @@ export function ToolsPage() {
             </div>
 
             <div className="chibi-panel panel-pad howto" style={{ marginTop: 16 }}>
-              <div className="eyebrow">Posting it on X</div>
+              <div className="eyebrow">How to post it on X</div>
               <ol>
-                <li><span>Download the PNG and post it from a <b>desktop browser</b> at x.com — the mobile apps re-encode images and break the effect.</span></li>
-                <li><span>In the timeline it shows your <b>cover</b>. When a viewer <b>taps to enlarge</b>, the dark viewer background reveals the <b>secret</b>.</span></li>
-                <li><span>It reads best for people in <b>light mode</b> timelines. Keep the cover busy and the secret high-contrast for the cleanest flip.</span></li>
+                <li><span>Tap <b>Download PNG</b>, then post the file from a <b>desktop browser</b> at x.com — the phone apps re-compress images and break the effect.</span></li>
+                <li><span>In the timeline people see your <b>visible picture</b>. When they <b>tap to enlarge</b> it, the hidden picture appears.</span></li>
+                <li><span>Works best for viewers on <b>light mode</b>. A busy visible picture and a bold hidden one give the cleanest surprise.</span></li>
               </ol>
-              <p className="note"><b>How it works:</b> every pixel gets a custom transparency so it lands on your cover tone over white and your secret tone over black — the classic 隠し絵 alpha trick, computed live on your device. Grayscale by nature; nothing leaves your browser.</p>
+              <p className="note"><b>How it works:</b> every pixel is given its own transparency so the image lands on your visible picture over a white background and your hidden picture over black. It's grayscale by nature, and it all runs on your device — nothing is uploaded.</p>
             </div>
           </section>
         </div>
 
-        <footer>Made for hiding pictures in plain sight · <span className="mono">隠し絵</span> · runs 100% client-side</footer>
+        <footer>A free MetricBase World tool · runs 100% in your browser</footer>
       </div>
     </div>
   );
