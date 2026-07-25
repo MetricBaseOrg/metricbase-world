@@ -107,7 +107,7 @@ function resultPage(ok: boolean, message: string): string {
   <div class="card">
     <div class="mark">${ok ? "✅" : "⚠️"}</div>
     <p>${safe}</p>
-    <a href="/play">Back to the game</a>
+    <a href="/dashboard">Back to the dashboard</a>
   </div>
   <script>
     // If we were opened as a tab/Custom Tab the shell can close, do so — the

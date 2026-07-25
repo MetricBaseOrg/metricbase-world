@@ -18,6 +18,10 @@
       "destination": "https://metricbaseserver-production.up.railway.app/api/stats"
     },
     {
+      "source": "/api/x/link/callback",
+      "destination": "https://metricbaseserver-production.up.railway.app/api/x/link/callback"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
