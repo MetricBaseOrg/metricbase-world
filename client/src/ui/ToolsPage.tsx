@@ -2,9 +2,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import "./tools.css";
 
 /**
- * Kakushie Maker at /tools — makes an X "hidden image" (隠し絵): one transparent
- * PNG that shows a COVER picture in the timeline (composited over white) and a
- * SECRET picture when tapped to enlarge (composited over black).
+ * Hidden Image Maker at /tools — makes an X "hidden image": a transparent PNG
+ * that looks ordinary in the timeline (composited over white) and reveals more
+ * when tapped to enlarge (composited over black). Two modes:
+ *   • Two pictures — a cover shows in the timeline, a secret shows when tapped.
+ *   • Paint to hide — one photo; brushed areas hide until tapped, the rest stays
+ *     visible. Both share the pixel math below.
  *
  * The trick is pure per-pixel alpha. For each pixel we solve for a colour v and
  * alpha a so the composite lands on the cover tone C over white and the secret
@@ -20,6 +23,7 @@ import "./tools.css";
 type Src = HTMLImageElement | HTMLCanvasElement;
 
 const DISP_MAX = 360;
+const WORK_MAX = 680; // internal resolution of the brush/paint surface
 
 /** One-tap styles so nobody has to touch a slider to get a good result. */
 const PRESETS = [
@@ -47,6 +51,32 @@ function rgbaOf(src: Src, w: number, h: number): Uint8ClampedArray {
   return x.getImageData(0, 0, w, h).data;
 }
 
+const clamp255 = (n: number) => (n < 0 ? 0 : n > 255 ? 255 : n);
+
+/**
+ * The hidden-image pixel: given a cover luminance to show over white and a
+ * secret pixel to show over black, return [r,g,b,alpha] (0..255). Keeps the
+ * secret's hue when keepColor is set. Shared by both modes.
+ */
+function hiddenRGBA(
+  coverLum: number, sr: number, sg: number, sb: number, secretLum: number,
+  floor: number, ceil: number, k: number, keepColor: boolean,
+): [number, number, number, number] {
+  const C = floor + (coverLum / 255) * (255 - floor);
+  const sl = clamp255((secretLum - 128) * k + 128);
+  let S = (sl / 255) * ceil;
+  if (S > C) S = C;
+  let a = 1 - (C - S) / 255;
+  if (a < 0.0039) a = 0.0039;
+  if (a > 1) a = 1;
+  if (keepColor && secretLum > 0.5) {
+    const sc = (S / secretLum) / a;
+    return [clamp255(sr * sc), clamp255(sg * sc), clamp255(sb * sc), a * 255];
+  }
+  const v = clamp255(S / a);
+  return [v, v, v, a * 255];
+}
+
 /** A self-demonstrating default so the tool works before any upload. */
 function demo(text: string, sub: string, fg: string, bg: string, emoji?: string): HTMLCanvasElement {
   const c = document.createElement("canvas");
@@ -69,6 +99,10 @@ export function ToolsPage() {
   const [size, setSize] = useState(900);
   const [checker, setChecker] = useState(false);
   const [keepColor, setKeepColor] = useState(true);
+  const [mode, setMode] = useState<"two" | "brush">("two");
+  const [tool, setTool] = useState<"paint" | "erase">("paint");
+  const [brushSize, setBrushSize] = useState(46);
+  const [hasPhoto, setHasPhoto] = useState(false);
   const [coverName, setCoverName] = useState("Tap to upload");
   const [secretName, setSecretName] = useState("Tap to upload");
   const [dims, setDims] = useState("");
@@ -82,6 +116,13 @@ export function ToolsPage() {
   const cvDark = useRef<HTMLCanvasElement | null>(null);
   const thumbCover = useRef<HTMLSpanElement | null>(null);
   const thumbSecret = useRef<HTMLSpanElement | null>(null);
+
+  // Brush mode: one photo + a paint mask (painted = hidden until tapped).
+  const photoRef = useRef<Src | null>(null);
+  const maskRef = useRef<HTMLCanvasElement | null>(null);  // working-res mask (alpha)
+  const editRef = useRef<HTMLCanvasElement | null>(null);  // visible paint surface
+  const paintingRef = useRef(false);
+  const workRef = useRef({ w: 0, h: 0 });
 
   // Seed the demo images once, and show them in the thumbnails so the starting
   // state is obvious (the tool works before any upload).
@@ -125,7 +166,8 @@ export function ToolsPage() {
     }
   }, []);
 
-  const build = useCallback(() => {
+  // ---- Two-image build: cover shows over white, secret over black. ----
+  const buildTwo = useCallback(() => {
     const cover = coverRef.current, secret = secretRef.current;
     if (!cover || !secret) return;
 
@@ -135,50 +177,23 @@ export function ToolsPage() {
     let W = size, H = Math.round(size / ratio);
     if (H > size) { H = size; W = Math.round(size * ratio); }
 
-    const cd = rgbaOf(cover, W, H);   // cover pixels (used for its luminance)
-    const sd = rgbaOf(secret, W, H);  // secret pixels (its COLOUR is preserved)
-
+    const cd = rgbaOf(cover, W, H);
+    const sd = rgbaOf(secret, W, H);
     const floor = (0.35 + 0.50 * (hide / 100)) * 255;
     const ceil = (0.28 + 0.55 * (reveal / 100)) * 255;
     const k = contrast / 100;
-    const clamp = (n: number) => (n < 0 ? 0 : n > 255 ? 255 : n);
 
     const out = document.createElement("canvas");
     out.width = W; out.height = H;
     const octx = out.getContext("2d")!;
     const img = octx.createImageData(W, H);
     const o = img.data;
-
-    for (let p = 0, i = 0; p < W * H; p++, i += 4) {
+    for (let i = 0; i < o.length; i += 4) {
       const coverLum = 0.299 * cd[i] + 0.587 * cd[i + 1] + 0.114 * cd[i + 2];
       const sr = sd[i], sg = sd[i + 1], sb = sd[i + 2];
       const secretLum = 0.299 * sr + 0.587 * sg + 0.114 * sb;
-
-      // Cover mapped into a light band [floor,255]; secret luminance contrast-
-      // adjusted then mapped into [0,ceil]. alpha is shared per pixel (one alpha
-      // channel), so it's derived from luminances; C >= S is guaranteed.
-      const C = floor + (coverLum / 255) * (255 - floor);
-      let sl = (secretLum - 128) * k + 128;
-      sl = clamp(sl);
-      let S = (sl / 255) * ceil;
-      if (S > C) S = C;
-      let a = 1 - (C - S) / 255;
-      if (a < 0.0039) a = 0.0039;
-      if (a > 1) a = 1;
-      o[i + 3] = Math.round(a * 255);
-
-      if (keepColor && secretLum > 0.5) {
-        // Preserve the revealed image's HUE: scale its RGB to target luminance S,
-        // then predivide by alpha so a*colour reproduces the secret colour over
-        // black. Grayscale highlights (secretLum~0) fall through to the gray path.
-        const scale = (S / secretLum) / a;
-        o[i] = Math.round(clamp(sr * scale));
-        o[i + 1] = Math.round(clamp(sg * scale));
-        o[i + 2] = Math.round(clamp(sb * scale));
-      } else {
-        const v = Math.round(clamp(S / a));
-        o[i] = o[i + 1] = o[i + 2] = v;
-      }
+      const [r, g, b, al] = hiddenRGBA(coverLum, sr, sg, sb, secretLum, floor, ceil, k, keepColor);
+      o[i] = Math.round(r); o[i + 1] = Math.round(g); o[i + 2] = Math.round(b); o[i + 3] = Math.round(al);
     }
     octx.putImageData(img, 0, 0);
     outRef.current = out;
@@ -186,7 +201,61 @@ export function ToolsPage() {
     setDims(`${W} × ${H} px`);
   }, [hide, reveal, contrast, size, keepColor, paint]);
 
-  // Rebuild on any control change or when images swap in.
+  // ---- Brush build: one photo; PAINTED (masked) areas hide until tapped,
+  // unpainted areas stay normally visible. Soft brush edges blend the two. ----
+  const buildBrush = useCallback(() => {
+    const photo = photoRef.current, mask = maskRef.current;
+    if (!photo || !mask) return;
+
+    const pw = (photo as HTMLImageElement).naturalWidth || photo.width;
+    const ph = (photo as HTMLImageElement).naturalHeight || photo.height;
+    const ratio = pw / ph;
+    let W = size, H = Math.round(size / ratio);
+    if (H > size) { H = size; W = Math.round(size * ratio); }
+
+    const pd = rgbaOf(photo, W, H);
+    // Scale the working-res mask up to output size.
+    const mc = document.createElement("canvas"); mc.width = W; mc.height = H;
+    const mx = mc.getContext("2d", { willReadFrequently: true })!;
+    mx.imageSmoothingEnabled = true;
+    mx.drawImage(mask, 0, 0, W, H);
+    const md = mx.getImageData(0, 0, W, H).data;
+
+    // Masked areas hide against a FLAT light field so the timeline gives nothing
+    // away; the hide slider sets how blank that field is.
+    const flatCover = 190 + (hide / 100) * 65;
+    const floor = (0.35 + 0.50 * (hide / 100)) * 255;
+    const ceil = (0.28 + 0.55 * (reveal / 100)) * 255;
+    const k = contrast / 100;
+
+    const out = document.createElement("canvas");
+    out.width = W; out.height = H;
+    const octx = out.getContext("2d")!;
+    const img = octx.createImageData(W, H);
+    const o = img.data;
+    for (let i = 0; i < o.length; i += 4) {
+      const pr = pd[i], pg = pd[i + 1], pb = pd[i + 2];
+      const m = md[i + 3] / 255; // painted coverage 0..1
+      if (m <= 0.001) { o[i] = pr; o[i + 1] = pg; o[i + 2] = pb; o[i + 3] = 255; continue; }
+      const lum = 0.299 * pr + 0.587 * pg + 0.114 * pb;
+      const [hr, hg, hb, ha] = hiddenRGBA(flatCover, pr, pg, pb, lum, floor, ceil, k, keepColor);
+      // Blend opaque photo (visible) with the hidden pixel by mask coverage.
+      o[i] = Math.round(pr * (1 - m) + hr * m);
+      o[i + 1] = Math.round(pg * (1 - m) + hg * m);
+      o[i + 2] = Math.round(pb * (1 - m) + hb * m);
+      o[i + 3] = Math.round(255 * (1 - m) + ha * m);
+    }
+    octx.putImageData(img, 0, 0);
+    outRef.current = out;
+    paint(W, H);
+    setDims(`${W} × ${H} px`);
+  }, [hide, reveal, contrast, size, keepColor, paint]);
+
+  const build = useCallback(() => {
+    if (mode === "brush") buildBrush(); else buildTwo();
+  }, [mode, buildBrush, buildTwo]);
+
+  // Rebuild on any control change, image swap, or mask edit.
   useEffect(() => { build(); }, [build, rev]);
 
   const loadFile = (
@@ -232,6 +301,104 @@ export function ToolsPage() {
     }, "image/png");
   };
 
+  // ---- Brush mode: paint surface + strokes ----
+  // Redraw the editable canvas: the photo with a translucent mark over painted
+  // (soon-to-be-hidden) areas.
+  const renderEdit = useCallback(() => {
+    const ed = editRef.current, photo = photoRef.current, mask = maskRef.current;
+    if (!ed || !photo || !mask) return;
+    const { w, h } = workRef.current;
+    const cx = ed.getContext("2d")!;
+    cx.clearRect(0, 0, w, h);
+    drawCover(cx, photo, w, h);
+    const ov = document.createElement("canvas"); ov.width = w; ov.height = h;
+    const ox = ov.getContext("2d")!;
+    ox.drawImage(mask, 0, 0);
+    ox.globalCompositeOperation = "source-in";
+    ox.fillStyle = "#ff2e63"; ox.fillRect(0, 0, w, h);
+    cx.globalAlpha = 0.5; cx.drawImage(ov, 0, 0); cx.globalAlpha = 1;
+  }, []);
+
+  const setupPhoto = useCallback((img: Src) => {
+    const iw = (img as HTMLImageElement).naturalWidth || img.width;
+    const ih = (img as HTMLImageElement).naturalHeight || img.height;
+    const ratio = iw / ih;
+    let w = WORK_MAX, h = Math.round(WORK_MAX / ratio);
+    if (h > WORK_MAX) { h = WORK_MAX; w = Math.round(WORK_MAX * ratio); }
+    workRef.current = { w, h };
+    const m = document.createElement("canvas"); m.width = w; m.height = h;
+    maskRef.current = m;
+    photoRef.current = img;
+    if (editRef.current) { editRef.current.width = w; editRef.current.height = h; }
+    setHasPhoto(true);
+    renderEdit();
+    setRev((r) => r + 1);
+  }, [renderEdit]);
+
+  const lastPt = useRef<{ x: number; y: number } | null>(null);
+  const strokeAt = useCallback((clientX: number, clientY: number) => {
+    const ed = editRef.current, mask = maskRef.current;
+    if (!ed || !mask) return;
+    const rect = ed.getBoundingClientRect();
+    const { w, h } = workRef.current;
+    const x = ((clientX - rect.left) / rect.width) * w;
+    const y = ((clientY - rect.top) / rect.height) * h;
+    const mx = mask.getContext("2d")!;
+    mx.globalCompositeOperation = tool === "erase" ? "destination-out" : "source-over";
+    mx.strokeStyle = "rgba(255,255,255,1)";
+    mx.fillStyle = "rgba(255,255,255,1)";
+    mx.lineCap = "round"; mx.lineJoin = "round"; mx.lineWidth = brushSize;
+    const last = lastPt.current;
+    if (last) { mx.beginPath(); mx.moveTo(last.x, last.y); mx.lineTo(x, y); mx.stroke(); }
+    else { mx.beginPath(); mx.arc(x, y, brushSize / 2, 0, Math.PI * 2); mx.fill(); }
+    lastPt.current = { x, y };
+    renderEdit();
+  }, [tool, brushSize, renderEdit]);
+
+  const onPointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    (e.target as HTMLCanvasElement).setPointerCapture(e.pointerId);
+    paintingRef.current = true; lastPt.current = null;
+    strokeAt(e.clientX, e.clientY);
+  };
+  const onPointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (!paintingRef.current) return;
+    strokeAt(e.clientX, e.clientY);
+  };
+  const endStroke = () => {
+    if (!paintingRef.current) return;
+    paintingRef.current = false; lastPt.current = null;
+    setRev((r) => r + 1); // rebuild the output previews now the stroke is done
+  };
+
+  const clearMask = () => {
+    const mask = maskRef.current;
+    if (!mask) return;
+    mask.getContext("2d")!.clearRect(0, 0, mask.width, mask.height);
+    renderEdit();
+    setRev((r) => r + 1);
+  };
+
+  const loadPhoto = (file: File | undefined) => {
+    if (!file || !file.type.startsWith("image/")) return;
+    const im = new Image();
+    im.onload = () => setupPhoto(im);
+    im.src = URL.createObjectURL(file);
+  };
+
+  // Entering brush mode: make sure there's a photo to paint on (seed the demo)
+  // and the paint surface is sized + drawn.
+  useEffect(() => {
+    if (mode !== "brush") return;
+    if (!photoRef.current) { setupPhoto(demo("Selfie", "your photo here", "#2a2f3a", "#dfe7f5", "🙂")); return; }
+    const { w, h } = workRef.current;
+    if (editRef.current && (editRef.current.width !== w || editRef.current.height !== h)) {
+      editRef.current.width = w; editRef.current.height = h;
+    }
+    renderEdit();
+    setRev((r) => r + 1);
+  }, [mode, setupPhoto, renderEdit]);
+
   const dragHandlers = (ref: React.RefObject<HTMLLabelElement>) => ({
     onDragEnter: (e: React.DragEvent) => { e.preventDefault(); ref.current?.classList.add("drag"); },
     onDragOver: (e: React.DragEvent) => { e.preventDefault(); ref.current?.classList.add("drag"); },
@@ -267,27 +434,60 @@ export function ToolsPage() {
         <div className="grid">
           {/* ---- Controls ---- */}
           <section className="chibi-panel panel-pad" aria-label="Image controls">
-            <div className="eyebrow">Step 1 · Choose two pictures</div>
-            <h2>Your images</h2>
-
-            <div className="drops">
-              <label className="drop" ref={dropCover} {...dragHandlers(dropCover)}>
-                <input type="file" accept="image/*" aria-label="Visible image"
-                  onChange={(e) => loadFile(e.target.files?.[0], coverRef, thumbCover, setCoverName)} />
-                <span className="thumb" ref={thumbCover} aria-hidden="true">📷</span>
-                <span className="lbl"><b>Visible picture</b><span>{coverName}</span></span>
-                <span className="role">Shown</span>
-              </label>
-
-              <label className="drop" ref={dropSecret} {...dragHandlers(dropSecret)}>
-                <input type="file" accept="image/*" aria-label="Hidden image"
-                  onChange={(e) => loadFile(e.target.files?.[0], secretRef, thumbSecret, setSecretName)} />
-                <span className="thumb secret" ref={thumbSecret} aria-hidden="true">🙈</span>
-                <span className="lbl"><b>Hidden picture</b><span>{secretName}</span></span>
-                <span className="role dark">Hidden</span>
-              </label>
+            <div className="field size0" style={{ marginBottom: 16 }}>
+              <div className="seg seg-wide" role="group" aria-label="Mode">
+                <button type="button" aria-pressed={mode === "two"} onClick={() => setMode("two")}>Two pictures</button>
+                <button type="button" aria-pressed={mode === "brush"} onClick={() => setMode("brush")}>Paint to hide</button>
+              </div>
             </div>
-            <button className="swap" type="button" onClick={swap}>⇅ Swap the two pictures</button>
+
+            {mode === "two" ? (
+              <>
+                <div className="eyebrow">Step 1 · Choose two pictures</div>
+                <h2>Your images</h2>
+                <div className="drops">
+                  <label className="drop" ref={dropCover} {...dragHandlers(dropCover)}>
+                    <input type="file" accept="image/*" aria-label="Visible image"
+                      onChange={(e) => loadFile(e.target.files?.[0], coverRef, thumbCover, setCoverName)} />
+                    <span className="thumb" ref={thumbCover} aria-hidden="true">📷</span>
+                    <span className="lbl"><b>Visible picture</b><span>{coverName}</span></span>
+                    <span className="role">Shown</span>
+                  </label>
+                  <label className="drop" ref={dropSecret} {...dragHandlers(dropSecret)}>
+                    <input type="file" accept="image/*" aria-label="Hidden image"
+                      onChange={(e) => loadFile(e.target.files?.[0], secretRef, thumbSecret, setSecretName)} />
+                    <span className="thumb secret" ref={thumbSecret} aria-hidden="true">🙈</span>
+                    <span className="lbl"><b>Hidden picture</b><span>{secretName}</span></span>
+                    <span className="role dark">Hidden</span>
+                  </label>
+                </div>
+                <button className="swap" type="button" onClick={swap}>⇅ Swap the two pictures</button>
+              </>
+            ) : (
+              <>
+                <div className="eyebrow">Step 1 · Your photo, then paint</div>
+                <h2>Paint what to hide</h2>
+                <label className="drop" style={{ marginBottom: 12 }}>
+                  <input type="file" accept="image/*" aria-label="Photo"
+                    onChange={(e) => loadPhoto(e.target.files?.[0])} />
+                  <span className="thumb" aria-hidden="true">🖼️</span>
+                  <span className="lbl"><b>{hasPhoto ? "Change photo" : "Upload a photo"}</b><span>Tap to choose an image</span></span>
+                </label>
+                <div className="brush-bar">
+                  <div className="seg" role="group" aria-label="Tool">
+                    <button type="button" aria-pressed={tool === "paint"} onClick={() => setTool("paint")}>🖌 Hide</button>
+                    <button type="button" aria-pressed={tool === "erase"} onClick={() => setTool("erase")}>🩹 Erase</button>
+                  </div>
+                  <button className="chibi-btn chibi-btn--ghost brush-clear" type="button" onClick={clearMask}>Clear</button>
+                </div>
+                <div className="field" style={{ marginTop: 12 }}>
+                  <label htmlFor="kx-brush">Brush size <span className="val mono">{brushSize}px</span></label>
+                  <input id="kx-brush" type="range" min={12} max={140} value={brushSize}
+                    onChange={(e) => setBrushSize(+e.target.value)} />
+                  <p className="hint">Paint over the parts of the photo you want hidden until someone taps it.</p>
+                </div>
+              </>
+            )}
 
             <div className="controls">
               <div className="eyebrow">Step 2 · Pick a style</div>
@@ -360,10 +560,38 @@ export function ToolsPage() {
 
           {/* ---- Preview ---- */}
           <section aria-label="Preview">
+            {mode === "brush" && (
+              <div className="chibi-panel panel-pad" style={{ marginBottom: 16 }}>
+                <div className="stage-head">
+                  <div>
+                    <div className="eyebrow">Step 2 · Paint over what to hide</div>
+                    <h2 style={{ marginBottom: 0 }}>Paint the photo</h2>
+                  </div>
+                  <span className="mono" style={{ fontSize: ".78rem", color: "var(--chibi-ink-soft)" }}>
+                    {tool === "erase" ? "Erasing" : "Hiding"} · {brushSize}px
+                  </span>
+                </div>
+                <div className="paint-hold">
+                  <canvas
+                    ref={editRef}
+                    className="paint-canvas"
+                    onPointerDown={onPointerDown}
+                    onPointerMove={onPointerMove}
+                    onPointerUp={endStroke}
+                    onPointerLeave={endStroke}
+                    onPointerCancel={endStroke}
+                  />
+                </div>
+                <p className="hint" style={{ marginTop: 10 }}>
+                  Drag across the photo to mark the areas that stay hidden until someone taps the image. Use <b>Erase</b> to fix mistakes.
+                </p>
+              </div>
+            )}
+
             <div className="chibi-panel panel-pad">
               <div className="stage-head">
                 <div>
-                  <div className="eyebrow">Step 3 · The same file, two ways</div>
+                  <div className="eyebrow">{mode === "brush" ? "Step 3 · Preview & save" : "Step 3 · The same file, two ways"}</div>
                   <h2 style={{ marginBottom: 0 }}>Live preview</h2>
                 </div>
                 <span className="mono" style={{ fontSize: ".78rem", color: "var(--chibi-ink-soft)" }}>{dims}</span>

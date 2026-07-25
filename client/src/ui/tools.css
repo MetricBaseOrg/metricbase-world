@@ -114,6 +114,22 @@
 
 .kx .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; align-items: center; }
 
+/* ---- Brush mode ---- */
+.kx .brush-bar { display: flex; align-items: stretch; gap: 10px; }
+.kx .brush-bar .seg { flex: 1; }
+.kx .brush-bar .seg button { flex: 1; }
+.kx .brush-clear { padding: 8px 16px; }
+.kx .paint-hold {
+  display: grid; place-items: center; padding: 10px; border-radius: var(--chibi-radius-sm);
+  border: 3px solid var(--chibi-outline); box-shadow: 0 4px 0 var(--chibi-shadow);
+  background:
+    linear-gradient(45deg, #e9e2d4 25%, transparent 25%), linear-gradient(-45deg, #e9e2d4 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #e9e2d4 75%), linear-gradient(-45deg, transparent 75%, #e9e2d4 75%),
+    var(--chibi-cream);
+  background-size: 18px 18px; background-position: 0 0, 0 9px, 9px -9px, -9px 0;
+}
+.kx .paint-canvas { max-width: 100%; height: auto; display: block; border-radius: 6px; cursor: crosshair; touch-action: none; }
+
 /* ---- How-to ---- */
 .kx .howto ol { margin: 6px 0 0; padding-left: 0; list-style: none; counter-reset: step; display: grid; gap: 12px; }
 .kx .howto li { counter-increment: step; display: grid; grid-template-columns: 30px 1fr; gap: 12px; align-items: start; font-size: 0.92rem; }
