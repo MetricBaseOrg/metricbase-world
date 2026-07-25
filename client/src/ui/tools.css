@@ -1,124 +1,97 @@
-/* Kakushie Maker (/tools) — self-contained, scoped under .kx so it keeps its own
-   considered look without fighting the global chibi theme. Theme is toggled on
-   the .kx container itself (data-kx-theme), never on <html>, for the same reason. */
+/* Kakushie Maker (/tools) — an ordinary scrolling page in the in-game chibi
+   theme (chibiTheme.css variables + .chibi-panel / .chibi-btn classes), matching
+   /dashboard. Scoped under .kx so the kakushie-specific bits stay contained. */
 .kx {
-  --paper: #ECEDF1;
-  --paper-2: #F6F6F9;
-  --card: #FFFFFF;
-  --ink: #14161C;
-  --ink-soft: #5A5F6B;
-  --line: #D6D8E0;
-  --indigo: #2E3A59;
-  --shu: #DA3A2A;
-  --shu-deep: #B62C1E;
-  --focus: #2E3A59;
-  --radius: 14px;
-  --shadow: 0 1px 2px rgba(20,22,28,.06), 0 8px 24px rgba(20,22,28,.06);
-
   min-height: 100vh;
-  background: var(--paper);
-  color: var(--ink);
-  font: 400 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  letter-spacing: .1px;
+  font-family: var(--chibi-font);
+  color: var(--chibi-ink);
+  padding: 20px 16px 56px;
+  background:
+    radial-gradient(1100px 600px at 50% -12%, #d9f3ff, transparent 60%),
+    radial-gradient(circle at 82% 18%, rgba(255, 214, 232, 0.5), transparent 34%),
+    linear-gradient(180deg, #bfe9fb 0%, #dff4ff 55%, #d5f0c6 100%);
 }
-@media (prefers-color-scheme: dark) {
-  .kx {
-    --paper: #0F1116; --paper-2: #14161C; --card: #191C24; --ink: #E9EAF0;
-    --ink-soft: #9AA0AF; --line: #2A2E3A; --indigo: #9FB0DA; --shu: #F0574A;
-    --shu-deep: #D93A2C; --focus: #9FB0DA;
-    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.35);
-  }
-}
-.kx[data-kx-theme="light"] {
-  --paper: #ECEDF1; --paper-2: #F6F6F9; --card: #FFFFFF; --ink: #14161C;
-  --ink-soft: #5A5F6B; --line: #D6D8E0; --indigo: #2E3A59; --shu: #DA3A2A;
-  --shu-deep: #B62C1E; --focus: #2E3A59;
-  --shadow: 0 1px 2px rgba(20,22,28,.06), 0 8px 24px rgba(20,22,28,.06);
-}
-.kx[data-kx-theme="dark"] {
-  --paper: #0F1116; --paper-2: #14161C; --card: #191C24; --ink: #E9EAF0;
-  --ink-soft: #9AA0AF; --line: #2A2E3A; --indigo: #9FB0DA; --shu: #F0574A;
-  --shu-deep: #D93A2C; --focus: #9FB0DA;
-  --shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.35);
-}
-
 .kx * { box-sizing: border-box; }
-.kx .serif { font-family: "Hiragino Mincho ProN", "Yu Mincho", "YuMincho", "Songti SC", Georgia, "Times New Roman", serif; }
-.kx .mono { font-family: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; }
+.kx .wrap { max-width: 1180px; margin: 0 auto; display: grid; gap: 16px; }
+.kx .mono { font-variant-numeric: tabular-nums; }
 
-.kx .wrap { max-width: 1180px; margin: 0 auto; padding: 22px 22px 64px; }
-
-.kx .topnav { display: flex; align-items: center; gap: 16px; font-size: .85rem; margin-bottom: 20px; }
-.kx .topnav a { color: var(--ink-soft); text-decoration: none; }
-.kx .topnav a:hover { color: var(--shu); }
+/* ---- Top nav (mirrors /dashboard) ---- */
+.kx .topnav { display: flex; align-items: center; gap: 16px; font-weight: 700; font-size: 0.85rem; padding: 4px 4px 0; flex-wrap: wrap; }
+.kx .topnav a { color: var(--chibi-ink-soft); text-decoration: none; }
+.kx .topnav a:hover { color: var(--chibi-ink); }
 .kx .topnav .spacer { flex: 1; }
 
-.kx header { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; flex-wrap: wrap; margin-bottom: 26px; }
-.kx .brand { display: flex; align-items: center; gap: 16px; }
+/* ---- Masthead ---- */
+.kx header { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; padding: 4px; }
 .kx .seal {
-  flex: none; width: 54px; height: 54px; border-radius: 12px;
-  display: grid; place-items: center; color: #fff; background: var(--shu);
-  box-shadow: inset 0 0 0 2px rgba(255,255,255,.18), 0 6px 18px rgba(218,58,42,.32);
-  font-family: "Hiragino Mincho ProN","Yu Mincho",Georgia,serif; font-size: 30px; font-weight: 700; line-height: 1;
+  flex: none; width: 56px; height: 56px; border-radius: var(--chibi-radius-sm);
+  display: grid; place-items: center; color: #fff;
+  background: linear-gradient(180deg, var(--chibi-pink), var(--chibi-pink-deep));
+  border: 3px solid var(--chibi-outline); box-shadow: 0 5px 0 var(--chibi-shadow);
+  font-family: var(--chibi-font-display); font-size: 28px; font-weight: 700; line-height: 1;
 }
-.kx h1 { margin: 0; font-size: clamp(1.5rem, 1rem + 2.2vw, 2.35rem); font-weight: 600; line-height: 1.08; text-wrap: balance; letter-spacing: -.2px; }
-.kx h1 .jp { color: var(--shu); }
-.kx .tagline { margin: 4px 0 0; color: var(--ink-soft); font-size: .96rem; max-width: 52ch; }
-.kx .theme-toggle { font: inherit; font-size: .85rem; color: var(--ink-soft); cursor: pointer; background: var(--card); border: 1px solid var(--line); border-radius: 999px; padding: 8px 14px; display: inline-flex; align-items: center; gap: 7px; }
-.kx .theme-toggle:hover { color: var(--ink); border-color: var(--indigo); }
+.kx h1 { margin: 0; font-family: var(--chibi-font-display); font-size: clamp(1.4rem, 1rem + 2vw, 2rem); font-weight: 700; line-height: 1.1; text-wrap: balance; }
+.kx h1 .jp { color: var(--chibi-pink-deep); }
+.kx .tagline { margin: 4px 0 0; color: var(--chibi-ink-soft); font-size: 0.92rem; max-width: 56ch; }
 
-.kx .grid { display: grid; grid-template-columns: 360px minmax(0,1fr); gap: 22px; align-items: start; }
+/* ---- Layout ---- */
+.kx .grid { display: grid; grid-template-columns: 360px minmax(0, 1fr); gap: 16px; align-items: start; }
 @media (max-width: 860px) { .kx .grid { grid-template-columns: 1fr; } }
 
-.kx .panel { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); }
-.kx .panel-pad { padding: 18px 18px 20px; }
+.kx .panel-pad { padding: 18px 20px 20px; }
+.kx .eyebrow { font-family: var(--chibi-font-display); font-size: 0.75rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--chibi-ink-soft); font-weight: 700; }
+.kx h2 { margin: 4px 0 14px; font-family: var(--chibi-font-display); font-size: 1.05rem; font-weight: 700; }
 
-.kx .eyebrow { font-size: .72rem; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-soft); font-weight: 600; }
-.kx .panel h2 { margin: 2px 0 14px; font-size: 1.06rem; font-weight: 600; }
-
+/* ---- Uploads ---- */
 .kx .drops { display: grid; gap: 12px; }
-.kx .drop { position: relative; border: 1.5px dashed var(--line); border-radius: 12px; background: var(--paper-2); padding: 12px; display: flex; align-items: center; gap: 12px; cursor: pointer; transition: border-color .15s, background .15s; }
-.kx .drop:hover, .kx .drop.drag { border-color: var(--shu); background: color-mix(in srgb, var(--shu) 6%, var(--paper-2)); }
+.kx .drop {
+  position: relative; border: 2.5px dashed var(--chibi-outline-light); border-radius: var(--chibi-radius-sm);
+  background: var(--chibi-cream-deep); padding: 12px; display: flex; align-items: center; gap: 12px;
+  cursor: pointer; transition: border-color .15s, background .15s;
+}
+.kx .drop:hover, .kx .drop.drag { border-color: var(--chibi-pink); background: #fff2f6; }
 .kx .drop input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
-.kx .thumb { flex: none; width: 56px; height: 56px; border-radius: 8px; border: 1px solid var(--line); background: #fff center/cover no-repeat; display: grid; place-items: center; overflow: hidden; }
+.kx .thumb { flex: none; width: 56px; height: 56px; border-radius: 10px; border: 2px solid var(--chibi-outline); background: #fff center/cover no-repeat; display: grid; place-items: center; overflow: hidden; }
 .kx .thumb.secret { background-color: #111; }
 .kx .drop .lbl { min-width: 0; }
-.kx .drop .lbl b { display: block; font-size: .92rem; }
-.kx .drop .lbl span { display: block; font-size: .78rem; color: var(--ink-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.kx .drop .role { flex: none; margin-left: auto; font-size: .68rem; letter-spacing: .1em; text-transform: uppercase; color: #fff; background: var(--indigo); padding: 3px 8px; border-radius: 999px; }
-.kx .drop .role.dark { background: var(--ink); }
+.kx .drop .lbl b { display: block; font-size: 0.92rem; }
+.kx .drop .lbl span { display: block; font-size: 0.78rem; color: var(--chibi-ink-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kx .drop .role { flex: none; margin-left: auto; font-size: 0.66rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--chibi-ink); background: var(--chibi-gold); border: 2px solid var(--chibi-outline); padding: 3px 8px; border-radius: var(--chibi-radius-pill); }
+.kx .drop .role.dark { background: var(--chibi-lavender); color: #fff; }
 
-.kx .swap { margin: 12px 0 4px; display: inline-flex; align-items: center; gap: 7px; font-size: .82rem; color: var(--ink-soft); background: none; border: 0; cursor: pointer; padding: 4px 0; }
-.kx .swap:hover { color: var(--shu); }
+.kx .swap { margin: 12px 0 4px; display: inline-flex; align-items: center; gap: 7px; font-size: 0.82rem; font-weight: 700; color: var(--chibi-ink-soft); background: none; border: 0; cursor: pointer; padding: 4px 0; }
+.kx .swap:hover { color: var(--chibi-pink-deep); }
 
-.kx .controls { display: grid; gap: 16px; margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--line); }
-.kx .field label { display: flex; justify-content: space-between; align-items: baseline; font-size: .86rem; font-weight: 500; margin-bottom: 7px; }
-.kx .field label .val { color: var(--shu); font-size: .82rem; }
-.kx .field .hint { font-size: .74rem; color: var(--ink-soft); margin: 6px 0 0; }
-.kx input[type=range] { width: 100%; -webkit-appearance: none; appearance: none; height: 4px; border-radius: 4px; background: var(--line); outline: none; margin: 0; }
-.kx input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 18px; height: 18px; border-radius: 50%; background: var(--shu); border: 3px solid var(--card); box-shadow: 0 1px 4px rgba(0,0,0,.25); cursor: pointer; }
-.kx input[type=range]::-moz-range-thumb { width: 15px; height: 15px; border-radius: 50%; background: var(--shu); border: 3px solid var(--card); cursor: pointer; }
-.kx input[type=range]:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--focus) 40%, transparent); }
+/* ---- Sliders ---- */
+.kx .controls { display: grid; gap: 16px; margin-top: 18px; padding-top: 16px; border-top: 2px dashed var(--chibi-outline-light); }
+.kx .field label { display: flex; justify-content: space-between; align-items: baseline; font-size: 0.86rem; font-weight: 700; margin-bottom: 8px; }
+.kx .field label .val { color: var(--chibi-pink-deep); font-size: 0.82rem; }
+.kx .field .hint { font-size: 0.74rem; color: var(--chibi-ink-soft); margin: 6px 0 0; }
+.kx input[type=range] { width: 100%; -webkit-appearance: none; appearance: none; height: 6px; border-radius: 6px; background: var(--chibi-cream-deep); border: 2px solid var(--chibi-outline-light); outline: none; margin: 0; }
+.kx input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 20px; height: 20px; border-radius: 50%; background: var(--chibi-pink); border: 3px solid var(--chibi-outline); box-shadow: 0 2px 0 var(--chibi-shadow); cursor: pointer; }
+.kx input[type=range]::-moz-range-thumb { width: 16px; height: 16px; border-radius: 50%; background: var(--chibi-pink); border: 3px solid var(--chibi-outline); cursor: pointer; }
+.kx input[type=range]:focus-visible { box-shadow: 0 0 0 3px rgba(255, 107, 157, 0.4); }
 
-.kx .seg { display: inline-flex; background: var(--paper-2); border: 1px solid var(--line); border-radius: 9px; padding: 3px; gap: 2px; }
-.kx .seg button { font: inherit; font-size: .8rem; border: 0; background: none; color: var(--ink-soft); padding: 6px 12px; border-radius: 6px; cursor: pointer; }
-.kx .seg button[aria-pressed="true"] { background: var(--card); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.12); font-weight: 600; }
+.kx .seg { display: inline-flex; background: var(--chibi-cream-deep); border: 2px solid var(--chibi-outline); border-radius: var(--chibi-radius-sm); padding: 3px; gap: 2px; }
+.kx .seg button { font: inherit; font-weight: 700; font-size: 0.8rem; border: 0; background: none; color: var(--chibi-ink-soft); padding: 6px 12px; border-radius: 8px; cursor: pointer; }
+.kx .seg button[aria-pressed="true"] { background: var(--chibi-pink); color: #fff; }
 
-.kx .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.kx .row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 
+/* ---- Preview hero ---- */
 .kx .stage-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
-.kx .stage { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.kx .stage { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 @media (max-width: 560px) { .kx .stage { grid-template-columns: 1fr; } }
-.kx .view { border-radius: 12px; overflow: hidden; border: 1px solid var(--line); }
-.kx .view .cap { display: flex; align-items: center; gap: 8px; padding: 10px 13px; font-size: .8rem; font-weight: 600; }
-.kx .view .cap .dot { width: 8px; height: 8px; border-radius: 50%; }
-.kx .view .cap small { font-weight: 400; color: inherit; opacity: .7; }
+.kx .view { border-radius: var(--chibi-radius-sm); overflow: hidden; border: 3px solid var(--chibi-outline); box-shadow: 0 4px 0 var(--chibi-shadow); }
+.kx .view .cap { display: flex; align-items: center; gap: 8px; padding: 10px 13px; font-size: 0.8rem; font-weight: 800; }
+.kx .view .cap .dot { width: 9px; height: 9px; border-radius: 50%; border: 1px solid rgba(0,0,0,.2); }
+.kx .view .cap small { font-weight: 600; color: inherit; opacity: .7; }
 .kx .view .canvas-hold { display: grid; place-items: center; padding: 20px; min-height: 200px; }
 .kx .view canvas { max-width: 100%; height: auto; border-radius: 4px; display: block; }
 .kx .view.light { background: #fff; color: #15202b; }
-.kx .view.light .cap { border-bottom: 1px solid #e6ecf0; }
+.kx .view.light .cap { border-bottom: 2px solid #e6ecf0; }
 .kx .view.dark { background: #000; color: #e7e9ea; }
-.kx .view.dark .cap { border-bottom: 1px solid #222; }
+.kx .view.dark .cap { border-bottom: 2px solid #222; }
 .kx .view.checker .canvas-hold {
   background-image:
     linear-gradient(45deg, rgba(128,128,128,.28) 25%, transparent 25%),
@@ -128,22 +101,16 @@
   background-size: 18px 18px; background-position: 0 0, 0 9px, 9px -9px, -9px 0;
 }
 
-.kx .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
-.kx .btn { font: inherit; font-weight: 600; cursor: pointer; border-radius: 10px; padding: 11px 18px; border: 1px solid var(--line); background: var(--card); color: var(--ink); display: inline-flex; align-items: center; gap: 8px; }
-.kx .btn:hover { border-color: var(--indigo); }
-.kx .btn.primary { background: var(--shu); border-color: var(--shu); color: #fff; box-shadow: 0 6px 16px rgba(218,58,42,.28); }
-.kx .btn.primary:hover { background: var(--shu-deep); border-color: var(--shu-deep); }
-.kx .btn:disabled { opacity: .5; cursor: not-allowed; box-shadow: none; }
-.kx .btn:focus-visible { outline: 3px solid color-mix(in srgb, var(--focus) 45%, transparent); outline-offset: 2px; }
+.kx .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; align-items: center; }
 
-.kx .howto { margin-top: 22px; }
+/* ---- How-to ---- */
 .kx .howto ol { margin: 6px 0 0; padding-left: 0; list-style: none; counter-reset: step; display: grid; gap: 12px; }
-.kx .howto li { counter-increment: step; display: grid; grid-template-columns: 30px 1fr; gap: 12px; align-items: start; font-size: .92rem; }
-.kx .howto li::before { content: counter(step); font-family: "Hiragino Mincho ProN",Georgia,serif; font-size: .85rem; font-weight: 700; color: var(--shu); width: 28px; height: 28px; border-radius: 50%; border: 1.5px solid color-mix(in srgb, var(--shu) 40%, var(--line)); display: grid; place-items: center; }
-.kx .howto .note { margin-top: 14px; font-size: .82rem; color: var(--ink-soft); background: var(--paper-2); border: 1px solid var(--line); border-left: 3px solid var(--shu); border-radius: 8px; padding: 11px 13px; }
+.kx .howto li { counter-increment: step; display: grid; grid-template-columns: 30px 1fr; gap: 12px; align-items: start; font-size: 0.92rem; }
+.kx .howto li::before { content: counter(step); font-family: var(--chibi-font-display); font-size: 0.85rem; font-weight: 800; color: #fff; background: var(--chibi-pink); width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--chibi-outline); display: grid; place-items: center; }
+.kx .howto .note { margin-top: 14px; font-size: 0.82rem; color: var(--chibi-ink-soft); background: var(--chibi-info-bg); border: 2px solid var(--chibi-outline-light); border-radius: var(--chibi-radius-sm); padding: 11px 13px; }
 
-.kx footer { margin-top: 40px; text-align: center; color: var(--ink-soft); font-size: .8rem; }
+.kx footer { text-align: center; color: var(--chibi-ink-soft); font-size: 0.8rem; padding-top: 6px; }
 
 .kx .size0 { margin: 0; }
-.kx .lbl-block { margin-bottom: 8px; }
+.kx .lbl-block { margin-bottom: 8px; display: block; font-size: 0.86rem; font-weight: 700; }
 @media (prefers-reduced-motion: reduce) { .kx * { transition: none !important; } }

@@ -64,7 +64,6 @@ export function ToolsPage() {
   const [contrast, setContrast] = useState(115);
   const [size, setSize] = useState(900);
   const [checker, setChecker] = useState(false);
-  const [theme, setTheme] = useState<"" | "light" | "dark">("");
   const [coverName, setCoverName] = useState("what everyone sees");
   const [secretName, setSecretName] = useState("revealed on tap");
   const [dims, setDims] = useState("");
@@ -84,6 +83,18 @@ export function ToolsPage() {
     coverRef.current = demo("HELLO", "scroll on by", "#20242e", "#eef1f6");
     secretRef.current = demo("BOO!", "you found me", "#ffffff", "#0b0b0b", "👀");
     setRev((r) => r + 1);
+  }, []);
+
+  // The game shell locks page scrolling (fixed height + overflow hidden on
+  // html/body/#root); this is an ordinary scrolling page, so unlock it while
+  // mounted and restore on leave — otherwise mobile can't scroll past the fold.
+  useEffect(() => {
+    const rootEl = document.getElementById("root");
+    const targets = [document.documentElement, document.body, rootEl].filter(Boolean) as HTMLElement[];
+    const prev = targets.map((el) => ({ el, height: el.style.height, overflow: el.style.overflow }));
+    for (const el of targets) { el.style.height = "auto"; el.style.overflow = "visible"; }
+    document.body.style.overflowY = "auto";
+    return () => { for (const p of prev) { p.el.style.height = p.height; p.el.style.overflow = p.overflow; } };
   }, []);
 
   const paint = useCallback((W: number, H: number) => {
@@ -201,7 +212,7 @@ export function ToolsPage() {
   const dropSecret = useRef<HTMLLabelElement | null>(null);
 
   return (
-    <div className="kx" data-kx-theme={theme || undefined}>
+    <div className="kx">
       <div className="wrap">
         <nav className="topnav">
           <a href="/">← MetricBase World</a>
@@ -211,32 +222,19 @@ export function ToolsPage() {
         </nav>
 
         <header>
-          <div className="brand">
-            <div className="seal serif">隠</div>
-            <div>
-              <h1 className="serif">Kakushie Maker <span className="jp">隠し絵</span></h1>
-              <p className="tagline">
-                Make one image that hides in the X timeline and reveals a <b>secret</b> only when
-                someone taps to enlarge it. No account, no upload — everything runs in your browser.
-              </p>
-            </div>
+          <div className="seal">隠</div>
+          <div>
+            <h1>Kakushie Maker <span className="jp">隠し絵</span></h1>
+            <p className="tagline">
+              Make one image that hides in the X timeline and reveals a <b>secret</b> only when
+              someone taps to enlarge it. No account, no upload — everything runs in your browser.
+            </p>
           </div>
-          <button
-            className="theme-toggle"
-            type="button"
-            aria-label="Toggle light or dark theme"
-            onClick={() => setTheme((t) => {
-              const cur = t || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
-              return cur === "dark" ? "light" : "dark";
-            })}
-          >
-            ◐ Theme
-          </button>
         </header>
 
         <div className="grid">
           {/* ---- Controls ---- */}
-          <section className="panel panel-pad" aria-label="Image controls">
+          <section className="chibi-panel panel-pad" aria-label="Image controls">
             <div className="eyebrow">Step 1 · Pick two pictures</div>
             <h2>Your images</h2>
 
@@ -305,13 +303,13 @@ export function ToolsPage() {
 
           {/* ---- Preview ---- */}
           <section aria-label="Preview">
-            <div className="panel panel-pad">
+            <div className="chibi-panel panel-pad">
               <div className="stage-head">
                 <div>
                   <div className="eyebrow">Step 3 · The same file, two ways</div>
                   <h2 style={{ marginBottom: 0 }}>Live preview</h2>
                 </div>
-                <span className="mono" style={{ fontSize: ".78rem", color: "var(--ink-soft)" }}>{dims}</span>
+                <span className="mono" style={{ fontSize: ".78rem", color: "var(--chibi-ink-soft)" }}>{dims}</span>
               </div>
 
               <div className="stage">
@@ -320,19 +318,19 @@ export function ToolsPage() {
                   <div className="canvas-hold"><canvas ref={cvLight} width={300} height={300} /></div>
                 </div>
                 <div className={`view dark${checker ? " checker" : ""}`}>
-                  <div className="cap"><span className="dot" style={{ background: "var(--shu)" }} /> Tapped to reveal <small>· over black</small></div>
+                  <div className="cap"><span className="dot" style={{ background: "var(--chibi-pink)" }} /> Tapped to reveal <small>· over black</small></div>
                   <div className="canvas-hold"><canvas ref={cvDark} width={300} height={300} /></div>
                 </div>
               </div>
 
               <div className="actions">
-                <button className="btn primary" type="button" onClick={download}>↓ Download PNG</button>
-                <button className="btn" type="button" onClick={build}>↻ Rebuild</button>
-                <span className="mono" style={{ fontSize: ".8rem", color: "var(--ink-soft)", alignSelf: "center" }}>{status}</span>
+                <button className="chibi-btn chibi-btn--primary" type="button" onClick={download}>↓ Download PNG</button>
+                <button className="chibi-btn chibi-btn--secondary" type="button" onClick={build}>↻ Rebuild</button>
+                <span className="mono" style={{ fontSize: ".8rem", color: "var(--chibi-ink-soft)" }}>{status}</span>
               </div>
             </div>
 
-            <div className="panel panel-pad howto">
+            <div className="chibi-panel panel-pad howto" style={{ marginTop: 16 }}>
               <div className="eyebrow">Posting it on X</div>
               <ol>
                 <li><span>Download the PNG and post it from a <b>desktop browser</b> at x.com — the mobile apps re-encode images and break the effect.</span></li>
