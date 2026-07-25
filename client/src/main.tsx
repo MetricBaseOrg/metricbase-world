@@ -7,6 +7,7 @@ import { BrandPortal } from "./ui/BrandPortal";
 import { DaoPage } from "./ui/DaoPage";
 import { DashboardPage } from "./ui/DashboardPage";
 import { LandingPage } from "./ui/LandingPage";
+import { ToolsPage } from "./ui/ToolsPage";
 import { applyTelegramStartParam, initTelegramMiniApp, isTelegramMiniApp } from "./telegram/telegramApp";
 import "./ui/chibiTheme.css";
 import {
@@ -61,11 +62,13 @@ if (!isTelegramMiniApp()) {
 //   /play       → the game client
 //   /brands     → standalone advertiser portal (wallet-only, never boots the game)
 //   /dao        → MetricBase DAO: $BASE-holder polls (wallet-only, no game boot)
+//   /tools      → Kakushie Maker: X hidden-image generator (no wallet, no game boot)
 const path = window.location.pathname.replace(/\/+$/, "");
 const isBrandPortal = path === "/brands";
 const isDao = path === "/dao";
 const isDashboard = path === "/dashboard";
 const isPlay = path === "/play";
+const isTools = path === "/tools";
 
 // /stats is a server-rendered page (proxied to the backend by vercel.json), not
 // a SPA route. If the SPA still boots here it means the request never reached
@@ -79,7 +82,7 @@ if (path === "/stats") {
 } else {
   createRoot(document.getElementById("root")!).render(
     <StrictMode>
-      {isBrandPortal ? <BrandPortal /> : isDao ? <DaoPage /> : isDashboard ? <DashboardPage /> : isPlay ? <App /> : <LandingPage />}
+      {isBrandPortal ? <BrandPortal /> : isDao ? <DaoPage /> : isTools ? <ToolsPage /> : isDashboard ? <DashboardPage /> : isPlay ? <App /> : <LandingPage />}
     </StrictMode>,
   );
 }
