@@ -112,6 +112,11 @@
   display: grid;
   gap: 12px;
   justify-items: center;
+  /* Sit at the top of the (taller) info column instead of stretching to match
+     its height — otherwise the grid rows stretch and the Play Now button
+     balloons into a giant square. */
+  align-self: start;
+  align-content: start;
 }
 .mb-dash-profile__frame {
   border: 3px solid var(--chibi-outline);

@@ -13,6 +13,7 @@ import { isSoundEnabled, playSfx, setSoundEnabled } from "../audio/soundEffects"
 import { nudgeZoom } from "../game/inputControl";
 import { networkManager } from "../game/network";
 import { useGameStore } from "../store/gameStore";
+import { isAppShell } from "../telegram/telegramApp";
 import { shortenWallet } from "../wallet/solanaProvider";
 import { DayNightClock } from "./DayNightClock";
 import { PortraitCanvas } from "./PortraitCanvas";
@@ -21,6 +22,18 @@ import { WalletConnectBar } from "./WalletConnectBar";
 
 interface TopBarProps {
   onLeave: () => void;
+}
+
+/** onClick for an internal link: inside an app-shell (Telegram Mini App or the
+ *  installed app) navigate in place, so the link doesn't escape to the system
+ *  browser and get captured by the native app. Elsewhere the `_blank` href wins. */
+function inShellNav(path: string) {
+  return (e: { preventDefault: () => void }) => {
+    if (isAppShell()) {
+      e.preventDefault();
+      window.location.assign(path);
+    }
+  };
 }
 
 /** Compact desktop top bar: glanceable stats up top, settings tucked behind ⚙️. */
@@ -355,13 +368,13 @@ export function TopBar({ onLeave }: TopBarProps) {
             <button type="button" className="chibi-btn chibi-btn--ghost" title="Zoom out" onClick={() => { nudgeZoom(-0.3); if (soundOn) playSfx("ui_click"); }}>🔍−</button>
           </div>
 
-          <a href="/docs" target="_blank" rel="noopener noreferrer" className="chibi-stat-pill" style={{ display: "inline-flex", gap: 6, marginTop: 8, textDecoration: "none", fontSize: "0.78rem" }}>
+          <a href="/docs" target="_blank" rel="noopener noreferrer" onClick={inShellNav("/docs")} className="chibi-stat-pill" style={{ display: "inline-flex", gap: 6, marginTop: 8, textDecoration: "none", fontSize: "0.78rem" }}>
             📖 How to Play
           </a>
-          <a href="/stats" target="_blank" rel="noopener noreferrer" className="chibi-stat-pill" style={{ display: "inline-flex", gap: 6, marginTop: 8, marginLeft: 8, textDecoration: "none", fontSize: "0.78rem" }}>
+          <a href="/stats" target="_blank" rel="noopener noreferrer" onClick={inShellNav("/stats")} className="chibi-stat-pill" style={{ display: "inline-flex", gap: 6, marginTop: 8, marginLeft: 8, textDecoration: "none", fontSize: "0.78rem" }}>
             📊 Economy
           </a>
-          <a href="/dashboard" target="_blank" rel="noopener noreferrer" className="chibi-stat-pill" style={{ display: "inline-flex", gap: 6, marginTop: 8, marginLeft: 8, textDecoration: "none", fontSize: "0.78rem" }}>
+          <a href="/dashboard" target="_blank" rel="noopener noreferrer" onClick={inShellNav("/dashboard")} className="chibi-stat-pill" style={{ display: "inline-flex", gap: 6, marginTop: 8, marginLeft: 8, textDecoration: "none", fontSize: "0.78rem" }}>
             🧑 Dashboard
           </a>
 

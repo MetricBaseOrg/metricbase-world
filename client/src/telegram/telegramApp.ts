@@ -177,6 +177,33 @@ export async function getTelegramInitData(): Promise<string | null> {
   return data && data.length > 0 ? data : null;
 }
 
+/**
+ * True when running inside an app-shell webview — the Telegram Mini App or an
+ * installed PWA/TWA. In these shells, opening a same-origin link in a NEW tab
+ * (`target="_blank"`) escapes the shell: the system browser takes over, and on
+ * Android the installed app grabs the URL via verified App Links, yanking the
+ * player into the native app. So internal links must navigate IN PLACE here.
+ */
+export function isAppShell(): boolean {
+  if (typeof window === "undefined") return false;
+  if (isTelegramMiniApp()) return true;
+  const standalone =
+    window.matchMedia?.("(display-mode: standalone)")?.matches ||
+    (window.navigator as unknown as { standalone?: boolean }).standalone === true ||
+    document.referrer.startsWith("android-app://");
+  return Boolean(standalone);
+}
+
+/**
+ * Navigate to a same-origin path. In an app-shell webview this stays in the
+ * current view (a new tab would escape the shell / get captured by the native
+ * app); in a normal browser it opens a new tab so the game keeps running.
+ */
+export function navigateInternal(path: string): void {
+  if (isAppShell()) window.location.assign(path);
+  else window.open(path, "_blank", "noopener");
+}
+
 /** Open a t.me link (share sheets, the bot itself) inside Telegram. */
 export function openTelegramLink(url: string): void {
   const app = webApp();

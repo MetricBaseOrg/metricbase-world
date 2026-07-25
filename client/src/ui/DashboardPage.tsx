@@ -626,11 +626,18 @@ export function DashboardPage() {
                             <button
                               type="button"
                               className="chibi-btn chibi-btn--secondary"
-                              style={{ padding: "8px 16px", fontSize: "0.8rem" }}
+                              style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                gap: 8,
+                                padding: "10px 20px",
+                                fontSize: "0.85rem",
+                              }}
                               onClick={() => void handleConnectX()}
                               disabled={xBusy}
                             >
-                              {xBusy ? "..." : "Connect X"}
+                              {xBusy ? "..." : "𝕏 Connect X"}
                             </button>
                           </>
                         )}
