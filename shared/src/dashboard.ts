@@ -11,6 +11,10 @@ export const MOTTO_MAX_LENGTH = 80;
  */
 export const DASHBOARD_UPDATES: Array<{ title: string; body: string }> = [
   {
+    title: "v0.186 — Connect your X account",
+    body: "Link your X (Twitter) account to your character from the dashboard and pick up a one-time +50 season points. Tap Connect X, sign in with X, and you land right back here. It's the first step — reply-to-earn and repost-to-earn activities are coming next.",
+  },
+  {
     title: "v0.185 — Thornbacks fill the mid-game",
     body: "There was a wall around level 5: little slimes gave almost no XP, and the next step up — the Slime Brute — hit like a truck. Now Thornback Slimes prowl the Wilderness and Grotto: tougher than a Wild Slime, far from a Brute, and worth real XP. Their Thorn Gel forges the Thorn Cleaver (+36 attack), the missing weapon step between the Gemforged and Ember Blades. Two new quests from Moss and Brenna guide you through it, right between the Brute and the Ember chain.",
   },

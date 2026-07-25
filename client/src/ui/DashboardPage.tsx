@@ -85,6 +85,8 @@ export function DashboardPage() {
 
   const [xBusy, setXBusy] = useState(false);
   const [xError, setXError] = useState<string | null>(null);
+  const [xNotice, setXNotice] = useState<string | null>(null);
+  const [updatesExpanded, setUpdatesExpanded] = useState(false);
 
   // The game shell locks page scrolling; this is an ordinary web page.
   useEffect(() => {
@@ -109,6 +111,35 @@ export function DashboardPage() {
       .then((r) => r.json())
       .then((s) => setPlayersOnline(s?.players?.online ?? null))
       .catch(() => undefined);
+  }, []);
+
+  // Read the result of an X-connect round trip (?xlink=... on return from X),
+  // show it as a notice or error, then strip the params so a refresh is clean.
+  // The wallet-session resume below refetches the dashboard, so the linked
+  // handle appears on its own — this only surfaces the outcome message.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const outcome = params.get("xlink");
+    if (!outcome) return;
+    if (outcome === "ok") {
+      const pts = Number(params.get("pts") ?? 0);
+      const handle = params.get("handle");
+      setXNotice(
+        pts > 0
+          ? `X connected${handle ? ` as @${handle}` : ""} — +${pts} season points!`
+          : `X connected${handle ? ` as @${handle}` : ""}.`,
+      );
+    } else if (outcome === "cancelled") {
+      setXError("X connection was cancelled.");
+    } else {
+      setXError(params.get("msg") || "Couldn't connect X. Please try again.");
+    }
+    params.delete("xlink");
+    params.delete("pts");
+    params.delete("handle");
+    params.delete("msg");
+    const qs = params.toString();
+    window.history.replaceState({}, "", window.location.pathname + (qs ? `?${qs}` : ""));
   }, []);
 
   // Resume a stored wallet session; otherwise show the connect hero.
@@ -257,9 +288,11 @@ export function DashboardPage() {
     }
   };
 
-  /** Connect an X account via "Sign in with X" in a popup. The server does the
-   *  OAuth exchange and messages us back when the popup finishes, at which point
-   *  we refresh the dashboard to pick up the linked handle + awarded points. */
+  /** Connect an X account via "Sign in with X". We navigate the WHOLE page to X
+   *  (not a popup) so the flow works identically in a browser and inside the
+   *  Android app's web view — a popup there opens a separate tab with no way to
+   *  return to the app. X redirects back to /dashboard?xlink=... which the mount
+   *  effect below turns into a notice + fresh data. */
   const handleConnectX = async () => {
     if (!accessToken) return;
     setXBusy(true);
@@ -270,20 +303,7 @@ export function DashboardPage() {
       });
       const body = (await response.json().catch(() => ({}))) as { url?: string; error?: string };
       if (!response.ok || !body.url) throw new Error(body.error ?? "Couldn't start X connect.");
-
-      const popup = window.open(body.url, "mb-x-connect", "width=600,height=760");
-      if (!popup) throw new Error("Pop-up blocked — allow pop-ups and try again.");
-
-      const onMessage = async (event: MessageEvent) => {
-        const msg = event.data as { source?: string; ok?: boolean } | null;
-        if (!msg || msg.source !== "mb-x-link") return;
-        window.removeEventListener("message", onMessage);
-        setXBusy(false);
-        if (msg.ok && accessToken) {
-          setData(await fetchDashboard(accessToken));
-        }
-      };
-      window.addEventListener("message", onMessage);
+      window.location.href = body.url;
     } catch (connectError) {
       setXError(connectError instanceof Error ? connectError.message : "Couldn't connect X.");
       setXBusy(false);
@@ -614,6 +634,9 @@ export function DashboardPage() {
                             </button>
                           </>
                         )}
+                        {xNotice && (
+                          <p style={{ fontSize: "0.75rem", color: "#7ed6df", margin: "6px 0 0" }}>{xNotice}</p>
+                        )}
                         {xError && (
                           <p style={{ fontSize: "0.75rem", color: "#ff9d7a", margin: "6px 0 0" }}>{xError}</p>
                         )}
@@ -658,13 +681,25 @@ export function DashboardPage() {
               <section className="chibi-panel mb-dash-card">
                 <h2>Recent Updates</h2>
                 <div className="mb-dash-news">
-                  {DASHBOARD_UPDATES.map((update) => (
+                  {(updatesExpanded ? DASHBOARD_UPDATES : DASHBOARD_UPDATES.slice(0, 3)).map((update) => (
                     <div key={update.title} className="mb-dash-news__item">
                       <div className="mb-dash-news__title">{update.title}</div>
                       <div className="mb-dash-news__body">{update.body}</div>
                     </div>
                   ))}
                 </div>
+                {DASHBOARD_UPDATES.length > 3 && (
+                  <button
+                    type="button"
+                    className="chibi-btn chibi-btn--ghost"
+                    style={{ marginTop: 10, padding: "8px 16px", fontSize: "0.8rem" }}
+                    onClick={() => setUpdatesExpanded((v) => !v)}
+                  >
+                    {updatesExpanded
+                      ? "Show less"
+                      : `Show all ${DASHBOARD_UPDATES.length} updates`}
+                  </button>
+                )}
               </section>
             </div>
           </div>
