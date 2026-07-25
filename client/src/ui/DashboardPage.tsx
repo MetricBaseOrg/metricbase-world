@@ -7,6 +7,7 @@ import {
 } from "@metricbase/shared";
 import { useEffect, useMemo, useState } from "react";
 import { getHttpServerUrl } from "../game/serverUrl";
+import { openExternalLink } from "../telegram/telegramApp";
 import { fetchWithTimeout } from "../utils/fetchWithTimeout";
 import type { WalletConnector } from "../wallet/discovery";
 import { shortenWallet } from "../wallet/solanaProvider";
@@ -62,6 +63,26 @@ async function fetchDashboard(accessToken: string): Promise<DashboardResponse> {
   return response.json() as Promise<DashboardResponse>;
 }
 
+interface XStatus {
+  linked: boolean;
+  username: string | null;
+  rewardAwarded: boolean;
+}
+
+/** Current X link state for the authed wallet (polled during connect). Returns
+ *  null on a transient failure so the caller just tries again next tick. */
+async function fetchXStatus(accessToken: string): Promise<XStatus | null> {
+  try {
+    const response = await fetchWithTimeout(`${getHttpServerUrl()}/api/x/status`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!response.ok) return null;
+    return (await response.json()) as XStatus;
+  } catch {
+    return null;
+  }
+}
+
 export function DashboardPage() {
   const [status, setStatus] = useState<Status>("loading");
   const [error, setError] = useState<string | null>(null);
@@ -111,35 +132,6 @@ export function DashboardPage() {
       .then((r) => r.json())
       .then((s) => setPlayersOnline(s?.players?.online ?? null))
       .catch(() => undefined);
-  }, []);
-
-  // Read the result of an X-connect round trip (?xlink=... on return from X),
-  // show it as a notice or error, then strip the params so a refresh is clean.
-  // The wallet-session resume below refetches the dashboard, so the linked
-  // handle appears on its own — this only surfaces the outcome message.
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const outcome = params.get("xlink");
-    if (!outcome) return;
-    if (outcome === "ok") {
-      const pts = Number(params.get("pts") ?? 0);
-      const handle = params.get("handle");
-      setXNotice(
-        pts > 0
-          ? `X connected${handle ? ` as @${handle}` : ""} — +${pts} season points!`
-          : `X connected${handle ? ` as @${handle}` : ""}.`,
-      );
-    } else if (outcome === "cancelled") {
-      setXError("X connection was cancelled.");
-    } else {
-      setXError(params.get("msg") || "Couldn't connect X. Please try again.");
-    }
-    params.delete("xlink");
-    params.delete("pts");
-    params.delete("handle");
-    params.delete("msg");
-    const qs = params.toString();
-    window.history.replaceState({}, "", window.location.pathname + (qs ? `?${qs}` : ""));
   }, []);
 
   // Resume a stored wallet session; otherwise show the connect hero.
@@ -288,26 +280,66 @@ export function DashboardPage() {
     }
   };
 
-  /** Connect an X account via "Sign in with X". We navigate the WHOLE page to X
-   *  (not a popup) so the flow works identically in a browser and inside the
-   *  Android app's web view — a popup there opens a separate tab with no way to
-   *  return to the app. X redirects back to /dashboard?xlink=... which the mount
-   *  effect below turns into a notice + fresh data. */
+  /**
+   * Connect an X account — redirect-independent so it works the same in a
+   * browser, the Telegram Mini App, and the installed Android app.
+   *
+   * We open X sign-in in whatever browser the shell allows (openExternalLink),
+   * but keep THIS view open and poll /x/status until the link lands. The link
+   * is recorded server-side (the wallet rides in the OAuth state), so we never
+   * depend on the OAuth redirect returning to this exact webview — the thing
+   * Android's App Links break. The moment the link appears, the UI updates.
+   */
   const handleConnectX = async () => {
     if (!accessToken) return;
     setXBusy(true);
     setXError(null);
+    setXNotice(null);
     try {
+      // Whether the one-time bonus was already paid before this attempt, so we
+      // only promise +50 on a genuine first connect (not a reconnect).
+      const before = await fetchXStatus(accessToken);
+      const wasAwarded = before?.rewardAwarded ?? false;
+
       const response = await fetchWithTimeout(`${getHttpServerUrl()}/api/x/link/start`, {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
       const body = (await response.json().catch(() => ({}))) as { url?: string; error?: string };
       if (!response.ok || !body.url) throw new Error(body.error ?? "Couldn't start X connect.");
-      window.location.href = body.url;
+
+      // New tab / Custom Tab / Telegram external browser — never navigates away
+      // from this view, so the poll below keeps running.
+      openExternalLink(body.url, true);
+      pollXStatus(accessToken, wasAwarded);
     } catch (connectError) {
       setXError(connectError instanceof Error ? connectError.message : "Couldn't connect X.");
       setXBusy(false);
     }
+  };
+
+  /** Poll until X shows linked (or we time out), then refresh + celebrate. */
+  const pollXStatus = (token: string, wasAwarded: boolean) => {
+    const startedAt = Date.now();
+    const tick = async () => {
+      if (Date.now() - startedAt > 150_000) {
+        setXBusy(false);
+        setXError("Didn't detect the connection. If you finished on X, refresh this page.");
+        return;
+      }
+      const status = await fetchXStatus(token);
+      if (status?.linked) {
+        setData(await fetchDashboard(token));
+        setXBusy(false);
+        setXNotice(
+          !wasAwarded
+            ? `X connected as @${status.username} — +50 season points!`
+            : `X connected as @${status.username}.`,
+        );
+        return;
+      }
+      window.setTimeout(() => void tick(), 2500);
+    };
+    window.setTimeout(() => void tick(), 2500);
   };
 
   /** Detach the X account. Does NOT reclaim the one-time bonus (server-guarded). */
@@ -637,8 +669,13 @@ export function DashboardPage() {
                               onClick={() => void handleConnectX()}
                               disabled={xBusy}
                             >
-                              {xBusy ? "..." : "𝕏 Connect X"}
+                              {xBusy ? "Waiting for X…" : "𝕏 Connect X"}
                             </button>
+                            {xBusy && (
+                              <p style={{ fontSize: "0.72rem", color: "var(--chibi-ink-soft)", margin: "6px 0 0" }}>
+                                Finish signing in on X, then come back here — this updates on its own.
+                              </p>
+                            )}
                           </>
                         )}
                         {xNotice && (

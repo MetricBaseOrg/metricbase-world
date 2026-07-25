@@ -80,6 +80,44 @@ export async function linkXToWallet(
   }
 }
 
+export interface XStatus {
+  linked: boolean;
+  username: string | null;
+  /** Whether the one-time +50 bonus has ever been paid to this character. */
+  rewardAwarded: boolean;
+}
+
+/**
+ * Link state for the authed wallet — what the client polls after opening the X
+ * sign-in. Reports `rewardAwarded` even when currently unlinked (a player who
+ * linked before, was awarded, then disconnected) so the UI never re-promises
+ * points that won't be paid again.
+ */
+export async function getXStatus(wallet: string): Promise<XStatus> {
+  const db = getPool();
+  const empty: XStatus = { linked: false, username: null, rewardAwarded: false };
+  if (!db) return empty;
+  try {
+    const res = await db.query<{
+      x_user_id: string | null;
+      x_username: string | null;
+      x_reward_awarded: boolean | null;
+    }>(
+      "SELECT x_user_id, x_username, x_reward_awarded FROM characters WHERE wallet_address = $1 LIMIT 1",
+      [wallet],
+    );
+    const r = res.rows[0];
+    if (!r) return empty;
+    return {
+      linked: Boolean(r.x_user_id),
+      username: r.x_username ?? null,
+      rewardAwarded: Boolean(r.x_reward_awarded),
+    };
+  } catch {
+    return empty;
+  }
+}
+
 /** The X account attached to this wallet's character, if any. */
 export async function getLinkedX(wallet: string): Promise<LinkedX | null> {
   const db = getPool();
