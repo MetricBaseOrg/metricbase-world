@@ -103,6 +103,7 @@ export function LandingPage() {
           <a href="/docs">Wiki</a>
           <a href="/stats">Stats</a>
           <a href="/dao">DAO</a>
+          <a href="/tools">Tools</a>
           <a href="/brands">Advertise</a>
         </div>
         <div className="mb-nav__cta">
@@ -183,6 +184,7 @@ export function LandingPage() {
           <a href="/docs">Wiki</a>
           <a href="/stats">Live Stats</a>
           <a href="/dao">DAO</a>
+          <a href="/tools">Tools</a>
           <a href="/brands">Advertise</a>
           <a href={BUY_URL} target="_blank" rel="noopener noreferrer">Buy $BASE</a>
         </div>
