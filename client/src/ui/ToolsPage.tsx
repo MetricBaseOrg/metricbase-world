@@ -12,7 +12,9 @@ import "./tools.css";
  *   over white: a*v + (1-a)*255 = C
  *   over black: a*v            = S
  *   => a = 1 - (C - S)/255 ,  v = S / a
- * Grayscale by nature (one alpha per pixel). Everything runs on-device.
+ * One alpha per pixel, so the alpha is derived from luminances — but the
+ * revealed pixel's COLOUR is preserved by scaling the secret's RGB to the
+ * target tone (keepColor). Everything runs on-device.
  */
 
 type Src = HTMLImageElement | HTMLCanvasElement;
@@ -35,19 +37,14 @@ function drawCover(ctx: CanvasRenderingContext2D, img: Src, w: number, h: number
   ctx.drawImage(img, (w - dw) / 2, (h - dh) / 2, dw, dh);
 }
 
-/** Grayscale luminance buffer for a source cover-fit into w×h. */
-function luma(src: Src, w: number, h: number): Float32Array {
+/** RGBA pixels for a source cover-fit into w×h (grey backdrop for any gaps). */
+function rgbaOf(src: Src, w: number, h: number): Uint8ClampedArray {
   const c = document.createElement("canvas");
   c.width = w; c.height = h;
   const x = c.getContext("2d", { willReadFrequently: true })!;
   x.fillStyle = "#808080"; x.fillRect(0, 0, w, h);
   drawCover(x, src, w, h);
-  const d = x.getImageData(0, 0, w, h).data;
-  const out = new Float32Array(w * h);
-  for (let i = 0, p = 0; i < d.length; i += 4, p++) {
-    out[p] = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
-  }
-  return out;
+  return x.getImageData(0, 0, w, h).data;
 }
 
 /** A self-demonstrating default so the tool works before any upload. */
@@ -71,6 +68,7 @@ export function ToolsPage() {
   const [contrast, setContrast] = useState(118);
   const [size, setSize] = useState(900);
   const [checker, setChecker] = useState(false);
+  const [keepColor, setKeepColor] = useState(true);
   const [coverName, setCoverName] = useState("Tap to upload");
   const [secretName, setSecretName] = useState("Tap to upload");
   const [dims, setDims] = useState("");
@@ -89,7 +87,7 @@ export function ToolsPage() {
   // state is obvious (the tool works before any upload).
   useEffect(() => {
     const cov = demo("HELLO", "scroll on by", "#20242e", "#eef1f6");
-    const sec = demo("BOO!", "you found me", "#ffffff", "#0b0b0b", "👀");
+    const sec = demo("BOO!", "you found me", "#ffe14d", "#c0267f", "👻");
     coverRef.current = cov;
     secretRef.current = sec;
     if (thumbCover.current) { thumbCover.current.style.backgroundImage = `url(${cov.toDataURL()})`; thumbCover.current.textContent = ""; }
@@ -137,12 +135,13 @@ export function ToolsPage() {
     let W = size, H = Math.round(size / ratio);
     if (H > size) { H = size; W = Math.round(size * ratio); }
 
-    const coverL = luma(cover, W, H);
-    const secretL = luma(secret, W, H);
+    const cd = rgbaOf(cover, W, H);   // cover pixels (used for its luminance)
+    const sd = rgbaOf(secret, W, H);  // secret pixels (its COLOUR is preserved)
 
     const floor = (0.35 + 0.50 * (hide / 100)) * 255;
     const ceil = (0.28 + 0.55 * (reveal / 100)) * 255;
     const k = contrast / 100;
+    const clamp = (n: number) => (n < 0 ? 0 : n > 255 ? 255 : n);
 
     const out = document.createElement("canvas");
     out.width = W; out.height = H;
@@ -151,24 +150,41 @@ export function ToolsPage() {
     const o = img.data;
 
     for (let p = 0, i = 0; p < W * H; p++, i += 4) {
-      const C = floor + (coverL[p] / 255) * (255 - floor);
-      let sl = (secretL[p] - 128) * k + 128;
-      sl = sl < 0 ? 0 : sl > 255 ? 255 : sl;
+      const coverLum = 0.299 * cd[i] + 0.587 * cd[i + 1] + 0.114 * cd[i + 2];
+      const sr = sd[i], sg = sd[i + 1], sb = sd[i + 2];
+      const secretLum = 0.299 * sr + 0.587 * sg + 0.114 * sb;
+
+      // Cover mapped into a light band [floor,255]; secret luminance contrast-
+      // adjusted then mapped into [0,ceil]. alpha is shared per pixel (one alpha
+      // channel), so it's derived from luminances; C >= S is guaranteed.
+      const C = floor + (coverLum / 255) * (255 - floor);
+      let sl = (secretLum - 128) * k + 128;
+      sl = clamp(sl);
       let S = (sl / 255) * ceil;
       if (S > C) S = C;
       let a = 1 - (C - S) / 255;
       if (a < 0.0039) a = 0.0039;
       if (a > 1) a = 1;
-      let v = S / a;
-      v = v < 0 ? 0 : v > 255 ? 255 : v;
-      o[i] = o[i + 1] = o[i + 2] = Math.round(v);
       o[i + 3] = Math.round(a * 255);
+
+      if (keepColor && secretLum > 0.5) {
+        // Preserve the revealed image's HUE: scale its RGB to target luminance S,
+        // then predivide by alpha so a*colour reproduces the secret colour over
+        // black. Grayscale highlights (secretLum~0) fall through to the gray path.
+        const scale = (S / secretLum) / a;
+        o[i] = Math.round(clamp(sr * scale));
+        o[i + 1] = Math.round(clamp(sg * scale));
+        o[i + 2] = Math.round(clamp(sb * scale));
+      } else {
+        const v = Math.round(clamp(S / a));
+        o[i] = o[i + 1] = o[i + 2] = v;
+      }
     }
     octx.putImageData(img, 0, 0);
     outRef.current = out;
     paint(W, H);
     setDims(`${W} × ${H} px`);
-  }, [hide, reveal, contrast, size, paint]);
+  }, [hide, reveal, contrast, size, keepColor, paint]);
 
   // Rebuild on any control change or when images swap in.
   useEffect(() => { build(); }, [build, rev]);
@@ -208,10 +224,10 @@ export function ToolsPage() {
       if (!blob) return;
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
-      a.download = "kakushie.png";
+      a.download = "MetricBase.png";
       a.click();
       setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-      setStatus("Saved kakushie.png ✓");
+      setStatus("Saved MetricBase.png ✓");
       setTimeout(() => setStatus(""), 3000);
     }, "image/png");
   };
@@ -238,7 +254,7 @@ export function ToolsPage() {
         </nav>
 
         <header>
-          <img className="mb-logo" src="/metricbase-world.png" alt="MetricBase World" />
+          <img className="mb-logo" src="/pwa-192x192.png" alt="MetricBase World" />
           <div>
             <h1>Hidden Image Maker</h1>
             <p className="tagline">
@@ -286,6 +302,15 @@ export function ToolsPage() {
                   ))}
                 </div>
                 <p className="hint">{PRESETS.find((p) => p.name === activePreset)?.blurb ?? "Fine-tune it below if you like."}</p>
+              </div>
+
+              <div className="field size0">
+                <label className="lbl-block">Reveal colours</label>
+                <div className="seg seg-wide" role="group" aria-label="Reveal colours">
+                  <button type="button" aria-pressed={keepColor} onClick={() => setKeepColor(true)}>🎨 Full colour</button>
+                  <button type="button" aria-pressed={!keepColor} onClick={() => setKeepColor(false)}>◑ Black &amp; white</button>
+                </div>
+                <p className="hint">Keeps the hidden picture in colour when it&apos;s tapped open.</p>
               </div>
 
               <details className="advanced">
@@ -369,7 +394,7 @@ export function ToolsPage() {
                 <li><span>In the timeline people see your <b>visible picture</b>. When they <b>tap to enlarge</b> it, the hidden picture appears.</span></li>
                 <li><span>Works best for viewers on <b>light mode</b>. A busy visible picture and a bold hidden one give the cleanest surprise.</span></li>
               </ol>
-              <p className="note"><b>How it works:</b> every pixel is given its own transparency so the image lands on your visible picture over a white background and your hidden picture over black. It's grayscale by nature, and it all runs on your device — nothing is uploaded.</p>
+              <p className="note"><b>How it works:</b> every pixel is given its own transparency so the image lands on your visible picture over a white background and your hidden picture over black — which keeps the hidden picture in <b>full colour</b> when it&apos;s revealed. It all runs on your device; nothing is uploaded.</p>
             </div>
           </section>
         </div>
