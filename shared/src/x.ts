@@ -21,6 +21,9 @@ export interface XTaskView {
   code: string;
   /** Whether this player has already claimed this task. */
   claimed: boolean;
+  /** Whether the task is live. Always true for players (inactive tasks are
+   *  filtered out); admins also receive inactive tasks, so this can be false. */
+  active: boolean;
 }
 
 export interface XTasksResponse {

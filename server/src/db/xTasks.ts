@@ -39,6 +39,22 @@ export async function listActiveTasks(): Promise<XTaskRow[]> {
   }
 }
 
+/** All tasks incl. inactive, newest first (admin view). */
+export async function listAllTasks(): Promise<XTaskRow[]> {
+  const db = getPool();
+  if (!db) return [];
+  try {
+    const res = await db.query(
+      `SELECT id, type, target_url, title, description, hashtag, points, active
+       FROM x_tasks ORDER BY active DESC, created_at DESC LIMIT 50`,
+    );
+    return res.rows.map(mapRow);
+  } catch (error) {
+    console.warn("[x-tasks] list all failed:", error);
+    return [];
+  }
+}
+
 export async function getTask(id: string): Promise<XTaskRow | null> {
   const db = getPool();
   if (!db) return null;
@@ -80,6 +96,22 @@ export async function createTask(t: Omit<XTaskRow, "active">): Promise<boolean> 
     return true;
   } catch (error) {
     console.warn("[x-tasks] create failed:", error);
+    return false;
+  }
+}
+
+export async function updateTask(id: string, t: Omit<XTaskRow, "active" | "id">): Promise<boolean> {
+  const db = getPool();
+  if (!db) return false;
+  try {
+    const res = await db.query(
+      `UPDATE x_tasks SET type=$2, target_url=$3, title=$4, description=$5, hashtag=$6, points=$7
+       WHERE id=$1`,
+      [id, t.type, t.targetUrl, t.title, t.description, t.hashtag, t.points],
+    );
+    return (res.rowCount ?? 0) > 0;
+  } catch (error) {
+    console.warn("[x-tasks] update failed:", error);
     return false;
   }
 }
