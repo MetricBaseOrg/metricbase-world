@@ -96,6 +96,10 @@ export interface DashboardResponse {
   payoutWallet: string | null;
   /** Whether a Telegram login is attached to this wallet account. */
   telegramLinked: boolean;
+  /** Whether an X (Twitter) account is connected to this character. */
+  xLinked: boolean;
+  /** The connected X handle (without the @), or null when not linked. */
+  xUsername: string | null;
   /** Epoch ms of the character's last save (last time they played), or null for brand-new. */
   lastSeenAt: number | null;
   unreadMail: number;

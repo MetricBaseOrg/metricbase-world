@@ -64,6 +64,18 @@ ALTER TABLE characters ADD COLUMN IF NOT EXISTS telegram_id BIGINT;
 CREATE UNIQUE INDEX IF NOT EXISTS characters_telegram_id_idx
   ON characters (telegram_id) WHERE telegram_id IS NOT NULL;
 
+-- Linked X (Twitter) account. Proven via "Sign in with X" (OAuth 2.0 + PKCE),
+-- so x_user_id is the authenticated account's numeric id. Unique so one X
+-- account can never point at two characters (the anti-farm guard for the
+-- one-time season-point bonus). x_reward_awarded makes that 50-point bonus
+-- once-per-character: re-linking or switching X accounts never re-pays it.
+ALTER TABLE characters ADD COLUMN IF NOT EXISTS x_user_id VARCHAR(32);
+ALTER TABLE characters ADD COLUMN IF NOT EXISTS x_username VARCHAR(32);
+ALTER TABLE characters ADD COLUMN IF NOT EXISTS x_linked_at TIMESTAMPTZ;
+ALTER TABLE characters ADD COLUMN IF NOT EXISTS x_reward_awarded BOOLEAN NOT NULL DEFAULT false;
+CREATE UNIQUE INDEX IF NOT EXISTS characters_x_user_id_idx
+  ON characters (x_user_id) WHERE x_user_id IS NOT NULL;
+
 -- Casino: custodial per-currency balances (smallest units) + idempotent ledger.
 CREATE TABLE IF NOT EXISTS casino_balances (
   wallet_address VARCHAR(44) NOT NULL,

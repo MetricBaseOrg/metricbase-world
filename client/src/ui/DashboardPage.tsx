@@ -83,6 +83,9 @@ export function DashboardPage() {
   const [tgLinking, setTgLinking] = useState(false);
   const [tgError, setTgError] = useState<string | null>(null);
 
+  const [xBusy, setXBusy] = useState(false);
+  const [xError, setXError] = useState<string | null>(null);
+
   // The game shell locks page scrolling; this is an ordinary web page.
   useEffect(() => {
     const root = document.getElementById("root");
@@ -251,6 +254,59 @@ export function DashboardPage() {
       setTgError(linkError instanceof Error ? linkError.message : "Could not update Telegram link");
     } finally {
       setTgLinking(false);
+    }
+  };
+
+  /** Connect an X account via "Sign in with X" in a popup. The server does the
+   *  OAuth exchange and messages us back when the popup finishes, at which point
+   *  we refresh the dashboard to pick up the linked handle + awarded points. */
+  const handleConnectX = async () => {
+    if (!accessToken) return;
+    setXBusy(true);
+    setXError(null);
+    try {
+      const response = await fetchWithTimeout(`${getHttpServerUrl()}/api/x/link/start`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      const body = (await response.json().catch(() => ({}))) as { url?: string; error?: string };
+      if (!response.ok || !body.url) throw new Error(body.error ?? "Couldn't start X connect.");
+
+      const popup = window.open(body.url, "mb-x-connect", "width=600,height=760");
+      if (!popup) throw new Error("Pop-up blocked — allow pop-ups and try again.");
+
+      const onMessage = async (event: MessageEvent) => {
+        const msg = event.data as { source?: string; ok?: boolean } | null;
+        if (!msg || msg.source !== "mb-x-link") return;
+        window.removeEventListener("message", onMessage);
+        setXBusy(false);
+        if (msg.ok && accessToken) {
+          setData(await fetchDashboard(accessToken));
+        }
+      };
+      window.addEventListener("message", onMessage);
+    } catch (connectError) {
+      setXError(connectError instanceof Error ? connectError.message : "Couldn't connect X.");
+      setXBusy(false);
+    }
+  };
+
+  /** Detach the X account. Does NOT reclaim the one-time bonus (server-guarded). */
+  const handleDisconnectX = async () => {
+    if (!accessToken) return;
+    setXBusy(true);
+    setXError(null);
+    try {
+      const response = await fetchWithTimeout(`${getHttpServerUrl()}/api/x/unlink`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      const body = (await response.json().catch(() => ({}))) as { error?: string };
+      if (!response.ok) throw new Error(body.error ?? "Couldn't disconnect X.");
+      setData(await fetchDashboard(accessToken));
+    } catch (disconnectError) {
+      setXError(disconnectError instanceof Error ? disconnectError.message : "Couldn't disconnect X.");
+    } finally {
+      setXBusy(false);
     }
   };
 
@@ -516,6 +572,50 @@ export function DashboardPage() {
                         )}
                         {tgError && (
                           <p style={{ fontSize: "0.75rem", color: "#ff9d7a", margin: "6px 0 0" }}>{tgError}</p>
+                        )}
+                      </>
+                    )}
+                    {/* Connect an X (Twitter) account to this character. First
+                        connect awards a one-time +50 season-point bonus. */}
+                    {data.found && (
+                      <>
+                        <div className="mb-dash-stat" style={{ marginBottom: 2, marginTop: 10 }}>
+                          𝕏 <span>X (Twitter)</span>
+                        </div>
+                        {data.xLinked ? (
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <span style={{ fontSize: "0.8rem", color: "#7ed6df" }}>
+                              ✓ Connected as @{data.xUsername}
+                            </span>
+                            <button
+                              type="button"
+                              className="chibi-btn chibi-btn--ghost"
+                              style={{ padding: "6px 12px", fontSize: "0.75rem" }}
+                              onClick={() => void handleDisconnectX()}
+                              disabled={xBusy}
+                            >
+                              Disconnect
+                            </button>
+                          </div>
+                        ) : (
+                          <>
+                            <p style={{ fontSize: "0.78rem", color: "var(--chibi-ink-soft)", margin: "0 0 6px" }}>
+                              Connect your X account to earn a one-time <b>+50 season points</b>. More
+                              X rewards (reply, repost) are coming soon.
+                            </p>
+                            <button
+                              type="button"
+                              className="chibi-btn chibi-btn--secondary"
+                              style={{ padding: "8px 16px", fontSize: "0.8rem" }}
+                              onClick={() => void handleConnectX()}
+                              disabled={xBusy}
+                            >
+                              {xBusy ? "..." : "Connect X"}
+                            </button>
+                          </>
+                        )}
+                        {xError && (
+                          <p style={{ fontSize: "0.75rem", color: "#ff9d7a", margin: "6px 0 0" }}>{xError}</p>
                         )}
                       </>
                     )}

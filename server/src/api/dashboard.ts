@@ -17,6 +17,7 @@ import { type AuthenticatedRequest, requireAuth } from "../auth/requireAuth.js";
 import { isTelegramIdentity, normalizePayoutWallet } from "../auth/telegramAuth.js";
 import { consumeLinkCode } from "../auth/telegramLink.js";
 import { getLinkedTelegramId, linkTelegramToWallet, unlinkTelegram } from "../db/telegramLink.js";
+import { getLinkedX } from "../db/xLink.js";
 import { countUnread } from "../db/mail.js";
 import { getPool } from "../db/pool.js";
 
@@ -71,6 +72,8 @@ dashboardRouter.get("/dashboard/me", requireAuth, async (req, res) => {
       isTelegramAccount: isTelegramIdentity(wallet),
       payoutWallet: null,
       telegramLinked: false,
+      xLinked: false,
+      xUsername: null,
       lastSeenAt: null,
       unreadMail: 0,
       inventory: [],
@@ -83,6 +86,7 @@ dashboardRouter.get("/dashboard/me", requireAuth, async (req, res) => {
 
   const skills = normalizeSkills(row.skills);
   const equipment = normalizeEquipment(row.equipment);
+  const xLink = await getLinkedX(wallet);
   const payload: DashboardResponse = {
     found: true,
     name: row.name,
@@ -100,6 +104,8 @@ dashboardRouter.get("/dashboard/me", requireAuth, async (req, res) => {
     isTelegramAccount: isTelegramIdentity(wallet),
     payoutWallet: row.payout_wallet ?? null,
     telegramLinked: (await getLinkedTelegramId(wallet)) !== null,
+    xLinked: xLink !== null,
+    xUsername: xLink?.xUsername ?? null,
     lastSeenAt: row.updated_at ? row.updated_at.getTime() : null,
     unreadMail: await countUnread(row.name),
     inventory: normalizeInventory(row.inventory),
