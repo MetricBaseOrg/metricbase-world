@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { BackgroundRemover } from "./BackgroundRemover";
+import { encodeCanvas, png8Supported, type OutFormat } from "./pngEncode";
 import "./tools.css";
 
 /**
@@ -103,6 +105,8 @@ export function ToolsPage() {
   const [tool, setTool] = useState<"paint" | "erase">("paint");
   const [brushSize, setBrushSize] = useState(46);
   const [hasPhoto, setHasPhoto] = useState(false);
+  const [activeTool, setActiveTool] = useState<"hidden" | "bg">("hidden");
+  const [format, setFormat] = useState<OutFormat>("png8");
   const [coverName, setCoverName] = useState("Tap to upload");
   const [secretName, setSecretName] = useState("Tap to upload");
   const [dims, setDims] = useState("");
@@ -286,19 +290,22 @@ export function ToolsPage() {
     setRev((r) => r + 1);
   };
 
-  const download = () => {
+  const download = async () => {
     const out = outRef.current;
     if (!out) return;
-    out.toBlob((blob) => {
-      if (!blob) return;
+    setStatus("Saving…");
+    try {
+      const blob = await encodeCanvas(out, format);
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
       a.download = "MetricBase.png";
       a.click();
       setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-      setStatus("Saved MetricBase.png ✓");
-      setTimeout(() => setStatus(""), 3000);
-    }, "image/png");
+      setStatus(`Saved MetricBase.png (${format === "png8" ? "PNG-8" : "RGBA"}) ✓`);
+      setTimeout(() => setStatus(""), 3500);
+    } catch {
+      setStatus("Couldn't save — try again.");
+    }
   };
 
   // ---- Brush mode: paint surface + strokes ----
@@ -423,14 +430,23 @@ export function ToolsPage() {
         <header>
           <img className="mb-logo" src="/pwa-192x192.png" alt="MetricBase World" />
           <div>
-            <h1>Hidden Image Maker</h1>
+            <h1>{activeTool === "bg" ? "Background Remover" : "Hidden Image Maker"}</h1>
             <p className="tagline">
-              Make one image that looks ordinary in the X timeline but reveals a <b>hidden picture</b> when
-              someone taps to enlarge it. Free, no sign-in — everything runs right here in your browser.
+              {activeTool === "bg"
+                ? "Cut out a background with a colour pick and a brush — get a clean transparent PNG. Free, no sign-in; runs right here in your browser."
+                : "Make one image that looks ordinary in the X timeline but reveals a hidden picture when someone taps to enlarge it. Free, no sign-in — everything runs right here in your browser."}
             </p>
           </div>
         </header>
 
+        <div className="toolnav" role="group" aria-label="Choose a tool">
+          <button type="button" className={activeTool === "hidden" ? "on" : ""} onClick={() => setActiveTool("hidden")}>🫥 Hidden Image</button>
+          <button type="button" className={activeTool === "bg" ? "on" : ""} onClick={() => setActiveTool("bg")}>✂️ Remove Background</button>
+        </div>
+
+        {activeTool === "bg" && <BackgroundRemover />}
+
+        {activeTool === "hidden" && (
         <div className="grid">
           {/* ---- Controls ---- */}
           <section className="chibi-panel panel-pad" aria-label="Image controls">
@@ -555,6 +571,19 @@ export function ToolsPage() {
                   </div>
                 </div>
               </div>
+
+              <div className="field size0">
+                <label className="lbl-block">File format</label>
+                <div className="seg seg-wide" role="group" aria-label="File format">
+                  <button type="button" aria-pressed={format === "png8"} onClick={() => setFormat("png8")} disabled={!png8Supported()}>PNG-8</button>
+                  <button type="button" aria-pressed={format === "rgba"} onClick={() => setFormat("rgba")}>RGBA</button>
+                </div>
+                <p className="hint">
+                  {format === "png8"
+                    ? "Indexed PNG-8 — the most reliable hidden-image encoding on X."
+                    : "Full-quality truecolour PNG. Larger, and X may re-compress it."}
+                </p>
+              </div>
             </div>
           </section>
 
@@ -609,7 +638,7 @@ export function ToolsPage() {
               </div>
 
               <div className="actions">
-                <button className="chibi-btn chibi-btn--primary" type="button" onClick={download}>↓ Download PNG</button>
+                <button className="chibi-btn chibi-btn--primary" type="button" onClick={() => void download()}>↓ Download PNG</button>
                 <button className="chibi-btn chibi-btn--secondary" type="button" onClick={build}>↻ Rebuild</button>
                 <span className="mono" style={{ fontSize: ".8rem", color: "var(--chibi-ink-soft)" }}>{status}</span>
               </div>
@@ -626,6 +655,7 @@ export function ToolsPage() {
             </div>
           </section>
         </div>
+        )}
 
         <footer>A free MetricBase World tool · runs 100% in your browser</footer>
       </div>
