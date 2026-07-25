@@ -18,6 +18,7 @@ import {
   resolveWalletConnector,
 } from "../wallet/tokenGate";
 import { CharacterPreview } from "./CharacterPreview";
+import { XTasksCard } from "./XTasksCard";
 import { ItemIcon } from "./ItemIcon";
 import { WalletPicker } from "./WalletPicker";
 import "./dashboard.css";
@@ -698,6 +699,8 @@ export function DashboardPage() {
                   </div>
                 </div>
               </section>
+
+              <XTasksCard accessToken={accessToken} />
 
               <section className="chibi-panel mb-dash-card">
                 <h2>Events</h2>

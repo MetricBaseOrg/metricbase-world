@@ -76,6 +76,33 @@ ALTER TABLE characters ADD COLUMN IF NOT EXISTS x_reward_awarded BOOLEAN NOT NUL
 CREATE UNIQUE INDEX IF NOT EXISTS characters_x_user_id_idx
   ON characters (x_user_id) WHERE x_user_id IS NOT NULL;
 
+-- X engagement tasks (Phase 2): admin-posted reply/quote campaigns players
+-- complete for season points. Verified via X's public oEmbed (see api/xTasks).
+CREATE TABLE IF NOT EXISTS x_tasks (
+  id VARCHAR(40) PRIMARY KEY,
+  type VARCHAR(12) NOT NULL,                 -- reply | quote
+  target_url TEXT NOT NULL,
+  title VARCHAR(120) NOT NULL,
+  description TEXT NOT NULL DEFAULT '',
+  hashtag VARCHAR(40) NOT NULL DEFAULT '',
+  points INTEGER NOT NULL DEFAULT 25,
+  active BOOLEAN NOT NULL DEFAULT true,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS x_tasks_active_idx ON x_tasks (active, created_at DESC);
+
+-- One claim per (task, wallet); the atomic insert makes the season-point award
+-- idempotent, and stores the proof tweet for auditing.
+CREATE TABLE IF NOT EXISTS x_task_claims (
+  task_id VARCHAR(40) NOT NULL,
+  wallet_address VARCHAR(44) NOT NULL,
+  player_name VARCHAR(16) NOT NULL,
+  tweet_url TEXT NOT NULL,
+  points INTEGER NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (task_id, wallet_address)
+);
+
 -- Casino: custodial per-currency balances (smallest units) + idempotent ledger.
 CREATE TABLE IF NOT EXISTS casino_balances (
   wallet_address VARCHAR(44) NOT NULL,

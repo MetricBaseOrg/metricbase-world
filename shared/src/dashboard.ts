@@ -11,6 +11,10 @@ export const MOTTO_MAX_LENGTH = 80;
  */
 export const DASHBOARD_UPDATES: Array<{ title: string; body: string }> = [
   {
+    title: "v0.187 — Earn by reposting on X",
+    body: "Your linked X account now pays off over time. New reply & repost tasks appear on your dashboard: reply to or quote a MetricBase post with the unique code shown, paste the link back, and pick up season points. Codes are per-player so nobody can farm them, and it's all verified for free — no paid X API.",
+  },
+  {
     title: "v0.186 — Connect your X account",
     body: "Link your X (Twitter) account to your character from the dashboard and pick up a one-time +50 season points. Tap Connect X, sign in with X, and you land right back here. It's the first step — reply-to-earn and repost-to-earn activities are coming next.",
   },

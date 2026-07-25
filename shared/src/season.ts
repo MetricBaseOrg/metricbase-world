@@ -68,6 +68,7 @@ export type SeasonCategory =
   | "pvpWin"
   | "referral"
   | "xLink"
+  | "xTask"
   | "richest";
 
 /** Points awarded per unit of each activity. Balanced so grindy actions pay
@@ -88,6 +89,9 @@ export const SEASON_POINTS: Record<SeasonCategory, number> = {
   // A unique index on x_user_id (one X account ⇄ one character) plus a
   // once-per-character award flag keep this from being farmed with alts.
   xLink: 50,
+  // Per-task reward (reply/repost campaigns); the actual amount is set per task,
+  // so this per-unit default is unused (like richest).
+  xTask: 0,
   // Richest is awarded on a fixed daily schedule by rank (SEASON_RICHEST_DAILY_BONUS),
   // not per-unit — this per-unit entry is unused.
   richest: 0,
@@ -123,6 +127,7 @@ export const SEASON_CATEGORY_LABEL: Record<SeasonCategory, string> = {
   pvpWin: "PvP wins",
   referral: "Referrals",
   xLink: "X account",
+  xTask: "X tasks",
   richest: "Richest bonus",
 };
 
