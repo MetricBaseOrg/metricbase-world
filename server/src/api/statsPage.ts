@@ -116,6 +116,12 @@ export const STATS_PAGE_HTML = `<!doctype html>
   .ptable .flat{color:var(--mut);font-weight:700;}
   .ptable .nm{font-weight:800;}
   .ptable .base{color:var(--mut);font-size:.7rem;}
+  /* Hand-drawn item art in place of the old emoji. Sized to the line box and
+     bottom-aligned so a tall icon can't shove the row height around. The emoji
+     stays as the onerror fallback for any item whose art hasn't shipped. */
+  .ico{width:22px;height:22px;object-fit:contain;vertical-align:-5px;margin-right:5px;
+    image-rendering:auto;flex:none;}
+  .row .ico{width:20px;height:20px;vertical-align:-4px;}
   svg{display:block;width:100%;height:auto;overflow:visible;touch-action:pan-y;}
   .tip{position:fixed;pointer-events:none;background:#4a3b2a;color:#fff7ea;border-radius:12px;border:2px solid #6b5335;
     padding:7px 11px;font-size:.76rem;box-shadow:0 5px 14px rgba(74,59,42,.3);opacity:0;transition:opacity .1s;white-space:nowrap;z-index:30;line-height:1.5;}
@@ -664,6 +670,32 @@ async function load(){
     (function(){
       var items=s.itemPrices||[];
       var KINDS={material:"📦",consumable:"🍞",weapon:"⚔️",tool:"🪓",armor:"🛡️",mount:"🐴",pet:"🐾"};
+      // Real item art instead of emoji. it.art is resolved server-side (see
+      // itemArtPath in api/stats.ts) so the fish/dish folder split isn't
+      // duplicated here. Absolute origin because this page is served from the
+      // Railway backend while the art is hosted with the client — same reason
+      // the og:image above is absolute.
+      // NB: this whole page is a template literal — no backticks in here.
+      var ORIGIN="https://world.metricbase.org";
+      function esc(v){return String(v).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/"/g,"&quot;");}
+      function icon(it){
+        var fallback=esc(it.emoji||KINDS[it.kind]||"📦");
+        if(!it.art) return fallback+" ";
+        // The emoji rides along in data-fb; wireIcons() below turns it back into
+        // text if the art 404s, so an item added before its art ships degrades
+        // to exactly the old behaviour. Deliberately NOT an inline onerror=""
+        // handler: nesting quotes inside an attribute inside this template
+        // literal silently emits broken JS (it did, and it blanked the table).
+        return '<img class="ico" src="'+ORIGIN+esc(it.art)+'" alt="" loading="lazy" data-fb="'+fallback+'">';
+      }
+      // Error events don't bubble, so attach per image after each render.
+      function wireIcons(root){
+        if(!root) return;
+        var imgs=root.querySelectorAll("img.ico");
+        for(var i=0;i<imgs.length;i++){
+          imgs[i].onerror=function(){ this.outerHTML=(this.getAttribute("data-fb")||"")+" "; };
+        }
+      }
       function pct(m){return Math.round((m-1)*100);}
       function trend(m){var p=pct(m);
         if(p>0)return '<span class="up">▲ +'+p+'%</span>';
@@ -673,16 +705,18 @@ async function load(){
       tb.innerHTML=items.map(function(it){
         var vendor=it.price>0?fmt(it.price)+'g <span class="base">('+fmt(it.base)+')</span>':'<span class="base">—</span>';
         var shop=it.buyPrice>0?fmt(it.buyPrice)+'g <span class="base">('+fmt(it.buyBase)+')</span>':'<span class="base">—</span>';
-        return '<tr><td class="nm">'+(it.emoji||KINDS[it.kind]||"📦")+' '+it.name+'</td><td>'+vendor+'</td><td>'+trend(it.mult)
+        return '<tr><td class="nm">'+icon(it)+it.name+'</td><td>'+vendor+'</td><td>'+trend(it.mult)
           +'</td><td>'+shop+'</td><td>'+fmt(it.produced7d)+'</td><td>'+fmt(it.consumed7d)+'</td></tr>';
       }).join("")||'<tr><td colspan="6" class="base">Nothing traded yet 🌱</td></tr>';
+      wireIcons(tb);
       var priced=items.filter(function(it){return it.price>0||it.buyPrice>0;});
       var up=priced.filter(function(it){return it.mult>1;}).sort(function(a,b){return b.mult-a.mult;}).slice(0,5);
       var dn=priced.filter(function(it){return it.mult<1;}).sort(function(a,b){return a.mult-b.mult;}).slice(0,5);
-      rows(el("priceUp"),up,function(it){return '<div class="row"><span>'+(it.emoji?it.emoji+' ':'')+it.name+'</span><b class="up" style="color:#2f9e5e">+'+pct(it.mult)+'% · '+fmt(it.price||it.buyPrice)+'g</b></div>';});
-      rows(el("priceDown"),dn,function(it){return '<div class="row"><span>'+(it.emoji?it.emoji+' ':'')+it.name+'</span><b style="color:#d85f4f">'+pct(it.mult)+'% · '+fmt(it.price||it.buyPrice)+'g</b></div>';});
+      rows(el("priceUp"),up,function(it){return '<div class="row"><span>'+icon(it)+it.name+'</span><b class="up" style="color:#2f9e5e">+'+pct(it.mult)+'% · '+fmt(it.price||it.buyPrice)+'g</b></div>';});
+      rows(el("priceDown"),dn,function(it){return '<div class="row"><span>'+icon(it)+it.name+'</span><b style="color:#d85f4f">'+pct(it.mult)+'% · '+fmt(it.price||it.buyPrice)+'g</b></div>';});
       var top=items.slice().sort(function(a,b){return b.produced7d-a.produced7d;}).filter(function(it){return it.produced7d>0;}).slice(0,5);
-      rows(el("flowTop"),top,function(it){return '<div class="row"><span>'+(it.emoji?it.emoji+' ':'')+it.name+'</span><b>'+fmt(it.produced7d)+' made · '+fmt(it.consumed7d)+' used</b></div>';});
+      rows(el("flowTop"),top,function(it){return '<div class="row"><span>'+icon(it)+it.name+'</span><b>'+fmt(it.produced7d)+' made · '+fmt(it.consumed7d)+' used</b></div>';});
+      wireIcons(el("priceUp"));wireIcons(el("priceDown"));wireIcons(el("flowTop"));
     })();
 
     var ad=s.ads||{daily:{}};var adDaily=ad.daily||{};

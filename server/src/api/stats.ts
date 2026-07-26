@@ -5,7 +5,10 @@ import {
   ITEMS,
   ITEM_ICONS,
   SHOPS,
+  baseItemIdOf,
   getItemBaseValue,
+  getFishDishArt,
+  getFishSpecies,
   supplyDemandMultiplier,
   currentSeason,
 } from "@metricbase/shared";
@@ -100,6 +103,8 @@ export interface ItemPriceStat {
   name: string;
   kind: string;
   emoji: string;
+  /** Public path to the item's hand-drawn art ("" when it has none). */
+  art: string;
   /** Base vendor (sell-to-NPC) value; 0 when no vendor buys it. */
   base: number;
   /** Current vendor value after the supply/demand multiplier. */
@@ -115,6 +120,29 @@ export interface ItemPriceStat {
 }
 
 /** Every item with a price or any recorded flow, with its live price. */
+/**
+ * Public path to an item's hand-drawn art, or "" when it has none.
+ *
+ * Mirrors the client's ItemIcon.tsx resolution so /stats shows exactly the same
+ * picture the game does: fish species and cooked dishes carry their own art
+ * filename and live in /assets/fish, everything else derives from the item id
+ * (drop `item_`, underscores to dashes) in /assets/items. Resolved here rather
+ * than in the page's inline JS so the fish mapping isn't duplicated in a second
+ * place that can drift.
+ *
+ * baseItemIdOf() FIRST: craft-quality variants (`item_x_fine` / `item_x_master`)
+ * are real, separately-priced item ids but share the base item's art — there is
+ * no `gem-blade-fine.png`. Skipping this silently drops 86 of the ~186 priced
+ * items back to an emoji. Same hazard class as the recipe/value lookups.
+ */
+function itemArtPath(rawItemId: string): string {
+  const itemId = baseItemIdOf(rawItemId);
+  const fishArt = getFishSpecies(itemId)?.art ?? getFishDishArt(itemId);
+  if (fishArt) return `/assets/fish/${fishArt}`;
+  if (!itemId.startsWith("item_")) return "";
+  return `/assets/items/${itemId.slice(5).replace(/_/g, "-")}.png`;
+}
+
 function buildItemPrices(): ItemPriceStat[] {
   const flows = getItemFlows();
   const buyOffers = SHOPS.pip_general.buyOffers;
@@ -136,6 +164,7 @@ function buildItemPrices(): ItemPriceStat[] {
       name: ITEMS[itemId]?.name ?? itemId,
       kind: ITEMS[itemId]?.kind ?? "material",
       emoji: ITEM_ICONS[itemId] ?? "",
+      art: itemArtPath(itemId),
       base,
       price: base > 0 ? Math.max(1, Math.round(base * mult)) : 0,
       buyBase: offer?.price ?? 0,

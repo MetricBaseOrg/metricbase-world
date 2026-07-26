@@ -167,6 +167,17 @@
       .fishcard .fmeta { font-size: 0.74rem; color: var(--ink-soft); margin-top: 2px; }
       .raritychip { display: inline-block; font-size: 0.64rem; font-weight: 800; letter-spacing: 0.4px; text-transform: uppercase; color: #fff; border-radius: 999px; padding: 1px 8px; margin-top: 6px; }
       td img.dishart { width: 42px; height: 42px; object-fit: contain; vertical-align: middle; margin-right: 8px; }
+      /* Same idea as .dishart, for the item/mob art in the gear, weapon, tool
+         and monster tables and in prose lists. Slightly smaller than .dishart so
+         those denser tables keep their row rhythm. Mobs are wider than they are
+         tall, hence the separate size. */
+      img.art { width: 34px; height: 34px; object-fit: contain; vertical-align: middle; margin-right: 8px; }
+      img.mobart { width: 44px; height: 40px; object-fit: contain; vertical-align: middle; margin-right: 8px; }
+      li img.art { width: 28px; height: 28px; margin-right: 6px; }
+      @media (max-width: 560px) {
+        img.art, li img.art { width: 26px; height: 26px; margin-right: 5px; }
+        img.mobart { width: 32px; height: 30px; margin-right: 5px; }
+      }
 
       .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-top: 12px; }
       .mini {
@@ -177,6 +188,9 @@
       }
       .mini h4 { font-size: 1rem; font-weight: 800; margin-bottom: 4px; }
       .mini p { font-size: 0.92rem; margin: 2px 0; }
+      /* Quest-giver portraits: the same NPC art the game renders, so a player
+         recognises who to walk up to. Floated so the copy wraps around it. */
+      .mini h4 img.npcart { width: 40px; height: 40px; object-fit: contain; vertical-align: -12px; margin-right: 7px; }
 
       .callout {
         border-left: 6px solid var(--accent);
@@ -278,8 +292,8 @@
       <!-- 1 -->
       <section id="start">
         <h2><span class="emoji">🚀</span> 1. Getting Started</h2>
-        <p>MetricBase World is gated by the <strong>$BASE</strong> token on Solana to keep the
-        economy healthy.</p>
+        <p><strong>Entry is free</strong> — you need no <strong>$BASE</strong> and no tokens of any
+        kind to play. A Solana wallet (or Telegram) is just how your character is saved.</p>
         <div class="step">
           <div class="num">1</div>
           <div class="body"><strong>Open the game</strong>
@@ -555,11 +569,11 @@
         <h3>Tool tiers</h3>
         <table>
           <tr><th>Tier</th><th>Speed</th><th>Bonus</th></tr>
-          <tr><td>Copper (axe / pickaxe / rod / hoe)</td><td>30% faster</td><td>hoe: crops grow 15% sooner</td></tr>
-          <tr><td>Iron / Pro (axe / pickaxe / rod / hoe)</td><td>50% faster</td><td>hoe: crops grow 25% sooner</td></tr>
-          <tr><td>Steel (axe / pickaxe / hoe / Trawler's Net)</td><td>50% faster</td><td>40% chance of a bonus drop · steel hoe: crops grow 35% sooner</td></tr>
-          <tr><td>🎣 Gilded Rod (fishing)</td><td>60% faster</td><td>50% bonus catch · <strong>+25% fishing XP</strong></td></tr>
-          <tr><td>🎣 Abyssal Rod (fishing)</td><td>65% faster</td><td>60% bonus catch · <strong>+50% fishing XP</strong> · pearls surface far more often</td></tr>
+          <tr><td><img class="art" src="/assets/items/copper-axe.png" alt="" loading="lazy" />Copper (axe / pickaxe / rod / hoe)</td><td>30% faster</td><td>hoe: crops grow 15% sooner</td></tr>
+          <tr><td><img class="art" src="/assets/items/iron-axe.png" alt="" loading="lazy" />Iron / Pro (axe / pickaxe / rod / hoe)</td><td>50% faster</td><td>hoe: crops grow 25% sooner</td></tr>
+          <tr><td><img class="art" src="/assets/items/steel-axe.png" alt="" loading="lazy" />Steel (axe / pickaxe / hoe / Trawler's Net)</td><td>50% faster</td><td>40% chance of a bonus drop · steel hoe: crops grow 35% sooner</td></tr>
+          <tr><td><img class="art" src="/assets/items/gilded-rod.png" alt="" loading="lazy" />Gilded Rod (fishing)</td><td>60% faster</td><td>50% bonus catch · <strong>+25% fishing XP</strong></td></tr>
+          <tr><td><img class="art" src="/assets/items/abyssal-rod.png" alt="" loading="lazy" />Abyssal Rod (fishing)</td><td>65% faster</td><td>60% bonus catch · <strong>+50% fishing XP</strong> · pearls surface far more often</td></tr>
         </table>
         <p>Equip a tool from your Inventory into the <strong>tool slot</strong> (separate from your
         weapon). It only helps the matching skill.</p>
@@ -596,14 +610,17 @@
         <h3>Fishing &amp; farming accessories</h3>
         <p>Craftable gear that boosts a skill while <em>worn</em> (stacks with your tool):</p>
         <ul class="list">
-          <li><strong>📿 Lucky Lure Pendant</strong> (necklace) — rare catches (pearls) surface much
-          more often. Craft: 2 Pearls + 1 Iron Bar.</li>
-          <li><strong>💍 Angler's Ring</strong> (ring) — +25% fishing XP. Craft: 1 Pearl + 1 Gemstone.</li>
-          <li><strong>👒 Angler's Straw Cap</strong> (helmet) — +10% fishing XP and sometimes an extra
-          catch. Craft: 10 Wheat + 5 Fish — a great first goal for new anglers.</li>
-          <li><strong>👒 Farmer's Sun Hat</strong> (helmet) — +10% Farming XP and sometimes a bonus
-          crop. Craft: 10 Wheat + 5 Carrots.</li>
-          <li><strong>💍 Grower's Ring</strong> (ring) — +25% Farming XP. Craft: 1 Amber + 1 Gemstone.</li>
+          <li><img class="art" src="/assets/items/lucky-lure.png" alt="" loading="lazy" /><strong>Lucky Lure Pendant</strong>
+          (necklace) — rare catches (pearls) surface much more often. Craft: 2 Pearls + 1 Iron Bar.</li>
+          <li><img class="art" src="/assets/items/angler-ring.png" alt="" loading="lazy" /><strong>Angler's Ring</strong>
+          (ring) — +25% fishing XP. Craft: 1 Pearl + 1 Gemstone.</li>
+          <li><img class="art" src="/assets/items/angler-cap.png" alt="" loading="lazy" /><strong>Angler's Straw Cap</strong>
+          (helmet) — +10% fishing XP and sometimes an extra catch. Craft: 10 Wheat + 5 Fish — a
+          great first goal for new anglers.</li>
+          <li><img class="art" src="/assets/items/farmer-hat.png" alt="" loading="lazy" /><strong>Farmer's Sun Hat</strong>
+          (helmet) — +10% Farming XP and sometimes a bonus crop. Craft: 10 Wheat + 5 Carrots.</li>
+          <li><img class="art" src="/assets/items/grower-ring.png" alt="" loading="lazy" /><strong>Grower's Ring</strong>
+          (ring) — +25% Farming XP. Craft: 1 Amber + 1 Gemstone.</li>
         </ul>
         <p>The Gilded Rod is crafted from planks, steel and rare Amber; the <strong>Abyssal Rod</strong>
         upgrades a Gilded Rod with 3 Pearls — the ultimate fishing setup also widens the catch
@@ -635,12 +652,13 @@
         <table>
           <thead><tr><th>Monster</th><th>Where</th><th>HP</th><th>XP</th><th>Drops</th></tr></thead>
           <tbody>
-            <tr><td>Training Dummy</td><td>Wilderness</td><td>—</td><td>low</td><td>Training Scrap · <em>never hits back</em></td></tr>
-            <tr><td>Wild Slime</td><td>Wilderness · Grotto</td><td>45</td><td>20</td><td>Slime Gel</td></tr>
-            <tr><td>Slime Brute</td><td>Grotto</td><td>150</td><td>55</td><td>Slime Core</td></tr>
-            <tr><td><strong>Ember Slime</strong></td><td>Wilderness (N) · Grotto (S)</td><td>200</td><td>85</td><td><strong>Ember Core</strong></td></tr>
-            <tr><td>Void Brute</td><td>Obsidian Reach</td><td>420</td><td>180</td><td>Ember Core ×2</td></tr>
-            <tr><td><strong>Charred Sentinel</strong> 👑</td><td>Obsidian Reach</td><td>900</td><td>600</td><td><strong>Obsidian Shard</strong></td></tr>
+            <tr><td><img class="mobart" src="/assets/mobs/mob-training-dummy.webp" alt="" loading="lazy" />Training Dummy</td><td>Wilderness</td><td>—</td><td>low</td><td>Training Scrap · <em>never hits back</em></td></tr>
+            <tr><td><img class="mobart" src="/assets/mobs/mob-slime.webp" alt="" loading="lazy" />Wild Slime</td><td>Wilderness · Grotto</td><td>45</td><td>20</td><td>Slime Gel</td></tr>
+            <tr><td><img class="mobart" src="/assets/mobs/mob-slime.webp" alt="" loading="lazy" /><strong>Thornback Slime</strong></td><td>Wilderness · Grotto</td><td>95</td><td>45</td><td><strong>Thorn Gel</strong></td></tr>
+            <tr><td><img class="mobart" src="/assets/mobs/mob-slime-brute.webp" alt="" loading="lazy" />Slime Brute</td><td>Grotto</td><td>150</td><td>55</td><td>Slime Core</td></tr>
+            <tr><td><img class="mobart" src="/assets/mobs/mob-ember-slime.webp" alt="" loading="lazy" /><strong>Ember Slime</strong></td><td>Wilderness (N) · Grotto (S)</td><td>200</td><td>85</td><td><strong>Ember Core</strong></td></tr>
+            <tr><td><img class="mobart" src="/assets/mobs/mob-void-brute.webp" alt="" loading="lazy" />Void Brute</td><td>Obsidian Reach</td><td>420</td><td>180</td><td>Ember Core ×2</td></tr>
+            <tr><td><img class="mobart" src="/assets/mobs/mob-charred-sentinel.webp" alt="" loading="lazy" /><strong>Charred Sentinel</strong> 👑</td><td>Obsidian Reach</td><td>900</td><td>600</td><td><strong>Obsidian Shard</strong></td></tr>
           </tbody>
         </table>
         <div class="callout">👑 The <strong>Charred Sentinel</strong> is the world boss. Even in a
@@ -654,20 +672,29 @@
         <table>
           <thead><tr><th>Tier</th><th>Rarity</th><th>Chest armour</th><th>Made from</th></tr></thead>
           <tbody>
-            <tr><td>Copper</td><td>Common</td><td>22</td><td>Copper bars</td></tr>
-            <tr><td>Iron</td><td>Uncommon</td><td>40</td><td>Iron bars</td></tr>
-            <tr><td>Steel</td><td>Rare</td><td>60</td><td>Steel bars</td></tr>
-            <tr><td><strong>Ember</strong></td><td>Epic</td><td><strong>88</strong></td><td>Steel bars + <strong>Ember Cores</strong></td></tr>
+            <tr><td><img class="art" src="/assets/items/copper-chest.png" alt="" loading="lazy" />Copper</td><td>Common</td><td>22</td><td>Copper bars</td></tr>
+            <tr><td><img class="art" src="/assets/items/iron-chest.png" alt="" loading="lazy" />Iron</td><td>Uncommon</td><td>40</td><td>Iron bars</td></tr>
+            <tr><td><img class="art" src="/assets/items/steel-chest.png" alt="" loading="lazy" />Steel</td><td>Rare</td><td>60</td><td>Steel bars</td></tr>
+            <tr><td><img class="art" src="/assets/items/ember-chest.png" alt="" loading="lazy" /><strong>Ember</strong></td><td>Epic</td><td><strong>88</strong></td><td>Steel bars + <strong>Ember Cores</strong></td></tr>
           </tbody>
         </table>
+        <p>Each tier is a full four-piece set — helm, chest, gloves and boots:</p>
+        <div class="fishgrid">
+          <div class="fishcard"><img src="/assets/items/steel-helm.png" alt="Steel Helm" loading="lazy" /><div class="fname">Helm</div><div class="fmeta">head</div></div>
+          <div class="fishcard"><img src="/assets/items/steel-chest.png" alt="Steel Chestplate" loading="lazy" /><div class="fname">Chestplate</div><div class="fmeta">body</div></div>
+          <div class="fishcard"><img src="/assets/items/steel-gloves.png" alt="Steel Gloves" loading="lazy" /><div class="fname">Gloves</div><div class="fmeta">hands</div></div>
+          <div class="fishcard"><img src="/assets/items/steel-boots.png" alt="Steel Boots" loading="lazy" /><div class="fname">Boots</div><div class="fmeta">feet</div></div>
+        </div>
         <table>
           <thead><tr><th>Weapon</th><th>Bonus damage</th><th>Made from</th></tr></thead>
           <tbody>
-            <tr><td>Rusty Blade</td><td>+12</td><td>Bought from Rudi</td></tr>
-            <tr><td>Copper Dagger</td><td>+18</td><td>Copper bars</td></tr>
-            <tr><td>Gem Blade</td><td>+30</td><td>Gemstones</td></tr>
-            <tr><td><strong>Ember Blade</strong></td><td><strong>+44</strong></td><td>Steel bars + Ember Cores</td></tr>
-            <tr><td><strong>Obsidian Edge</strong></td><td><strong>+60</strong></td><td>Obsidian Shards + Ember Cores + steel</td></tr>
+            <tr><td><img class="art" src="/assets/items/rusty-blade.png" alt="" loading="lazy" />Rusty Blade</td><td>+12</td><td>Bought from Rudi</td></tr>
+            <tr><td><img class="art" src="/assets/items/gel-knife.png" alt="" loading="lazy" />Gel Knife</td><td>+8</td><td>Slime Gel</td></tr>
+            <tr><td><img class="art" src="/assets/items/copper-dagger.png" alt="" loading="lazy" />Copper Dagger</td><td>+18</td><td>Copper bars</td></tr>
+            <tr><td><img class="art" src="/assets/items/gem-blade.png" alt="" loading="lazy" />Gem Blade</td><td>+30</td><td>Gemstones</td></tr>
+            <tr><td><img class="art" src="/assets/items/thorn-cleaver.png" alt="" loading="lazy" /><strong>Thorn Cleaver</strong></td><td><strong>+36</strong></td><td>Thorn Gel — the level 5–9 bridge</td></tr>
+            <tr><td><img class="art" src="/assets/items/ember-blade.png" alt="" loading="lazy" /><strong>Ember Blade</strong></td><td><strong>+44</strong></td><td>Steel bars + Ember Cores</td></tr>
+            <tr><td><img class="art" src="/assets/items/obsidian-blade.png" alt="" loading="lazy" /><strong>Obsidian Edge</strong></td><td><strong>+60</strong></td><td>Obsidian Shards + Ember Cores + steel</td></tr>
           </tbody>
         </table>
 
@@ -736,9 +763,13 @@
         the target frame lists what your opponent just used. Time your burst for when the potion
         chugger runs dry.</p>
         <h3>🐎 Mounts</h3>
-        <p>Craft a <strong>mount</strong> — Sturdy Pony (+25%), Swift Steed (+45%), or Dire Wolf
-        (+70%) — and equip it in the Inventory panel's Mount slot for a permanent
-        <strong>movement-speed</strong> boost.</p>
+        <p>Craft a <strong>mount</strong> and equip it in the Inventory panel's Mount slot for a
+        permanent <strong>movement-speed</strong> boost.</p>
+        <div class="fishgrid">
+          <div class="fishcard"><img src="/assets/items/pony.png" alt="Sturdy Pony" loading="lazy" /><div class="fname">Sturdy Pony</div><div class="fmeta">+25% speed</div></div>
+          <div class="fishcard"><img src="/assets/items/steed.png" alt="Swift Steed" loading="lazy" /><div class="fname">Swift Steed</div><div class="fmeta">+45% speed</div></div>
+          <div class="fishcard"><img src="/assets/items/dire-wolf.png" alt="Dire Wolf" loading="lazy" /><div class="fname">Dire Wolf</div><div class="fmeta">+70% speed</div></div>
+        </div>
       </section>
 
       <!-- 7c -->
@@ -799,15 +830,15 @@
         <p>Talk to NPCs (press <span class="kbd">E</span>) to pick up quests. They guide you
         through the game and reward XP, gold, and gear.</p>
         <div class="grid2">
-          <div class="mini"><h4>Aria — the Guide (Hub)</h4><p>Your starter chain: meet her, explore,
+          <div class="mini"><h4><img class="npcart" src="/assets/npcs/npc-guide.webp" alt="" loading="lazy" />Aria — the Guide (Hub)</h4><p>Your starter chain: meet her, explore,
           fight your first dummy, and become a Veteran Adventurer.</p></div>
-          <div class="mini"><h4>Rook — the Scout (Wilderness)</h4><p>Slime patrol and gel collection,
+          <div class="mini"><h4><img class="npcart" src="/assets/npcs/npc-rook.webp" alt="" loading="lazy" />Rook — the Scout (Wilderness)</h4><p>Slime patrol and gel collection,
           rewarding the Gel-Edged Knife.</p></div>
-          <div class="mini"><h4>Moss — the Warden (Grotto)</h4><p>Venture into the cave and take down
+          <div class="mini"><h4><img class="npcart" src="/assets/npcs/npc-moss.webp" alt="" loading="lazy" />Moss — the Warden (Grotto)</h4><p>Venture into the cave and take down
           the mighty Slime Brute.</p></div>
-          <div class="mini"><h4>Brenna — the Blacksmith (Hub)</h4><p>A five-part smithing chain:
+          <div class="mini"><h4><img class="npcart" src="/assets/npcs/npc-smith.webp" alt="" loading="lazy" />Brenna — the Blacksmith (Hub)</h4><p>A five-part smithing chain:
           iron → steel → a rare gemstone → a free master Steel Pickaxe.</p></div>
-          <div class="mini"><h4>The Ember trail (Moss &amp; Brenna)</h4><p>Picks up after the Brute:
+          <div class="mini"><h4><img class="npcart" src="/assets/npcs/npc-moss.webp" alt="" loading="lazy" />The Ember trail (Moss &amp; Brenna)</h4><p>Picks up after the Brute:
           hunt an <strong>Ember Slime</strong>, gather Ember Cores, forge the <strong>Ember Blade</strong>
           (Brenna throws in an Ember Helm), then face the <strong>Charred Sentinel</strong> for
           1,200 XP and 600 gold.</p></div>
