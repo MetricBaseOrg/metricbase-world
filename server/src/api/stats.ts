@@ -6,6 +6,7 @@ import {
   ITEM_ICONS,
   SHOPS,
   baseItemIdOf,
+  qualityOf,
   getItemBaseValue,
   getFishDishArt,
   getFishSpecies,
@@ -105,6 +106,9 @@ export interface ItemPriceStat {
   emoji: string;
   /** Public path to the item's hand-drawn art ("" when it has none). */
   art: string;
+  /** "fine" | "master" for craft-quality variants, else "". They share the base
+   * item's art, so the page distinguishes them with a ring like the game does. */
+  quality: string;
   /** Base vendor (sell-to-NPC) value; 0 when no vendor buys it. */
   base: number;
   /** Current vendor value after the supply/demand multiplier. */
@@ -165,6 +169,7 @@ function buildItemPrices(): ItemPriceStat[] {
       kind: ITEMS[itemId]?.kind ?? "material",
       emoji: ITEM_ICONS[itemId] ?? "",
       art: itemArtPath(itemId),
+      quality: qualityOf(itemId) ?? "",
       base,
       price: base > 0 ? Math.max(1, Math.round(base * mult)) : 0,
       buyBase: offer?.price ?? 0,

@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { playSfx } from "../audio/soundEffects";
 import { networkManager } from "../game/network";
 import { useGameStore } from "../store/gameStore";
+import { ItemIcon } from "./ItemIcon";
 
 function itemName(itemId: string): string {
   try {
@@ -136,7 +137,8 @@ export function PlayerShopPanel() {
             className="chibi-card"
             style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px" }}
           >
-            <div style={{ flex: 1 }}>
+            <ItemIcon itemId={listing.itemId} size={30} />
+            <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontWeight: 700, fontSize: "0.86rem" }}>{itemName(listing.itemId)}</div>
               <div className="chibi-text-muted" style={{ fontSize: "0.74rem" }}>
                 🪙 {listing.price} each · {listing.quantity} left

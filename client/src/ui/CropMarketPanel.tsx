@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { playSfx } from "../audio/soundEffects";
 import { networkManager } from "../game/network";
 import { useGameStore } from "../store/gameStore";
+import { ItemIconLabel } from "./ItemIcon";
 
 /**
  * Trading window for a placed crop-market building (Wheat/Carrot Market):
@@ -89,7 +90,9 @@ export function CropMarketPanel() {
       <div className="chibi-card" style={{ marginTop: 10, padding: "10px 12px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontWeight: 700, fontSize: "0.85rem" }}>🌱 {seedName}</div>
+            <div style={{ fontWeight: 700, fontSize: "0.85rem" }}>
+              <ItemIconLabel itemId={market.seedItemId}>{seedName}</ItemIconLabel>
+            </div>
             <div className="chibi-text-muted" style={{ fontSize: "0.7rem" }}>
               {seedPrice}g each · you own {seedsOwned}
             </div>
@@ -119,7 +122,9 @@ export function CropMarketPanel() {
       <div className="chibi-card" style={{ marginTop: 8, padding: "10px 12px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontWeight: 700, fontSize: "0.85rem" }}>{emoji} {cropName}</div>
+            <div style={{ fontWeight: 700, fontSize: "0.85rem" }}>
+              <ItemIconLabel itemId={market.cropItemId}>{cropName}</ItemIconLabel>
+            </div>
             <div className="chibi-text-muted" style={{ fontSize: "0.7rem" }}>
               sells for {cropSellPrice}g each · you own {cropsOwned}
             </div>

@@ -1,5 +1,4 @@
 import {
-  ITEM_ICONS,
   buildShopOpenPayload,
   getCurrency,
   getItemDefinition,
@@ -28,6 +27,7 @@ import { sendSolPayment } from "../wallet/solPayment";
 import { sendMetricbaseTokenPayment } from "../wallet/tokenPayment";
 
 import { GoldMarketChart } from "./GoldMarketChart";
+import { ItemIconLabel } from "./ItemIcon";
 import { PipGoldDesk } from "./PipGoldDesk";
 import { WalletConnectBar } from "./WalletConnectBar";
 
@@ -636,7 +636,9 @@ export function ShopPanel() {
                 {buyList.map((offer) => (
                   <div key={offer.itemId} className="chibi-card" style={orderRowStyle()}>
                     <div>
-                      <div style={{ fontWeight: 800, fontSize: "0.85rem" }}>{ITEM_ICONS[offer.itemId] ?? "📦"} {offer.name}</div>
+                      <div style={{ fontWeight: 800, fontSize: "0.85rem" }}>
+                        <ItemIconLabel itemId={offer.itemId}>{offer.name}</ItemIconLabel>
+                      </div>
                       <div style={{ fontSize: "0.8rem", color: "var(--chibi-gold-deep)", marginTop: 4 }}>{offer.price} gold</div>
                     </div>
                     <button type="button" className="chibi-btn chibi-btn--primary" disabled={pending || playerGold < offer.price} onClick={() => void handleBuy(offer.itemId, offer.price)} style={{ padding: "8px 12px", fontSize: "0.78rem" }}>Buy</button>
@@ -653,7 +655,12 @@ export function ShopPanel() {
               <div style={{ display: "grid", gap: 8 }}>
                 {sellList.map((offer) => (
                   <div key={offer.itemId} className="chibi-card" style={orderRowStyle()}>
-                    <div><div style={{ fontWeight: 800, fontSize: "0.85rem" }}>{ITEM_ICONS[offer.itemId] ?? "📦"} {offer.name} x{offer.owned}</div><div className="chibi-text-muted" style={{ marginTop: 4 }}>{offer.price} gold each</div></div>
+                    <div>
+                      <div style={{ fontWeight: 800, fontSize: "0.85rem" }}>
+                        <ItemIconLabel itemId={offer.itemId}>{offer.name} x{offer.owned}</ItemIconLabel>
+                      </div>
+                      <div className="chibi-text-muted" style={{ marginTop: 4 }}>{offer.price} gold each</div>
+                    </div>
                     <button type="button" className="chibi-btn chibi-btn--secondary" disabled={pending} onClick={() => void handleSell(offer.itemId)} style={{ padding: "8px 12px", fontSize: "0.78rem" }}>Sell 1</button>
                   </div>
                 ))}
@@ -688,8 +695,10 @@ export function ShopPanel() {
                   <div key={order.id} className="chibi-card" style={orderRowStyle()}>
                     <div>
                       <div style={{ fontWeight: 800, fontSize: "0.85rem" }}>
-                        {ITEM_ICONS[order.itemId] ?? "📦"} {getItemDefinition(order.itemId).name} × {order.remaining}
-                        <span style={{ color: "var(--chibi-gold-deep)", marginLeft: 8 }}>+{Math.round((order.premium - 1) * 100)}%</span>
+                        <ItemIconLabel itemId={order.itemId}>
+                          {getItemDefinition(order.itemId).name} × {order.remaining}
+                          <span style={{ color: "var(--chibi-gold-deep)", marginLeft: 8 }}>+{Math.round((order.premium - 1) * 100)}%</span>
+                        </ItemIconLabel>
                       </div>
                       <div className="chibi-text-muted" style={{ marginTop: 4, fontSize: "0.75rem" }}>
                         {order.townLabel} · ⏳ {formatTimeLeft(order.expiresAt)} · you have {owned}
@@ -790,7 +799,9 @@ export function ShopPanel() {
                     return (
                       <tr key={row.itemId} style={{ borderTop: "1px solid rgba(0,0,0,0.08)" }}>
                         <td style={{ padding: "6px 8px", fontWeight: 700 }}>
-                          {ITEM_ICONS[row.itemId] ?? "📦"} {getItemDefinition(row.itemId).name}
+                          <ItemIconLabel itemId={row.itemId} size={20}>
+                            {getItemDefinition(row.itemId).name}
+                          </ItemIconLabel>
                         </td>
                         {row.prices.map((p, i) => (
                           <td
@@ -886,7 +897,9 @@ export function ShopPanel() {
                     <div key={`${listing.plotId}-${listing.itemId}`} className="chibi-card" style={orderRowStyle()}>
                       <div>
                         <div style={{ fontWeight: 800, fontSize: "0.85rem" }}>
-                          {ITEM_ICONS[listing.itemId] ?? "📦"} {item.name} <span className="chibi-text-muted">x{listing.quantity}</span>
+                          <ItemIconLabel itemId={listing.itemId}>
+                            {item.name} <span className="chibi-text-muted">x{listing.quantity}</span>
+                          </ItemIconLabel>
                         </div>
                         <div style={{ fontSize: "0.8rem", color: "var(--chibi-gold-deep)", marginTop: 4 }}>{listing.price} gold each</div>
                         <div className="chibi-text-muted" style={{ fontSize: "0.72rem", marginTop: 2 }}>

@@ -78,3 +78,30 @@ export function ItemIcon({ itemId: rawItemId, size = 32 }: { itemId: string; siz
     />
   );
 }
+
+/**
+ * An item's icon followed by its label, aligned on one line.
+ *
+ * Markets and shops used to prefix rows with the ITEM_ICONS emoji, which meant
+ * the same item looked different depending on which panel you opened it in.
+ * Use this anywhere an item is named in a list so every surface shows the same
+ * art — and so craft-quality rings come along for free.
+ */
+export function ItemIconLabel({
+  itemId,
+  size = 22,
+  gap = 6,
+  children,
+}: {
+  itemId: string;
+  size?: number;
+  gap?: number;
+  children: React.ReactNode;
+}) {
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap, minWidth: 0 }}>
+      <ItemIcon itemId={itemId} size={size} />
+      <span style={{ minWidth: 0 }}>{children}</span>
+    </span>
+  );
+}

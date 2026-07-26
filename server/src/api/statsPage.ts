@@ -122,6 +122,11 @@ export const STATS_PAGE_HTML = `<!doctype html>
   .ico{width:22px;height:22px;object-fit:contain;vertical-align:-5px;margin-right:5px;
     image-rendering:auto;flex:none;}
   .row .ico{width:20px;height:20px;vertical-align:-4px;}
+  /* Craft-quality variants share the base item's art (there is no separate
+     "fine" picture), so they're told apart by a ring — silver Fine, gold Master
+     — matching ItemIcon.tsx in the game so the two never disagree. */
+  .ico.q-fine{border-radius:6px;box-shadow:0 0 0 2px #9aa7b8,0 0 5px rgba(154,167,184,.5);}
+  .ico.q-master{border-radius:6px;box-shadow:0 0 0 2px #d9a520,0 0 6px rgba(217,165,32,.55);}
   svg{display:block;width:100%;height:auto;overflow:visible;touch-action:pan-y;}
   .tip{position:fixed;pointer-events:none;background:#4a3b2a;color:#fff7ea;border-radius:12px;border:2px solid #6b5335;
     padding:7px 11px;font-size:.76rem;box-shadow:0 5px 14px rgba(74,59,42,.3);opacity:0;transition:opacity .1s;white-space:nowrap;z-index:30;line-height:1.5;}
@@ -686,7 +691,8 @@ async function load(){
         // to exactly the old behaviour. Deliberately NOT an inline onerror=""
         // handler: nesting quotes inside an attribute inside this template
         // literal silently emits broken JS (it did, and it blanked the table).
-        return '<img class="ico" src="'+ORIGIN+esc(it.art)+'" alt="" loading="lazy" data-fb="'+fallback+'">';
+        var q=it.quality?" q-"+esc(it.quality):"";
+        return '<img class="ico'+q+'" src="'+ORIGIN+esc(it.art)+'" alt="" loading="lazy" data-fb="'+fallback+'">';
       }
       // Error events don't bubble, so attach per image after each render.
       function wireIcons(root){

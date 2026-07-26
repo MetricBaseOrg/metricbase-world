@@ -21,7 +21,6 @@ import { burnMetricbaseToken } from "../wallet/tokenBurn";
 import { useGameStore } from "../store/gameStore";
 import { PortraitCanvas } from "./PortraitCanvas";
 import { ItemIcon } from "./ItemIcon";
-import { hasItemIcon } from "./itemIcons";
 
 const SLOT_LABELS: Record<EquipmentSlot, string> = {
   weapon: "Weapon",
@@ -74,37 +73,11 @@ const DOLL_SLOTS: EquipmentSlot[] = [
 // Shared item emoji map — single source in @metricbase/shared (also used by /stats).
 export { ITEM_ICONS };
 
-/** Icon per gear slot kind (covers all armour + accessories). */
-const GEAR_KIND_ICONS: Record<string, string> = {
-  helmet: "⛑️",
-  chest: "🦺",
-  gloves: "🧤",
-  boots: "🥾",
-  ring: "💍",
-  necklace: "📿",
-  cape: "🧣",
-  offhand: "🛡️",
-};
-
-function itemIcon(itemId: string, kind: ItemKind): string {
-  if (ITEM_ICONS[itemId]) return ITEM_ICONS[itemId];
-  const gear = getGearStat(itemId);
-  if (gear && GEAR_KIND_ICONS[gear.slot]) return GEAR_KIND_ICONS[gear.slot];
-  switch (kind) {
-    case "weapon":
-      return "⚔️";
-    case "armor":
-      return "🛡️";
-    case "tool":
-      return "🛠️";
-    case "mount":
-      return "🐎";
-    case "consumable":
-      return "🧪";
-    default:
-      return "📦";
-  }
-}
+// The old emoji-per-slot / emoji-per-kind fallback lived here. Every item now
+// has hand-drawn art, and <ItemIcon> already falls back on its own (PNG →
+// procedural canvas), so gating on hasItemIcon() only meant the 20 items with a
+// PNG but no hand-coded canvas drawing — the whole Ember set, obsidian gear,
+// hoes, carrots — rendered as an emoji next to neighbours that showed real art.
 
 /** Playful tier label + colour for a gear score. */
 function gearTier(score: number): { label: string; color: string } {
@@ -443,11 +416,9 @@ export function InventoryPanel() {
                     onClick={() => setSelectedSlot((cur) => (cur === slot ? null : slot))}
                   >
                     <span className="chibi-slot__icon">
-                      {eq && hasItemIcon(eq.itemId) ? (
-                        <ItemIcon itemId={eq.itemId} size={30} />
-                      ) : (
-                        SLOT_ICONS[slot]
-                      )}
+                      {/* Filled slot shows the equipped item's art; the slot
+                          emoji stays as the EMPTY-slot placeholder. */}
+                      {eq ? <ItemIcon itemId={eq.itemId} size={30} /> : SLOT_ICONS[slot]}
                     </span>
                     <span className="chibi-slot__label">{SLOT_LABELS[slot]}</span>
                     {enh > 0 && <span className="chibi-slot__enh">+{enh}</span>}
@@ -662,11 +633,7 @@ export function InventoryPanel() {
                       onDoubleClick={() => quickAct(entry.itemId)}
                     >
                       <span className="chibi-itile__icon">
-                        {hasItemIcon(entry.itemId) ? (
-                          <ItemIcon itemId={entry.itemId} size={34} />
-                        ) : (
-                          itemIcon(entry.itemId, item.kind)
-                        )}
+                        <ItemIcon itemId={entry.itemId} size={34} />
                       </span>
                       <span className="chibi-itile__name">{item.name}</span>
                       {entry.quantity > 1 && <span className="chibi-itile__qty">{entry.quantity}</span>}
@@ -697,11 +664,7 @@ export function InventoryPanel() {
                   <div className="chibi-inv__detail">
                     <div className="chibi-inv__detail-head">
                       <span className="chibi-inv__detail-icon" style={rarityColor ? { borderColor: rarityColor } : undefined}>
-                        {hasItemIcon(entry.itemId) ? (
-                          <ItemIcon itemId={entry.itemId} size={36} />
-                        ) : (
-                          itemIcon(entry.itemId, item.kind)
-                        )}
+                        <ItemIcon itemId={entry.itemId} size={36} />
                       </span>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontWeight: 800, fontSize: "0.85rem" }}>
