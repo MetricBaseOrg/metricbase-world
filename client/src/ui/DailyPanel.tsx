@@ -6,6 +6,7 @@ import { useGameStore } from "../store/gameStore";
 import { getHttpServerUrl } from "../game/serverUrl";
 import { fetchWithTimeout } from "../utils/fetchWithTimeout";
 import { getStoredAccessToken } from "../wallet/tokenGate";
+import { SeasonRewardGate } from "./SeasonRewardGate";
 import { SeasonShareModal } from "./SeasonShareModal";
 import { SeasonStakeCard } from "./SeasonStakeCard";
 
@@ -172,6 +173,18 @@ export function DailyPanel() {
             {season.stakeAmount > 0 ? " between entered players" : ""}. Play, win PvP, refer friends, and top the
             Richest board to climb.
           </div>
+          {/* Reward gate first — it's the thing that decides whether they get
+              paid at all, so it outranks the stake CTA for attention. */}
+          <SeasonRewardGate
+            season={season}
+            onLinked={() => {
+              // Freshly connected: this is the moment to ask for the post, while
+              // they're already thinking about their season. Prompted, never
+              // required — being paid does not depend on posting.
+              setNotice("X connected! Share your Season run 👇");
+              setShareOpen(true);
+            }}
+          />
           <SeasonStakeCard season={season} />
           {season.leaderboard.length > 0 && (
             <div style={{ marginTop: 8 }}>

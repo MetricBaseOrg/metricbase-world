@@ -74,6 +74,28 @@ export function seasonRequiresStake(seasonNumber: number): boolean {
   return seasonStakeAmount(seasonNumber) > 0;
 }
 
+/**
+ * Season rewards require a connected X account.
+ *
+ * A distribution decision, not a gameplay one: the payout is the moment players
+ * care most, so it's where a social connect converts best. Costs the player
+ * nothing but an OAuth tap, and the link is already worth +50 season points.
+ *
+ * IMPORTANT — this gates MONEY THAT IS ALREADY OWED, so two guards exist and
+ * must stay:
+ *  - The server only enforces it when X connect is actually configured
+ *    (X_CLIENT_ID + X_REDIRECT_URI). Enforcing it while the OAuth app is
+ *    unconfigured would disqualify EVERY player and strand the whole pool —
+ *    see isXLinkConfigured() in server/src/auth/xAuth.ts.
+ *  - The in-game Season panel shows the requirement to anyone unlinked, well
+ *    before payout day, so nobody discovers it by silently not being paid.
+ *
+ * Posting about a season is deliberately NOT required to be paid — that would
+ * be paying for an undisclosed endorsement. It's prompted and celebrated after
+ * the link lands instead.
+ */
+export const SEASON_REWARD_REQUIRES_X = true;
+
 export interface SeasonInfo {
   /** 1-based season number. */
   number: number;
@@ -195,6 +217,14 @@ export interface SeasonStatePayload {
   estimatedReward: number;
   /** Top players this season. */
   leaderboard: SeasonLeaderEntry[];
+  /** Whether a connected X account is needed to be PAID this season's reward.
+   * False when the server has no X app configured, so the panel never asks for
+   * something that can't be done. */
+  xRequiredForReward: boolean;
+  /** Whether this player has connected X. */
+  xLinked: boolean;
+  /** Their X handle when linked, for the "you're all set" confirmation. */
+  xUsername: string | null;
   /** Refundable $BASE stake to compete for the pool; 0 = no stake this season. */
   stakeAmount: number;
   /** Whether this player has staked into the current season's prize race. */

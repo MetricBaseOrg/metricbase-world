@@ -11,6 +11,10 @@ export const MOTTO_MAX_LENGTH = 80;
  */
 export const DASHBOARD_UPDATES: Array<{ title: string; body: string }> = [
   {
+    title: "v0.189 — Connect X to collect your Season reward",
+    body: "Season rewards are now paid to players with a connected X account. It's free, takes one tap, and the first connect also pays +50 season points. Your points are safe either way — if you haven't connected yet your share is held for you, not given away, so connect any time before the payout and you'll receive exactly the same amount. Open ⚙️ → 📅 Daily & Season to do it in-game, then share your season run.",
+  },
+  {
     title: "v0.188 — Enter the Season 2 prize race",
     body: "From Season 2 the prize pool is split between players who enter it. Entry is a refundable 10,000 $BASE deposit — you get every token back when the season pays out, win or lose. Playing, earning season points and climbing the leaderboard all stay completely free; entering just puts you in the split. Season 1 is unaffected and pays out under its original rules.",
   },

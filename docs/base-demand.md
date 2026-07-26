@@ -26,6 +26,42 @@ The payout (`server/src/season/payout.ts`) now splits the pool **pro-rata over
 entrants' points only**, and returns every unrefunded deposit before paying any
 prize. Solvency checks `prizes + deposits`, not just prizes.
 
+## Reward gate — connect X to be paid (v0.189.0, 2026-07-26)
+
+Owner decision: **season rewards require a connected X account**, applied to
+Season 1. `SEASON_REWARD_REQUIRES_X` in `shared/src/season.ts`; enforced in
+`loadSeasonPayoutTargets` + `distributeSeasonRewards`; surfaced in-game by
+`client/src/ui/SeasonRewardGate.tsx`.
+
+This gates money that is ALREADY OWED, so three properties are load-bearing —
+do not remove them without deciding to:
+
+1. **Fails OPEN.** The gate only applies when `isXLinkConfigured()` is true
+   (`X_CLIENT_ID` + `X_REDIRECT_URI` set). If the OAuth app is unconfigured the
+   requirement is skipped entirely, because enforcing it against a server that
+   physically cannot link X would disqualify every player and strand the pool.
+   ⚠️ **The corollary: with those env vars unset, this feature silently does
+   nothing.** Check `xRequired` in the payout dry-run before believing it works.
+2. **It's a DELAY, not a forfeiture.** The pro-rata divisor still includes
+   players held back for a missing link, so their share is computed and simply
+   not sent — nobody else's share grows because someone hadn't tapped Connect.
+   They link, you re-run the payout, they get the identical amount (the
+   per-(season, player) claim row makes the re-run safe).
+3. **Posting is NOT required to be paid.** The share prompt fires right after a
+   successful link and is a prompt only. Requiring a public post in exchange for
+   money owed is paying for an undisclosed endorsement — a different thing from
+   asking, and not one to do by accident.
+
+The dry-run report carries `xRequired`, `missingX`, `missingXNames` and
+`totalHeldForX` so you can see who is holding up how much before sending.
+
+**Tension worth remembering:** this is a retroactive rule change to Season 1,
+which is the same class of change the stake decision deliberately avoided
+("Season 1 pays out under the rules its players actually competed under"). The
+difference argued for it: linking X is free and takes one tap, where the stake
+costs 10,000 $BASE. The in-game card exists so the requirement is visible for
+the ~24 days before payout rather than discovered by not being paid.
+
 **Consequences to watch:**
 - The stake is a **liability**, not revenue. Treasury must hold enough to cover
   refunds *and* the pool at payout time, or the run refuses to execute.

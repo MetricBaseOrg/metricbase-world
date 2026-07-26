@@ -51,6 +51,7 @@ import {
   currentSeason,
   estimateReward,
   seasonStakeAmount,
+  SEASON_REWARD_REQUIRES_X,
   SEASON_POINTS,
   type SeasonCategory,
   type SeasonStatePayload,
@@ -511,6 +512,8 @@ import {
   isStakeSignatureUsed,
   recordSeasonStake,
 } from "../db/seasonStake.js";
+import { getXStatus } from "../db/xLink.js";
+import { isXLinkConfigured } from "../auth/xAuth.js";
 import { adjustAsset, getAssetInventory, getAssetQty } from "../zones/assetInventory.js";
 import {
   addPendingGold,
@@ -4425,12 +4428,16 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     // A row left over from a previous season reads as zero for the new one.
     const points = row.seasonId === season.id ? row.points : 0;
     const breakdown = row.seasonId === season.id ? row.breakdown : {};
-    const [agg, rank, rewardPool, staked, entrants] = await Promise.all([
+    // The X status is keyed by wallet identity (the characters row), so a
+    // walletless/spectator session simply reads as unlinked.
+    const identity = this.playerWallets.get(client.sessionId) ?? null;
+    const [agg, rank, rewardPool, staked, entrants, xStatus] = await Promise.all([
       loadSeasonAggregate(season.id, 25),
       loadSeasonRank(season.id, player.name),
       getSeasonRewardPool(),
       hasStakedIn(season.id, player.name),
       countSeasonEntrants(season.id),
+      identity ? getXStatus(identity) : Promise.resolve(null),
     ]);
     const payload: SeasonStatePayload = {
       seasonId: season.id,
@@ -4446,6 +4453,11 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       // labels it that way rather than showing them a prize they can't collect.
       estimatedReward: estimateReward(points, agg.totalPoints, rewardPool),
       leaderboard: agg.leaderboard,
+      // Only advertise the X requirement when the server can actually honour a
+      // Connect tap — otherwise the panel would nag for something impossible.
+      xRequiredForReward: SEASON_REWARD_REQUIRES_X && isXLinkConfigured(),
+      xLinked: xStatus?.linked ?? false,
+      xUsername: xStatus?.username ?? null,
       stakeAmount: seasonStakeAmount(season.number),
       staked,
       entrants,

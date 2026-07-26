@@ -15,9 +15,11 @@ import {
   currentSeason,
   seasonRewardPool,
   seasonRequiresStake,
+  SEASON_REWARD_REQUIRES_X,
   METRICBASE_TOKEN_MINT,
   toBaseUnits,
 } from "@metricbase/shared";
+import { isXLinkConfigured } from "../auth/xAuth.js";
 import { getHouseWalletAddress, getHouseBalanceUi, isWithdrawEnabled, sendPayout } from "../solana/housePayout.js";
 import {
   loadSeasonPayoutTargets,
@@ -73,6 +75,16 @@ export interface PayoutReport {
   staked: boolean;
   /** Players with points who never staked in, so aren't in the split. */
   notEntered: number;
+  /** Whether a connected X account is being required to be paid. False when
+   * SEASON_REWARD_REQUIRES_X is off OR X connect isn't configured server-side. */
+  xRequired: boolean;
+  /** Players with points + a payable wallet who are held back only for want of
+   * an X link. Their share is NOT redistributed — see the note in the code. */
+  missingX: number;
+  /** Names of those players, so they can be chased before the pool is sent. */
+  missingXNames: string[];
+  /** $BASE their shares add up to — money sitting unpaid, waiting on a tap. */
+  totalHeldForX: number;
   /** Stake deposits being returned, and their total. */
   refunds: RefundLine[];
   totalToRefund: number;
@@ -103,6 +115,10 @@ export async function distributeSeasonRewards(seasonNumber: number, execute: boo
     lines: [],
     staked,
     notEntered: 0,
+    xRequired: false,
+    missingX: 0,
+    missingXNames: [],
+    totalHeldForX: 0,
     refunds: [],
     totalToRefund: 0,
     stuckRefunds: [],
@@ -121,12 +137,29 @@ export async function distributeSeasonRewards(seasonNumber: number, execute: boo
   report.stuckRefunds = await listUnstampedRefunds(seasonId);
 
   const allTargets = await loadSeasonPayoutTargets(seasonId);
-  const targets = staked ? allTargets.filter((t) => entrants.has(t.name)) : allTargets;
-  report.notEntered = allTargets.length - targets.length;
+  const staketargets = staked ? allTargets.filter((t) => entrants.has(t.name)) : allTargets;
+  report.notEntered = allTargets.length - staketargets.length;
+
+  // Season rewards require a connected X account — but ONLY when X connect is
+  // actually configured on this server. Enforcing it against an unconfigured
+  // OAuth app would disqualify every player at once and strand the pool, so a
+  // missing X_CLIENT_ID fails OPEN (everyone stays eligible) rather than closed.
+  const xRequired = SEASON_REWARD_REQUIRES_X && isXLinkConfigured();
+  report.xRequired = xRequired;
+  const heldForX = xRequired ? staketargets.filter((t) => !t.xLinked) : [];
+  report.missingX = heldForX.length;
+  report.missingXNames = heldForX.map((t) => t.name);
+  const targets = xRequired ? staketargets.filter((t) => t.xLinked) : staketargets;
 
   // Pro-rata over the ENTRANTS' points, not everyone's — a non-entrant's points
   // must not dilute the share of the players who actually paid in.
-  const totalPoints = targets.reduce((sum, t) => sum + t.points, 0);
+  //
+  // NOTE the divisor is `staketargets`, which still INCLUDES players held back
+  // for a missing X link. That is deliberate: it makes the X requirement a
+  // DELAY, not a forfeiture. Their share is computed and simply not sent, so
+  // when they link and this is re-run they receive exactly the same amount, and
+  // nobody else's share silently grew because a player hadn't tapped Connect.
+  const totalPoints = staketargets.reduce((sum, t) => sum + t.points, 0);
   report.totalPoints = totalPoints;
 
   // Guard the divisor explicitly: loadSeasonPayoutTargets only returns points>0
@@ -139,6 +172,8 @@ export async function distributeSeasonRewards(seasonNumber: number, execute: boo
   report.lines = lines;
   report.eligible = lines.length;
   report.totalToPay = totalToPay;
+  report.totalHeldForX =
+    totalPoints > 0 ? heldForX.reduce((sum, t) => sum + Math.floor((t.points / totalPoints) * pool), 0) : 0;
 
   // Refunds are owed to every entrant who hasn't been repaid — including one
   // who scored zero points and so has no prize line at all. A deposit is not

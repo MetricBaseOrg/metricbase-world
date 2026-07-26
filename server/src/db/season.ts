@@ -163,6 +163,10 @@ export interface PayoutTarget {
   name: string;
   wallet: string;
   points: number;
+  /** Whether this player has connected an X account (see SEASON_REWARD_REQUIRES_X).
+   * Returned rather than filtered in SQL so the payout report can say how many
+   * players are being held back and why, instead of dropping them silently. */
+  xLinked: boolean;
 }
 
 /**
@@ -181,10 +185,16 @@ export async function loadSeasonPayoutTargets(seasonId: string): Promise<PayoutT
   const pool = getPool();
   if (!pool) return [];
   try {
-    const res = await pool.query<{ player_name: string; wallet_address: string; points: number }>(
+    const res = await pool.query<{
+      player_name: string;
+      wallet_address: string;
+      points: number;
+      x_user_id: string | null;
+    }>(
       `SELECT s.player_name,
               COALESCE(c.payout_wallet, c.wallet_address) AS wallet_address,
-              s.points
+              s.points,
+              c.x_user_id
        FROM season_state s
        JOIN characters c ON c.name = s.player_name
        WHERE s.season_id = $1 AND s.points > 0
@@ -195,7 +205,12 @@ export async function loadSeasonPayoutTargets(seasonId: string): Promise<PayoutT
     );
     return res.rows
       .filter((r) => isWalletIdentity(r.wallet_address))
-      .map((r) => ({ name: r.player_name, wallet: r.wallet_address, points: r.points }));
+      .map((r) => ({
+        name: r.player_name,
+        wallet: r.wallet_address,
+        points: r.points,
+        xLinked: r.x_user_id != null,
+      }));
   } catch (error) {
     console.warn("[season] payout targets failed:", error);
     return [];
