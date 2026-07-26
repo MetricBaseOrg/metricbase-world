@@ -261,14 +261,40 @@ function RecoverPaidChest() {
   const [showing, setShowing] = useState(false);
   const [sig, setSig] = useState("");
   const [busy, setBusy] = useState(false);
+  const [local, setLocal] = useState<string | null>(null);
+
+  // Clear the busy state on the RESULT, not on a timer. The old 4s timeout put
+  // the button back with nothing shown, which read as "nothing happened" even
+  // while the server was still checking — verification polls Solana for up to
+  // ~10s, so beating it with a 4s timer was guaranteed.
+  useEffect(() => {
+    const off = networkManager.onChestOpenResult((r) => {
+      setBusy(false);
+      // Show the failure HERE, next to the button, not only in the panel-level
+      // notice at the bottom — this panel scrolls, and an error rendered below
+      // the fold is indistinguishable from nothing happening at all.
+      setLocal(r.ok ? null : (r.error ?? "Couldn't claim that chest."));
+    });
+    return () => {
+      off();
+    };
+  }, []);
 
   const submit = () => {
-    if (!sig.trim()) return;
+    const value = sig.trim();
+    if (!value) return setLocal("Paste the transaction signature first.");
     playSfx("ui_click");
     setBusy(true);
-    networkManager.sendChestRecover(sig.trim());
-    // The shared chestOpenResult listener in the parent shows the outcome.
-    window.setTimeout(() => setBusy(false), 4000);
+    setLocal("Checking the transaction on Solana — this can take a few seconds…");
+    networkManager.sendChestRecover(value);
+    // Long backstop only: if the server never answers at all, say so rather
+    // than leaving a spinner forever.
+    window.setTimeout(() => {
+      setBusy((wasBusy) => {
+        if (wasBusy) setLocal("No response from the server. Your payment is safe — try again.");
+        return false;
+      });
+    }, 30_000);
   };
 
   if (!showing) {
@@ -310,6 +336,11 @@ function RecoverPaidChest() {
           {busy ? "Checking…" : "Claim"}
         </button>
       </div>
+      {local && (
+        <div className="chibi-text-muted" style={{ fontSize: "0.66rem", marginTop: 6 }}>
+          {local}
+        </div>
+      )}
     </div>
   );
 }

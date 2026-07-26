@@ -4512,9 +4512,26 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
    * rolled result is stamped afterwards as the audit trail.
    */
   private async handleChestOpen(client: Client, tierId: string, signature: string): Promise<void> {
-    const player = this.state.players.get(client.sessionId);
-    if (!player) return;
     const fail = (error: string) => client.send("chestOpenResult", { ok: false, error });
+    try {
+      await this.chestOpen(client, tierId, signature, fail);
+    } catch (error) {
+      // Same reasoning as chestRecover: a silent throw on a paid action is the
+      // worst failure mode there is. If the payment was verified but the grant
+      // blew up, the signature stays claimed and the recover flow can finish it.
+      console.error("[chest] open failed:", error);
+      fail("Something went wrong opening that chest. If you were charged, use “Paid but didn’t get your chest?” to claim it.");
+    }
+  }
+
+  private async chestOpen(
+    client: Client,
+    tierId: string,
+    signature: string,
+    fail: (error: string) => void,
+  ): Promise<void> {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return void fail("You're not in the world right now.");
 
     const tier = getChestTier(tierId);
     if (!tier) return void fail("Unknown chest.");
@@ -4567,9 +4584,25 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
    * roll — is the normal path.
    */
   private async handleChestRecover(client: Client, signature: string): Promise<void> {
-    const player = this.state.players.get(client.sessionId);
-    if (!player) return;
     const fail = (error: string) => client.send("chestOpenResult", { ok: false, error });
+    // onProtectedMessage only console.errors a rejected handler, so without this
+    // an unexpected throw reaches the player as silence — on an action they have
+    // ALREADY PAID for. Everything below reports something, always.
+    try {
+      await this.chestRecover(client, signature, fail);
+    } catch (error) {
+      console.error("[chest] recover failed:", error);
+      fail("Something went wrong claiming that chest. Nothing was consumed — please try again.");
+    }
+  }
+
+  private async chestRecover(
+    client: Client,
+    signature: string,
+    fail: (error: string) => void,
+  ): Promise<void> {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return void fail("You're not in the world right now.");
 
     const wallet = this.playerWallets.get(client.sessionId) ?? null;
     if (!wallet || !isWalletIdentity(wallet)) return void fail("Link a Solana wallet first.");

@@ -24,14 +24,24 @@ export async function verifyMetricbaseTokenTransfer(
 ): Promise<TokenTransferVerification> {
   const connection = new Connection(getRpcUrl(), "confirmed");
 
+  // The RPC lookup MUST NOT throw out of this function. Callers run inside
+  // message handlers whose only error path is a server-side console.error, so a
+  // rate-limited or flaky RPC used to surface to the player as absolutely
+  // nothing happening — the worst possible outcome for a paid action. Any
+  // failure becomes a normal { ok: false } they can see and retry.
   let tx;
-  for (let attempt = 0; attempt < 6; attempt++) {
-    tx = await connection.getParsedTransaction(signature, {
-      maxSupportedTransactionVersion: 0,
-      commitment: "confirmed",
-    });
-    if (tx) break;
-    await sleep(1500);
+  try {
+    for (let attempt = 0; attempt < 6; attempt++) {
+      tx = await connection.getParsedTransaction(signature, {
+        maxSupportedTransactionVersion: 0,
+        commitment: "confirmed",
+      });
+      if (tx) break;
+      await sleep(1500);
+    }
+  } catch (error) {
+    console.warn("[verifyTransfer] RPC lookup failed:", error);
+    return { ok: false, error: "Couldn't reach Solana to check that transaction. Try again shortly." };
   }
 
   if (!tx) {
