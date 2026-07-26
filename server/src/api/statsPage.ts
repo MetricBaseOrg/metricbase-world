@@ -27,11 +27,13 @@ export const STATS_PAGE_HTML = `<!doctype html>
 <meta property="og:title" content="MetricBase World 🌎 in numbers" />
 <meta property="og:description" content="Live, fully transparent economy dashboard — players, gold flow, $BASE burned, player-built Worlds, companies & a stock exchange, markets & ads. Updated every 20s." />
 <meta property="og:url" content="https://world.metricbase.org/stats" />
-<meta property="og:image" content="https://world.metricbase.org/metricbase-world.png" />
+<meta property="og:image" content="https://world.metricbase.org/world-banner-v2.png" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="600" />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="MetricBase World 🌎 in numbers" />
 <meta name="twitter:description" content="Live, fully transparent economy dashboard — players, gold flow, $BASE burned, player-built Worlds, companies & a stock exchange, markets & ads." />
-<meta name="twitter:image" content="https://world.metricbase.org/metricbase-world.png" />
+<meta name="twitter:image" content="https://world.metricbase.org/world-banner-v2.png" />
 <style>
   :root{
     --bg:#fdf3df; --panel:#fffdf6; --line:#e6d3aa; --ink:#4a3b2a; --mut:#9c8a6d;

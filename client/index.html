@@ -24,9 +24,13 @@
       content="Build. Trade. Explore. Thrive Together! Gather, mine, farm, craft, build a home, and trade in a living chibi world."
     />
     <meta property="og:url" content="https://world.metricbase.org" />
-    <meta property="og:image" content="https://world.metricbase.org/metricbase-world.png" />
-    <meta property="og:image:width" content="600" />
-    <meta property="og:image:height" content="338" />
+    <!-- Link-card art. Served under its own filename rather than overwriting the
+         old one: X, Discord, Telegram and Facebook cache og:image by URL, so a
+         new path is what actually forces them to refetch. -->
+    <meta property="og:image" content="https://world.metricbase.org/world-banner-v2.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="600" />
+    <meta property="og:image:alt" content="An isometric island town in MetricBase World — cottages, a forge, crop fields, a market stall and players fishing." />
 
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="MetricBase World — A real-life economic simulation MMO" />
@@ -34,7 +38,7 @@
       name="twitter:description"
       content="Build. Trade. Explore. Thrive Together! Gather, mine, farm, craft, build a home, and trade."
     />
-    <meta name="twitter:image" content="https://world.metricbase.org/metricbase-world.png" />
+    <meta name="twitter:image" content="https://world.metricbase.org/world-banner-v2.png" />
 
     <!-- Structured data for game-discovery crawlers (solgames.buzz etc.) -->
     <script type="application/ld+json">
@@ -43,7 +47,7 @@
       "@type": "VideoGame",
       "name": "MetricBase World",
       "url": "https://world.metricbase.org",
-      "image": "https://world.metricbase.org/metricbase-world.png",
+      "image": "https://world.metricbase.org/world-banner-v2.png",
       "description": "Browser-based Solana MMO and living economic simulation powered by the $BASE token (mint DN2PNrZ8Jn65ioJw4QBwXv49j5JiBBL3wPLUDZcrpump). Gather, craft, fight, farm, build player-owned Worlds, and trade in a fully transparent on-chain economy.",
       "genre": ["MMO", "Simulation", "Economy", "Web3"],
       "gamePlatform": "Web Browser",
