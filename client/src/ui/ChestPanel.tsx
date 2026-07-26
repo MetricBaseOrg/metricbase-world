@@ -14,6 +14,8 @@ import {
   CHEST_RARITY_LABEL,
   CHEST_TIERS,
   expectedGold,
+  normalizeTxSignature,
+  describeSignatureProblem,
   type ChestOpenResultPayload,
   type ChestRarity,
   type ChestTierDef,
@@ -281,8 +283,11 @@ function RecoverPaidChest() {
   }, []);
 
   const submit = () => {
-    const value = sig.trim();
-    if (!value) return setLocal("Paste the transaction signature first.");
+    // Same normalisation the server runs, so a bad paste is caught instantly
+    // instead of after a round trip and four RPC lookups.
+    const value = normalizeTxSignature(sig);
+    const problem = describeSignatureProblem(value);
+    if (problem) return setLocal(problem);
     playSfx("ui_click");
     setBusy(true);
     setLocal("Checking the transaction on Solana — this can take a few seconds…");
@@ -314,15 +319,15 @@ function RecoverPaidChest() {
     <div className="chibi-card" style={{ marginTop: 10, padding: "10px 12px" }}>
       <div style={{ fontWeight: 800, fontSize: "0.76rem" }}>🧾 Claim a paid chest</div>
       <div className="chibi-text-muted" style={{ fontSize: "0.66rem", marginTop: 4 }}>
-        Paste the transaction signature from your wallet history. We'll check it on-chain and open
-        the chest your payment covers — you can't lose value here, the amount you actually paid
-        decides the tier.
+        Paste the transaction signature from your wallet history — or just the Solscan / Explorer
+        link, that works too. We'll check it on-chain and open the chest your payment covers; you
+        can't lose value here, the amount you actually paid decides the tier.
       </div>
       <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
         <input
           className="chibi-input"
           style={{ flex: 1, fontSize: "0.7rem" }}
-          placeholder="Transaction signature"
+          placeholder="Signature or explorer link"
           value={sig}
           onChange={(e) => setSig(e.target.value)}
         />

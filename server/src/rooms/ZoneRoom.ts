@@ -56,6 +56,8 @@ import {
   rollChest,
   bestChestTierForAmount,
   cheapestChestPrice,
+  normalizeTxSignature,
+  describeSignatureProblem,
   type ChestTierDef,
   CHEST_SEASON_CATEGORY,
   SEASON_REWARD_REQUIRES_X,
@@ -4606,8 +4608,13 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
     const wallet = this.playerWallets.get(client.sessionId) ?? null;
     if (!wallet || !isWalletIdentity(wallet)) return void fail("Link a Solana wallet first.");
-    const trimmed = signature.trim();
-    if (!trimmed || trimmed.length < 32) return void fail("Paste the transaction signature from your wallet.");
+
+    // Accept an explorer link as well as a bare signature, and reject a
+    // malformed one HERE with a useful message. Forwarding it to the RPC only
+    // gets back "Invalid param: WrongSize", which tells the player nothing.
+    const trimmed = normalizeTxSignature(signature);
+    const problem = describeSignatureProblem(trimmed);
+    if (problem) return void fail(problem);
     if (await isPurchaseRedeemed(trimmed)) {
       return void fail("That payment has already been used for a chest.");
     }
