@@ -1,8 +1,5 @@
 import { Connection, PublicKey } from "@solana/web3.js";
-
-function getRpcUrl(): string {
-  return process.env.SOLANA_RPC_URL ?? "https://api.mainnet-beta.solana.com";
-}
+import { getRpcUrls } from "./rpc.js";
 
 export interface TokenTransferExpectation {
   payerWallet: string;
@@ -22,30 +19,41 @@ export async function verifyMetricbaseTokenTransfer(
   signature: string,
   expected: TokenTransferExpectation,
 ): Promise<TokenTransferVerification> {
-  const connection = new Connection(getRpcUrl(), "confirmed");
-
-  // The RPC lookup MUST NOT throw out of this function. Callers run inside
-  // message handlers whose only error path is a server-side console.error, so a
-  // rate-limited or flaky RPC used to surface to the player as absolutely
-  // nothing happening — the worst possible outcome for a paid action. Any
-  // failure becomes a normal { ok: false } they can see and retry.
-  let tx;
-  try {
-    for (let attempt = 0; attempt < 6; attempt++) {
-      tx = await connection.getParsedTransaction(signature, {
-        maxSupportedTransactionVersion: 0,
-        commitment: "confirmed",
-      });
+  // Try EVERY configured endpoint before giving up. A single flaky or
+  // rate-limited provider must not be able to block payment verification —
+  // that's a player who paid and can't be credited.
+  //
+  // This also must not throw: callers run inside message handlers whose only
+  // error path is a server-side console.error, so an exception here reaches the
+  // player as nothing happening at all. Every outcome becomes { ok: false }.
+  let tx: Awaited<ReturnType<Connection["getParsedTransaction"]>> = null;
+  let reached = false;
+  for (const rpcUrl of getRpcUrls()) {
+    try {
+      const connection = new Connection(rpcUrl, "confirmed");
+      for (let attempt = 0; attempt < 3; attempt++) {
+        tx = await connection.getParsedTransaction(signature, {
+          maxSupportedTransactionVersion: 0,
+          commitment: "confirmed",
+        });
+        if (tx) break;
+        await sleep(1500);
+      }
+      // The endpoint answered, even if it hasn't indexed this signature yet.
+      reached = true;
       if (tx) break;
-      await sleep(1500);
+    } catch (error) {
+      console.warn(`[verifyTransfer] lookup failed via ${rpcUrl}:`, error);
     }
-  } catch (error) {
-    console.warn("[verifyTransfer] RPC lookup failed:", error);
-    return { ok: false, error: "Couldn't reach Solana to check that transaction. Try again shortly." };
   }
 
   if (!tx) {
-    return { ok: false, error: "Transaction not found yet. Wait a moment and try again." };
+    return {
+      ok: false,
+      error: reached
+        ? "Transaction not found yet. Wait a moment and try again."
+        : "Couldn't reach Solana to check that transaction. Try again shortly.",
+    };
   }
 
   if (tx.meta?.err) {

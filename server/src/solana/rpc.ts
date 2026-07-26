@@ -5,12 +5,19 @@ const DEFAULT_RPC_FALLBACKS = [
   "https://api.mainnet-beta.solana.com",
 ];
 
+/**
+ * RPC endpoints to try, in order: the configured one first, then the public
+ * fallbacks.
+ *
+ * The configured URL used to be the ONLY entry, which made "fallback" a lie
+ * whenever SOLANA_RPC_URL was set — one flaky or rate-limited provider took down
+ * every on-chain check, including payment verification, with no second chance.
+ * The public endpoints are slower and throttled, which is exactly why they
+ * belong last rather than nowhere.
+ */
 export function getRpcUrls(): string[] {
   const configured = process.env.SOLANA_RPC_URL?.trim();
-  if (configured) {
-    return [configured];
-  }
-  return [...new Set(DEFAULT_RPC_FALLBACKS)];
+  return [...new Set(configured ? [configured, ...DEFAULT_RPC_FALLBACKS] : DEFAULT_RPC_FALLBACKS)];
 }
 
 interface JsonRpcResponse<T> {

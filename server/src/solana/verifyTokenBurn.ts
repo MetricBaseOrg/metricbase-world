@@ -1,8 +1,5 @@
 import { Connection } from "@solana/web3.js";
-
-function getRpcUrl(): string {
-  return process.env.SOLANA_RPC_URL ?? "https://api.mainnet-beta.solana.com";
-}
+import { getRpcUrls } from "./rpc.js";
 
 export interface TokenBurnExpectation {
   ownerWallet: string;
@@ -25,18 +22,32 @@ export async function verifyTokenBurn(
   signature: string,
   expected: TokenBurnExpectation,
 ): Promise<TokenBurnVerification> {
-  const connection = new Connection(getRpcUrl(), "confirmed");
-
-  let tx;
-  for (let attempt = 0; attempt < 6; attempt++) {
-    tx = await connection.getParsedTransaction(signature, {
-      maxSupportedTransactionVersion: 0,
-      commitment: "confirmed",
-    });
-    if (tx) break;
-    await sleep(1500);
+  // Same reasoning as verifyTokenTransfer: try every endpoint and never throw.
+  // A rate-limited provider must not be able to reject a real burn — that's a
+  // player who paid for a bag/World expansion and got nothing.
+  let tx: Awaited<ReturnType<Connection["getParsedTransaction"]>> = null;
+  let reached = false;
+  for (const rpcUrl of getRpcUrls()) {
+    try {
+      const connection = new Connection(rpcUrl, "confirmed");
+      for (let attempt = 0; attempt < 3; attempt++) {
+        tx = await connection.getParsedTransaction(signature, {
+          maxSupportedTransactionVersion: 0,
+          commitment: "confirmed",
+        });
+        if (tx) break;
+        await sleep(1500);
+      }
+      reached = true;
+      if (tx) break;
+    } catch (error) {
+      console.warn(`[verifyBurn] lookup failed via ${rpcUrl}:`, error);
+    }
   }
 
+  if (!tx && !reached) {
+    return { ok: false, error: "Couldn't reach Solana to check that transaction. Try again shortly." };
+  }
   if (!tx) {
     return { ok: false, error: "Burn transaction not found yet. Wait a moment and try again." };
   }
