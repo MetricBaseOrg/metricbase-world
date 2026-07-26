@@ -407,6 +407,27 @@ CREATE TABLE IF NOT EXISTS season_payout (
   PRIMARY KEY (season_id, player_name)
 );
 
+-- Season entry stakes (see shared/src/season.ts). A REFUNDABLE $BASE deposit
+-- that puts a player into the prize-pool split; playing without one stays free
+-- and still earns points. The stake is transferred to the treasury (not burned)
+-- because it is returned at payout, so the row carries both legs:
+--   staked_at + signature      — the incoming transfer that bought the entry
+--   refunded_at + refund_signature — the return leg, stamped at payout
+-- `signature` is UNIQUE so one on-chain transfer can never buy two entries, and
+-- the (season, player) primary key makes the entry itself idempotent.
+CREATE TABLE IF NOT EXISTS season_stake (
+  season_id VARCHAR(12) NOT NULL,
+  player_name VARCHAR(16) NOT NULL,
+  wallet VARCHAR(44) NOT NULL,
+  amount BIGINT NOT NULL,
+  signature VARCHAR(128) NOT NULL,
+  staked_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  refunded_at TIMESTAMPTZ,
+  refund_signature VARCHAR(128),
+  PRIMARY KEY (season_id, player_name)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS season_stake_signature_idx ON season_stake (signature);
+
 -- Player-to-player jobs: employer escrows the reward at posting; the worker
 -- is paid on verified completion. delivered items await employer pickup.
 CREATE TABLE IF NOT EXISTS jobs (

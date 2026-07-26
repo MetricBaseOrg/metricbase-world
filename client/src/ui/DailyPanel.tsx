@@ -7,6 +7,7 @@ import { getHttpServerUrl } from "../game/serverUrl";
 import { fetchWithTimeout } from "../utils/fetchWithTimeout";
 import { getStoredAccessToken } from "../wallet/tokenGate";
 import { SeasonShareModal } from "./SeasonShareModal";
+import { SeasonStakeCard } from "./SeasonStakeCard";
 
 /**
  * Daily rewards board: the day's 3 rotating tasks with progress bars + claim
@@ -167,9 +168,11 @@ export function DailyPanel() {
             </div>
           </div>
           <div className="chibi-text-muted" style={{ fontSize: "0.68rem", marginTop: 8 }}>
-            {season.rewardPool.toLocaleString()} $BASE prize pool, split by points at season end. Play, win PvP, refer
-            friends, and top the Richest board to climb.
+            {season.rewardPool.toLocaleString()} $BASE prize pool, split by points at season end
+            {season.stakeAmount > 0 ? " between entered players" : ""}. Play, win PvP, refer friends, and top the
+            Richest board to climb.
           </div>
+          <SeasonStakeCard season={season} />
           {season.leaderboard.length > 0 && (
             <div style={{ marginTop: 8 }}>
               {season.leaderboard.slice(0, 5).map((e) => (

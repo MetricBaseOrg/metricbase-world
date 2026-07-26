@@ -11,6 +11,10 @@ export const MOTTO_MAX_LENGTH = 80;
  */
 export const DASHBOARD_UPDATES: Array<{ title: string; body: string }> = [
   {
+    title: "v0.188 — Enter the Season 2 prize race",
+    body: "From Season 2 the prize pool is split between players who enter it. Entry is a refundable 10,000 $BASE deposit — you get every token back when the season pays out, win or lose. Playing, earning season points and climbing the leaderboard all stay completely free; entering just puts you in the split. Season 1 is unaffected and pays out under its original rules.",
+  },
+  {
     title: "v0.187 — Earn by reposting on X",
     body: "Your linked X account now pays off over time. New reply & repost tasks appear on your dashboard: reply to or quote a MetricBase post with the unique code shown, paste the link back, and pick up season points. Codes are per-player so nobody can farm them, and it's all verified for free — no paid X API.",
   },

@@ -197,6 +197,12 @@ export interface AssetListingView {
   price: number;
   shopPrice: number;
 }
+export interface SeasonStakeResultPayload {
+  ok: boolean;
+  message?: string;
+  error?: string;
+}
+
 export interface PipGoldInfoPayload {
   enabled: boolean;
   treasury: string | null;
@@ -322,6 +328,7 @@ export class NetworkManager {
   private cropMarketResultListeners = new Set<(payload: CropMarketResultPayload) => void>();
   private dailyStateListeners = new Set<(payload: DailyStatePayload) => void>();
   private seasonStateListeners = new Set<(payload: SeasonStatePayload) => void>();
+  private seasonStakeResultListeners = new Set<(payload: SeasonStakeResultPayload) => void>();
   private jobsStateListeners = new Set<(payload: JobsStatePayload) => void>();
   private jobResultListeners = new Set<(payload: JobResultPayload) => void>();
   private jobsChangedListeners = new Set<() => void>();
@@ -967,6 +974,16 @@ export class NetworkManager {
 
   requestSeasonState() {
     this.room?.send("seasonState", {});
+  }
+
+  /** Enter the season prize race with a verified $BASE stake transfer. */
+  sendSeasonStake(signature: string) {
+    this.room?.send("seasonStake", { signature });
+  }
+
+  onSeasonStakeResult(listener: (payload: SeasonStakeResultPayload) => void) {
+    this.seasonStakeResultListeners.add(listener);
+    return () => this.seasonStakeResultListeners.delete(listener);
   }
 
   sendDailyClaimTask(taskId: string) {
@@ -2098,6 +2115,9 @@ export class NetworkManager {
     });
     this.room.onMessage("dailyState", (payload: DailyStatePayload) => {
       for (const listener of this.dailyStateListeners) listener(payload);
+    });
+    this.room.onMessage("seasonStakeResult", (payload: SeasonStakeResultPayload) => {
+      for (const listener of this.seasonStakeResultListeners) listener(payload);
     });
     this.room.onMessage("seasonState", (payload: SeasonStatePayload) => {
       for (const listener of this.seasonStateListeners) listener(payload);

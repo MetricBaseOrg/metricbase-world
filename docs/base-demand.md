@@ -1,8 +1,41 @@
 # $BASE demand — the problem and a plan
 
-**Status: PROPOSAL. Nothing here is built.** Written 2026-07-22, after the
-free-to-play and Telegram-login releases. Needs owner sign-off before any of it
-ships, because it changes token economics rather than gameplay.
+**Status: P1 SHIPPED (v0.188.0, 2026-07-26). P2–P5 still proposals.** Written
+2026-07-22, after the free-to-play and Telegram-login releases. The rest of this
+document needs owner sign-off before it ships, because it changes token
+economics rather than gameplay.
+
+## P1 as built — season entry stake (v0.188.0)
+
+Owner decisions, 2026-07-26:
+
+| Decision | Chosen | Note |
+|---|---|---|
+| Stake type | **Refundable deposit** | Not a burn. Returned in full at payout, win or lose. |
+| Effective from | **Season 2** (starts 2026-08-20) | Season 1 pays out under the rules its players competed under. |
+| Per-player share cap | **None** | Pro-rata by points, uncapped. |
+| Amount | **10,000 $BASE** | Anchored to the cheapest existing sink (VIP pass burn, first bag expansion). |
+
+Mechanics: `seasonStakeAmount()` / `seasonRequiresStake()` in
+`shared/src/season.ts`; `season_stake` table + `server/src/db/seasonStake.ts`;
+the `seasonStake` room message verifies a **transfer to the treasury** (not a
+burn — the money has to come back) and dedupes by signature; `SeasonStakeCard`
+carries the same paid-but-unclaimed localStorage recovery as the gold desk.
+
+The payout (`server/src/season/payout.ts`) now splits the pool **pro-rata over
+entrants' points only**, and returns every unrefunded deposit before paying any
+prize. Solvency checks `prizes + deposits`, not just prizes.
+
+**Consequences to watch:**
+- The stake is a **liability**, not revenue. Treasury must hold enough to cover
+  refunds *and* the pool at payout time, or the run refuses to execute.
+- **Telegram-only players cannot enter** — they have no wallet to send from.
+  They keep earning points and leaderboard rank; they just aren't in the split.
+  If the Telegram cohort grows, this becomes a fairness problem worth revisiting.
+- If **nobody enters**, the pool goes undistributed. Payout is admin-triggered
+  and dry-run by default, so this fails safe rather than paying out to nobody.
+- Season 1 is untouched: `seasonStakeAmount(1) === 0`, so the whole mechanism is
+  inert until 2026-08-20.
 
 ## The problem, stated honestly
 
@@ -66,7 +99,7 @@ below if they drift that way in implementation.**
 
 ## The plan, in priority order
 
-### P1 — Season entry stake (highest leverage, fixes the asymmetry directly)
+### P1 — Season entry stake ✅ SHIPPED v0.188.0 (see the section at the top)
 
 Competing for the Season prize pool costs a **refundable stake** in $BASE, or a
 small non-refundable entry burn. Points still decide the split; the stake only
@@ -169,10 +202,14 @@ demand — which is why the /stats card reports buyer concentration in words.
 
 1. ~~Instrument before building.~~ **Done, v0.177.0.** Re-read the panel before
    each decision below rather than trusting the snapshot above.
-2. **Ship P2 cosmetics.** Safe, popular, no economic risk, works at any player
-   count.
-3. **Decide P1 with the owner** once the Season 1 payout has actually happened
-   and there is a real number for the outflow.
+2. ~~Decide P1 with the owner.~~ **Done + shipped, v0.188.0** — refundable
+   deposit, Season 2 onward, no cap. Decided before the Season 1 payout rather
+   than after, so Season 2 starts with the mechanism already live.
+3. **Ship P2 cosmetics.** Safe, popular, no economic risk, works at any player
+   count. Now the top unstarted item.
+4. **Re-measure after Season 2 opens.** The number that matters is how many of
+   the ~12 point-scoring players actually stake — that is the first real signal
+   of willingness to pay since 2026-07-04.
 
 ## What NOT to do
 

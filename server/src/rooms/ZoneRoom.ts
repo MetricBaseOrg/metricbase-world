@@ -50,6 +50,7 @@ import {
   loginRewardGold,
   currentSeason,
   estimateReward,
+  seasonStakeAmount,
   SEASON_POINTS,
   type SeasonCategory,
   type SeasonStatePayload,
@@ -259,7 +260,7 @@ import {
   shareTradeFee,
 } from "@metricbase/shared";
 import { verifyAccessToken } from "../auth/accessToken.js";
-import { isTelegramIdentity } from "../auth/telegramAuth.js";
+import { isTelegramIdentity, isWalletIdentity } from "../auth/telegramAuth.js";
 import { getMinTokenUiAmount, isTokenGateEnabled } from "../auth/tokenGate.js";
 import {
   CharacterBindingError,
@@ -278,7 +279,7 @@ import { getCachedHolderCount } from "../solana/holderCount.js";
 import { getLeaderboard } from "../db/leaderboard.js";
 import { verifyPeerSolTransfer } from "../solana/verifyPeerSolTransfer.js";
 import { verifyPeerTokenTransfer } from "../solana/verifyPeerTokenTransfer.js";
-import { getTreasuryWallet } from "../solana/verifyTokenTransfer.js";
+import { getTreasuryWallet, verifyMetricbaseTokenTransfer } from "../solana/verifyTokenTransfer.js";
 import { getHouseWalletAddress, getHouseBalanceUi, isWithdrawEnabled, sendPayout } from "../solana/housePayout.js";
 import { adService } from "../ads/adService.js";
 import {
@@ -504,6 +505,12 @@ import {
   getSeasonRewardPool,
   hasPayoutWallet,
 } from "../db/season.js";
+import {
+  countSeasonEntrants,
+  hasStakedIn,
+  isStakeSignatureUsed,
+  recordSeasonStake,
+} from "../db/seasonStake.js";
 import { adjustAsset, getAssetInventory, getAssetQty } from "../zones/assetInventory.js";
 import {
   addPendingGold,
@@ -928,6 +935,9 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     });
     this.onProtectedMessage("seasonState", (client) => {
       void this.handleSeasonState(client);
+    });
+    this.onProtectedMessage("seasonStake", (client, message: { signature?: string }) => {
+      void this.handleSeasonStake(client, String(message.signature ?? ""));
     });
     this.onProtectedMessage("dailyClaimTask", (client, message: { taskId?: string }) => {
       void this.handleDailyClaimTask(client, String(message.taskId ?? ""));
@@ -4415,10 +4425,12 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     // A row left over from a previous season reads as zero for the new one.
     const points = row.seasonId === season.id ? row.points : 0;
     const breakdown = row.seasonId === season.id ? row.breakdown : {};
-    const [agg, rank, rewardPool] = await Promise.all([
+    const [agg, rank, rewardPool, staked, entrants] = await Promise.all([
       loadSeasonAggregate(season.id, 25),
       loadSeasonRank(season.id, player.name),
       getSeasonRewardPool(),
+      hasStakedIn(season.id, player.name),
+      countSeasonEntrants(season.id),
     ]);
     const payload: SeasonStatePayload = {
       seasonId: season.id,
@@ -4429,10 +4441,78 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       breakdown,
       rank: points > 0 ? Math.max(1, rank) : 0,
       totalPlayers: agg.totalPlayers,
+      // Everyone sees what their points would be worth. On a staked season a
+      // non-entrant's figure is what they'd get IF they entered — the panel
+      // labels it that way rather than showing them a prize they can't collect.
       estimatedReward: estimateReward(points, agg.totalPoints, rewardPool),
       leaderboard: agg.leaderboard,
+      stakeAmount: seasonStakeAmount(season.number),
+      staked,
+      entrants,
     };
     client.send("seasonState", payload);
+  }
+
+  /**
+   * Enter the season's prize race by staking $BASE (see shared/src/season.ts).
+   *
+   * The stake is TRANSFERRED to the treasury rather than burned, because it is
+   * returned at payout — so this verifies a transfer, not a burn, and the
+   * signature is deduped against season_stake so one transfer can't buy two
+   * entries. Playing without staking stays free; this only affects the split.
+   */
+  private async handleSeasonStake(client: Client, signature: string): Promise<void> {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const fail = (error: string) => client.send("seasonStakeResult", { ok: false, error });
+
+    const season = currentSeason();
+    const amount = seasonStakeAmount(season.number);
+    if (amount <= 0) return void fail("This season has no entry stake — you're already in the prize race.");
+
+    if (await hasStakedIn(season.id, player.name)) {
+      return void fail("You're already entered in this season.");
+    }
+
+    const wallet = this.playerWallets.get(client.sessionId) ?? null;
+    // A Telegram-only player has no wallet to send $BASE from. They can still
+    // play and earn points; entering the prize race needs a linked wallet.
+    if (!wallet || !isWalletIdentity(wallet)) {
+      return void fail("Link a Solana wallet to enter the prize race.");
+    }
+    if (!signature || signature.length < 32) return void fail("Missing stake transaction.");
+    if (await isStakeSignatureUsed(signature)) return void fail("That transaction was already used.");
+
+    const treasury = getTreasuryWallet();
+    if (!treasury) return void fail("Staking isn't configured on this server yet.");
+
+    const result = await verifyMetricbaseTokenTransfer(signature, {
+      payerWallet: wallet,
+      treasuryWallet: treasury,
+      mint: getBlackZoneBurnMint(),
+      minUiAmount: amount,
+    });
+    if (!result.ok) return void fail(result.error ?? "Stake transfer could not be verified.");
+
+    // Record only after the chain confirms. A false return is ambiguous — it
+    // means either this player already had a row (a harmless double-submit from
+    // the client's recovery loop) or the signature was already spent on someone
+    // else's entry. Re-read the state to tell those apart, because reporting
+    // "you're in" to a player who is NOT recorded would be a silent loss of
+    // 10,000 $BASE.
+    const recorded = await recordSeasonStake(season.id, player.name, wallet, amount, signature);
+    if (!recorded && !(await hasStakedIn(season.id, player.name))) {
+      return void fail("That transaction was already used for another entry.");
+    }
+    await recordTokenPurchase(signature, wallet, "season_stake", amount);
+    bumpMetric("season.staked", 1);
+    bumpMetric("season.stakeBase", amount);
+
+    client.send("seasonStakeResult", {
+      ok: true,
+      message: `You're in the Season ${season.number} prize race. Your ${amount.toLocaleString()} $BASE is returned when the season pays out.`,
+    });
+    await this.handleSeasonState(client);
   }
 
   /** Inventory slots for a player (base 16, more with purchased bag levels). */
