@@ -27,14 +27,18 @@ file into the folder named in its section header.
 
 The original list is **done**: all tiles, buildings, nodes, **Mobs (6)**, **NPCs (8)**, all
 **interiors (15)** + farm/billboard/portal (4), and most of both character sets shipped.
-Nothing referenced by code 404s today, and **item icons are 80/80 complete** as of v0.188.1.
-**What's still missing, by impact (38 files) — all of it character art:**
+Nothing referenced by code 404s today, and the **base item roster is 80/80 complete** as of
+v0.188.1. **What's still open (124 files):**
 
 1. **Character gaps (38)** — portraits ×2, girl attack (16), boy+girl fish (16), boy
-   back-attack (4) — exact file list in the character section. This is now the *only*
-   remaining hole in the game's art, and the fish frames are the most visible: fishing is a
-   core gather skill with no animation for either character.
-2. Iso ground tileset + ambience details (talk before drawing).
+   back-attack (4) — exact file list in the character section. The only *hole* left, as
+   opposed to an upgrade: the fish frames are the most visible, since fishing is a core
+   gather skill with no animation for either character.
+2. **Fine/Master craft variants (86)** — requested 2026-07-26, own section below. This is an
+   enhancement, not a gap: those items already render their base art plus a quality ring.
+   Read the section before starting — it's more files than the whole existing roster, and it
+   suggests a 10-file pilot first.
+3. Iso ground tileset + ambience details (talk before drawing).
 
 Note the source-tree gap: `assets/characters/` holds only a `.gitkeep`, while 93 shipped
 frames live in `client/public/assets/characters/`. Every other category keeps its 1024px
@@ -198,6 +202,52 @@ comm -23 <(grep -o 'item_[a-z0-9_]*' shared/src/items.ts | sort -u | sed 's/^ite
 
 (subtract the fish/dish ids from `shared/src/fishSpecies.ts` — those live in `assets/fish/`.)
 
+## Fine / Master craft variants — drop in `assets/items/` (86, all 🎨)
+
+**Requested 2026-07-26.** Craftable gear rolls **Fine** and **Master** quality when made by a
+specialist (`shared/src/craftQuality.ts`). Both are real item ids — `<base>_fine`,
+`<base>_master` — with their own prices and stats, so they show up as their own rows in the
+inventory, shops, the P2P market and `/stats`.
+
+Today all three tiers share the base item's picture and are told apart by a **ring** (silver
+Fine, gold Master) plus the name. This section is the alternative: give each tier its own art.
+
+**Naming:** `<base>-fine.png` / `<base>-master.png` — e.g. `gem-blade-fine.png`,
+`gem-blade-master.png`. Same spec as every other item icon (1024px source, must read at 34px).
+
+**Read this before drawing 86 files:**
+
+- A Fine Gem Blade is *the same blade*, forged better — the only mechanical difference is
+  ×1.15 stats / ×1.25 durability (×1.35 / ×1.6 for Master). There is no in-fiction reason for
+  a different shape, so the art has to carry "better craftsmanship" through finish alone:
+  cleaner edges, a sheen, gold filigree, a subtle glow. At **34px in a list** that is a hard
+  brief — the current ring is legible at that size precisely because it isn't detail.
+- **86 files is more than the entire existing item roster (80).** Character art (38 files) is
+  still the only other outstanding art in the project.
+- **Suggested pilot: the 5 weapons first (10 files).** They're the most-looked-at gear and the
+  easiest to make read as "fancier". If Fine vs Master vs base is distinguishable at 34px,
+  the rest is worth doing; if not, we've spent 10 drawings instead of 86.
+
+**Wiring is NOT automatic for these** (unlike normal item drops). Both lookups deliberately
+resolve a variant to its base id, so a `-fine.png` would currently be ignored. When the first
+art lands, make it variant-aware with a base-art fallback in exactly two places:
+
+- `client/src/ui/ItemIcon.tsx` — try the raw id's file before `baseItemIdOf()`
+- `server/src/api/stats.ts` `itemArtPath()` — same, and keep the ring for tiers still unart'd
+
+### The 43 base items (× Fine and Master each)
+
+- **Weapons (5)** — copper-dagger, gem-blade, thorn-cleaver, ember-blade, obsidian-blade
+- **Tools (14)** — copper/iron/steel axe, copper/iron/steel pickaxe, copper/iron/steel hoe,
+  fishing-rod, pro-rod, gilded-rod, abyssal-rod, harvest-net
+- **Armor (16)** — copper/iron/steel/ember × helm, chest, gloves, boots
+- **Accessories (8)** — angler-cap, angler-ring, farmer-hat, grower-ring, gem-ring,
+  lucky-lure, pearl-amulet, traveler-cape
+
+Not in scope: `rusty-blade` and `gel-knife` are quality-eligible by kind but have no craft
+recipe (bought / quest reward), so they never roll a variant. Cooking and smelting roll **bonus
+portions**, not quality — no `bread-fine.png` exists or should.
+
 ## Housing interiors — `assets/world/` ✅ SHIPPED (15/15)
 
 (Outdoor decor reuses lamp/barrel/flowerbed/hedge/bench/crates above — only interiors needed.)
@@ -310,4 +360,5 @@ Promo + store art, no in-game references. Kept here so drops don't get filed as 
 2. Character gaps — portraits, girl attack, fish, boy back-attack (38 files, list above).
    Suggested order: girl attack (16) closes a real gameplay gap — she has no attack
    animation at all — then fish ×2 chars (8), then the 2 portraits, then boy back-attack (4).
-3. Iso tiles + details (after template chat)
+3. Fine/Master craft variants — 86 files; start with the 5 weapons (10 files) as a pilot
+4. Iso tiles + details (after template chat)
