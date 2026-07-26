@@ -989,9 +989,15 @@ export class NetworkManager {
     this.room?.send("seasonPostVerify", { url });
   }
 
-  /** Open a Magic Chest with a verified $BASE burn. */
+  /** Open a Magic Chest with a verified $BASE payment. */
   sendChestOpen(tierId: string, signature: string) {
     this.room?.send("chestOpen", { tierId, signature });
+  }
+
+  /** Claim a chest that was paid for but never opened. The tier is decided by
+   * the on-chain amount, so no tier is sent. */
+  sendChestRecover(signature: string) {
+    this.room?.send("chestRecover", { signature });
   }
 
   onChestOpenResult(listener: (payload: ChestOpenResultPayload) => void) {

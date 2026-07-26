@@ -54,6 +54,9 @@ import {
   getChestTier,
   getSkin,
   rollChest,
+  bestChestTierForAmount,
+  cheapestChestPrice,
+  type ChestTierDef,
   CHEST_SEASON_CATEGORY,
   SEASON_REWARD_REQUIRES_X,
   SEASON_REWARD_REQUIRES_POST,
@@ -962,6 +965,9 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     });
     this.onProtectedMessage("chestOpen", (client, message: { tierId?: string; signature?: string }) => {
       void this.handleChestOpen(client, String(message.tierId ?? ""), String(message.signature ?? ""));
+    });
+    this.onProtectedMessage("chestRecover", (client, message: { signature?: string }) => {
+      void this.handleChestRecover(client, String(message.signature ?? ""));
     });
     this.onProtectedMessage("dailyClaimTask", (client, message: { taskId?: string }) => {
       void this.handleDailyClaimTask(client, String(message.taskId ?? ""));
@@ -4545,6 +4551,67 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       await recordTokenPurchase(signature, wallet, `chest_${tier.id}`, tier.price);
     }
 
+    await this.rollAndGrantChest(client, player, tier, signature, admin);
+  }
+
+  /**
+   * Recover a chest that was PAID FOR but never opened.
+   *
+   * Exists because a client-side confirmation error could throw after the tokens
+   * had already left the wallet, losing the signature before it was stashed
+   * (fixed in v0.192.2, but paid-and-unopened chests still need a way home).
+   *
+   * The TIER IS DECIDED BY THE ON-CHAIN AMOUNT, not by the client: a player who
+   * paid 25,000 can't lose it by picking the wrong option, and one who paid
+   * 1,000 can't claim a Mythic. Everything else — dedupe, verification, the
+   * roll — is the normal path.
+   */
+  private async handleChestRecover(client: Client, signature: string): Promise<void> {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const fail = (error: string) => client.send("chestOpenResult", { ok: false, error });
+
+    const wallet = this.playerWallets.get(client.sessionId) ?? null;
+    if (!wallet || !isWalletIdentity(wallet)) return void fail("Link a Solana wallet first.");
+    const trimmed = signature.trim();
+    if (!trimmed || trimmed.length < 32) return void fail("Paste the transaction signature from your wallet.");
+    if (await isPurchaseRedeemed(trimmed)) {
+      return void fail("That payment has already been used for a chest.");
+    }
+
+    const treasury = getTreasuryWallet();
+    if (!treasury) return void fail("Chests aren't configured on this server yet.");
+
+    // Verify against the CHEAPEST tier so any real chest payment passes, then
+    // let the actual amount pick the tier.
+    const result = await verifyMetricbaseTokenTransfer(trimmed, {
+      payerWallet: wallet,
+      treasuryWallet: treasury,
+      mint: getBlackZoneBurnMint(),
+      minUiAmount: cheapestChestPrice(),
+    });
+    if (!result.ok) return void fail(result.error ?? "Payment could not be verified.");
+
+    const tier = bestChestTierForAmount(result.uiAmount ?? 0);
+    if (!tier) return void fail("That payment doesn't cover a chest.");
+
+    const claimed = await claimChestOpen(trimmed, player.name, wallet, tier.id, tier.price);
+    if (!claimed) return void fail("That chest was already opened.");
+    await recordTokenPurchase(trimmed, wallet, `chest_${tier.id}`, tier.price);
+    bumpMetric("chest.recovered", 1);
+
+    await this.rollAndGrantChest(client, player, tier, trimmed, false);
+  }
+
+  /** Roll a chest and hand over everything in it. Shared by open + recover so
+   * the two can never drift on what a chest actually pays. */
+  private async rollAndGrantChest(
+    client: Client,
+    player: InstanceType<typeof PlayerSchema>,
+    tier: ChestTierDef,
+    signature: string,
+    admin: boolean,
+  ): Promise<void> {
     const rewards = rollChest(tier, Math.random, (kind, id, amount) => {
       if (kind === "gold") return `${amount.toLocaleString()} gold`;
       if (kind === "seasonPoints") return `${amount} season points`;

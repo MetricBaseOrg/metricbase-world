@@ -227,6 +227,8 @@ export function ChestPanel() {
             </div>
           ))}
 
+          <RecoverPaidChest />
+
           <div className="chibi-text-muted" style={{ fontSize: "0.64rem", marginTop: 10 }}>
             On average a chest returns more gold than the same $BASE spent at Rudi's desk, so gold
             alone is worth the trip — gear, cosmetics and the rare tiers are the upside on top.
@@ -242,6 +244,72 @@ export function ChestPanel() {
           {notice}
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * "I paid and got nothing" — paste the transaction signature and claim it.
+ *
+ * The automatic recovery (localStorage) only helps if the signature was stashed,
+ * and before v0.192.2 a confirmation error could throw before that happened,
+ * after the tokens had already left the wallet. This is the manual way home.
+ * The server decides the tier from the on-chain amount, so there's nothing to
+ * choose and nothing to get wrong.
+ */
+function RecoverPaidChest() {
+  const [showing, setShowing] = useState(false);
+  const [sig, setSig] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const submit = () => {
+    if (!sig.trim()) return;
+    playSfx("ui_click");
+    setBusy(true);
+    networkManager.sendChestRecover(sig.trim());
+    // The shared chestOpenResult listener in the parent shows the outcome.
+    window.setTimeout(() => setBusy(false), 4000);
+  };
+
+  if (!showing) {
+    return (
+      <button
+        type="button"
+        className="chibi-btn chibi-btn--ghost"
+        style={{ width: "100%", marginTop: 10, padding: "7px 10px", fontSize: "0.72rem" }}
+        onClick={() => setShowing(true)}
+      >
+        Paid but didn't get your chest?
+      </button>
+    );
+  }
+
+  return (
+    <div className="chibi-card" style={{ marginTop: 10, padding: "10px 12px" }}>
+      <div style={{ fontWeight: 800, fontSize: "0.76rem" }}>🧾 Claim a paid chest</div>
+      <div className="chibi-text-muted" style={{ fontSize: "0.66rem", marginTop: 4 }}>
+        Paste the transaction signature from your wallet history. We'll check it on-chain and open
+        the chest your payment covers — you can't lose value here, the amount you actually paid
+        decides the tier.
+      </div>
+      <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
+        <input
+          className="chibi-input"
+          style={{ flex: 1, fontSize: "0.7rem" }}
+          placeholder="Transaction signature"
+          value={sig}
+          onChange={(e) => setSig(e.target.value)}
+        />
+        <button
+          type="button"
+          className="chibi-btn chibi-btn--primary"
+          style={{ padding: "8px 12px" }}
+          onClick={submit}
+          disabled={busy}
+        >
+          {busy ? "Checking…" : "Claim"}
+        </button>
+      </div>
     </div>
   );
 }

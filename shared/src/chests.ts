@@ -151,6 +151,25 @@ export function getChestTier(id: string): ChestTierDef | null {
   return CHEST_TIERS.find((t) => t.id === id) ?? null;
 }
 
+/** Cheapest chest, i.e. the minimum a payment must cover to be recoverable. */
+export function cheapestChestPrice(): number {
+  return Math.min(...CHEST_TIERS.map((t) => t.price));
+}
+
+/**
+ * The best chest a given payment covers.
+ *
+ * Used by the recover-a-paid-chest path: the ON-CHAIN amount decides the tier,
+ * never the client. Someone who paid for a Mythic must not be able to lose it by
+ * picking the wrong tier from a dropdown, and someone who paid for a Wooden must
+ * not be able to claim a Mythic.
+ */
+export function bestChestTierForAmount(uiAmount: number): ChestTierDef | null {
+  const affordable = CHEST_TIERS.filter((t) => uiAmount + 1e-6 >= t.price);
+  if (affordable.length === 0) return null;
+  return affordable.reduce((best, t) => (t.price > best.price ? t : best));
+}
+
 /**
  * Reward pools by rarity. Shared across tiers — the TIER changes how often you
  * reach a bucket, not what's inside it, so adding a reward benefits every tier
