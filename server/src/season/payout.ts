@@ -16,13 +16,16 @@ import {
   seasonRewardPool,
   seasonRequiresStake,
   SEASON_REWARD_REQUIRES_X,
+  SEASON_REWARD_REQUIRES_POST,
   METRICBASE_TOKEN_MINT,
   toBaseUnits,
 } from "@metricbase/shared";
 import { isXLinkConfigured } from "../auth/xAuth.js";
+import { loadPostedPlayers } from "../db/seasonPost.js";
 import { getHouseWalletAddress, getHouseBalanceUi, isWithdrawEnabled, sendPayout } from "../solana/housePayout.js";
 import {
   loadSeasonPayoutTargets,
+  type PayoutTarget,
   claimSeasonPayout,
   finalizeSeasonPayout,
   unclaimSeasonPayout,
@@ -83,7 +86,12 @@ export interface PayoutReport {
   missingX: number;
   /** Names of those players, so they can be chased before the pool is sent. */
   missingXNames: string[];
-  /** $BASE their shares add up to — money sitting unpaid, waiting on a tap. */
+  /** Whether a verified season post is also being required. */
+  postRequired: boolean;
+  /** Linked but haven't posted — one step from being paid. */
+  missingPost: number;
+  missingPostNames: string[];
+  /** $BASE held back across ALL unmet requirements — money sitting unpaid. */
   totalHeldForX: number;
   /** Stake deposits being returned, and their total. */
   refunds: RefundLine[];
@@ -118,6 +126,9 @@ export async function distributeSeasonRewards(seasonNumber: number, execute: boo
     xRequired: false,
     missingX: 0,
     missingXNames: [],
+    postRequired: false,
+    missingPost: 0,
+    missingPostNames: [],
     totalHeldForX: 0,
     refunds: [],
     totalToRefund: 0,
@@ -140,16 +151,31 @@ export async function distributeSeasonRewards(seasonNumber: number, execute: boo
   const staketargets = staked ? allTargets.filter((t) => entrants.has(t.name)) : allTargets;
   report.notEntered = allTargets.length - staketargets.length;
 
-  // Season rewards require a connected X account — but ONLY when X connect is
-  // actually configured on this server. Enforcing it against an unconfigured
-  // OAuth app would disqualify every player at once and strand the pool, so a
-  // missing X_CLIENT_ID fails OPEN (everyone stays eligible) rather than closed.
-  const xRequired = SEASON_REWARD_REQUIRES_X && isXLinkConfigured();
+  // Season rewards require a connected X account AND a verified public post —
+  // but ONLY when X connect is actually configured on this server. Enforcing
+  // either against an unconfigured OAuth app would disqualify every player at
+  // once and strand the pool, so a missing X_CLIENT_ID fails OPEN (everyone
+  // stays eligible) rather than closed. Both requirements ride that same switch
+  // because a player cannot post proof without first linking.
+  const xConfigured = isXLinkConfigured();
+  const xRequired = SEASON_REWARD_REQUIRES_X && xConfigured;
+  const postRequired = SEASON_REWARD_REQUIRES_POST && xConfigured;
   report.xRequired = xRequired;
-  const heldForX = xRequired ? staketargets.filter((t) => !t.xLinked) : [];
-  report.missingX = heldForX.length;
-  report.missingXNames = heldForX.map((t) => t.name);
-  const targets = xRequired ? staketargets.filter((t) => t.xLinked) : staketargets;
+  report.postRequired = postRequired;
+
+  const posted = postRequired ? await loadPostedPlayers(seasonId) : new Set<string>();
+  const meetsRequirements = (t: PayoutTarget): boolean =>
+    (!xRequired || t.xLinked) && (!postRequired || posted.has(t.name));
+
+  const heldBack = staketargets.filter((t) => !meetsRequirements(t));
+  report.missingX = heldBack.filter((t) => xRequired && !t.xLinked).length;
+  report.missingXNames = heldBack.filter((t) => xRequired && !t.xLinked).map((t) => t.name);
+  // Linked but hasn't posted — the group to nudge, since they're one step away.
+  report.missingPost = heldBack.filter((t) => t.xLinked && postRequired && !posted.has(t.name)).length;
+  report.missingPostNames = heldBack
+    .filter((t) => t.xLinked && postRequired && !posted.has(t.name))
+    .map((t) => t.name);
+  const targets = staketargets.filter(meetsRequirements);
 
   // Pro-rata over the ENTRANTS' points, not everyone's — a non-entrant's points
   // must not dilute the share of the players who actually paid in.
@@ -173,7 +199,7 @@ export async function distributeSeasonRewards(seasonNumber: number, execute: boo
   report.eligible = lines.length;
   report.totalToPay = totalToPay;
   report.totalHeldForX =
-    totalPoints > 0 ? heldForX.reduce((sum, t) => sum + Math.floor((t.points / totalPoints) * pool), 0) : 0;
+    totalPoints > 0 ? heldBack.reduce((sum, t) => sum + Math.floor((t.points / totalPoints) * pool), 0) : 0;
 
   // Refunds are owed to every entrant who hasn't been repaid — including one
   // who scored zero points and so has no prize line at all. A deposit is not

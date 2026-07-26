@@ -47,10 +47,23 @@ do not remove them without deciding to:
    not sent — nobody else's share grows because someone hadn't tapped Connect.
    They link, you re-run the payout, they get the identical amount (the
    per-(season, player) claim row makes the re-run safe).
-3. **Posting is NOT required to be paid.** The share prompt fires right after a
-   successful link and is a prompt only. Requiring a public post in exchange for
-   money owed is paying for an undisclosed endorsement — a different thing from
-   asking, and not one to do by accident.
+3. **A verified public post IS required** (owner decision, v0.189.1 —
+   `SEASON_REWARD_REQUIRES_POST`). Two steps: connect X, then publish the
+   supplied copy and paste the link back. Verified free through X's public
+   oEmbed — authored by the linked handle, carrying the player's HMAC code and
+   `SEASON_POST_REQUIRED_TAG` — reusing `server/src/auth/xVerify.ts`, no paid API.
+
+   **The post copy is not free-form on purpose.** The post is compensated (it is
+   a condition of receiving $BASE), which makes it an endorsement that ought to
+   be identifiable as one. `seasonPostText()` therefore says plainly that the
+   player is collecting a Season reward, and the required tag must appear. If
+   someone later "cleans up" that copy into a generic brag post, the disclosure
+   goes with it — that wording is load-bearing, not branding.
+
+   Residual risk to keep an eye on: mass identical incentivised posts are the
+   shape platforms police as coordinated inauthentic behaviour. The copy is
+   per-player only in its code, so if volume ever grows past a handful, vary the
+   template rather than shipping hundreds of identical posts.
 
 The dry-run report carries `xRequired`, `missingX`, `missingXNames` and
 `totalHeldForX` so you can see who is holding up how much before sending.

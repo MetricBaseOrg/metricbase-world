@@ -96,6 +96,39 @@ export function seasonRequiresStake(seasonNumber: number): boolean {
  */
 export const SEASON_REWARD_REQUIRES_X = true;
 
+/**
+ * Season rewards also require a verified PUBLIC POST about the season.
+ *
+ * Verified the same free way as the X engagement tasks: the player's post must
+ * be authored by their linked handle and contain their unguessable per-player
+ * code, read back through X's public oEmbed (no paid API) — see
+ * server/src/auth/xVerify.ts.
+ *
+ * DISCLOSURE — this is why the required copy is not free-form. The post is
+ * compensated (it is a condition of receiving $BASE), which in most advertising
+ * regimes makes it an endorsement that has to be identifiable as such. The
+ * suggested text therefore states plainly that the player is collecting a Season
+ * reward, and `SEASON_POST_REQUIRED_TAG` must appear in it. Do not "simplify"
+ * that away into a generic brag post — the disclosure is load-bearing, not
+ * branding.
+ *
+ * Still a DELAY, not a forfeiture: an unposted player's share is held, never
+ * redistributed (see the divisor note in server/src/season/payout.ts).
+ */
+export const SEASON_REWARD_REQUIRES_POST = true;
+
+/** Must appear in the proof post. Doubles as the disclosure marker. */
+export const SEASON_POST_REQUIRED_TAG = "#MetricBaseWorld";
+
+/** The post copy we hand the player, with their code already in it. */
+export function seasonPostText(seasonNumber: number, code: string, playUrl: string): string {
+  return (
+    `I'm collecting my Season ${seasonNumber} reward in MetricBase World 🏆\n\n` +
+    `A player-run economy on Solana — gather, craft, trade and build.\n\n` +
+    `Play free → ${playUrl}\n${SEASON_POST_REQUIRED_TAG} ${code}`
+  );
+}
+
 export interface SeasonInfo {
   /** 1-based season number. */
   number: number;
@@ -225,6 +258,12 @@ export interface SeasonStatePayload {
   xLinked: boolean;
   /** Their X handle when linked, for the "you're all set" confirmation. */
   xUsername: string | null;
+  /** Whether a verified public post is also needed to be paid. */
+  postRequiredForReward: boolean;
+  /** Whether this player's season post has been verified. */
+  posted: boolean;
+  /** This player's unguessable proof code, "" until X is linked. */
+  postCode: string;
   /** Refundable $BASE stake to compete for the pool; 0 = no stake this season. */
   stakeAmount: number;
   /** Whether this player has staked into the current season's prize race. */

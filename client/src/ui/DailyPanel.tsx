@@ -178,11 +178,10 @@ export function DailyPanel() {
           <SeasonRewardGate
             season={season}
             onLinked={() => {
-              // Freshly connected: this is the moment to ask for the post, while
-              // they're already thinking about their season. Prompted, never
-              // required — being paid does not depend on posting.
-              setNotice("X connected! Share your Season run 👇");
-              setShareOpen(true);
+              // Deliberately NOT the generic Share modal: the proof post has to
+              // carry the player's verification code, and that modal's copy
+              // doesn't. The gate advances to its own Step 2 with the exact text.
+              setNotice("X connected! One more step to unlock your reward 👇");
             }}
           />
           <SeasonStakeCard season={season} />

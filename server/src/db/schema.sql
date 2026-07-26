@@ -407,6 +407,23 @@ CREATE TABLE IF NOT EXISTS season_payout (
   PRIMARY KEY (season_id, player_name)
 );
 
+-- Verified season proof-posts (see SEASON_REWARD_REQUIRES_POST). One row per
+-- (season, player), inserted only after the post has been read back from X's
+-- public oEmbed and confirmed to be authored by the player's linked handle and
+-- to contain their per-player code. post_url is kept as the audit trail for a
+-- payout that was released on the strength of it.
+CREATE TABLE IF NOT EXISTS season_post (
+  season_id VARCHAR(12) NOT NULL,
+  player_name VARCHAR(16) NOT NULL,
+  wallet VARCHAR(64) NOT NULL,
+  x_username VARCHAR(32) NOT NULL,
+  post_url VARCHAR(300) NOT NULL,
+  verified_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (season_id, player_name)
+);
+-- One post can't be reused by a second character.
+CREATE UNIQUE INDEX IF NOT EXISTS season_post_url_idx ON season_post (season_id, post_url);
+
 -- Season entry stakes (see shared/src/season.ts). A REFUNDABLE $BASE deposit
 -- that puts a player into the prize-pool split; playing without one stays free
 -- and still earns points. The stake is transferred to the treasury (not burned)

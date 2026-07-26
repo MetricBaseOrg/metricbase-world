@@ -329,6 +329,7 @@ export class NetworkManager {
   private dailyStateListeners = new Set<(payload: DailyStatePayload) => void>();
   private seasonStateListeners = new Set<(payload: SeasonStatePayload) => void>();
   private seasonStakeResultListeners = new Set<(payload: SeasonStakeResultPayload) => void>();
+  private seasonPostResultListeners = new Set<(payload: SeasonStakeResultPayload) => void>();
   private jobsStateListeners = new Set<(payload: JobsStatePayload) => void>();
   private jobResultListeners = new Set<(payload: JobResultPayload) => void>();
   private jobsChangedListeners = new Set<() => void>();
@@ -979,6 +980,16 @@ export class NetworkManager {
   /** Enter the season prize race with a verified $BASE stake transfer. */
   sendSeasonStake(signature: string) {
     this.room?.send("seasonStake", { signature });
+  }
+
+  /** Submit the season proof-post URL for verification. */
+  sendSeasonPostVerify(url: string) {
+    this.room?.send("seasonPostVerify", { url });
+  }
+
+  onSeasonPostResult(listener: (payload: SeasonStakeResultPayload) => void) {
+    this.seasonPostResultListeners.add(listener);
+    return () => this.seasonPostResultListeners.delete(listener);
   }
 
   onSeasonStakeResult(listener: (payload: SeasonStakeResultPayload) => void) {
@@ -2118,6 +2129,9 @@ export class NetworkManager {
     });
     this.room.onMessage("seasonStakeResult", (payload: SeasonStakeResultPayload) => {
       for (const listener of this.seasonStakeResultListeners) listener(payload);
+    });
+    this.room.onMessage("seasonPostResult", (payload: SeasonStakeResultPayload) => {
+      for (const listener of this.seasonPostResultListeners) listener(payload);
     });
     this.room.onMessage("seasonState", (payload: SeasonStatePayload) => {
       for (const listener of this.seasonStateListeners) listener(payload);

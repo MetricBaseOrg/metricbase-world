@@ -11,8 +11,8 @@ export const MOTTO_MAX_LENGTH = 80;
  */
 export const DASHBOARD_UPDATES: Array<{ title: string; body: string }> = [
   {
-    title: "v0.189 — Connect X to collect your Season reward",
-    body: "Season rewards are now paid to players with a connected X account. It's free, takes one tap, and the first connect also pays +50 season points. Your points are safe either way — if you haven't connected yet your share is held for you, not given away, so connect any time before the payout and you'll receive exactly the same amount. Open ⚙️ → 📅 Daily & Season to do it in-game, then share your season run.",
+    title: "v0.189 — Two steps to collect your Season reward",
+    body: "Season rewards now go to players who connect X and share their season. Step 1: connect X — free, one tap, and the first connect also pays +50 season points. Step 2: post your season using the text we give you (it has your personal code in it) and paste the link back to verify. Both steps are in ⚙️ → 📅 Daily & Season. Nothing is lost by waiting: until you finish, your share is held for you, never given to anyone else, so you receive exactly the same amount whenever you get to it.",
   },
   {
     title: "v0.188 — Enter the Season 2 prize race",

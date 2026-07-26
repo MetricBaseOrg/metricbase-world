@@ -52,6 +52,8 @@ import {
   estimateReward,
   seasonStakeAmount,
   SEASON_REWARD_REQUIRES_X,
+  SEASON_REWARD_REQUIRES_POST,
+  SEASON_POST_REQUIRED_TAG,
   SEASON_POINTS,
   type SeasonCategory,
   type SeasonStatePayload,
@@ -513,7 +515,15 @@ import {
   recordSeasonStake,
 } from "../db/seasonStake.js";
 import { getXStatus } from "../db/xLink.js";
+import { hasPostedFor, isPostUrlUsed, recordSeasonPost } from "../db/seasonPost.js";
 import { isXLinkConfigured } from "../auth/xAuth.js";
+import { isTweetUrl, readTweet, taskCode } from "../auth/xVerify.js";
+
+/** Task id the season proof-post code is derived from — namespaced so it can
+ * never collide with an admin X campaign's id. */
+function seasonPostTaskId(seasonId: string): string {
+  return `season-reward:${seasonId}`;
+}
 import { adjustAsset, getAssetInventory, getAssetQty } from "../zones/assetInventory.js";
 import {
   addPendingGold,
@@ -941,6 +951,9 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     });
     this.onProtectedMessage("seasonStake", (client, message: { signature?: string }) => {
       void this.handleSeasonStake(client, String(message.signature ?? ""));
+    });
+    this.onProtectedMessage("seasonPostVerify", (client, message: { url?: string }) => {
+      void this.handleSeasonPostVerify(client, String(message.url ?? ""));
     });
     this.onProtectedMessage("dailyClaimTask", (client, message: { taskId?: string }) => {
       void this.handleDailyClaimTask(client, String(message.taskId ?? ""));
@@ -4431,13 +4444,14 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     // The X status is keyed by wallet identity (the characters row), so a
     // walletless/spectator session simply reads as unlinked.
     const identity = this.playerWallets.get(client.sessionId) ?? null;
-    const [agg, rank, rewardPool, staked, entrants, xStatus] = await Promise.all([
+    const [agg, rank, rewardPool, staked, entrants, xStatus, posted] = await Promise.all([
       loadSeasonAggregate(season.id, 25),
       loadSeasonRank(season.id, player.name),
       getSeasonRewardPool(),
       hasStakedIn(season.id, player.name),
       countSeasonEntrants(season.id),
       identity ? getXStatus(identity) : Promise.resolve(null),
+      hasPostedFor(season.id, player.name),
     ]);
     const payload: SeasonStatePayload = {
       seasonId: season.id,
@@ -4458,11 +4472,81 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       xRequiredForReward: SEASON_REWARD_REQUIRES_X && isXLinkConfigured(),
       xLinked: xStatus?.linked ?? false,
       xUsername: xStatus?.username ?? null,
+      postRequiredForReward: SEASON_REWARD_REQUIRES_POST && isXLinkConfigured(),
+      posted,
+      // The code is derived from the identity, so it's stable across sessions and
+      // never stored. Withheld until X is linked — it's meaningless before then.
+      postCode: identity && xStatus?.linked ? taskCode(identity, seasonPostTaskId(season.id)) : "",
       stakeAmount: seasonStakeAmount(season.number),
       staked,
       entrants,
     };
     client.send("seasonState", payload);
+  }
+
+  /**
+   * Verify a player's season proof-post (see SEASON_REWARD_REQUIRES_POST).
+   *
+   * Same free verification as the X engagement tasks: read the pasted post back
+   * through X's public oEmbed, confirm it was authored by the player's LINKED
+   * handle, and confirm it carries their per-player code and the disclosure tag.
+   * No paid API, and the code can't be copy-pasted between accounts because it's
+   * an HMAC of their identity.
+   */
+  private async handleSeasonPostVerify(client: Client, url: string): Promise<void> {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const fail = (error: string) => client.send("seasonPostResult", { ok: false, error });
+
+    const season = currentSeason();
+    if (!(SEASON_REWARD_REQUIRES_POST && isXLinkConfigured())) {
+      return void fail("No post is needed for this season's reward.");
+    }
+    if (await hasPostedFor(season.id, player.name)) {
+      return void fail("Your season post is already verified.");
+    }
+
+    const identity = this.playerWallets.get(client.sessionId) ?? null;
+    if (!identity) return void fail("Connect your wallet first.");
+    const xStatus = await getXStatus(identity);
+    if (!xStatus.linked || !xStatus.username) return void fail("Connect your X account first.");
+
+    const trimmed = url.trim();
+    if (!isTweetUrl(trimmed)) {
+      return void fail("Paste the link to your post on X (an x.com/…/status/… link).");
+    }
+    if (await isPostUrlUsed(season.id, trimmed)) {
+      return void fail("That post has already been used for this season.");
+    }
+
+    const tweet = await readTweet(trimmed);
+    if (!tweet || !tweet.handle) {
+      return void fail("Couldn't read that post yet — make sure your account is public, then try again in a few seconds.");
+    }
+    if (tweet.handle.toLowerCase() !== xStatus.username.toLowerCase()) {
+      return void fail(`That post is by @${tweet.handle}, not your linked @${xStatus.username}.`);
+    }
+    const code = taskCode(identity, seasonPostTaskId(season.id));
+    const haystack = `${tweet.text} ${tweet.html}`.toLowerCase();
+    if (!haystack.includes(code.toLowerCase())) {
+      return void fail(`Your post is missing your code ${code}. Add it and try again.`);
+    }
+    if (!haystack.includes(SEASON_POST_REQUIRED_TAG.toLowerCase())) {
+      return void fail(`Your post is missing ${SEASON_POST_REQUIRED_TAG}.`);
+    }
+
+    const recorded = await recordSeasonPost(season.id, player.name, identity, xStatus.username, trimmed);
+    if (!recorded && !(await hasPostedFor(season.id, player.name))) {
+      // The isPostUrlUsed() pre-check catches this normally; landing here means
+      // another player claimed the same URL in the gap between the two.
+      return void fail("That post has already been used for this season. Post a fresh one and try again.");
+    }
+    bumpMetric("season.posted", 1);
+    client.send("seasonPostResult", {
+      ok: true,
+      message: `Verified! Your Season ${season.number} reward is cleared to send.`,
+    });
+    await this.handleSeasonState(client);
   }
 
   /**
