@@ -1,5 +1,6 @@
 import { type SeasonStatePayload } from "@metricbase/shared";
 import { useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { playSfx } from "../audio/soundEffects";
 import { useGameStore } from "../store/gameStore";
 import { isTelegramMiniApp, openExternalLink, shareToTelegram, TELEGRAM_BOT } from "../telegram/telegramApp";
@@ -132,7 +133,12 @@ export function SeasonShareModal({ season, onClose }: { season: SeasonStatePaylo
     a.click();
   };
 
-  return (
+  // Portalled to <body>: this modal is rendered from inside DailyPanel, which
+  // is `.chibi-anchor--center` (a `transform`). A transformed ancestor becomes
+  // the containing block for `position: fixed` descendants, so without the
+  // portal the overlay sized itself to the 400px scrollable panel instead of
+  // the viewport — the card got clipped and the panel grew a scrollbar.
+  return createPortal(
     <div
       style={{ position: "fixed", inset: 0, zIndex: 220, background: "rgba(0,0,0,0.6)", display: "grid", placeItems: "center", pointerEvents: "auto" }}
       onClick={onClose}
@@ -174,6 +180,7 @@ export function SeasonShareModal({ season, onClose }: { season: SeasonStatePaylo
           Save the card and attach it to your post for the full flex.
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

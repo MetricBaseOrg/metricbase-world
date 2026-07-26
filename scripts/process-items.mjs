@@ -1,171 +1,108 @@
-import { Jimp } from "jimp";
-import { existsSync, mkdirSync } from "fs";
-import path from "path";
-import { fileURLToPath } from "url";
+// Item-icon pipeline: assets/items/*.png (drop folder, ~1024px) →
+// client/public/assets/items/*.png (shipped, 256px).
+//
+// Item icons are the one art category that stays PNG — optimize-art.mjs skips
+// this folder because ItemIcon.tsx builds `/assets/items/<id>.png` from the
+// item id and falls back to a procedural canvas icon on 404. Filenames are the
+// item id minus `item_`, with `_` → `-` (item_copper_helm → copper-helm.png).
+//
+// Drops that ship with a baked-in background (opaque corners) get the same
+// border flood-fill the world art uses, then autocrop, so a checkerboard or
+// flat-gray backdrop doesn't end up as a gray square in the inventory.
+//
+//   node scripts/process-items.mjs          # only items missing a shipped copy
+//   node scripts/process-items.mjs --all    # reprocess every item
+//   node scripts/process-items.mjs wood ore # reprocess just these
+import sharp from "sharp";
+import { existsSync, mkdirSync, readdirSync, statSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const SRC = path.join(repo, "assets", "items");
+const OUT = path.join(repo, "client", "public", "assets", "items");
+const SHIPPED_PX = 256;
+// Max RGB distance from the corner colour still counted as background.
+const BG_TOLERANCE = 60;
 
-const sourceImages = [
-  {
-    src: "C:/Users/PC/.gemini/antigravity/brain/ce5a0ad4-a855-49a7-b349-cecece5aee45/health_potion_1784106703908.png",
-    dest: "../assets/items/health-potion.png"
-  },
-  {
-    src: "C:/Users/PC/.gemini/antigravity/brain/ce5a0ad4-a855-49a7-b349-cecece5aee45/bread_1784106716012.png",
-    dest: "../assets/items/bread.png"
-  },
-  {
-    src: "C:/Users/PC/.gemini/antigravity/brain/ce5a0ad4-a855-49a7-b349-cecece5aee45/carrot_soup_1784106728415.png",
-    dest: "../assets/items/carrot-soup.png"
-  },
-  {
-    src: "C:/Users/PC/.gemini/antigravity/brain/ce5a0ad4-a855-49a7-b349-cecece5aee45/carrot_bread_1784106742221.png",
-    dest: "../assets/items/carrot-bread.png"
-  },
-  {
-    src: "C:/Users/PC/.gemini/antigravity/brain/ce5a0ad4-a855-49a7-b349-cecece5aee45/wood_1784106755107.png",
-    dest: "../assets/items/wood.png"
-  },
-  {
-    src: "C:/Users/PC/.gemini/antigravity/brain/ce5a0ad4-a855-49a7-b349-cecece5aee45/plank_1784106766581.png",
-    dest: "../assets/items/plank.png"
-  },
-  {
-    src: "C:/Users/PC/.gemini/antigravity/brain/ce5a0ad4-a855-49a7-b349-cecece5aee45/hardwood_1784106778882.png",
-    dest: "../assets/items/hardwood.png"
-  },
-  {
-    src: "C:/Users/PC/.gemini/antigravity/brain/ce5a0ad4-a855-49a7-b349-cecece5aee45/hardwood_plank_1784106791720.png",
-    dest: "../assets/items/hardwood-plank.png"
-  },
-  {
-    src: "C:/Users/PC/.gemini/antigravity/brain/ce5a0ad4-a855-49a7-b349-cecece5aee45/steel_bar_1784106804889.png",
-    dest: "../assets/items/steel-bar.png"
-  }
-];
+const args = process.argv.slice(2);
+const all = args.includes("--all");
+const only = args.filter((a) => !a.startsWith("--")).map((a) => a.replace(/\.png$/i, ""));
 
-function getRGBA(hex) {
-  const r = (hex >>> 24) & 0xff;
-  const g = (hex >>> 16) & 0xff;
-  const b = (hex >>> 8) & 0xff;
-  const a = hex & 0xff;
-  return { r, g, b, a };
-}
-
-async function processImage(srcPath, destPath) {
-  console.log(`Loading ${srcPath}...`);
-  const image = await Jimp.read(srcPath);
-  const width = image.width;
-  const height = image.height;
-
-  // Read reference color at top-left corner
-  const refHex = image.getPixelColor(0, 0);
-  const ref = getRGBA(refHex);
-  console.log(`Reference background color: rgba(${ref.r}, ${ref.g}, ${ref.b}, ${ref.a})`);
-
-  // We perform a BFS flood-fill from all edge pixels to remove background
+/** Flood-fill from the border, clearing pixels close to the corner colour. */
+function stripBakedBackground(data, width, height) {
+  const at = (x, y) => (y * width + x) * 4;
+  const ref = [data[0], data[1], data[2]];
   const visited = new Uint8Array(width * height);
   const queue = [];
-
-  const pushPixel = (x, y) => {
+  const consider = (x, y) => {
     const idx = y * width + x;
     if (visited[idx]) return;
     visited[idx] = 1;
-
-    const hex = image.getPixelColor(x, y);
-    const pixel = getRGBA(hex);
-
-    const dist = Math.sqrt(
-      Math.pow(pixel.r - ref.r, 2) +
-      Math.pow(pixel.g - ref.g, 2) +
-      Math.pow(pixel.b - ref.b, 2)
-    );
-
-    if (dist < 60) {
-      queue.push([x, y]);
-    }
+    const i = at(x, y);
+    const dist = Math.hypot(data[i] - ref[0], data[i + 1] - ref[1], data[i + 2] - ref[2]);
+    if (dist < BG_TOLERANCE) queue.push(x, y);
   };
-
-  // Push boundary
   for (let x = 0; x < width; x++) {
-    pushPixel(x, 0);
-    pushPixel(x, height - 1);
+    consider(x, 0);
+    consider(x, height - 1);
   }
   for (let y = 0; y < height; y++) {
-    pushPixel(0, y);
-    pushPixel(width - 1, y);
+    consider(0, y);
+    consider(width - 1, y);
   }
-
-  // BFS
-  let head = 0;
-  while (head < queue.length) {
-    const [cx, cy] = queue[head++];
-    image.setPixelColor(0x00000000, cx, cy);
-
-    const neighbors = [
-      [cx + 1, cy],
-      [cx - 1, cy],
-      [cx, cy + 1],
-      [cx, cy - 1]
-    ];
-
-    for (const [nx, ny] of neighbors) {
-      if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
-        const idx = ny * width + nx;
-        if (!visited[idx]) {
-          visited[idx] = 1;
-          const hex = image.getPixelColor(nx, ny);
-          const pixel = getRGBA(hex);
-          const dist = Math.sqrt(
-            Math.pow(pixel.r - ref.r, 2) +
-            Math.pow(pixel.g - ref.g, 2) +
-            Math.pow(pixel.b - ref.b, 2)
-          );
-          if (dist < 60) {
-            queue.push([nx, ny]);
-          }
-        }
-      }
-    }
-  }
-
-  // Auto-crop
-  image.autocrop();
-
-  // Save 1024x1024 PNG to D:\metricbase-world\assets\items
-  const rawImage = image.clone();
-  rawImage.contain({ w: 1024, h: 1024 });
-  const absoluteDest = path.resolve(__dirname, destPath);
-  const destDir = path.dirname(absoluteDest);
-  if (!existsSync(destDir)) {
-    mkdirSync(destDir, { recursive: true });
-  }
-  await rawImage.write(absoluteDest);
-  console.log(`Saved raw image to ${absoluteDest}`);
-
-  // Save 256x256 PNG to D:\metricbase-world\client\public\assets\items
-  const clientDest = absoluteDest.replace("assets\\items", "client\\public\\assets\\items");
-  const clientDir = path.dirname(clientDest);
-  if (!existsSync(clientDir)) {
-    mkdirSync(clientDir, { recursive: true });
-  }
-  const clientImage = image.clone();
-  clientImage.contain({ w: 256, h: 256 });
-  await clientImage.write(clientDest);
-  console.log(`Saved client image to ${clientDest}`);
-}
-
-async function main() {
-  for (const item of sourceImages) {
-    if (existsSync(item.src)) {
-      await processImage(item.src, item.dest);
-    } else {
-      console.warn(`Source image does not exist: ${item.src}`);
-    }
+  for (let head = 0; head < queue.length; head += 2) {
+    const cx = queue[head];
+    const cy = queue[head + 1];
+    data[at(cx, cy) + 3] = 0;
+    if (cx + 1 < width) consider(cx + 1, cy);
+    if (cx > 0) consider(cx - 1, cy);
+    if (cy + 1 < height) consider(cx, cy + 1);
+    if (cy > 0) consider(cx, cy - 1);
   }
 }
 
-main().catch(err => {
-  console.error("Error processing images:", err);
+if (!existsSync(SRC)) {
+  console.error(`No source folder at ${SRC}`);
   process.exit(1);
+}
+mkdirSync(OUT, { recursive: true });
+
+const sources = readdirSync(SRC).filter((f) => f.toLowerCase().endsWith(".png"));
+const todo = sources.filter((f) => {
+  const name = f.replace(/\.png$/i, "");
+  if (only.length > 0) return only.includes(name);
+  if (all) return true;
+  return !existsSync(path.join(OUT, f));
 });
+
+if (todo.length === 0) {
+  console.log(`Nothing to do — ${sources.length} item(s) already shipped. Use --all to redo.`);
+  process.exit(0);
+}
+
+for (const file of todo) {
+  const src = path.join(SRC, file);
+  const dest = path.join(OUT, file);
+  const img = sharp(src);
+  const meta = await img.metadata();
+
+  // Only pay for the flood-fill when the art actually has an opaque border.
+  const { data, info } = await img.ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  const opaqueCorner = data[3] > 250;
+  if (opaqueCorner) stripBakedBackground(data, info.width, info.height);
+
+  const outSize = statSync(src).size;
+  await sharp(data, { raw: { width: info.width, height: info.height, channels: 4 } })
+    .trim()
+    .resize(SHIPPED_PX, SHIPPED_PX, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
+    .png({ compressionLevel: 9 })
+    .toFile(dest);
+
+  console.log(
+    `${file}: ${meta.width}x${meta.height} ${(outSize / 1024).toFixed(0)}KB` +
+      `${opaqueCorner ? " (bg stripped)" : ""} -> ${SHIPPED_PX}px ${(statSync(dest).size / 1024).toFixed(0)}KB`,
+  );
+}
+
+console.log(`\nShipped ${todo.length} item icon(s) to client/public/assets/items.`);

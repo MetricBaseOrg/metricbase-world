@@ -27,10 +27,10 @@ file into the folder named in its section header.
 
 The original list is **done**: all tiles, buildings, nodes, **Mobs (6)**, **NPCs (8)**, all
 **interiors (15)** + farm/billboard/portal (4), and most of both character sets shipped.
-Nothing referenced by code 404s today. **What's still missing, by impact (101 files):**
+Nothing referenced by code 404s today. **What's still missing, by impact (91 files):**
 
-1. **Item icons (63)** — biggest UI surface. Inventory/shop/market fall back to the procedural
-   canvas icon (`client/src/ui/itemIcons.ts`) for every one of these. 17 of 80 non-fish items
+1. **Item icons (53)** — biggest UI surface. Inventory/shop/market fall back to the procedural
+   canvas icon (`client/src/ui/itemIcons.ts`) for every one of these. 27 of 80 non-fish items
    have real art.
 2. **Character gaps (38)** — portraits ×2, girl attack (16), boy+girl fish (16), boy
    back-attack (4) — exact file list in the character section.
@@ -153,19 +153,23 @@ Each distinct mob now has its own art (was 4 procedural blobs):
 
 ## Item icons — drop in `assets/items/` (80 items; fish/dishes already done)
 
-Square icon look (like the fish art), must read at 34px. **17 shipped / 63 missing.**
+Square icon look (like the fish art), must read at 34px. **27 shipped / 53 missing.**
 
 Filename = the item id minus the `item_` prefix, with `_` → `-` (e.g. `item_copper_helm` →
 `copper-helm.png`). `ItemIcon.tsx` builds that path itself, so a correctly named drop is live
-with no code change; anything missing silently falls back to the procedural canvas icon. Note
-these ship as **.png** (not .webp like world art) — `optimize-art.mjs` does not touch this folder.
+with no code change; anything missing silently falls back to the procedural canvas icon.
+
+**Pipeline:** drop the art in `assets/items/`, then run `node scripts/process-items.mjs` — it
+strips a baked-in background if there is one, autocrops, and writes a 256px copy to
+`client/public/assets/items/`. Item icons stay **.png**; `optimize-art.mjs` deliberately skips
+this folder (the .webp rename would break the id→path lookup above).
 
 - Consumables (5): health-potion ✅, bread ✅, carrot-soup ✅, carrot-bread ✅, berries 🎨
 - Materials (22): wood ✅, ore ✅ (copper ore), wheat-seed ✅, wheat ✅, carrot-seed ✅,
   carrot ✅, plank ✅, copper-bar ✅, iron-ore ✅, iron-bar ✅, hardwood ✅, hardwood-plank ✅,
-  steel-bar ✅, training-scrap 🎨, slime-gel 🎨, slime-core 🎨, thorn-gel 🎨, ember-core 🎨,
-  obsidian-shard 🎨, amber 🎨, gemstone 🎨, pearl 🎨, lamp-oil 🎨
-- Weapons (7): rusty-blade 🎨, gel-knife 🎨, copper-dagger 🎨, gem-blade 🎨, thorn-cleaver 🎨,
+  steel-bar ✅, training-scrap ✅, slime-gel ✅, slime-core ✅, amber ✅, gemstone ✅, pearl ✅,
+  lamp-oil ✅, thorn-gel 🎨, ember-core 🎨, obsidian-shard 🎨
+- Weapons (7): rusty-blade ✅, gel-knife ✅, copper-dagger ✅, gem-blade 🎨, thorn-cleaver 🎨,
   ember-blade 🎨, obsidian-blade 🎨
 - Tools (14): copper-axe 🎨, iron-axe 🎨, steel-axe 🎨, copper-pickaxe 🎨, iron-pickaxe 🎨,
   steel-pickaxe 🎨, copper-hoe 🎨, iron-hoe 🎨, steel-hoe 🎨, fishing-rod 🎨, pro-rod 🎨,
@@ -177,9 +181,13 @@ these ship as **.png** (not .webp like world art) — `optimize-art.mjs` does no
 - Mounts (3): pony 🎨, steed 🎨, dire-wolf 🎨
 - Pets (4): pet-cat 🎨, pet-slime 🎨, pet-owl 🎨, pet-penguin 🎨
 
-**Done so far (17):** ore, wood, plank, wheat-seed, wheat, carrot-seed, carrot, copper-bar,
+**Done so far (27):** ore, wood, plank, wheat-seed, wheat, carrot-seed, carrot, copper-bar,
 iron-ore, iron-bar, steel-bar, hardwood, hardwood-plank, health-potion, bread, carrot-soup,
-carrot-bread.
+carrot-bread · **v0.187.1 batch:** training-scrap, slime-gel, slime-core, amber, gemstone,
+pearl, lamp-oil, rusty-blade, gel-knife, copper-dagger.
+
+Next-highest impact from what's left: the 12 armor pieces (copper/iron/steel sets) and the
+gather tools (axes/pickaxes/rods) — both are permanently on screen in the equipment panel.
 
 ## Housing interiors — `assets/world/` ✅ SHIPPED (15/15)
 
@@ -290,6 +298,6 @@ Promo + store art, no in-game references. Kept here so drops don't get filed as 
 1. ~~sand + rock + deep-pool~~ ✅ · ~~Mobs (6) + NPCs (8)~~ ✅ · ~~new buildings + tiles~~ ✅ ·
    ~~boy idle/walk/chop/attack~~ ✅ · ~~girl idle/walk/chop~~ ✅ · ~~interiors (15)~~ ✅ ·
    ~~farm plots/billboard/portal (5)~~ ✅
-2. Item icons — 63 left (`assets/items/`); highest UI impact, zero code wiring needed
+2. Item icons — 53 left (`assets/items/`); highest UI impact, zero code wiring needed
 3. Character gaps — portraits, girl attack, fish, boy back-attack (38 files, list above)
 4. Iso tiles + details (after template chat)
