@@ -44,6 +44,8 @@ import { JobsPanel } from "./ui/JobsPanel";
 import { CompanyPanel } from "./ui/CompanyPanel";
 import { ExchangePanel } from "./ui/ExchangePanel";
 import { ZoneTransitionOverlay } from "./ui/ZoneTransitionOverlay";
+import { GameLoadingOverlay } from "./ui/GameLoadingOverlay";
+import { resetLoadingProgress } from "./game/loadingProgress";
 import { AdminPanel } from "./ui/AdminPanel";
 import { SpectatorBanner } from "./ui/SpectatorBanner";
 import { CatchCelebration } from "./ui/CatchCelebration";
@@ -321,6 +323,9 @@ export function App() {
       networkManager.setAccessToken(token);
     }
 
+    // Back to 0% before the canvas mounts, so a second entry in the same tab
+    // (leave → rejoin) doesn't flash the previous session's finished bar.
+    resetLoadingProgress();
     setJoined(true);
     startBackgroundMusic();
     startWeatherAmbience();
@@ -386,6 +391,9 @@ export function App() {
   return (
     <div style={{ position: "relative", width: "100%", height: "100%" }}>
       {joined && <PhaserGame />}
+      {/* Directly after PhaserGame so it covers the canvas while BootScene
+          downloads the world art; it removes itself once GameScene has painted. */}
+      {joined && <GameLoadingOverlay />}
       {joined && <TopBar onLeave={() => void handleLeave()} />}
       {joined && <QuestPanel />}
       {joined && <ObjectiveTracker />}

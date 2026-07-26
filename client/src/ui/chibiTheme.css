@@ -1390,6 +1390,92 @@ body {
   to { opacity: 0; }
 }
 
+/* ── Entry loading screen (ui/GameLoadingOverlay.tsx) ──────────────────────────
+   Sits above everything while BootScene downloads world art. z-index is one
+   above the portal transition: on the very first entry the two can briefly
+   coexist, and this is the one that owns the screen. */
+.mb-loading {
+  position: fixed;
+  inset: 0;
+  z-index: 81;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 24px;
+  background: radial-gradient(ellipse at center, #123a44 0%, #0c2029 60%, #071319 100%);
+  animation: mbZoneFadeIn 0.18s ease-out;
+  pointer-events: all;
+  /* Safe areas: this covers the notch on phones. */
+  padding-top: max(24px, var(--chibi-safe-top));
+  padding-bottom: max(24px, var(--chibi-safe-bottom));
+}
+.mb-loading--out {
+  animation: mbZoneFadeOut 0.42s ease-in forwards;
+}
+.mb-loading__mark {
+  font-size: 56px;
+  line-height: 1;
+  animation: mbLoadingBob 2.2s ease-in-out infinite;
+  filter: drop-shadow(0 0 18px rgba(79, 184, 168, 0.75));
+}
+.mb-loading__title {
+  font-family: "Fredoka", "Nunito", sans-serif;
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: #d8f5ee;
+  text-shadow: 0 2px 8px rgba(7, 19, 25, 0.9);
+  text-align: center;
+}
+.mb-loading__track {
+  width: min(340px, 78vw);
+  height: 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 2px solid rgba(216, 245, 238, 0.35);
+  overflow: hidden;
+}
+.mb-loading__fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #4fb8a8, #6fd4c2 60%, #c9a84c);
+  /* Eases the jump between Phaser's discrete file-completion steps so the bar
+     glides instead of ticking. */
+  transition: width 0.28s ease-out;
+  box-shadow: 0 0 12px rgba(111, 212, 194, 0.6);
+}
+.mb-loading__meta {
+  width: min(340px, 78vw);
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 0.76rem;
+  color: #9ec9c1;
+}
+.mb-loading__pct {
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  color: #d8f5ee;
+}
+.mb-loading__tip {
+  margin-top: 6px;
+  max-width: min(420px, 86vw);
+  text-align: center;
+  font-size: 0.76rem;
+  line-height: 1.5;
+  color: #8fb4ad;
+}
+@keyframes mbLoadingBob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+/* Respect a reduced-motion preference: keep the bar, drop the bobbing. */
+@media (prefers-reduced-motion: reduce) {
+  .mb-loading__mark { animation: none; }
+  .mb-loading__fill { transition: none; }
+}
+
 .chibi-chat-name {
   color: var(--chibi-gold-deep);
   font-weight: 800;

@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import { ROOF_COLORS, TILE_HEIGHT, TILE_WIDTH } from "@metricbase/shared";
 import { TILESET_COLUMNS } from "./mapData";
+import { setAssetProgress, setBuildingWorld } from "./loadingProgress";
 
 const OUTLINE = 0x3a2a1e;
 
@@ -26,6 +27,16 @@ export class BootScene extends Phaser.Scene {
   }
 
   preload() {
+    // Drive the entry loading bar (ui/GameLoadingOverlay.tsx). Phaser reports
+    // progress across everything queued below; FILE_LOAD_ERROR is handled too so
+    // one missing asset can't leave a player staring at a stuck bar forever.
+    this.load.on(Phaser.Loader.Events.PROGRESS, (value: number) => {
+      setAssetProgress(value);
+    });
+    this.load.on(Phaser.Loader.Events.FILE_LOAD_ERROR, (file: Phaser.Loader.File) => {
+      console.warn("[boot] asset failed to load:", file.key);
+    });
+
     this.createTilesetTexture();
     this.createPlayerTexture();
     this.createNpcTexture();
@@ -224,6 +235,8 @@ export class BootScene extends Phaser.Scene {
   }
 
   create() {
+    // Art is in; GameScene still has to build the tilemap and entities.
+    setBuildingWorld();
     this.scene.start("GameScene");
   }
 

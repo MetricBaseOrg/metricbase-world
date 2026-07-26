@@ -52,6 +52,7 @@ import {
 } from "../character/avatarAnimations";
 import { AVATAR_LOGICAL_HEIGHT, AVATAR_LOGICAL_WIDTH } from "../character/avatarPose";
 import { notifyGameSceneReady } from "./gameSceneReady";
+import { setLoadingComplete } from "./loadingProgress";
 import {
   consumeMobileAttack,
   consumeMobileInteract,
@@ -1039,6 +1040,11 @@ export class GameScene extends Phaser.Scene {
     this.renderZone(networkManager.zoneId);
     this.bootstrapFromNetwork();
     notifyGameSceneReady();
+
+    // Lift the entry loading bar one tick later, so the first frame with the
+    // world in it has actually painted — dismissing at the end of create()
+    // flashes the empty canvas for a frame before anything is drawn.
+    this.time.delayedCall(0, () => setLoadingComplete());
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.scale.off(Phaser.Scale.Events.RESIZE, this.handleViewportResize, this);
