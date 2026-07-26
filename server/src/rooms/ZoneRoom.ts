@@ -4623,7 +4623,14 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       mint: getBlackZoneBurnMint(),
       minUiAmount: cheapestChestPrice(),
     });
-    if (!result.ok) return void fail(result.error ?? "Payment could not be verified.");
+    if (!result.ok) {
+      // Show the per-endpoint reason to everyone, not just admins: diagnosing an
+      // RPC outage from "try again shortly" is guesswork, and whoever hits it is
+      // the person who can report it. Safe to show — host() strips the path and
+      // query, so a private RPC key in SOLANA_RPC_URL can never leak here.
+      const detail = result.detail ? ` [${result.detail}]` : "";
+      return void fail(`${result.error ?? "Payment could not be verified."}${detail}`);
+    }
 
     const tier = bestChestTierForAmount(result.uiAmount ?? 0);
     if (!tier) return void fail("That payment doesn't cover a chest.");

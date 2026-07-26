@@ -1,5 +1,14 @@
 import { Connection, PublicKey } from "@solana/web3.js";
-import { getRpcUrls } from "./rpc.js";
+import { getRpcUrls, timeoutFetch } from "./rpc.js";
+
+/** Hostname only, for error text — never leak an RPC key in a query string. */
+function host(url: string): string {
+  try {
+    return new URL(url).host;
+  } catch {
+    return "rpc";
+  }
+}
 
 export interface TokenTransferExpectation {
   payerWallet: string;
@@ -13,6 +22,10 @@ export interface TokenTransferVerification {
   error?: string;
   payer?: string;
   uiAmount?: number;
+  /** Per-endpoint failure reasons. Surfaced to ADMINS only — it's the
+   * difference between guessing at an outage and knowing which provider is
+   * refusing us and with what. */
+  detail?: string;
 }
 
 export async function verifyMetricbaseTokenTransfer(
@@ -28,9 +41,13 @@ export async function verifyMetricbaseTokenTransfer(
   // player as nothing happening at all. Every outcome becomes { ok: false }.
   let tx: Awaited<ReturnType<Connection["getParsedTransaction"]>> = null;
   let reached = false;
+  const failures: string[] = [];
   for (const rpcUrl of getRpcUrls()) {
     try {
-      const connection = new Connection(rpcUrl, "confirmed");
+      const connection = new Connection(rpcUrl, {
+        commitment: "confirmed",
+        fetch: timeoutFetch(8000),
+      });
       for (let attempt = 0; attempt < 3; attempt++) {
         tx = await connection.getParsedTransaction(signature, {
           maxSupportedTransactionVersion: 0,
@@ -42,7 +59,10 @@ export async function verifyMetricbaseTokenTransfer(
       // The endpoint answered, even if it hasn't indexed this signature yet.
       reached = true;
       if (tx) break;
+      failures.push(`${host(rpcUrl)}: not indexed`);
     } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      failures.push(`${host(rpcUrl)}: ${reason.slice(0, 120)}`);
       console.warn(`[verifyTransfer] lookup failed via ${rpcUrl}:`, error);
     }
   }
@@ -53,6 +73,7 @@ export async function verifyMetricbaseTokenTransfer(
       error: reached
         ? "Transaction not found yet. Wait a moment and try again."
         : "Couldn't reach Solana to check that transaction. Try again shortly.",
+      detail: failures.join(" | "),
     };
   }
 
