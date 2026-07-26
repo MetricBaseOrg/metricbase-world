@@ -63,6 +63,7 @@ interface GameStore {
   /** Crop-market prop id ("market-wheat"/"market-carrot") while trading, else null. */
   cropMarketOpen: string | null;
   dailyOpen: boolean;
+  chestOpen: boolean;
   telegramLinkOpen: boolean;
   /** Player-to-player job board. */
   jobsOpen: boolean;
@@ -165,6 +166,7 @@ interface GameStore {
   setBuildShopOpen: (open: boolean) => void;
   setCropMarketOpen: (market: string | null) => void;
   setDailyOpen: (open: boolean) => void;
+  setChestOpen: (open: boolean) => void;
   setTelegramLinkOpen: (open: boolean) => void;
   setJobsOpen: (open: boolean) => void;
   setCompanyOpen: (open: boolean) => void;
@@ -213,6 +215,7 @@ export function isAnyPanelOpen(s: GameStore): boolean {
     s.worldsOpen ||
     s.buildShopOpen ||
     s.dailyOpen ||
+    s.chestOpen ||
     s.telegramLinkOpen ||
     s.jobsOpen ||
     s.companyOpen ||
@@ -279,6 +282,7 @@ export const useGameStore = create<GameStore>((set) => ({
   buildShopOpen: false,
   cropMarketOpen: null,
   dailyOpen: false,
+  chestOpen: false,
   telegramLinkOpen: false,
   jobsOpen: false,
   companyOpen: false,
@@ -397,6 +401,7 @@ export const useGameStore = create<GameStore>((set) => ({
   setBuildShopOpen: (buildShopOpen) => set({ buildShopOpen }),
   setCropMarketOpen: (cropMarketOpen) => set({ cropMarketOpen }),
   setDailyOpen: (dailyOpen) => set({ dailyOpen }),
+  setChestOpen: (chestOpen) => set({ chestOpen }),
   setTelegramLinkOpen: (telegramLinkOpen) => set({ telegramLinkOpen }),
   setJobsOpen: (jobsOpen) => set({ jobsOpen }),
   setCompanyOpen: (companyOpen) => set({ companyOpen }),

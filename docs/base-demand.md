@@ -167,7 +167,40 @@ to sell to players; a burn is better for supply.
 **Careful:** a stake creates an entry barrier to the *reward* system. If set too
 high it recreates the gate we just removed, one layer in. Start low.
 
-### P2 — Cosmetics and identity (safe, recurring, non-power)
+### P2 — Cosmetics and identity — PARTLY SHIPPED as Magic Chests (v0.191.0)
+
+`shared/src/chests.ts` is the tunables table. Four tiers (1k/3k/10k/25k $BASE)
+that **burn** $BASE and roll gold, materials, consumables, season points and —
+once their art lands — cosmetic skins.
+
+Balance rules baked into that file, with the numbers that justify them:
+
+- **Every tier returns ~55-57% of its price** in gold-equivalent (measured by
+  Monte-Carlo over the real roller). It must stay well under 100%, because
+  Rudi's desk sells gold at 1 $BASE = 1 gold — a chest at or above parity would
+  be a cheaper gold faucet than the desk and pure arbitrage. Higher tiers buy
+  better ODDS (legendary 0.3% → 20% per chest), never a better rate.
+- **No weapons, armour or tools.** Selling stat gear for money is the one line
+  the plan marks non-negotiable. Materials are fine — tradeable goods a player
+  could gather anyway, not a stat advantage.
+- Chest gold goes through `mintGold()` so it lands in the mint-pressure gauge
+  like every other faucet. Note chests are LESS inflationary per $BASE than the
+  gold desk that already exists.
+- **Season points are purchasable through chests** (owner's call). Points decide
+  how the fixed pool is split, so this makes leaderboard rank partly payable.
+  It is not profitable — ~25,000 $BASE burned buys ~358 points against a 13.5k
+  total, so buying a meaningful share costs far more than the share is worth —
+  but it does dilute "points reward playing". They are booked under their own
+  `chest` season category precisely so bought points stay separable from earned
+  ones; **watch that split before Season 2 pays out.**
+- Odds are shown in the UI before the buy button. Hidden odds on paid boxes are
+  indefensible and illegal in several markets — do not move them behind a link.
+
+Skins: `COSMETIC_SKINS` is empty and the roller SKIPS any skin whose art hasn't
+shipped, so nobody can win an invisible cosmetic. Ownership persists in
+`player_skins` already, so landing art + an equip/render path is what remains.
+
+### P2 (original note) — Cosmetics and identity (safe, recurring, non-power)
 
 The `$BASE lucky-wheel cosmetics` idea already noted in the character-redesign
 backlog, plus:

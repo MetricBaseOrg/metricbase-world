@@ -1,6 +1,7 @@
 import { Client, getStateCallbacks, Room } from "colyseus.js";
 import {
   AttackResultPayload,
+  type ChestOpenResultPayload,
   ChopCancelPayload,
   ChopResultPayload,
   ChopStartPayload,
@@ -330,6 +331,7 @@ export class NetworkManager {
   private seasonStateListeners = new Set<(payload: SeasonStatePayload) => void>();
   private seasonStakeResultListeners = new Set<(payload: SeasonStakeResultPayload) => void>();
   private seasonPostResultListeners = new Set<(payload: SeasonStakeResultPayload) => void>();
+  private chestOpenResultListeners = new Set<(payload: ChestOpenResultPayload) => void>();
   private jobsStateListeners = new Set<(payload: JobsStatePayload) => void>();
   private jobResultListeners = new Set<(payload: JobResultPayload) => void>();
   private jobsChangedListeners = new Set<() => void>();
@@ -985,6 +987,16 @@ export class NetworkManager {
   /** Submit the season proof-post URL for verification. */
   sendSeasonPostVerify(url: string) {
     this.room?.send("seasonPostVerify", { url });
+  }
+
+  /** Open a Magic Chest with a verified $BASE burn. */
+  sendChestOpen(tierId: string, signature: string) {
+    this.room?.send("chestOpen", { tierId, signature });
+  }
+
+  onChestOpenResult(listener: (payload: ChestOpenResultPayload) => void) {
+    this.chestOpenResultListeners.add(listener);
+    return () => this.chestOpenResultListeners.delete(listener);
   }
 
   onSeasonPostResult(listener: (payload: SeasonStakeResultPayload) => void) {
@@ -2132,6 +2144,9 @@ export class NetworkManager {
     });
     this.room.onMessage("seasonPostResult", (payload: SeasonStakeResultPayload) => {
       for (const listener of this.seasonPostResultListeners) listener(payload);
+    });
+    this.room.onMessage("chestOpenResult", (payload: ChestOpenResultPayload) => {
+      for (const listener of this.chestOpenResultListeners) listener(payload);
     });
     this.room.onMessage("seasonState", (payload: SeasonStatePayload) => {
       for (const listener of this.seasonStateListeners) listener(payload);

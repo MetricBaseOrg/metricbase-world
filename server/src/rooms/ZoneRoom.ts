@@ -51,6 +51,10 @@ import {
   currentSeason,
   estimateReward,
   seasonStakeAmount,
+  getChestTier,
+  getSkin,
+  rollChest,
+  CHEST_SEASON_CATEGORY,
   SEASON_REWARD_REQUIRES_X,
   SEASON_REWARD_REQUIRES_POST,
   SEASON_POST_REQUIRED_TAG,
@@ -516,6 +520,7 @@ import {
 } from "../db/seasonStake.js";
 import { getXStatus } from "../db/xLink.js";
 import { hasPostedFor, isPostUrlUsed, recordSeasonPost } from "../db/seasonPost.js";
+import { claimChestOpen, grantSkin, recordChestRewards } from "../db/chests.js";
 import { isXLinkConfigured } from "../auth/xAuth.js";
 import { isTweetUrl, readTweet, taskCode } from "../auth/xVerify.js";
 
@@ -954,6 +959,9 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     });
     this.onProtectedMessage("seasonPostVerify", (client, message: { url?: string }) => {
       void this.handleSeasonPostVerify(client, String(message.url ?? ""));
+    });
+    this.onProtectedMessage("chestOpen", (client, message: { tierId?: string; signature?: string }) => {
+      void this.handleChestOpen(client, String(message.tierId ?? ""), String(message.signature ?? ""));
     });
     this.onProtectedMessage("dailyClaimTask", (client, message: { taskId?: string }) => {
       void this.handleDailyClaimTask(client, String(message.taskId ?? ""));
@@ -4482,6 +4490,89 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       entrants,
     };
     client.send("seasonState", payload);
+  }
+
+  /**
+   * Open a Magic Chest by burning $BASE (see shared/src/chests.ts).
+   *
+   * The roll happens HERE, never on the client — a client-side roll is a forged
+   * payout. The burn signature is claimed in the DB before anything is granted,
+   * so a replayed message can't roll twice off one payment, and the rolled
+   * result is stamped afterwards as the audit trail.
+   */
+  private async handleChestOpen(client: Client, tierId: string, signature: string): Promise<void> {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const fail = (error: string) => client.send("chestOpenResult", { ok: false, error });
+
+    const tier = getChestTier(tierId);
+    if (!tier) return void fail("Unknown chest.");
+
+    const wallet = this.playerWallets.get(client.sessionId) ?? null;
+    const admin = adService.isAdmin(wallet);
+
+    // Admins open free (same bypass the bag/World expansions use) so the drop
+    // tables can be exercised without burning real tokens.
+    if (!admin) {
+      if (!wallet || !isWalletIdentity(wallet)) {
+        return void fail("Link a Solana wallet to open chests.");
+      }
+      if (!signature || signature.length < 32) return void fail("Missing burn transaction.");
+      if (await isPurchaseRedeemed(signature)) return void fail("That burn was already used.");
+
+      const result = await verifyTokenBurn(signature, {
+        ownerWallet: wallet,
+        mint: getBlackZoneBurnMint(),
+        minUiAmount: tier.price,
+      });
+      if (!result.ok) return void fail(result.error ?? "Burn could not be verified.");
+
+      // Claim the signature BEFORE granting anything.
+      const claimed = await claimChestOpen(signature, player.name, wallet, tier.id, tier.price);
+      if (!claimed) return void fail("That chest was already opened.");
+
+      await recordTokenPurchase(signature, wallet, `chest_${tier.id}`, tier.price);
+      bumpMetric("base.burned", Math.round(result.burned ?? tier.price));
+    }
+
+    const rewards = rollChest(tier, Math.random, (kind, id, amount) => {
+      if (kind === "gold") return `${amount.toLocaleString()} gold`;
+      if (kind === "seasonPoints") return `${amount} season points`;
+      if (kind === "skin") return getSkin(id ?? "")?.name ?? "Cosmetic skin";
+      return `${amount}× ${getItemDefinition(id ?? "").name}`;
+    });
+
+    for (const reward of rewards) {
+      if (reward.kind === "gold") {
+        const pid = this.pidOf(player);
+        this.playerGold.set(pid, (this.playerGold.get(pid) ?? 0) + reward.amount);
+        // Chest gold is minted, so it must show up in the mint-pressure gauge
+        // like every other faucet — an untracked faucet is how an economy
+        // drifts without anyone noticing.
+        mintGold(reward.amount);
+      } else if (reward.kind === "item" && reward.id) {
+        await this.grantLoot(client, player.name, reward.id, reward.amount);
+      } else if (reward.kind === "seasonPoints") {
+        // Booked under `chest` so bought points stay separable from earned ones.
+        void awardSeasonPointsDb(player.name, CHEST_SEASON_CATEGORY, reward.amount);
+      } else if (reward.kind === "skin" && reward.id) {
+        await grantSkin(player.name, reward.id);
+      }
+    }
+
+    await recordChestRewards(signature, rewards);
+    bumpMetric("chest.opened", 1);
+    bumpMetric(`chest.opened.${tier.id}`, 1);
+    if (!admin) bumpMetric("chest.baseBurned", tier.price);
+
+    await this.persistPlayer(player);
+    this.sendInventory(client, player.name);
+    client.send("chestOpenResult", {
+      ok: true,
+      tierId: tier.id,
+      rewards,
+      gold: this.playerGold.get(this.pidOf(player)) ?? 0,
+    });
   }
 
   /**

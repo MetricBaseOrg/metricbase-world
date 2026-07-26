@@ -11,6 +11,10 @@ export const MOTTO_MAX_LENGTH = 80;
  */
 export const DASHBOARD_UPDATES: Array<{ title: string; body: string }> = [
   {
+    title: "v0.191 — Magic Chests",
+    body: "Four tiers of chest, opened by burning $BASE, each rolling gold, materials, consumables and season points — with cosmetic skins coming once their art is ready. Every chest shows its full rarity odds before you buy. Chests never contain weapons, armour or tools: no paying for power. Fair warning, the gold inside is worth less than simply buying gold at Rudi's desk — you're paying for the chance at the rare stuff. Open them from ⚙️ → 🎁 Magic Chests.",
+  },
+  {
     title: "v0.189 — Two steps to collect your Season reward",
     body: "Season rewards now go to players who connect X and share their season. Step 1: connect X — free, one tap, and the first connect also pays +50 season points. Step 2: post your season using the text we give you (it has your personal code in it) and paste the link back to verify. Both steps are in ⚙️ → 📅 Daily & Season. Nothing is lost by waiting: until you finish, your share is held for you, never given to anyone else, so you receive exactly the same amount whenever you get to it.",
   },

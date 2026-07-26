@@ -165,7 +165,8 @@ export type SeasonCategory =
   | "referral"
   | "xLink"
   | "xTask"
-  | "richest";
+  | "richest"
+  | "chest";
 
 /** Points awarded per unit of each activity. Balanced so grindy actions pay
  * little and rare/social actions pay more; alt-spam of cheap actions can't
@@ -191,6 +192,11 @@ export const SEASON_POINTS: Record<SeasonCategory, number> = {
   // Richest is awarded on a fixed daily schedule by rank (SEASON_RICHEST_DAILY_BONUS),
   // not per-unit — this per-unit entry is unused.
   richest: 0,
+  // Magic Chest rolls carry their own amount (CHEST_POOLS), so this per-unit
+  // default is unused. Booked as its own category on purpose: it keeps BOUGHT
+  // points separable from EARNED ones on /stats and in the breakdown, which is
+  // the only way to tell later whether chests are distorting the leaderboard.
+  chest: 0,
 };
 
 /**
@@ -225,6 +231,7 @@ export const SEASON_CATEGORY_LABEL: Record<SeasonCategory, string> = {
   xLink: "X account",
   xTask: "X tasks",
   richest: "Richest bonus",
+  chest: "Magic Chests",
 };
 
 export interface SeasonLeaderEntry {

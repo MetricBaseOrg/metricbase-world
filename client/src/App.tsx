@@ -45,6 +45,7 @@ import { CompanyPanel } from "./ui/CompanyPanel";
 import { ExchangePanel } from "./ui/ExchangePanel";
 import { ZoneTransitionOverlay } from "./ui/ZoneTransitionOverlay";
 import { GameLoadingOverlay } from "./ui/GameLoadingOverlay";
+import { ChestPanel } from "./ui/ChestPanel";
 import { resetLoadingProgress } from "./game/loadingProgress";
 import { AdminPanel } from "./ui/AdminPanel";
 import { SpectatorBanner } from "./ui/SpectatorBanner";
@@ -433,6 +434,7 @@ export function App() {
       {joined && <VipLodgeModal />}
       {joined && <CropMarketPanel />}
       {joined && <DailyPanel />}
+      {joined && <ChestPanel />}
       {joined && <JobsPanel />}
       {joined && <CompanyPanel />}
       {joined && <ExchangePanel />}

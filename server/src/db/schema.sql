@@ -407,6 +407,31 @@ CREATE TABLE IF NOT EXISTS season_payout (
   PRIMARY KEY (season_id, player_name)
 );
 
+-- Magic Chest opens. One row per opened chest, keyed by the on-chain burn
+-- signature so a replayed message can never pay out twice. `rewards` keeps the
+-- rolled result as JSONB: chests grant real value, so a dispute ("I opened a
+-- Mythic and got nothing") has to be answerable from the database alone.
+CREATE TABLE IF NOT EXISTS chest_opens (
+  signature VARCHAR(128) PRIMARY KEY,
+  player_name VARCHAR(16) NOT NULL,
+  wallet VARCHAR(64) NOT NULL,
+  tier_id VARCHAR(16) NOT NULL,
+  price BIGINT NOT NULL,
+  rewards JSONB NOT NULL DEFAULT '[]'::jsonb,
+  opened_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS chest_opens_player_idx ON chest_opens (player_name, opened_at DESC);
+
+-- Cosmetic skins a player owns (won from chests). Deliberately NOT inventory
+-- items: cosmetics have no vendor value and must not be sellable into the gold
+-- economy, and keeping them out of ITEMS avoids touching shop/craft/value code.
+CREATE TABLE IF NOT EXISTS player_skins (
+  player_name VARCHAR(16) NOT NULL,
+  skin_id VARCHAR(40) NOT NULL,
+  won_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (player_name, skin_id)
+);
+
 -- Verified season proof-posts (see SEASON_REWARD_REQUIRES_POST). One row per
 -- (season, player), inserted only after the post has been read back from X's
 -- public oEmbed and confirmed to be authored by the player's linked handle and
