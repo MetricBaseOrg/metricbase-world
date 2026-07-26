@@ -167,32 +167,44 @@ to sell to players; a burn is better for supply.
 **Careful:** a stake creates an entry barrier to the *reward* system. If set too
 high it recreates the gate we just removed, one layer in. Start low.
 
-### P2 — Cosmetics and identity — PARTLY SHIPPED as Magic Chests (v0.191.0)
+### P2 — SHIPPED as Magic Chests (v0.191.0, re-specced v0.192.0)
 
 `shared/src/chests.ts` is the tunables table. Four tiers (1k/3k/10k/25k $BASE)
-that **burn** $BASE and roll gold, materials, consumables, season points and —
-once their art lands — cosmetic skins.
+rolling gold, gear, materials, season points and — once their art lands —
+cosmetic skins.
 
-Balance rules baked into that file, with the numbers that justify them:
+**The v0.192.0 re-spec reversed three of the original rules, on the owner's
+instruction.** Recorded here with the trade each one makes, so the reasoning
+survives:
 
-- **Every tier returns ~55-57% of its price** in gold-equivalent (measured by
-  Monte-Carlo over the real roller). It must stay well under 100%, because
-  Rudi's desk sells gold at 1 $BASE = 1 gold — a chest at or above parity would
-  be a cheaper gold faucet than the desk and pure arbitrage. Higher tiers buy
-  better ODDS (legendary 0.3% → 20% per chest), never a better rate.
-- **No weapons, armour or tools.** Selling stat gear for money is the one line
-  the plan marks non-negotiable. Materials are fine — tradeable goods a player
-  could gather anyway, not a stat advantage.
-- Chest gold goes through `mintGold()` so it lands in the mint-pressure gauge
-  like every other faucet. Note chests are LESS inflationary per $BASE than the
-  gold desk that already exists.
-- **Season points are purchasable through chests** (owner's call). Points decide
-  how the fixed pool is split, so this makes leaderboard rank partly payable.
-  It is not profitable — ~25,000 $BASE burned buys ~358 points against a 13.5k
-  total, so buying a meaningful share costs far more than the share is worth —
-  but it does dilute "points reward playing". They are booked under their own
-  `chest` season category precisely so bought points stay separable from earned
-  ones; **watch that split before Season 2 pays out.**
+| Rule | v0.191 | v0.192 (current) |
+|---|---|---|
+| $BASE destination | Burned | **Paid to treasury**, to fund the season pool |
+| Gold vs Rudi's desk | ~55% of price | **~115-117% of price** — better than the desk |
+| Gear in chests | Excluded | **Included**, gated behind much rarer odds |
+
+- **Chest revenue funds the season pool.** This is the first real recurring
+  inflow the pool has ever had — the entire problem this document opens with.
+  It lands in `token_purchases`, so /stats → Treasury flow now shows chest
+  income against pool outflow. Burning removed supply but funded nothing.
+- **Chests are now the best gold rate in the game** (~115% of price vs the
+  desk's 100%), measured by Monte-Carlo over the real roller. Two consequences,
+  accepted knowingly: Rudi's gold desk is now the worse option and will
+  effectively retire, and **chests become the largest gold faucet in a game with
+  only ~114k gold circulating**. Chest gold is minted, so `gold.minted` and the
+  mint-pressure gauge are the things to watch — a few large buyers move the
+  whole money supply. It is NOT a $BASE printer: gold only returns to $BASE via
+  the peer-to-peer market where another player supplies it.
+- **Gear is in.** This sells power, which this document previously called
+  non-negotiable; rarity is now the only thing holding that line. Legendary
+  dropped from 4% → 1% per roll on mythic, so gear averages 0.07-0.49 items per
+  chest depending on tier. If a top-tier weapon becomes routinely buyable, PvP
+  balance and the crafting economy break before anything else — compare
+  `chest.opened.*` against crafting mastery before loosening odds again.
+- **Season points are purchasable through chests.** Points decide how the fixed
+  pool is split, so leaderboard rank is now partly payable. Booked under their
+  own `chest` season category so bought points stay separable from earned ones;
+  **check that split before Season 2 pays out.**
 - Odds are shown in the UI before the buy button. Hidden odds on paid boxes are
   indefensible and illegal in several markets — do not move them behind a link.
 

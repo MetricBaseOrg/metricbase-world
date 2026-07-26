@@ -4493,12 +4493,17 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   }
 
   /**
-   * Open a Magic Chest by burning $BASE (see shared/src/chests.ts).
+   * Open a Magic Chest by paying $BASE to the treasury (see shared/src/chests.ts).
+   *
+   * The $BASE is TRANSFERRED to the admin/treasury wallet, not burned — chest
+   * revenue funds the season reward pool, which is the one thing the pool has
+   * never had a source for (docs/base-demand.md). It therefore records as a
+   * treasury purchase and shows on /stats → Treasury flow.
    *
    * The roll happens HERE, never on the client — a client-side roll is a forged
-   * payout. The burn signature is claimed in the DB before anything is granted,
-   * so a replayed message can't roll twice off one payment, and the rolled
-   * result is stamped afterwards as the audit trail.
+   * payout. The payment signature is claimed in the DB before anything is
+   * granted, so a replayed message can't roll twice off one payment, and the
+   * rolled result is stamped afterwards as the audit trail.
    */
   private async handleChestOpen(client: Client, tierId: string, signature: string): Promise<void> {
     const player = this.state.players.get(client.sessionId);
@@ -4517,22 +4522,27 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       if (!wallet || !isWalletIdentity(wallet)) {
         return void fail("Link a Solana wallet to open chests.");
       }
-      if (!signature || signature.length < 32) return void fail("Missing burn transaction.");
-      if (await isPurchaseRedeemed(signature)) return void fail("That burn was already used.");
+      if (!signature || signature.length < 32) return void fail("Missing payment transaction.");
+      if (await isPurchaseRedeemed(signature)) return void fail("That payment was already used.");
 
-      const result = await verifyTokenBurn(signature, {
-        ownerWallet: wallet,
+      const treasury = getTreasuryWallet();
+      if (!treasury) return void fail("Chests aren't configured on this server yet.");
+
+      const result = await verifyMetricbaseTokenTransfer(signature, {
+        payerWallet: wallet,
+        treasuryWallet: treasury,
         mint: getBlackZoneBurnMint(),
         minUiAmount: tier.price,
       });
-      if (!result.ok) return void fail(result.error ?? "Burn could not be verified.");
+      if (!result.ok) return void fail(result.error ?? "Payment could not be verified.");
 
       // Claim the signature BEFORE granting anything.
       const claimed = await claimChestOpen(signature, player.name, wallet, tier.id, tier.price);
       if (!claimed) return void fail("That chest was already opened.");
 
+      // Lands in token_purchases, which is the treasury ledger /stats reads —
+      // so chest revenue is visible against what the season pool pays out.
       await recordTokenPurchase(signature, wallet, `chest_${tier.id}`, tier.price);
-      bumpMetric("base.burned", Math.round(result.burned ?? tier.price));
     }
 
     const rewards = rollChest(tier, Math.random, (kind, id, amount) => {
@@ -4563,7 +4573,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     await recordChestRewards(signature, rewards);
     bumpMetric("chest.opened", 1);
     bumpMetric(`chest.opened.${tier.id}`, 1);
-    if (!admin) bumpMetric("chest.baseBurned", tier.price);
+    if (!admin) bumpMetric("chest.baseToTreasury", tier.price);
 
     await this.persistPlayer(player);
     this.sendInventory(client, player.name);

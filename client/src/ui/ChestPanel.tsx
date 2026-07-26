@@ -144,8 +144,9 @@ export function ChestPanel() {
       ) : (
         <>
           <div className="chibi-text-muted" style={{ fontSize: "0.7rem", marginTop: 4 }}>
-            Chests <b>burn</b> $BASE and pay out gold, materials, season points and cosmetics. Odds
-            are listed on every chest — tap <em>Odds</em> to see them.
+            Chests pay out gold, gear, materials and season points — and cosmetics once those land.
+            What you spend goes straight into the <b>Season reward pool</b>. Odds are listed on
+            every chest, tap <em>Odds</em> to see them.
           </div>
 
           {CHEST_TIERS.map((tier) => (
@@ -210,9 +211,10 @@ export function ChestPanel() {
           ))}
 
           <div className="chibi-text-muted" style={{ fontSize: "0.64rem", marginTop: 10 }}>
-            Chests never contain weapons, armour or tools — no paying for power. Gold from a chest
-            is worth less than buying gold outright at Rudi's desk; you're paying for the chance at
-            rare finds and cosmetics.
+            On average a chest returns more gold than the same $BASE spent at Rudi's desk, so gold
+            alone is worth the trip — gear, cosmetics and the rare tiers are the gamble on top.
+            Every chest is a roll, not a purchase: the odds above are the whole story, and a bad
+            run is a real possibility.
           </div>
         </>
       )}

@@ -4,23 +4,37 @@
 // often each rarity lands, and what can come out of it lives here as pure data,
 // so balance changes never touch server logic.
 //
-// ── Economic rules this table must keep ────────────────────────────────────
+// ── Economics, as decided by the owner on 2026-07-27 ───────────────────────
 //
-// 1. CHESTS BURN $BASE. They are a sink, not a treasury transfer — the point is
-//    to remove supply (docs/base-demand.md P2, "prefer burns to transfers").
+// These three rules REVERSE the ones this file shipped with. They were changed
+// deliberately; the previous rationale is kept here so nobody "fixes" them back
+// without knowing what the trade was.
 //
-// 2. GOLD EV MUST STAY WELL UNDER THE CHEST PRICE. Rudi's desk already sells
-//    gold at 1 $BASE = 1 gold. If a chest's expected gold approached its price
-//    players would buy chests *as* a gold faucet and the chest would just be a
-//    worse gold desk with extra steps. Every tier below sits around 15-25% of
-//    its price in expected gold; the value is in the rare drops, not the gold.
+// 1. CHESTS PAY THE TREASURY — they do NOT burn. The $BASE goes to the admin
+//    wallet to FUND SEASON REWARDS, which is the whole point: the season pool
+//    pays out with essentially no recurring inflow (docs/base-demand.md), and
+//    chest revenue is the first real inflow against it. Chest spend therefore
+//    lands in `token_purchases` and shows up on /stats → Treasury flow.
+//    (Previously: burned. Burning removes supply but funds nothing.)
 //
-// 3. NO POWER IN CHESTS. No weapons, armor or tools — only materials,
-//    consumables, gold, season points and cosmetics. Selling stat gear for real
-//    money would distort PvP and the player-run crafting economy, which is the
-//    one line docs/base-demand.md marks as non-negotiable ("sell time, status
-//    and capacity — never power"). Materials are fine: they're tradeable goods
-//    a player could also gather, not a stat advantage.
+// 2. GOLD EV IS ABOVE THE CHEST PRICE — a chest is a BETTER gold deal than
+//    Rudi's 1 $BASE = 1 gold desk, on purpose. Consequences, accepted knowingly:
+//      • The gold desk is now the worse option and will effectively retire.
+//      • Chests become the game's largest gold faucet. Chest gold is minted, so
+//        watch `gold.minted` and the mint-pressure gauge on /stats — with only
+//        ~114k gold circulating, a few large buyers move the whole supply.
+//      • This is NOT a $BASE money printer: gold only returns to $BASE via the
+//        peer-to-peer gold market, where another player supplies the $BASE. The
+//        hard invariant (no gold → $BASE minting) still holds.
+//
+// 3. CHESTS CONTAIN GEAR — weapons, armour and tools. This sells power, which
+//    docs/base-demand.md previously called non-negotiable. The mitigation now
+//    carrying that weight is RARITY: gear sits in the rare/epic/legendary
+//    buckets and those odds were cut hard (mythic legendary 4% → 1%), so gear
+//    is an occasional prize rather than a reliable purchase. If a top-tier
+//    weapon ever becomes routinely buyable, PvP balance and the crafting
+//    economy are the things that break first — check `chest.opened.*` against
+//    the crafting mastery numbers before loosening the odds further.
 //
 // 4. NEVER MINT $BASE. Chests grant gold/items/points — never $BASE.
 
@@ -56,6 +70,9 @@ export interface ChestRewardDef {
   max: number;
   /** Relative weight inside its rarity bucket. */
   weight: number;
+  /** Set false for equipment: a tier's valueMult must not turn one Ember Blade
+   * into four. Gear is a single prize; only stacks scale. */
+  scale?: boolean;
 }
 
 /** One rolled reward, as resolved by the server. */
@@ -95,8 +112,8 @@ export const CHEST_TIERS: ChestTierDef[] = [
     blurb: "A humble crate. Mostly supplies, with a chance of something better.",
     price: 1_000,
     rolls: 3,
-    valueMult: 1,
-    odds: { common: 0.66, uncommon: 0.25, rare: 0.075, epic: 0.014, legendary: 0.001 },
+    valueMult: 0.9,
+    odds: { common: 0.8, uncommon: 0.17, rare: 0.025, epic: 0.0045, legendary: 0.0005 },
   },
   {
     id: "silver",
@@ -105,8 +122,8 @@ export const CHEST_TIERS: ChestTierDef[] = [
     blurb: "Banded in silver. Better odds, better hauls.",
     price: 3_000,
     rolls: 3,
-    valueMult: 2.1,
-    odds: { common: 0.46, uncommon: 0.34, rare: 0.15, epic: 0.045, legendary: 0.005 },
+    valueMult: 2.3,
+    odds: { common: 0.68, uncommon: 0.25, rare: 0.055, epic: 0.013, legendary: 0.002 },
   },
   {
     id: "golden",
@@ -115,8 +132,8 @@ export const CHEST_TIERS: ChestTierDef[] = [
     blurb: "Heavy with promise. Rare finds are the norm here.",
     price: 10_000,
     rolls: 4,
-    valueMult: 3.5,
-    odds: { common: 0.26, uncommon: 0.36, rare: 0.26, epic: 0.105, legendary: 0.015 },
+    valueMult: 4.8,
+    odds: { common: 0.55, uncommon: 0.31, rare: 0.11, epic: 0.025, legendary: 0.005 },
   },
   {
     id: "mythic",
@@ -125,8 +142,8 @@ export const CHEST_TIERS: ChestTierDef[] = [
     blurb: "Hums when you hold it. The best odds in the world.",
     price: 25_000,
     rolls: 5,
-    valueMult: 4.5,
-    odds: { common: 0.1, uncommon: 0.28, rare: 0.36, epic: 0.22, legendary: 0.04 },
+    valueMult: 7.8,
+    odds: { common: 0.42, uncommon: 0.34, rare: 0.18, epic: 0.05, legendary: 0.01 },
   },
 ];
 
@@ -140,44 +157,79 @@ export function getChestTier(id: string): ChestTierDef | null {
  * and there's only one table to balance.
  */
 export const CHEST_POOLS: Record<ChestRarity, ChestRewardDef[]> = {
+  // Common carries the gold promise: it's ~half of every roll, so the headline
+  // "better than the desk" rate is decided here more than anywhere else.
   common: [
-    { kind: "gold", min: 120, max: 400, weight: 30 },
-    { kind: "item", id: "item_wood", min: 5, max: 15, weight: 14 },
-    { kind: "item", id: "item_ore", min: 5, max: 15, weight: 14 },
-    { kind: "item", id: "item_wheat_seed", min: 4, max: 12, weight: 10 },
-    { kind: "item", id: "item_carrot_seed", min: 4, max: 12, weight: 10 },
-    { kind: "item", id: "item_bread", min: 2, max: 5, weight: 10 },
-    { kind: "seasonPoints", min: 5, max: 15, weight: 12 },
+    { kind: "gold", min: 450, max: 1_100, weight: 46 },
+    { kind: "item", id: "item_wood", min: 5, max: 15, weight: 11 },
+    { kind: "item", id: "item_ore", min: 5, max: 15, weight: 11 },
+    { kind: "item", id: "item_wheat_seed", min: 4, max: 12, weight: 8 },
+    { kind: "item", id: "item_carrot_seed", min: 4, max: 12, weight: 8 },
+    { kind: "item", id: "item_bread", min: 2, max: 5, weight: 8 },
+    { kind: "seasonPoints", min: 5, max: 15, weight: 8 },
   ],
   uncommon: [
-    { kind: "gold", min: 400, max: 1_000, weight: 28 },
-    { kind: "item", id: "item_plank", min: 4, max: 10, weight: 14 },
-    { kind: "item", id: "item_copper_bar", min: 3, max: 8, weight: 14 },
-    { kind: "item", id: "item_hardwood", min: 4, max: 10, weight: 12 },
-    { kind: "item", id: "item_health_potion", min: 2, max: 5, weight: 12 },
-    { kind: "seasonPoints", min: 15, max: 40, weight: 20 },
+    { kind: "gold", min: 900, max: 2_200, weight: 40 },
+    { kind: "item", id: "item_plank", min: 4, max: 10, weight: 10 },
+    { kind: "item", id: "item_copper_bar", min: 3, max: 8, weight: 10 },
+    { kind: "item", id: "item_hardwood", min: 4, max: 10, weight: 9 },
+    { kind: "item", id: "item_health_potion", min: 2, max: 5, weight: 9 },
+    { kind: "seasonPoints", min: 15, max: 40, weight: 12 },
+    // First gear rung: copper kit + starter tools.
+    { kind: "item", id: "item_copper_axe", min: 1, max: 1, weight: 2, scale: false },
+    { kind: "item", id: "item_copper_pickaxe", min: 1, max: 1, weight: 2, scale: false },
+    { kind: "item", id: "item_copper_helm", min: 1, max: 1, weight: 2, scale: false },
+    { kind: "item", id: "item_copper_boots", min: 1, max: 1, weight: 2, scale: false },
+    { kind: "item", id: "item_copper_gloves", min: 1, max: 1, weight: 2, scale: false },
   ],
   rare: [
-    { kind: "gold", min: 1_000, max: 2_500, weight: 26 },
-    { kind: "item", id: "item_iron_bar", min: 3, max: 8, weight: 16 },
-    { kind: "item", id: "item_hardwood_plank", min: 3, max: 8, weight: 14 },
-    { kind: "item", id: "item_amber", min: 1, max: 3, weight: 14 },
-    { kind: "item", id: "item_carrot_bread", min: 2, max: 5, weight: 10 },
-    { kind: "seasonPoints", min: 40, max: 90, weight: 20 },
+    { kind: "gold", min: 2_000, max: 4_800, weight: 36 },
+    { kind: "item", id: "item_iron_bar", min: 3, max: 8, weight: 10 },
+    { kind: "item", id: "item_hardwood_plank", min: 3, max: 8, weight: 9 },
+    { kind: "item", id: "item_amber", min: 1, max: 3, weight: 9 },
+    { kind: "seasonPoints", min: 40, max: 90, weight: 12 },
+    { kind: "item", id: "item_copper_chest", min: 1, max: 1, weight: 3, scale: false },
+    { kind: "item", id: "item_copper_dagger", min: 1, max: 1, weight: 3, scale: false },
+    { kind: "item", id: "item_iron_axe", min: 1, max: 1, weight: 3, scale: false },
+    { kind: "item", id: "item_iron_pickaxe", min: 1, max: 1, weight: 3, scale: false },
+    { kind: "item", id: "item_iron_helm", min: 1, max: 1, weight: 3, scale: false },
+    { kind: "item", id: "item_iron_boots", min: 1, max: 1, weight: 3, scale: false },
+    { kind: "item", id: "item_iron_gloves", min: 1, max: 1, weight: 3, scale: false },
+    { kind: "item", id: "item_pro_rod", min: 1, max: 1, weight: 3, scale: false },
   ],
   epic: [
-    { kind: "gold", min: 2_500, max: 6_000, weight: 24 },
-    { kind: "item", id: "item_steel_bar", min: 3, max: 8, weight: 18 },
-    { kind: "item", id: "item_gemstone", min: 2, max: 5, weight: 18 },
-    { kind: "item", id: "item_pearl", min: 2, max: 5, weight: 16 },
-    { kind: "seasonPoints", min: 90, max: 180, weight: 24 },
+    { kind: "gold", min: 4_500, max: 11_000, weight: 30 },
+    { kind: "item", id: "item_steel_bar", min: 3, max: 8, weight: 9 },
+    { kind: "item", id: "item_gemstone", min: 2, max: 5, weight: 9 },
+    { kind: "item", id: "item_pearl", min: 2, max: 5, weight: 8 },
+    { kind: "seasonPoints", min: 90, max: 180, weight: 12 },
+    { kind: "item", id: "item_iron_chest", min: 1, max: 1, weight: 4, scale: false },
+    { kind: "item", id: "item_steel_helm", min: 1, max: 1, weight: 4, scale: false },
+    { kind: "item", id: "item_steel_boots", min: 1, max: 1, weight: 4, scale: false },
+    { kind: "item", id: "item_steel_gloves", min: 1, max: 1, weight: 4, scale: false },
+    { kind: "item", id: "item_steel_axe", min: 1, max: 1, weight: 4, scale: false },
+    { kind: "item", id: "item_steel_pickaxe", min: 1, max: 1, weight: 4, scale: false },
+    { kind: "item", id: "item_gem_blade", min: 1, max: 1, weight: 4, scale: false },
+    { kind: "item", id: "item_thorn_cleaver", min: 1, max: 1, weight: 4, scale: false },
   ],
   legendary: [
-    { kind: "gold", min: 6_000, max: 15_000, weight: 26 },
-    { kind: "item", id: "item_gemstone", min: 6, max: 12, weight: 18 },
-    { kind: "item", id: "item_pearl", min: 6, max: 12, weight: 18 },
-    { kind: "item", id: "item_ember_core", min: 2, max: 5, weight: 14 },
-    { kind: "seasonPoints", min: 180, max: 350, weight: 24 },
+    { kind: "gold", min: 9_000, max: 22_000, weight: 26 },
+    { kind: "item", id: "item_gemstone", min: 6, max: 12, weight: 8 },
+    { kind: "item", id: "item_pearl", min: 6, max: 12, weight: 8 },
+    { kind: "item", id: "item_ember_core", min: 2, max: 5, weight: 8 },
+    { kind: "seasonPoints", min: 180, max: 350, weight: 10 },
+    // Top-end gear. Deliberately the rarest thing in the game outside a skin —
+    // an Obsidian Edge from a chest should be a story, not a shopping trip.
+    { kind: "item", id: "item_steel_chest", min: 1, max: 1, weight: 6, scale: false },
+    { kind: "item", id: "item_ember_helm", min: 1, max: 1, weight: 5, scale: false },
+    { kind: "item", id: "item_ember_chest", min: 1, max: 1, weight: 4, scale: false },
+    { kind: "item", id: "item_ember_gloves", min: 1, max: 1, weight: 5, scale: false },
+    { kind: "item", id: "item_ember_boots", min: 1, max: 1, weight: 5, scale: false },
+    { kind: "item", id: "item_ember_blade", min: 1, max: 1, weight: 4, scale: false },
+    { kind: "item", id: "item_obsidian_blade", min: 1, max: 1, weight: 2, scale: false },
+    { kind: "item", id: "item_gilded_rod", min: 1, max: 1, weight: 4, scale: false },
+    { kind: "item", id: "item_abyssal_rod", min: 1, max: 1, weight: 2, scale: false },
+    { kind: "item", id: "item_harvest_net", min: 1, max: 1, weight: 3, scale: false },
     // Skins slot in here once their art ships — see COSMETIC_SKINS below.
   ],
 };
@@ -259,9 +311,9 @@ export function rollChest(
     const usable = pool.filter((e) => e.kind !== "skin" || (e.id != null && getSkin(e.id)?.available === true));
     const def = pickWeighted(usable, rng);
     if (!def) continue;
-    // Skins are one-of-a-kind — the tier multiplier must never turn a cosmetic
-    // into "11× Golden Knight".
-    const mult = def.kind === "skin" ? 1 : tier.valueMult;
+    // Skins and equipment are one-of-a-kind — the tier multiplier must never
+    // turn a cosmetic into "11× Golden Knight" or hand out four Ember Blades.
+    const mult = def.kind === "skin" || def.scale === false ? 1 : tier.valueMult;
     const amount = Math.max(1, Math.round(intBetween(def.min, def.max, rng) * mult));
     rewards.push({
       kind: def.kind,
