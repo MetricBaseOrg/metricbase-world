@@ -242,6 +242,13 @@ export const CHEST_POOLS: Record<ChestRarity, ChestRewardDef[]> = {
 // `available` is the art gate. A skin with no art would be won, owned, and
 // invisible — worse than not dropping at all — so the roller SKIPS unavailable
 // skins entirely. Flip the flag in the same change that lands the art.
+//
+// TO BE CLEAR, because it has been asked: unfinished skins DO NOT close or
+// disable chests. The roller drops the skin entry from that rarity's pool and
+// picks from everything else in it, so gold, gear, materials and season points
+// all still drop normally. Chests work fully with COSMETIC_SKINS empty — the
+// only thing that stops a chest opening is a missing treasury wallet on the
+// server (TOKEN_TREASURY_WALLET), which is what pays for it.
 
 export interface CosmeticSkinDef {
   id: string;

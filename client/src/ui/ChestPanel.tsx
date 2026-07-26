@@ -143,6 +143,23 @@ export function ChestPanel() {
         <ChestResult result={result} onAgain={() => setResult(null)} />
       ) : (
         <>
+          {/* Say WHY up front rather than after a click. The only thing that
+              closes chests is a missing treasury wallet on the server — the
+              same TOKEN_TREASURY_WALLET the gold desk needs. Notably it is NOT
+              the skins: unfinished skins are simply skipped by the roller, and
+              every other reward still drops. */}
+          {pipInfo && !pipInfo.enabled && (
+            <div
+              className="chibi-card"
+              style={{ marginTop: 8, padding: "10px 12px", borderColor: "#d85f4f", background: "rgba(216,95,79,0.08)" }}
+            >
+              <div style={{ fontWeight: 800, fontSize: "0.78rem" }}>⚠️ Chests are closed right now</div>
+              <div className="chibi-text-muted" style={{ fontSize: "0.68rem", marginTop: 4 }}>
+                This server has no payment wallet configured, so a chest can't take payment yet.
+                Nothing is wrong with your account — check back shortly.
+              </div>
+            </div>
+          )}
           <div className="chibi-text-muted" style={{ fontSize: "0.7rem", marginTop: 4 }}>
             Chests pay out gold, gear, materials and season points — and cosmetics once those land.
             What you spend goes straight into the <b>Season reward pool</b>. Odds are listed on
@@ -169,7 +186,7 @@ export function ChestPanel() {
                   className="chibi-btn chibi-btn--gold"
                   style={{ flex: 1, padding: "9px 12px", fontWeight: 800 }}
                   onClick={() => void buy(tier)}
-                  disabled={busyTier !== null}
+                  disabled={busyTier !== null || (pipInfo != null && !pipInfo.enabled)}
                 >
                   {busyTier === tier.id ? "Opening…" : `Open · ${tier.price.toLocaleString()} $BASE`}
                 </button>
@@ -212,9 +229,9 @@ export function ChestPanel() {
 
           <div className="chibi-text-muted" style={{ fontSize: "0.64rem", marginTop: 10 }}>
             On average a chest returns more gold than the same $BASE spent at Rudi's desk, so gold
-            alone is worth the trip — gear, cosmetics and the rare tiers are the gamble on top.
+            alone is worth the trip — gear, cosmetics and the rare tiers are the upside on top.
             But <b>a chest is a roll, not a purchase</b>: the odds above are the whole story and a
-            bad run is a real possibility. Need an exact amount of gold instead?{" "}
+            quiet run is a real possibility. Need an exact amount of gold instead?{" "}
             <b>Rudi's gold desk</b> pays precisely what you ask for, every time.
           </div>
         </>

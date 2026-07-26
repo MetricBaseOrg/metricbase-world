@@ -12,7 +12,7 @@ export const MOTTO_MAX_LENGTH = 80;
 export const DASHBOARD_UPDATES: Array<{ title: string; body: string }> = [
   {
     title: "v0.191 — Magic Chests",
-    body: "Four tiers of chest, opened with $BASE, rolling gold, weapons, armour, tools, materials and season points — with cosmetic skins coming once their art is ready. On average a chest returns more gold than spending the same $BASE at Rudi's desk, so the gold alone is worth it and the gear is the gamble on top. Every chest shows its full rarity odds before you buy — and it is a roll, not a purchase, so a bad run happens. Everything you spend goes into the Season reward pool. Open them from ⚙️ → 🎁 Magic Chests.",
+    body: "Four tiers of chest, opened with $BASE, rolling gold, weapons, armour, tools, materials and season points — with cosmetic skins coming once their art is ready. On average a chest returns more gold than spending the same $BASE at Rudi's desk, so the gold alone is worth it and the gear is the upside on top. Every chest shows its full rarity odds before you buy — and it is a roll, not a purchase, so a quiet run happens. Everything you spend goes into the Season reward pool. Open them from ⚙️ → 🎁 Magic Chests.",
   },
   {
     title: "v0.189 — Two steps to collect your Season reward",
