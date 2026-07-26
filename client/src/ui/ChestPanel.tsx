@@ -213,8 +213,9 @@ export function ChestPanel() {
           <div className="chibi-text-muted" style={{ fontSize: "0.64rem", marginTop: 10 }}>
             On average a chest returns more gold than the same $BASE spent at Rudi's desk, so gold
             alone is worth the trip — gear, cosmetics and the rare tiers are the gamble on top.
-            Every chest is a roll, not a purchase: the odds above are the whole story, and a bad
-            run is a real possibility.
+            But <b>a chest is a roll, not a purchase</b>: the odds above are the whole story and a
+            bad run is a real possibility. Need an exact amount of gold instead?{" "}
+            <b>Rudi's gold desk</b> pays precisely what you ask for, every time.
           </div>
         </>
       )}

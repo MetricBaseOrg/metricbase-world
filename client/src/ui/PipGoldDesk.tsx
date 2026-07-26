@@ -113,6 +113,14 @@ export function PipGoldDesk() {
   return (
     <div className="chibi-card" style={{ marginTop: 10, padding: "10px 12px" }}>
       <div className="chibi-label" style={{ marginBottom: 4 }}>💰 Buy gold from Rudi (1 gold = 1 $BASE)</div>
+      {/* Chests average a better gold rate, so the desk needs to say what it is
+          FOR — otherwise it reads as the worse option rather than the certain
+          one. Name the exact amount you want and that is exactly what arrives. */}
+      <div className="chibi-text-muted" style={{ fontSize: "0.68rem", marginBottom: 6 }}>
+        Type the amount, get exactly that — no rolling, no surprises. 🎁 Magic Chests average more
+        gold per $BASE, but what you get is random; this desk is for when you need a specific
+        number.
+      </div>
       <div style={{ display: "flex", gap: 6 }}>
         <input
           className="chibi-input"

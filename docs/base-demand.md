@@ -188,13 +188,19 @@ survives:
   It lands in `token_purchases`, so /stats → Treasury flow now shows chest
   income against pool outflow. Burning removed supply but funded nothing.
 - **Chests are now the best gold rate in the game** (~115% of price vs the
-  desk's 100%), measured by Monte-Carlo over the real roller. Two consequences,
-  accepted knowingly: Rudi's gold desk is now the worse option and will
-  effectively retire, and **chests become the largest gold faucet in a game with
-  only ~114k gold circulating**. Chest gold is minted, so `gold.minted` and the
-  mint-pressure gauge are the things to watch — a few large buyers move the
-  whole money supply. It is NOT a $BASE printer: gold only returns to $BASE via
-  the peer-to-peer market where another player supplies it.
+  desk's 100%), measured by Monte-Carlo over the real roller. Consequence to
+  watch: **chests become the largest gold faucet in a game with only ~114k gold
+  circulating** — one mythic chest averages ~28.8k, a quarter of the money
+  supply. Chest gold is minted, so `gold.minted` and the mint-pressure gauge are
+  the things to watch; a few large buyers move prices game-wide. It is NOT a
+  $BASE printer: gold only returns to $BASE via the peer-to-peer market where
+  another player supplies it.
+- **Rudi's gold desk stays, and is not redundant.** The two sell different
+  things: the desk sells CERTAINTY (name an amount, receive exactly it), chests
+  sell a better average with variance. Anyone who needs a specific number —
+  covering a plot price, a market order, a craft fee — cannot use a chest for
+  it at any rate. Both UIs now say this explicitly, because a player comparing
+  only the headline rate would wrongly read the desk as a trap.
 - **Gear is in.** This sells power, which this document previously called
   non-negotiable; rarity is now the only thing holding that line. Legendary
   dropped from 4% → 1% per roll on mythic, so gear averages 0.07-0.49 items per
