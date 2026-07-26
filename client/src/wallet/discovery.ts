@@ -11,6 +11,34 @@ import { StandardConnect } from "@wallet-standard/features";
 
 export type SignableTransaction = Transaction | VersionedTransaction;
 
+/**
+ * Normalise whatever a wallet hands back into a base58 signature string.
+ *
+ * The wallet-standard spec says `signAndSendTransaction` returns the signature
+ * as RAW BYTES, and we used to bs58-encode it unconditionally. Several wallets
+ * return it already base58-encoded as a string instead — encoding that a second
+ * time yields an ~120-character value, and the very next call
+ * (`confirmTransaction`) rejects it with an invalid-signature-length error,
+ * AFTER the player's tokens have already left their wallet.
+ *
+ * So: pass strings through untouched, encode bytes. Handles Uint8Array,
+ * ArrayBuffer and plain number arrays, since wallets differ there too.
+ */
+export function toBase58Signature(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (value instanceof Uint8Array) return bs58.encode(value);
+  if (value instanceof ArrayBuffer) return bs58.encode(new Uint8Array(value));
+  if (Array.isArray(value)) return bs58.encode(Uint8Array.from(value as number[]));
+  if (value && typeof value === "object") {
+    // Some bridges serialise the byte array to {"0":12,"1":45,…}.
+    const values = Object.values(value as Record<string, unknown>);
+    if (values.length > 0 && values.every((v) => typeof v === "number")) {
+      return bs58.encode(Uint8Array.from(values as number[]));
+    }
+  }
+  throw new Error("Wallet returned an unreadable transaction signature.");
+}
+
 export interface WalletConnector {
   id: string;
   name: string;
@@ -184,7 +212,7 @@ function fromWalletStandard(wallet: Wallet): WalletConnector | null {
           transaction: serialized,
           chain,
         });
-        return bs58.encode(sent.signature);
+        return toBase58Signature(sent.signature);
       }
 
       if (!signTransactionFeature) {
@@ -255,7 +283,9 @@ function fromLegacyProvider(
     async signAndSendTransaction(transaction, connection) {
       if (provider.signAndSendTransaction && transaction instanceof Transaction) {
         const sent = await provider.signAndSendTransaction(transaction);
-        return sent.signature;
+        // Legacy providers usually return a base58 string here, but normalise
+        // anyway — the cost of guessing wrong is a paid-but-unconfirmable tx.
+        return toBase58Signature(sent.signature);
       }
 
       if (!provider.signTransaction || !(transaction instanceof Transaction)) {

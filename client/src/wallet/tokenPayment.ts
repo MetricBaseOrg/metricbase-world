@@ -99,6 +99,18 @@ export async function sendMetricbaseTokenPayment(options: {
   transaction.feePayer = payer;
 
   const signature = await wallet.signAndSendTransaction(transaction, connection);
-  await connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, "confirmed");
+
+  // Confirmation is best-effort ON PURPOSE. Once signAndSendTransaction returns,
+  // the transaction is broadcast and the player's tokens are already committed —
+  // so throwing here would lose the signature and with it any way to recover a
+  // real payment. The SERVER is the authority anyway: it re-reads the
+  // transaction from the chain (with retries) before crediting anything, and
+  // rejects it properly if it truly failed. So we log and hand the signature
+  // back either way, and let the caller stash it for retry.
+  try {
+    await connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, "confirmed");
+  } catch (error) {
+    console.warn("[payment] confirmation did not complete; server will verify on-chain:", error);
+  }
   return signature;
 }
