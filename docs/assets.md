@@ -27,17 +27,19 @@ file into the folder named in its section header.
 
 The original list is **done**: all tiles, buildings, nodes, **Mobs (6)**, **NPCs (8)**, all
 **interiors (15)** + farm/billboard/portal (4), and most of both character sets shipped.
-Nothing referenced by code 404s today. **What's still missing, by impact (52 files):**
+Nothing referenced by code 404s today, and **item icons are 80/80 complete** as of v0.188.1.
+**What's still missing, by impact (38 files) — all of it character art:**
 
 1. **Character gaps (38)** — portraits ×2, girl attack (16), boy+girl fish (16), boy
-   back-attack (4) — exact file list in the character section. Now the biggest hole.
-2. **Item icons (14)** — 66 of 80 non-fish items have real art; the rest fall back to the
-   procedural canvas icon (`client/src/ui/itemIcons.ts`). Remaining set is iron + steel armor
-   (8), ember/obsidian gear (4), `berries`, `thorn-gel`.
-3. Iso ground tileset + ambience details (talk before drawing).
+   back-attack (4) — exact file list in the character section. This is now the *only*
+   remaining hole in the game's art, and the fish frames are the most visible: fishing is a
+   core gather skill with no animation for either character.
+2. Iso ground tileset + ambience details (talk before drawing).
 
-Item icons are pure drop-in: `ItemIcon.tsx` derives `/assets/items/<id-with-dashes>.png` from the
-item id automatically, so a correctly named file needs **zero code changes** to go live.
+Note the source-tree gap: `assets/characters/` holds only a `.gitkeep`, while 93 shipped
+frames live in `client/public/assets/characters/`. Every other category keeps its 1024px
+sources in `assets/` — the character sources were never committed. Drop new frames into
+`assets/characters/` per the spec below.
 
 ## Tiles (1x1 tile) and Decor props — `assets/tiles/`
 
@@ -151,43 +153,50 @@ Each distinct mob now has its own art (was 4 procedural blobs):
 - npc-fen.png ✅ (Fen — mole grotto merchant)
 - npc-moss.png ✅ (Moss — mossy cave guardian, Grotto)
 
-## Item icons — drop in `assets/items/` (80 items; fish/dishes already done)
+## Item icons — `assets/items/` ✅ COMPLETE (80/80, v0.188.1)
 
-Square icon look (like the fish art), must read at 34px. **66 shipped / 14 missing.**
+Every non-fish item in `shared/src/items.ts` has hand-drawn art. Fish species +
+dishes were already done separately in `client/public/assets/fish/`. The procedural
+canvas icon in `client/src/ui/itemIcons.ts` is now a **fallback that nothing reaches** —
+keep it as the safety net for items added before their art lands.
 
-Filename = the item id minus the `item_` prefix, with `_` → `-` (e.g. `item_copper_helm` →
-`copper-helm.png`). `ItemIcon.tsx` builds that path itself, so a correctly named drop is live
-with no code change; anything missing silently falls back to the procedural canvas icon.
+Square icon look (like the fish art), must read at 34px.
+
+**Filename = the item id** minus the `item_` prefix, with `_` → `-` (e.g. `item_copper_helm`
+→ `copper-helm.png`). `ItemIcon.tsx` builds that path itself, so a correctly named drop is
+live with no code change; a missing or misnamed file silently falls back to the canvas icon
+rather than 404ing visibly — which is why new drops are worth name-checking against
+`shared/src/items.ts` before shipping.
 
 **Pipeline:** drop the art in `assets/items/`, then run `node scripts/process-items.mjs` — it
 strips a baked-in background if there is one, autocrops, and writes a 256px copy to
 `client/public/assets/items/`. Item icons stay **.png**; `optimize-art.mjs` deliberately skips
 this folder (the .webp rename would break the id→path lookup above).
 
-- Consumables (5): health-potion ✅, bread ✅, carrot-soup ✅, carrot-bread ✅, berries 🎨
-- Materials (22): wood ✅, ore ✅ (copper ore), wheat-seed ✅, wheat ✅, carrot-seed ✅,
-  carrot ✅, plank ✅, copper-bar ✅, iron-ore ✅, iron-bar ✅, hardwood ✅, hardwood-plank ✅,
-  steel-bar ✅, training-scrap ✅, slime-gel ✅, slime-core ✅, amber ✅, gemstone ✅, pearl ✅,
-  lamp-oil ✅, thorn-gel 🎨, ember-core 🎨, obsidian-shard 🎨
-- Weapons (7): rusty-blade ✅, gel-knife ✅, copper-dagger ✅, gem-blade ✅, thorn-cleaver ✅,
-  ember-blade 🎨, obsidian-blade 🎨
-- Tools (14) ✅ ALL DONE: copper/iron/steel axe ✅, copper/iron/steel pickaxe ✅,
-  copper/iron/steel hoe ✅, fishing-rod ✅, pro-rod ✅, gilded-rod ✅, abyssal-rod ✅,
-  harvest-net ✅
-- Armor/accessories (25): copper-helm/chest/gloves/boots ✅, ember-helm/chest/gloves/boots ✅,
-  lucky-lure ✅, angler-ring ✅, angler-cap ✅, gem-ring ✅, pearl-amulet ✅, traveler-cape ✅,
-  farmer-hat ✅, grower-ring ✅ · **still 🎨:** iron-helm/chest/gloves/boots,
-  steel-helm/chest/gloves/boots
-- Mounts (3) ✅ ALL DONE: pony ✅, steed ✅, dire-wolf ✅
-- Pets (4) ✅ ALL DONE: pet-cat ✅, pet-slime ✅, pet-owl ✅, pet-penguin ✅
+Coverage by category — all ✅:
 
-**Still missing (14)** — the whole rest of the roster is shipped:
+- Consumables (5): health-potion, bread, carrot-soup, carrot-bread, berries
+- Materials (22): wood, ore, wheat-seed, wheat, carrot-seed, carrot, plank, copper-bar,
+  iron-ore, iron-bar, hardwood, hardwood-plank, steel-bar, training-scrap, slime-gel,
+  slime-core, thorn-gel, ember-core, obsidian-shard, amber, gemstone, pearl, lamp-oil
+- Weapons (7): rusty-blade, gel-knife, copper-dagger, gem-blade, thorn-cleaver, ember-blade,
+  obsidian-blade
+- Tools (14): copper/iron/steel axe, copper/iron/steel pickaxe, copper/iron/steel hoe,
+  fishing-rod, pro-rod, gilded-rod, abyssal-rod, harvest-net
+- Armor/accessories (25): copper/iron/steel/ember helm+chest+gloves+boots (16), lucky-lure,
+  angler-ring, angler-cap, gem-ring, pearl-amulet, traveler-cape, farmer-hat, grower-ring
+- Mounts (3): pony, steed, dire-wolf
+- Pets (4): pet-cat, pet-slime, pet-owl, pet-penguin
 
-- **iron + steel armor (8)** — `iron-helm/chest/gloves/boots`, `steel-helm/chest/gloves/boots`.
-  Highest impact left: they're the mid-game equipment panel, and the copper + ember sets
-  around them already have art, so the gap is visible side by side.
-- **ember/obsidian gear (4)** — `ember-blade`, `ember-core`, `obsidian-blade`, `obsidian-shard`.
-- **2 materials** — `berries`, `thorn-gel`.
+**When you add a new item to `shared/src/items.ts`, it needs art here too** — otherwise it
+quietly renders as a procedural token. Re-run the coverage check with:
+
+```bash
+comm -23 <(grep -o 'item_[a-z0-9_]*' shared/src/items.ts | sort -u | sed 's/^item_//;s/_/-/g') \
+         <(ls client/public/assets/items | sed 's/\.png$//' | sort)
+```
+
+(subtract the fish/dish ids from `shared/src/fishSpecies.ts` — those live in `assets/fish/`.)
 
 ## Housing interiors — `assets/world/` ✅ SHIPPED (15/15)
 
@@ -297,7 +306,8 @@ Promo + store art, no in-game references. Kept here so drops don't get filed as 
 
 1. ~~sand + rock + deep-pool~~ ✅ · ~~Mobs (6) + NPCs (8)~~ ✅ · ~~new buildings + tiles~~ ✅ ·
    ~~boy idle/walk/chop/attack~~ ✅ · ~~girl idle/walk/chop~~ ✅ · ~~interiors (15)~~ ✅ ·
-   ~~farm plots/billboard/portal (5)~~ ✅
-2. Character gaps — portraits, girl attack, fish, boy back-attack (38 files, list above)
-3. Item icons — 14 left (`assets/items/`); iron/steel armor first, zero code wiring needed
-4. Iso tiles + details (after template chat)
+   ~~farm plots/billboard/portal (5)~~ ✅ · ~~item icons (80)~~ ✅ v0.188.1
+2. Character gaps — portraits, girl attack, fish, boy back-attack (38 files, list above).
+   Suggested order: girl attack (16) closes a real gameplay gap — she has no attack
+   animation at all — then fish ×2 chars (8), then the 2 portraits, then boy back-attack (4).
+3. Iso tiles + details (after template chat)
