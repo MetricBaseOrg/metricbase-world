@@ -49,6 +49,17 @@ function savePending(entry: PendingOpen | null) {
 
 const RARITY_ORDER: ChestRarity[] = ["legendary", "epic", "rare", "uncommon", "common"];
 
+/** The chest rattles for at least this long even if the server answers
+ * instantly — a reveal that appears the same frame you tap reads as a bug, not
+ * a reward. Capped by the round trip, which is usually the longer of the two. */
+const MIN_RATTLE_MS = 1100;
+/** Burst → first reward. */
+const BURST_MS = 520;
+/** Gap between rewards landing. */
+const REVEAL_STAGGER_MS = 340;
+
+type OpenPhase = "idle" | "rattling" | "burst" | "reveal";
+
 export function ChestPanel() {
   const open = useGameStore((s) => s.chestOpen);
   const setOpen = useGameStore((s) => s.setChestOpen);
@@ -59,7 +70,17 @@ export function ChestPanel() {
   const [notice, setNotice] = useState<string | null>(null);
   const [result, setResult] = useState<ChestOpenResultPayload | null>(null);
   const [oddsFor, setOddsFor] = useState<string | null>(null);
+  const [phase, setPhase] = useState<OpenPhase>("idle");
+  const [openingTier, setOpeningTier] = useState<ChestTierDef | null>(null);
   const recovered = useRef(false);
+  const rattleStartedAt = useRef(0);
+  const timers = useRef<number[]>([]);
+
+  const clearTimers = () => {
+    for (const t of timers.current) window.clearTimeout(t);
+    timers.current = [];
+  };
+  useEffect(() => () => clearTimers(), []);
 
   useEffect(() => {
     const offInfo = networkManager.onPipGoldInfo(setPipInfo);
@@ -67,11 +88,30 @@ export function ChestPanel() {
       setBusyTier(null);
       if (r.ok) {
         savePending(null);
-        setResult(r);
         setNotice(null);
-        playSfx("ui_open");
+        // Let the chest rattle out its minimum before it gives — then burst,
+        // then hand over to the staggered reveal.
+        const elapsed = Date.now() - rattleStartedAt.current;
+        const wait = Math.max(0, MIN_RATTLE_MS - elapsed);
+        timers.current.push(
+          window.setTimeout(() => {
+            setPhase("burst");
+            playSfx("ui_open");
+            timers.current.push(
+              window.setTimeout(() => {
+                setResult(r);
+                setPhase("reveal");
+              }, BURST_MS),
+            );
+          }, wait),
+        );
         return;
       }
+      // Failed: stop the animation so the error isn't hidden behind a rattling
+      // chest that will never open.
+      clearTimers();
+      setPhase("idle");
+      setOpeningTier(null);
       // "Already used/opened" is terminal — the chest was paid AND opened, so
       // stop retrying. Anything else may be transient; keep it stashed.
       if (r.error && /already/i.test(r.error)) savePending(null);
@@ -111,6 +151,11 @@ export function ChestPanel() {
     setBusyTier(tier.id);
     setNotice(null);
     setResult(null);
+    // The rattle starts at the WALLET prompt, not at the server reply, so the
+    // whole wait — approval, broadcast, verification — is covered by it.
+    setOpeningTier(tier);
+    setPhase("rattling");
+    rattleStartedAt.current = Date.now();
     try {
       const signature = await sendMetricbaseTokenPayment({
         payerWallet: walletAddress,
@@ -125,6 +170,9 @@ export function ChestPanel() {
       networkManager.sendChestOpen(tier.id, signature);
     } catch (err) {
       setBusyTier(null);
+      clearTimers();
+      setPhase("idle");
+      setOpeningTier(null);
       setNotice(err instanceof Error ? err.message : "Payment was cancelled.");
     }
   };
@@ -141,8 +189,17 @@ export function ChestPanel() {
         </button>
       </div>
 
-      {result?.ok && result.rewards ? (
-        <ChestResult result={result} onAgain={() => setResult(null)} />
+      {phase === "rattling" || phase === "burst" ? (
+        <ChestOpeningStage tier={openingTier} bursting={phase === "burst"} />
+      ) : result?.ok && result.rewards ? (
+        <ChestResult
+          result={result}
+          onAgain={() => {
+            setResult(null);
+            setPhase("idle");
+            setOpeningTier(null);
+          }}
+        />
       ) : (
         <>
           {/* Say WHY up front rather than after a click. The only thing that
@@ -244,6 +301,63 @@ export function ChestPanel() {
       {notice && (
         <div className="chibi-text-muted" style={{ fontSize: "0.68rem", marginTop: 8 }}>
           {notice}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The chest itself, mid-open.
+ *
+ * Rattles on a loop while the wallet and server do their work — a loop rather
+ * than a fixed timeline because that wait has no knowable length, and a
+ * progress-shaped animation that stalls looks broken. Then one kick, a ring and
+ * a spray of sparks when it gives.
+ */
+function ChestOpeningStage({ tier, bursting }: { tier: ChestTierDef | null; bursting: boolean }) {
+  // Sparks fly outward on fixed angles — random per burst would shimmer
+  // differently on every re-render while React reconciles.
+  const sparks = [
+    { x: -70, y: -50, d: 0 },
+    { x: 66, y: -58, d: 60 },
+    { x: -44, y: -84, d: 110 },
+    { x: 48, y: -86, d: 40 },
+    { x: -86, y: -14, d: 150 },
+    { x: 84, y: -20, d: 95 },
+  ];
+
+  return (
+    <div
+      className={`mb-chest-stage${bursting ? " mb-chest-stage--burst" : ""}`}
+      style={{ ["--mb-chest-tint" as string]: tier?.id === "mythic" ? "#8a44c8" : "#c9a84c" }}
+      role="status"
+      aria-live="polite"
+      aria-label={bursting ? "The chest opens" : "Opening your chest"}
+    >
+      <div className="mb-chest-stage__glow" />
+      {bursting && <div className="mb-chest-ring" />}
+      {bursting &&
+        sparks.map((s, i) => (
+          <span
+            key={i}
+            className="mb-chest-spark"
+            style={{
+              ["--mb-spark-x" as string]: `${s.x}px`,
+              ["--mb-spark-y" as string]: `${s.y}px`,
+              animationDelay: `${s.d}ms`,
+            }}
+          >
+            ✨
+          </span>
+        ))}
+      <div className="mb-chest-stage__chest">{tier?.emoji ?? "🎁"}</div>
+      <div className="mb-chest-stage__label">
+        {bursting ? "It opens!" : `Opening your ${tier?.name ?? "chest"}…`}
+      </div>
+      {!bursting && (
+        <div className="chibi-text-muted" style={{ fontSize: "0.66rem", marginTop: 4, textAlign: "center" }}>
+          Approve in your wallet if prompted — we'll verify it on-chain.
         </div>
       )}
     </div>
@@ -358,6 +472,24 @@ function ChestResult({ result, onAgain }: { result: ChestOpenResultPayload; onAg
     return order < RARITY_ORDER.indexOf(acc) ? r.rarity : acc;
   }, "common");
 
+  // Rewards land one at a time. `shown` also gates the summary and the button,
+  // so the best-pull line can't spoil a legendary before its card arrives.
+  const [shown, setShown] = useState(0);
+  useEffect(() => {
+    setShown(0);
+    const timers: number[] = [];
+    for (let i = 0; i < rewards.length; i++) {
+      timers.push(window.setTimeout(() => setShown(i + 1), i * REVEAL_STAGGER_MS));
+    }
+    return () => {
+      for (const t of timers) window.clearTimeout(t);
+    };
+    // Re-run per opening, not per render.
+  }, [result]);
+
+  const allShown = shown >= rewards.length;
+  const revealAll = () => setShown(rewards.length);
+
   return (
     <div>
       <div
@@ -371,15 +503,26 @@ function ChestResult({ result, onAgain }: { result: ChestOpenResultPayload; onAg
       >
         <div style={{ fontSize: 40, lineHeight: 1 }}>🎉</div>
         <div style={{ fontWeight: 800, fontSize: "0.9rem", marginTop: 4 }}>
-          Best pull: <span style={{ color: CHEST_RARITY_COLOR[best] }}>{CHEST_RARITY_LABEL[best]}</span>
+          {allShown ? (
+            <>
+              Best pull:{" "}
+              <span style={{ color: CHEST_RARITY_COLOR[best] }}>{CHEST_RARITY_LABEL[best]}</span>
+            </>
+          ) : (
+            // Withheld until the last card lands — naming the best rarity up
+            // front would spoil the reveal it's meant to cap.
+            <span className="chibi-text-muted">
+              {shown} of {rewards.length}…
+            </span>
+          )}
         </div>
       </div>
 
       <div style={{ marginTop: 8, display: "grid", gap: 6 }}>
-        {rewards.map((r, i) => (
+        {rewards.slice(0, shown).map((r, i) => (
           <div
             key={`${r.kind}-${r.id ?? i}-${i}`}
-            className="chibi-card"
+            className={`chibi-card mb-reward-in${r.rarity === "legendary" ? " mb-reward-shine" : ""}`}
             style={{
               display: "flex",
               alignItems: "center",
@@ -405,19 +548,21 @@ function ChestResult({ result, onAgain }: { result: ChestOpenResultPayload; onAg
         ))}
       </div>
 
-      {typeof result.gold === "number" && (
+      {allShown && typeof result.gold === "number" && (
         <div className="chibi-text-muted" style={{ fontSize: "0.7rem", marginTop: 8, textAlign: "center" }}>
           You now have {result.gold.toLocaleString()} gold.
         </div>
       )}
 
+      {/* Skip is essential, not a nicety: the stagger is charming once and
+          tedious by the tenth chest. */}
       <button
         type="button"
-        className="chibi-btn chibi-btn--gold"
+        className={`chibi-btn ${allShown ? "chibi-btn--gold" : "chibi-btn--secondary"}`}
         style={{ width: "100%", padding: "9px 12px", marginTop: 10, fontWeight: 800 }}
-        onClick={onAgain}
+        onClick={allShown ? onAgain : revealAll}
       >
-        Open another
+        {allShown ? "Open another" : "Reveal all"}
       </button>
     </div>
   );

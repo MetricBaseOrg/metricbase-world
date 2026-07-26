@@ -1390,6 +1390,144 @@ body {
   to { opacity: 0; }
 }
 
+/* ── Magic Chest opening (ui/ChestPanel.tsx) ──────────────────────────────────
+   Three beats: the chest rattles while the server rolls, a burst when it gives,
+   then rewards land one at a time. The rattle is deliberately loopable — it
+   covers a round trip of unknown length without ever looking stuck. */
+.mb-chest-stage {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 190px;
+  padding: 10px;
+  overflow: hidden;
+}
+.mb-chest-stage__chest {
+  font-size: 68px;
+  line-height: 1;
+  transform-origin: 50% 85%;
+  animation: mbChestRattle 0.72s ease-in-out infinite;
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.35));
+  z-index: 2;
+}
+/* Light building behind the chest — sells "something is coming". */
+.mb-chest-stage__glow {
+  position: absolute;
+  width: 190px;
+  height: 190px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--mb-chest-tint, #c9a84c) 0%, transparent 68%);
+  opacity: 0.25;
+  animation: mbChestGlow 1.5s ease-in-out infinite;
+  z-index: 1;
+}
+.mb-chest-stage__label {
+  margin-top: 12px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: var(--chibi-ink, #4a3b2a);
+  z-index: 2;
+}
+/* The moment it opens: chest kicks, a ring expands, the screen flashes. */
+.mb-chest-stage--burst .mb-chest-stage__chest {
+  animation: mbChestPop 0.5s cubic-bezier(0.2, 1.4, 0.4, 1) forwards;
+}
+.mb-chest-stage--burst .mb-chest-stage__glow {
+  animation: mbChestFlash 0.5s ease-out forwards;
+}
+.mb-chest-ring {
+  position: absolute;
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  border: 3px solid var(--mb-chest-tint, #c9a84c);
+  opacity: 0.9;
+  animation: mbChestRing 0.6s ease-out forwards;
+  z-index: 1;
+}
+.mb-chest-spark {
+  position: absolute;
+  font-size: 18px;
+  z-index: 3;
+  animation: mbChestSpark 0.75s ease-out forwards;
+}
+
+/* Rewards land one after another rather than all at once — the stagger is what
+   makes a list of items feel like an opening. */
+.mb-reward-in {
+  animation: mbRewardIn 0.42s cubic-bezier(0.2, 1.3, 0.4, 1) both;
+}
+/* Legendary gets a sweep of light across the card. */
+.mb-reward-shine {
+  position: relative;
+  overflow: hidden;
+}
+.mb-reward-shine::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, 0.55) 50%, transparent 70%);
+  transform: translateX(-120%);
+  animation: mbRewardShine 1.1s ease-out 0.25s;
+}
+
+@keyframes mbChestRattle {
+  0%, 100% { transform: rotate(0deg) translateY(0); }
+  20% { transform: rotate(-7deg) translateY(-2px); }
+  45% { transform: rotate(6deg) translateY(-4px); }
+  70% { transform: rotate(-4deg) translateY(-1px); }
+}
+@keyframes mbChestGlow {
+  0%, 100% { opacity: 0.18; transform: scale(0.9); }
+  50% { opacity: 0.42; transform: scale(1.06); }
+}
+@keyframes mbChestPop {
+  0% { transform: scale(1) rotate(0deg); }
+  35% { transform: scale(1.35) rotate(3deg); }
+  100% { transform: scale(1.1) rotate(0deg); }
+}
+@keyframes mbChestFlash {
+  0% { opacity: 0.4; transform: scale(1); }
+  100% { opacity: 0; transform: scale(2.1); }
+}
+@keyframes mbChestRing {
+  0% { opacity: 0.9; transform: scale(0.5); }
+  100% { opacity: 0; transform: scale(2.6); }
+}
+@keyframes mbChestSpark {
+  0% { opacity: 0; transform: translate(0, 0) scale(0.5); }
+  25% { opacity: 1; }
+  100% { opacity: 0; transform: translate(var(--mb-spark-x, 0), var(--mb-spark-y, -60px)) scale(1.1); }
+}
+@keyframes mbRewardIn {
+  0% { opacity: 0; transform: translateY(14px) scale(0.94); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes mbRewardShine {
+  0% { transform: translateX(-120%); }
+  100% { transform: translateX(120%); }
+}
+
+/* Reduced motion: keep the sequencing (so the reveal still reads as an opening)
+   but drop the movement — no rattling, no flying sparks. */
+@media (prefers-reduced-motion: reduce) {
+  .mb-chest-stage__chest,
+  .mb-chest-stage__glow,
+  .mb-chest-ring,
+  .mb-chest-spark,
+  .mb-reward-shine::after {
+    animation: none;
+  }
+  .mb-chest-spark { display: none; }
+  .mb-reward-in { animation: mbRewardFade 0.2s ease-out both; }
+}
+@keyframes mbRewardFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
 /* ── Entry loading screen (ui/GameLoadingOverlay.tsx) ──────────────────────────
    Sits above everything while BootScene downloads world art. z-index is one
    above the portal transition: on the very first entry the two can briefly
