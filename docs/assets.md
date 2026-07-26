@@ -25,15 +25,19 @@ file into the folder named in its section header.
 
 ## 👉 START HERE
 
-The original list is **done**: all tiles, buildings, nodes, **Mobs (6)**, **NPCs (5)**, and most
-of both character sets shipped. **What's still missing, by impact (112 files):**
+The original list is **done**: all tiles, buildings, nodes, **Mobs (6)**, **NPCs (8)**, all
+**interiors (15)** + farm/billboard/portal (4), and most of both character sets shipped.
+Nothing referenced by code 404s today. **What's still missing, by impact (101 files):**
 
-1. ~~`girl-front-walk-0..3`~~ ✅ v0.110.1 · ~~back-chop ×2~~ ✅ v0.111.0
-2. **Item icons (55)** — biggest UI surface (inventory/shop/market all show placeholder art).
-3. **Character gaps (38)** — portraits ×2, girl attack (16), boy+girl fish (16), boy
+1. **Item icons (63)** — biggest UI surface. Inventory/shop/market fall back to the procedural
+   canvas icon (`client/src/ui/itemIcons.ts`) for every one of these. 17 of 80 non-fish items
+   have real art.
+2. **Character gaps (38)** — portraits ×2, girl attack (16), boy+girl fish (16), boy
    back-attack (4) — exact file list in the character section.
-4. **Interiors (15) + farm/billboard/portal (4)** in `assets/world/` — `scenery-rug`,
-   `scenery-fireplace`, `scenery-bookshelf` are already referenced by code and 404 today.
+3. Iso ground tileset + ambience details (talk before drawing).
+
+Item icons are pure drop-in: `ItemIcon.tsx` derives `/assets/items/<id-with-dashes>.png` from the
+item id automatically, so a correctly named file needs **zero code changes** to go live.
 
 ## Tiles (1x1 tile) and Decor props — `assets/tiles/`
 
@@ -143,35 +147,43 @@ Each distinct mob now has its own art (was 4 procedural blobs):
 - npc-smith.png ✅ (Brenna, blacksmith)
 - npc-warden.png ✅ (Warden, Wilderness outpost)
 - npc-rook.png ✅ (Rook, Grotto)
+- npc-mara.png ✅ (Mara — frontier camp trader, Wilderness)
+- npc-fen.png ✅ (Fen — mole grotto merchant)
+- npc-moss.png ✅ (Moss — mossy cave guardian, Grotto)
 
-## Item icons — drop in `assets/items/` (63 items; fish/dishes already done)
+## Item icons — drop in `assets/items/` (80 items; fish/dishes already done)
 
-Square icon look (like the fish art), must read at 34px. Filename = as listed
-(Claude maps to exact item ids on drop):
+Square icon look (like the fish art), must read at 34px. **17 shipped / 63 missing.**
 
-- Consumables (4): health-potion ✅, bread ✅, carrot-soup ✅, carrot-bread ✅ (new v0.113.0 dishes)
-- Materials (20): training-scrap 🎨, wood ✅, ore ✅ (copper ore), slime-gel 🎨, slime-core 🎨,
-  wheat-seed ✅, wheat ✅, carrot-seed ✅, carrot ✅, plank ✅, copper-bar ✅, iron-ore ✅,
-  iron-bar ✅, hardwood ✅, hardwood-plank ✅, steel-bar ✅, amber 🎨, gemstone 🎨, pearl 🎨,
-  lamp-oil 🎨
-- Weapons (4): rusty-blade 🎨, gel-knife 🎨, copper-dagger 🎨, gem-blade 🎨
-- Tools (11): copper-axe 🎨, iron-axe 🎨, steel-axe 🎨, copper-pickaxe 🎨, iron-pickaxe 🎨,
-  steel-pickaxe 🎨, fishing-rod 🎨, pro-rod 🎨, gilded-rod 🎨, abyssal-rod 🎨, harvest-net 🎨
-- Armor/accessories (18): copper-helm 🎨, copper-chest 🎨, copper-gloves 🎨, copper-boots 🎨,
-  iron-helm 🎨, iron-chest 🎨, iron-gloves 🎨, iron-boots 🎨, steel-helm 🎨, steel-chest 🎨,
-  steel-gloves 🎨, steel-boots 🎨, lucky-lure 🎨, angler-ring 🎨, angler-cap 🎨, gem-ring 🎨,
-  pearl-amulet 🎨, traveler-cape 🎨
+Filename = the item id minus the `item_` prefix, with `_` → `-` (e.g. `item_copper_helm` →
+`copper-helm.png`). `ItemIcon.tsx` builds that path itself, so a correctly named drop is live
+with no code change; anything missing silently falls back to the procedural canvas icon. Note
+these ship as **.png** (not .webp like world art) — `optimize-art.mjs` does not touch this folder.
+
+- Consumables (5): health-potion ✅, bread ✅, carrot-soup ✅, carrot-bread ✅, berries 🎨
+- Materials (22): wood ✅, ore ✅ (copper ore), wheat-seed ✅, wheat ✅, carrot-seed ✅,
+  carrot ✅, plank ✅, copper-bar ✅, iron-ore ✅, iron-bar ✅, hardwood ✅, hardwood-plank ✅,
+  steel-bar ✅, training-scrap 🎨, slime-gel 🎨, slime-core 🎨, thorn-gel 🎨, ember-core 🎨,
+  obsidian-shard 🎨, amber 🎨, gemstone 🎨, pearl 🎨, lamp-oil 🎨
+- Weapons (7): rusty-blade 🎨, gel-knife 🎨, copper-dagger 🎨, gem-blade 🎨, thorn-cleaver 🎨,
+  ember-blade 🎨, obsidian-blade 🎨
+- Tools (14): copper-axe 🎨, iron-axe 🎨, steel-axe 🎨, copper-pickaxe 🎨, iron-pickaxe 🎨,
+  steel-pickaxe 🎨, copper-hoe 🎨, iron-hoe 🎨, steel-hoe 🎨, fishing-rod 🎨, pro-rod 🎨,
+  gilded-rod 🎨, abyssal-rod 🎨, harvest-net 🎨
+- Armor/accessories (25): copper-helm/chest/gloves/boots 🎨, iron-helm/chest/gloves/boots 🎨,
+  steel-helm/chest/gloves/boots 🎨, ember-helm/chest/gloves/boots 🎨, lucky-lure 🎨,
+  angler-ring 🎨, angler-cap 🎨, gem-ring 🎨, pearl-amulet 🎨, traveler-cape 🎨,
+  farmer-hat 🎨, grower-ring 🎨
 - Mounts (3): pony 🎨, steed 🎨, dire-wolf 🎨
-- Pets (3): pet-cat 🎨, pet-slime 🎨, pet-owl 🎨
+- Pets (4): pet-cat 🎨, pet-slime 🎨, pet-owl 🎨, pet-penguin 🎨
 
-**Done so far (8):** ore, wheat-seed, wheat, carrot-seed, carrot, copper-bar, iron-ore, iron-bar.
+**Done so far (17):** ore, wood, plank, wheat-seed, wheat, carrot-seed, carrot, copper-bar,
+iron-ore, iron-bar, steel-bar, hardwood, hardwood-plank, health-potion, bread, carrot-soup,
+carrot-bread.
 
-## Housing interiors — drop in `assets/world/` (15, all 🎨)
+## Housing interiors — `assets/world/` ✅ SHIPPED (15/15)
 
 (Outdoor decor reuses lamp/barrel/flowerbed/hedge/bench/crates above — only interiors needed.)
-
-The first three are already referenced by `BootScene.ts` and **404 in-game today** — draw those
-first within this set:
 
 - scenery-rug.png ✅ (shipped v0.113.0)
 - scenery-fireplace.png ✅ (shipped v0.113.0)
@@ -189,7 +201,7 @@ first within this set:
 - scenery-arcade.png ✅ (shipped v0.113.0) (arcade cabinet)
 - scenery-blackjack.png ✅ (shipped v0.113.0) (card table)
 
-## Farm plots, billboard, portal — drop in `assets/world/`
+## Farm plots, billboard, portal — `assets/world/` ✅ SHIPPED (5/5)
 
 - plot-empty.png ✅ (shipped v0.113.0) (tilled empty soil plot)
 - plot-growing.png ✅ (shipped v0.113.0) (sprouting crop, generic)
@@ -235,14 +247,17 @@ profile card). **Total: 98 files.**
 
 ### Progress (live manifest: boy = idle 2 / walk 4 / chop 4 / attack 4 · girl = idle 2 / walk 4 / chop 4)
 
-**Boy ✅ (67/80 files):** idle + walk + chop complete in all 4 directions; attack in
+Per character the live target is **65 files** — idle 8 (2×4 dirs), walk 16, chop 16, attack 16,
+fish 8, portrait 1. **130 total; 92 shipped, 38 missing.**
+
+**Boy ✅ (52/65 files):** idle + walk + chop complete in all 4 directions; attack in
 front/right/tqright. **Still 🎨 (13):**
 
 - `boy-back-attack-0..3` (4)
 - `boy-<front|back|right|tqright>-fish-0..1` (8) — no fish frames exist yet for anyone
 - `boy-portrait.png` (1)
 
-**Girl ✅ (45/80 files):** idle + walk + chop complete in all 4 directions. **Still 🎨 (25):**
+**Girl ✅ (40/65 files):** idle + walk + chop complete in all 4 directions. **Still 🎨 (25):**
 
 - `girl-<front|back|right|tqright>-attack-0..3` (16) — match the boy's 4-frame attack
 - `girl-<front|back|right|tqright>-fish-0..1` (8)
@@ -261,11 +276,20 @@ tunable in `shared/src/avatar.ts`.
 Batch tip: finish ONE direction (`front`) of the boy across all actions first, then the other
 directions, before starting the girl.
 
+## Marketing / logo art — `assets/logo/` (not game art)
+
+Promo + store art, no in-game references. Kept here so drops don't get filed as game assets:
+`logo.jpeg`, `logo-transparent.png`, `banner.png`, `graphic.png`, `world-banner-v2.png`,
+`world-screenshot-v2.png`, `telegram-v2-padded-640x360.png`,
+`tweet-free-to-play-1600x900.png`. Loose concept/reference sheets live at `assets/` root
+(`design.png`, `players.png`, `pvp.png`, `farmer.png`, `fisher.png`, `miner.png`, `hair.png`,
+`outfit.png`, `metricbase-world.png`).
+
 ## Priority order
 
-1. ~~sand + rock + deep-pool~~ ✅ · ~~Mobs (6) + NPCs (5)~~ ✅ · ~~new buildings + tiles~~ ✅ ·
-   ~~boy idle/walk/chop/attack~~ ✅ · ~~girl idle/walk/chop~~ ✅
-2. Item icons — 53 left (`assets/items/`); highest UI impact
+1. ~~sand + rock + deep-pool~~ ✅ · ~~Mobs (6) + NPCs (8)~~ ✅ · ~~new buildings + tiles~~ ✅ ·
+   ~~boy idle/walk/chop/attack~~ ✅ · ~~girl idle/walk/chop~~ ✅ · ~~interiors (15)~~ ✅ ·
+   ~~farm plots/billboard/portal (5)~~ ✅
+2. Item icons — 63 left (`assets/items/`); highest UI impact, zero code wiring needed
 3. Character gaps — portraits, girl attack, fish, boy back-attack (38 files, list above)
-4. Interiors (15, the 3 ⚠️ ones first) + farm plots/billboard/portal (4) — `assets/world/`
-5. Iso tiles + details (after template chat)
+4. Iso tiles + details (after template chat)
