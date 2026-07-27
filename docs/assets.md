@@ -304,6 +304,14 @@ New flow: connect wallet → name → **gender only** (appearance pickers remove
 look per gender; cosmetics come later via a $BASE-burn lucky wheel (separate art list then —
 draw the bases with clean silhouettes so hats/capes/auras can layer on top).
 
+> ⚠️ **The frame spec below is what was ASKED FOR, not what shipped.** Measured
+> against the art on disk: every frame is 512×512 with the feet at **98–99.5%**
+> of the height and the character filling ~96% of it — not 768px with an 87%
+> baseline. New frames must match the ART, or they will jitter against it.
+> Generation prompts and the real numbers live in
+> [`character-prompts.md`](character-prompts.md); check a batch with
+> `node scripts/check-character-frames.mjs`.
+
 **Frame spec (CRITICAL — consistency is what makes animation work):**
 - One PNG per frame, transparent, **768×768 canvas for every frame**
 - Character centred horizontally, **feet on a fixed baseline at 87% height (y≈668)** in EVERY
