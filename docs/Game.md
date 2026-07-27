@@ -78,13 +78,24 @@ Rush arcade.
 
 ### Combat targets
 
-| NPC | Zone | HP | Notes |
-|-----|------|-----|-------|
-| Training Dummy | Wilderness | 90 | Drops Training Scrap; **gold reward only on first kill** per character |
-| Wild Slime | Wilderness | 45 | Drops Slime Gel, 3g per kill |
-| Slime Brute | Slime Grotto | 150 | Drops Slime Core, 8g per kill; 12 counter damage |
+Mobs counter on **every** player swing, so a fight costs `(hp / damage) ×
+counter`. Counter values therefore *flatten* as HP rises — see the balance note
+in `shared/src/combat.ts` before changing any of them.
+
+| NPC | Zone | HP | XP | Counter | Notes |
+|-----|------|-----|-----|-----|-------|
+| Training Dummy | Wilderness | 90 | 35 | 0 | Drops Training Scrap; **gold reward only on first kill** per character. Never hits back |
+| Wild Slime | Wilderness, Grotto | 45 | 20 | 30 | Drops Slime Gel, 3g per kill |
+| Thornback Slime | Wilderness, Grotto | 95 | 45 | 45 | Drops Thorn Gel (→ Thorn Cleaver, +36), 7g per kill. The level 5–9 bridge |
+| Slime Brute | Slime Grotto | 150 | 55 | 72 | Drops Slime Core, 8g per kill |
+| Ember Slime | Wilderness, Grotto | 200 | 85 | 78 | Drops Ember Core (→ the epic Ember set + Ember Blade, +44), 18g per kill |
+| Void Brute | Obsidian Reach | 420 | 180 | 88 | Drops 2× Ember Core, 45g per kill |
+| **Charred Sentinel** | Obsidian Reach | 900 | 600 | 105 | The apex boss — 3min respawn, so a kill is an event, not a farm. Drops the Obsidian Shard (→ Obsidian Edge, +60), 250g |
 
 ### Quest chains
+
+One unbroken chain of 21 quests from spawn to the world boss — the objective
+tracker follows it, so it must never run dry mid-ladder.
 
 **Hub starter (Aria)**
 
@@ -96,7 +107,19 @@ Rush arcade.
 
 **Grotto line (Rook → Moss)**
 
-8. Into the Grotto → Brute Force
+9. Into the Grotto → Brute Force
+
+**Thornback wedge (levels 5–9)**
+
+11. Thin the Herd → Cut from Thorn (rewards the Thorn Cleaver, +36 damage)
+
+**Blacksmith line (Brenna)**
+
+13. The Blacksmith's Call → Iron in the Blood → Tempered Steel → A Rare Find → Master Smith
+
+**Ember chain → the boss (Moss → Brenna)**
+
+18. Something Hotter → Fire in the Forge → Ember-Forged (rewards an Ember Helm, seeding the set) → The Charred Sentinel (1,200 XP / 600 gold)
 
 ### Controls
 

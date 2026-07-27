@@ -31,6 +31,159 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [0.191.0 – 0.194.0] — 2026-07-27 — Magic Chests
+
+### Added
+
+- **Magic Chests (v0.191.0)** — four $BASE tiers (1k / 3k / 10k / 25k) that roll
+  gold, materials, consumables, season points and (once art lands) cosmetic
+  skins. `shared/src/chests.ts` is the tunables table; **the server rolls, the
+  client never does**. Odds are shown before the buy button — hidden odds on a
+  paid box are indefensible and illegal in several markets. Higher tiers buy
+  better *odds* (legendary 0.3% → 20%), never a better rate. Balance was
+  measured by Monte-Carlo over the real roller, not guessed. The signature is
+  claimed in `chest_opens` **before** anything is granted, so a replay grants
+  nothing, and the client stashes the signature before telling the server so a
+  dropped reply can't eat a paid chest.
+- **Chest opening animation (v0.194.0)** — rattle → burst → rewards staggered in
+  at 340ms, with a "Reveal all" button. The rattle starts at the **wallet
+  prompt**, so approval, broadcast and on-chain verification are all covered by
+  it (that wait used to be a frozen panel); it loops rather than running a fixed
+  timeline, because the wait has no knowable length. `prefers-reduced-motion`
+  keeps the sequencing and drops the movement.
+- **Recover a paid-but-unopened chest (v0.193.0)** — paste the transaction
+  signature and the server verifies it on-chain and opens the chest. **The tier
+  comes from the on-chain amount, never the client**: verification runs against
+  the cheapest tier, then `bestChestTierForAmount()` picks the best tier the
+  payment covers. Same dedupe and claim-before-grant as the normal path.
+
+### Changed
+
+- **Chests pay the treasury instead of burning (v0.192.0)** — chest $BASE now
+  transfers to the treasury and is recorded via `recordTokenPurchase`, so it
+  shows on `/stats` → Treasury flow. This is **the first recurring inflow the
+  season pool has ever had** — the exact problem `docs/base-demand.md` opens
+  with. Metric renamed `chest.baseBurned` → `chest.baseToTreasury`.
+- **Chest gold now beats Rudi's desk (v0.192.0)** — re-tuned to ~115–117% of
+  price across all four tiers (the first pass left golden/mythic at 84%/66%,
+  i.e. *worse* than the desk). Gear is in too: 31 weapon/armour/tool entries
+  from uncommon → legendary, behind much rarer odds, with a `scale` flag so a
+  value multiplier can never turn one Ember Blade into eight.
+- **Rudi's gold desk keeps its purpose (v0.192.0)** — the desk sells
+  **certainty** (name an amount, receive exactly it), a chest is a roll. Both
+  panels now say so and point at each other.
+- **Wording rule: "gamble"/"gambling" never appears in this project (v0.192.1)**
+   — UI, code, docs or commits. Randomised rewards are described factually:
+  roll, chance, odds, upside. The odds stay on screen; only the vocabulary
+  changed.
+
+### Fixed
+
+- **"Invalid signature length" on every $BASE payment (v0.192.2)** — the
+  wallet-standard path base58-encoded `sent.signature` unconditionally, but
+  several wallets return it **already encoded**, producing a 119-character value
+  where a signature is 87. `toBase58Signature()` now passes strings through and
+  encodes bytes. Worse, the throw happened at `confirmTransaction` — *after* the
+  tokens had left the wallet — destroying the signature needed to recover a real
+  payment; confirmation is now best-effort and always returns the signature.
+  This affected the gold desk and season stake as well as chests.
+- **On-chain verification had no real fallback (v0.193.2)** — `getRpcUrls()`
+  returned *only* the configured endpoint when `SOLANA_RPC_URL` was set, so one
+  flaky provider took down every on-chain check. It now returns
+  configured-first *then* the public endpoints, and both `verifyTokenTransfer`
+  and `verifyTokenBurn` walk every endpoint instead of building their own
+  single-endpoint connection. Also fixes the gold desk, season stake, bag/World
+  expansion and Black Zone pass, which all sat behind the same lookup.
+- **An explorer link was rejected with an RPC-speak error (v0.193.4)** — pasting
+  a Solscan/Explorer URL (the obvious thing to copy) failed with "Invalid param:
+  WrongSize". `normalizeTxSignature()` now extracts the signature from explorer
+  links and strips zero-width characters, quotes and trailing punctuation, on
+  **both** sides; `describeSignatureProblem()` explains what is actually wrong.
+- **Chest claims could fail silently (v0.193.1)** — an RPC failure threw out of
+  an unguarded `getParsedTransaction` and the player got nothing back on an
+  action they had *already paid for*. Every path now either succeeds or sends an
+  error, the claim button clears on the **result** rather than a 4s timer, and
+  errors render in the claim card instead of at the bottom of a scrollable panel.
+- **Chests looked mysteriously closed (v0.192.1)** — the only thing that closes
+  them is a missing `TOKEN_TREASURY_WALLET`, which was reported *after* clicking
+  Open. The panel now states the reason up front and disables the buttons.
+- **The RPC failure reason was invisible (v0.193.3)** — per-endpoint failures are
+  now named in the error (hostnames only; `host()` strips path and query so an
+  RPC key can never leak). Dropped `solana.drpc.org` (no historical
+  `getTransaction` on the free plan), added `api.mainnet.solana.com`, and gave
+  `Connection` an 8s `timeoutFetch` so one hanging endpoint can't stall the chain.
+
+## [0.183.0 – 0.190.0] — 2026-07-22 → 2026-07-26 — Content trail, X integration & the season stake
+
+### Added
+
+- **Season entry stake (v0.188.0)** — P1 from `docs/base-demand.md`: a
+  **refundable 10,000 $BASE deposit** that decides who is in the payout split.
+  Playing stays free, points still accrue for everyone, and the leaderboard
+  still ranks everyone. Effective **Season 2** (2026-08-20) — `seasonStakeAmount(1)
+  === 0`, so it is inert until then. The stake is **transferred, not burned**
+  (it has to come back), refunds go to the wallet that **paid**, and deposits
+  are returned *before* any prize — solvency checks `prizes + deposits`.
+- **X account linking (v0.186.0)** — "Sign in with X" (OAuth 2.0 + PKCE) proves
+  a player controls a handle; first connect awards a one-time **+50 season
+  points**. No paid X API tier needed. Config-gated on `X_CLIENT_ID` +
+  `X_REDIRECT_URI`.
+- **X reply/repost-to-earn tasks (v0.187.0)** — admin-posted campaigns players
+  complete for season points, verified for **free** via X's public oEmbed
+  endpoint: each player gets a deterministic per-wallet HMAC **code** (so codes
+  can't be shared), replies or quotes with it, and pastes the URL back. One
+  claim per (task, wallet) via an atomic insert.
+- **Telegram Login Widget (v0.184.0)** — Telegram sign-in from the *website*,
+  not just inside the Mini App, resolving to the same account. Note the widget
+  signs with a different scheme to `initData` (`SHA256(bot_token)` vs
+  `HMAC("WebAppData", …)`), so they are two separate verifiers and the tests
+  assert neither accepts the other's payloads. **Requires a one-time BotFather
+  `/setdomain` → world.metricbase.org**; Telegram refuses to render on an
+  unregistered domain, silently.
+- **Ember quest chain (v0.183.0)** — four quests continuing from the blacksmith
+  chain to the Charred Sentinel, so the objective tracker has an unbroken trail
+  from spawn to the world boss. v0.180–0.182 shipped mobs, a boss and a gear
+  tier that nothing in the game pointed at.
+- **Thornback tier (v0.185.0)** — a mid-tier mob (95hp/45xp) and the **Thorn
+  Cleaver** (+36), filling the 3.3× HP wall between Wild Slime and Slime Brute
+  and the weapon hole between the Gem Blade and the Ember chain — exactly where
+  retention data showed players stalling at level 5. Reuses the slime sprite; no
+  new art.
+- **Loading bar when entering the game (v0.190.0)** — a **real** bar, fed by
+  Phaser's loader progress events, replacing several seconds of blank dark
+  canvas. Asset loading caps at 90% so the last 10% can cover tilemap building;
+  progress is monotonic; a 20s timeout lifts the overlay regardless so a slow
+  CDN can't trap anyone.
+- **Item art complete, 80/80 (v0.187.1 – v0.188.3)** — real icons for every
+  item, wired through the wiki, `/stats` and the in-game markets, with quality
+  rings for Fine/Master variants. `docs/assets.md` refreshed against what is
+  actually on disk (including the 86 craft-variant files).
+- **`/tools` — Kakushie Maker** — a self-contained page that builds a
+  transparent PNG showing one picture in the X timeline and another when tapped
+  to enlarge, plus a background remover. Pure canvas alpha math; nothing leaves
+  the browser, no wallet, no game boot.
+
+### Changed
+
+- **Season rewards require a connected X + a verified public post (v0.189.0,
+  v0.189.1)** — applied to Season 1. Three load-bearing properties: it **fails
+  open** (skipped entirely when the OAuth app is unconfigured, or it would
+  strand the whole pool), it is a **delay, not a forfeiture** (the pro-rata
+  divisor still includes held players, so nobody else's share grows), and the
+  dry-run report carries `xRequired` / `missingX` / `totalHeldForX` so you can
+  see who is holding up how much before sending. The tension — a retroactive
+  rule change to Season 1 — is written down in `docs/base-demand.md`.
+
+### Fixed
+
+- **A quest targeting `ember_slime` could never complete (v0.183.0)** —
+  `defeatTargetMatch()` prefix-matched only `wild_slime`, so `ember_slime_1`
+  never matched. Generalised to any `<family>_<n>` id, so future mob families
+  work without another special case.
+- **X connect failed on Android and in Telegram** — the popup flow assumed a
+  redirect back into the same window; replaced with a full-page redirect plus a
+  redirect-independent poll, and the OAuth callback is proxied to the backend.
+
 ## [0.179.0 – 0.182.0] — 2026-07-22 — Retention readout, PvE ladder & the bot front door
 
 ### Added

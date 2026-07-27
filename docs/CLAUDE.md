@@ -89,7 +89,8 @@ Server reads from `server/.env`:
 | `DATABASE_URL` | PostgreSQL connection string (Neon-compatible) |
 | `PORT` | WebSocket + HTTP port (default 2567) |
 | `AUTH_SECRET` | JWT signing secret |
-| `TOKEN_GATE_DISABLED` | Set `true` to bypass Solana token requirement |
+| `MIN_TOKEN_UI_AMOUNT` | Tokens required to enter. **0 = free to play**, the live default since v0.172.0 |
+| `TOKEN_GATE_DISABLED` | **Local dev only.** An AUTH BYPASS (skips signature + ban checks), *not* the free-to-play switch — honoured only when `NODE_ENV` is `development`/`test` |
 | `SOLANA_RPC_URL` | Solana RPC endpoint |
 | `TOKEN_TREASURY_WALLET` | Wallet that receives SPL token purchases |
 
@@ -97,7 +98,13 @@ Server reads from `server/.env`:
 
 - Token mint: `DN2PNrZ8Jn65ioJw4QBwXv49j5JiBBL3wPLUDZcrpump`
 - Players authenticate by signing a server-issued challenge with their Solana wallet → receive JWT
-- Token gate: requires ≥ 1000 tokens to enter (disabled in dev via `TOKEN_GATE_DISABLED=true`)
+- Token gate: **entry is free** (`MIN_TOKEN_UI_AMOUNT=0` since v0.172.0) — a
+  signature-verified wallet is still required, it just isn't screened on
+  balance. $BASE buys optional things (gold at Rudi's desk, Magic Chests, VIP
+  passes, land, World slots, the Season 2 entry stake), never entry.
+- On-chain reads go through `getRpcUrls()` (configured endpoint first, then the
+  public fallbacks). Never build a `Connection` from a single URL — every
+  verification path must be able to fall through when a provider fails.
 - Gold market (`server/src/market/`): peer-to-peer ask/bid system where players trade in-game gold for SPL tokens. Trades are verified on-chain via `verifyPeerTokenTransfer.ts`.
 
 ## Gameplay systems (the "everyday loop")

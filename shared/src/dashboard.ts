@@ -44,7 +44,7 @@ export const DASHBOARD_UPDATES: Array<{ title: string; body: string }> = [
   },
   {
     title: "v0.180 — Ember Slimes, and the Sentinel finally fights back",
-    body: "New monsters! ❤️‍🔥 Ember Slimes now prowl the north of the Wilderness and the southern depths of the Grotto — tougher than a Slime Brute, and they drop the Ember Core, a valuable new material. In the Obsidian Reach the Charred Sentinel is no longer just standing there: it is now a real boss fight (1,100 HP) dropping the Obsidian Shard, the most valuable material in the game. Void Brutes also finally pay out — they were dropping nothing at all.",
+    body: "New monsters! ❤️‍🔥 Ember Slimes now prowl the north of the Wilderness and the southern depths of the Grotto — tougher than a Slime Brute, and they drop the Ember Core, a valuable new material. In the Obsidian Reach the Charred Sentinel is no longer just standing there: it is now a real boss fight (900 HP) dropping the Obsidian Shard, the most valuable material in the game. Void Brutes also finally pay out — they were dropping nothing at all.",
   },
   {
     title: "v0.178 — Always know what to do next",

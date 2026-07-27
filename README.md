@@ -14,6 +14,7 @@ a payout address instead — see [Accounts & identity](#accounts--identity).
 - **Wiki / How to play:** [world.metricbase.org/docs](https://world.metricbase.org/docs)
 - **Live economy dashboard:** [world.metricbase.org/stats](https://world.metricbase.org/stats)
 - **Advertise (Brand Portal):** [world.metricbase.org/brands](https://world.metricbase.org/brands)
+- **Free tools:** [world.metricbase.org/tools](https://world.metricbase.org/tools) — Kakushie Maker + background remover
 
 ## Accounts & identity
 
@@ -116,10 +117,14 @@ docs/     Design docs, changelog, dev notes
 assets/   Source art notes
 ```
 
-## What's in the game (v0.178.x)
+## What's in the game (v0.194.x)
 
 - **Everyday loop** — woodcutting, mining, fishing, farming (wheat & carrot),
   cooking, energy/food, quests, day/night & weather.
+- **PvE ladder** — an unbroken quest trail from spawn to the world boss: Wild
+  Slime → Thornback → Slime Brute → Ember Slime → Void Brute → the **Charred
+  Sentinel**, with the Thorn / Ember / Obsidian weapon and armour tiers to
+  match.
 - **Crafting as a profession** — tool-tier crafting plus six craft families,
   specialization + mastery XP, and Fine/Master quality tiers (real item ids
   with boosted stats) rolled by specialists.
@@ -140,16 +145,26 @@ assets/   Source art notes
   editor (rivers/bridges, soil farm plots, working crop markets, gatherable
   nodes), sell visitor passes + gather tax, expand the grid by burning $BASE.
 - **$BASE utility** — burn sinks (Black Zone, VIP, World & bag expansion),
-  Rudi's 1:1 gold desk, casino blackjack. Entry is **not** gated (free to play
-  since v0.172.0); see [`docs/base-demand.md`](docs/base-demand.md) for the
-  open work on token demand.
+  Rudi's 1:1 gold desk, casino blackjack, and **Magic Chests** — four tiers
+  (1k/3k/10k/25k $BASE) that roll gold, materials, gear and season points with
+  the odds shown on screen before you buy. Chest $BASE goes to the **treasury**,
+  which funds the season pool — the first recurring inflow it has had. Entry is
+  **not** gated (free to play since v0.172.0); see
+  [`docs/base-demand.md`](docs/base-demand.md) for the open work on token demand.
 - **Seasons** — recurring 30-day competitive seasons scored on normal play,
   paid from a fixed, pre-funded $BASE pool (points never mint tokens). Referral
   points are credited once the invitee actually reaches level 3, so a free
-  sign-up can't farm the pool.
+  sign-up can't farm the pool. From **Season 2** (2026-08-20) the payout split
+  is decided by a **refundable 10,000 $BASE entry stake** — playing and scoring
+  stay free. Rewards require a connected X account and a public post.
+- **X integration** — link an X account for +50 season points, and complete
+  admin-posted reply/repost campaigns for more, verified free via oEmbed with a
+  per-wallet code that can't be shared.
 - **Telegram Mini App** — the whole game inside Telegram, with walletless
   Telegram login, invite codes carried through `startapp`, share-to-chat, and
-  account linking for existing wallet players.
+  account linking for existing wallet players. The official **Login Widget**
+  brings the same walletless sign-in to the website (needs a one-time BotFather
+  `/setdomain`).
 - **Ad marketplace** — brands bid CPM in $BASE; 50% of spend is paid to the
   players viewing; standalone wallet-only **Brand Portal** at `/brands`.
 - **Transparency** — public live dashboard at `/stats` (gold flow, burns,
