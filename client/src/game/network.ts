@@ -86,6 +86,7 @@ import {
   type Player,
   type PlayerProfilePayload,
 } from "@metricbase/shared";
+import { fetchWithTimeout } from "../utils/fetchWithTimeout";
 import { getValidWalletSession } from "../wallet/tokenGate";
 import { getHttpServerUrl, getWebSocketUrl } from "./serverUrl";
 import { isPlayerZoneId, resolveZoneConfig, setPlayerZoneConfig } from "./playerZoneConfig";
@@ -495,7 +496,7 @@ export class NetworkManager {
 
   async lookupCharacter(name: string): Promise<CharacterLookupResponse> {
     if (this.accessToken) {
-      const response = await fetch(`${getHttpServerUrl()}/api/character/me`, {
+      const response = await fetchWithTimeout(`${getHttpServerUrl()}/api/character/me`, {
         headers: { Authorization: `Bearer ${this.accessToken}` },
       });
       if (response.ok) {
@@ -506,7 +507,9 @@ export class NetworkManager {
       }
     }
 
-    const response = await fetch(
+    // Raw fetch here meant a dropped connection surfaced as "Failed to fetch"
+    // on the Enter World button, the same defect as the login bootstrap.
+    const response = await fetchWithTimeout(
       `${getHttpServerUrl()}/api/character?name=${encodeURIComponent(name)}`,
     );
 

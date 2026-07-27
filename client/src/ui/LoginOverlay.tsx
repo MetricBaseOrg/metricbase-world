@@ -31,6 +31,7 @@ import {
   walletBrowserLinks,
   type MobileWalletLink,
 } from "../wallet/mobileWallet";
+import { isNetworkError } from "../utils/fetchWithTimeout";
 import { isTelegramMiniApp, openExternalLink } from "../telegram/telegramApp";
 import { CharacterPreview } from "./CharacterPreview";
 import { TelegramLoginButton } from "./TelegramLoginButton";
@@ -63,6 +64,10 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
   const [loadingCharacter, setLoadingCharacter] = useState(false);
   const [bootstrapping, setBootstrapping] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  /** Set when bootstrap failed for CONNECTION reasons — offers a retry and
+   * re-runs itself when the device comes back online. */
+  const [bootstrapOffline, setBootstrapOffline] = useState(false);
+  const [bootstrapAttempt, setBootstrapAttempt] = useState(0);
   const [gateEnabled, setGateEnabled] = useState(true);
   const [tokenMint, setTokenMint] = useState(METRICBASE_TOKEN_MINT);
   const [minTokenAmount, setMinTokenAmount] = useState(1000);
@@ -102,6 +107,11 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
 
   useEffect(() => {
     void (async () => {
+      if (bootstrapAttempt > 0) {
+        setBootstrapping(true);
+        setBootstrapOffline(false);
+        setError(null);
+      }
       const params = new URLSearchParams(window.location.search);
 
       // /play?spectate=1 — jump straight into the world as an anonymous
@@ -168,7 +178,16 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
           }
         }
       } catch (bootstrapError) {
-        clearStoredAccessToken();
+        // A DROPPED CONNECTION IS NOT A REJECTED SESSION. This used to clear
+        // the access token for any failure, so opening the app in a tunnel —
+        // or an Android/TWA cold start where the first request beats the
+        // network coming up — silently signed the player out and made them
+        // reconnect a wallet. Only an answer from the server can invalidate a
+        // session, and getValidWalletSession already clears the token when it
+        // gets one (a non-ok response).
+        const offline = isNetworkError(bootstrapError);
+        if (!offline) clearStoredAccessToken();
+        setBootstrapOffline(offline);
         const message =
           bootstrapError instanceof Error
             ? bootstrapError.message
@@ -178,7 +197,16 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
         setBootstrapping(false);
       }
     })();
-  }, [setWalletAddress]);
+  }, [setWalletAddress, bootstrapAttempt]);
+
+  // Come back by itself when the connection does. Someone who opened the app
+  // on a dead network shouldn't have to work out that a retry is needed.
+  useEffect(() => {
+    if (!bootstrapOffline) return;
+    const retry = () => setBootstrapAttempt((n) => n + 1);
+    window.addEventListener("online", retry);
+    return () => window.removeEventListener("online", retry);
+  }, [bootstrapOffline]);
 
   const loadBondedCharacter = async (accessToken: string) => {
     setLoadingCharacter(true);
@@ -767,9 +795,23 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
         </div>
 
         {error && (
-          <p className="chibi-card chibi-card--danger" style={{ margin: "20px 0 0", fontSize: "0.85rem" }}>
-            {error}
-          </p>
+          <div className="chibi-card chibi-card--danger" style={{ margin: "20px 0 0", fontSize: "0.85rem" }}>
+            <div>{error}</div>
+            {/* A connection failure is the one error the player can actually
+                clear themselves, so give them the button rather than making
+                them guess that closing and reopening the app is the fix. */}
+            {bootstrapOffline && (
+              <button
+                type="button"
+                className="chibi-btn chibi-btn--secondary"
+                style={{ marginTop: 10, padding: "8px 14px" }}
+                disabled={bootstrapping}
+                onClick={() => setBootstrapAttempt((n) => n + 1)}
+              >
+                {bootstrapping ? "Retrying…" : "🔄 Try again"}
+              </button>
+            )}
+          </div>
         )}
 
         <div style={{ display: "flex", gap: 12, marginTop: 20 }}>
