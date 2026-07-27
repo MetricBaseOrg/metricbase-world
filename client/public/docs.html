@@ -57,6 +57,9 @@
         -webkit-font-smoothing: antialiased;
       }
       a { color: var(--brand-deep); }
+      /* Long unbroken tokens (t.me/… links, wallet addresses) are wider than a
+         320px column and would otherwise push their paragraph sideways. */
+      p, li, td, th, h1, h2, h3, h4 { overflow-wrap: break-word; }
 
       .wrap { max-width: 940px; margin: 0 auto; padding: 0 20px 80px; }
 
@@ -111,7 +114,7 @@
         margin: 10px 0 34px;
       }
       nav.toc h2 { font-size: 1rem; text-transform: uppercase; letter-spacing: 1px; color: var(--ink-soft); margin-bottom: 12px; }
-      nav.toc ul { list-style: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 6px 18px; }
+      nav.toc ul { list-style: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr)); gap: 6px 18px; }
       nav.toc a { text-decoration: none; font-weight: 700; display: block; padding: 4px 0; }
       nav.toc a:hover { color: var(--accent); }
 
@@ -155,6 +158,14 @@
         color: var(--ink);
         white-space: nowrap;
       }
+      /* MOBILE OVERFLOW: several of these tables have a min-content width wider
+         than a phone (the monster table needs 386px), and `section` has no
+         overflow, so the table used to push the whole DOCUMENT wide — the page
+         scrolled sideways and the hero, TOC and every paragraph went with it.
+         Each table now sits in its own scroll container, so a wide table
+         scrolls itself and nothing else moves. */
+      .tablewrap { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 14px 0; overscroll-behavior-x: contain; }
+      .tablewrap table { margin: 0; }
       table { width: 100%; border-collapse: collapse; margin: 14px 0; }
       th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
       th { font-weight: 800; color: var(--ink); font-size: 0.95rem; }
@@ -162,7 +173,7 @@
       tr:last-child td { border-bottom: none; }
 
       /* Fish species gallery + dish art (uses the in-game PNGs) */
-      .fishgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(146px, 1fr)); gap: 12px; margin: 14px 0; }
+      .fishgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(146px, 100%), 1fr)); gap: 12px; margin: 14px 0; }
       .fishcard { background: var(--card); border: 2px solid var(--line); border-radius: 14px; padding: 12px 10px 10px; text-align: center; }
       .fishcard img { width: 72px; height: 72px; object-fit: contain; display: block; margin: 0 auto 6px; }
       .fishcard .fname { font-weight: 800; font-size: 0.86rem; line-height: 1.3; color: var(--ink); }
@@ -181,7 +192,10 @@
         img.mobart { width: 32px; height: 30px; margin-right: 5px; }
       }
 
-      .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-top: 12px; }
+      /* min() so the track floor can never exceed the column itself — a bare
+         minmax(220px, …) is wider than the content box of a 320px phone and
+         overflows instead of collapsing to one column. */
+      .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); gap: 14px; margin-top: 12px; }
       .mini {
         background: #f6fbfe;
         border: 2px solid var(--line);
@@ -227,6 +241,22 @@
       }
       footer a { font-weight: 800; text-decoration: none; }
       .ver { font-size: 0.85rem; opacity: 0.7; margin-top: 6px; }
+
+      /* Phones: the desktop gutters (20px wrap + 30px section) spend 100px of a
+         320px screen on padding, which is what forced most tables into their
+         scroll container in the first place. Narrower gutters mean the majority
+         of them simply fit. */
+      @media (max-width: 560px) {
+        .wrap { padding: 0 12px 60px; }
+        header.hero { padding: 34px 14px 26px; }
+        section { padding: 20px 16px; border-radius: 16px; }
+        nav.toc { padding: 16px 16px; }
+        section h2 { font-size: 1.35rem; }
+        th, td { padding: 8px 7px; font-size: 0.9rem; }
+        /* The wrapper is flush with the section edge so a scrollable table
+           visibly runs to the border — the cue that it can be dragged. */
+        .tablewrap { margin-left: -16px; margin-right: -16px; padding: 0 16px; }
+      }
     </style>
   </head>
   <body>
@@ -354,6 +384,7 @@
       <section id="controls">
         <h2><span class="emoji">🎮</span> 2. Controls</h2>
         <h3>Desktop (keyboard)</h3>
+        <div class="tablewrap">
         <table>
           <tr><th>Action</th><th>Key</th></tr>
           <tr><td>Move</td><td><span class="kbd">W</span> <span class="kbd">A</span> <span class="kbd">S</span> <span class="kbd">D</span> / arrows — <em>or left-click / tap the ground to walk there</em></td></tr>
@@ -367,6 +398,7 @@
           <tr><td>Toggle PvP flag (Yellow zones)</td><td>🛡️/⚔️ button (top-centre)</td></tr>
           <tr><td>Zoom the camera</td><td>Mouse wheel · two-finger pinch · 🔍+ / 🔍− buttons</td></tr>
         </table>
+        </div>
         <h3>Mobile (touch)</h3>
         <p>On phones and tablets, use the on-screen joystick to move and the contextual action
         buttons (attack, gather, interact) that appear near the bottom of the screen. The HUD
@@ -398,6 +430,7 @@
         <h2><span class="emoji">⛏️</span> 4. Gathering</h2>
         <p>Walk up to a resource node, face it, and press the gather key. There are four gathering
         skills, each with its own XP and levels:</p>
+        <div class="tablewrap">
         <table>
           <tr><th>Skill</th><th>Node</th><th>Key</th><th>Yields</th></tr>
           <tr><td>Woodcutting</td><td>Trees</td><td><span class="kbd">F</span></td><td>Wood, Hardwood</td></tr>
@@ -405,6 +438,7 @@
           <tr><td>Fishing</td><td>Fishing spots (on water)</td><td><span class="kbd">G</span></td><td>12 fish species across 5 rarities</td></tr>
           <tr><td>Farming</td><td>Crop patches (in <a href="#worlds">Player Worlds</a>) + <a href="#farm">farm plots</a></td><td><span class="kbd">F</span></td><td>Wheat &amp; Carrot <strong>Seeds</strong> (patches), crops (plots)</td></tr>
         </table>
+        </div>
         <h3>Tiers &amp; requirements</h3>
         <p>Higher-tier nodes need a higher skill level — e.g. <strong>Iron Deposits</strong> and
         <strong>Hardwood</strong> trees require level 3, and <strong>Ironwood</strong> requires
@@ -460,6 +494,7 @@
         the rarer the fish, the mightier the meal. Epic-and-better dishes fully restore your
         energy — so decide: sell the trophy to Rudi, or eat like a legend before a long Wilderness
         run.</p>
+        <div class="tablewrap">
         <table>
           <tr><th>Dish</th><th>Restores</th><th>Cooked from</th></tr>
           <tr><td><img class="dishart" src="/assets/fish/dish-river-fish.png" alt="" loading="lazy" />Cooked Fish</td><td>+40 HP · +35 ⚡</td><td>River Fish</td></tr>
@@ -475,6 +510,7 @@
           <tr><td><img class="dishart" src="/assets/fish/dish-ancient-sturgeon.png" alt="" loading="lazy" />Ancient Sturgeon Roast</td><td>+220 HP · full ⚡</td><td>Ancient Sturgeon</td></tr>
           <tr><td><img class="dishart" src="/assets/fish/dish-abyssal-leviathan.png" alt="" loading="lazy" />Leviathan Feast</td><td>+260 HP · full ⚡</td><td>Abyssal Leviathan</td></tr>
         </table>
+        </div>
         <div class="callout">🍗 <strong>Mind your Energy!</strong> Gathering, fighting, and farming
         all burn energy (the 🍗 gauge on your HUD). Run out and you'll be <em>too hungry to work</em>
         until you eat. Keep cooked food on hand — see <a href="#food">Energy &amp; Food</a>.</div>
@@ -489,11 +525,13 @@
         <h2><span class="emoji">🌾</span> 5. Farming</h2>
         <p>Farm plots are scattered across the world (look for tilled soil). Stand on an empty plot
         and interact to plant a seed, then wait for it to grow.</p>
+        <div class="tablewrap">
         <table>
           <tr><th>Crop</th><th>Seed price</th><th>Grow time</th><th>Yield</th><th>Sells for</th></tr>
           <tr><td>🌾 Wheat</td><td>5g (Rudi / Wheat Market)</td><td>~90s</td><td>2 wheat · 14 XP</td><td>7g each</td></tr>
           <tr><td>🥕 Carrot</td><td>9g (Carrot Market)</td><td>~150s</td><td>2 carrots · 22 XP</td><td>14g each</td></tr>
         </table>
+        </div>
         <ul class="list">
           <li>Planting uses whichever seed you're carrying (wheat first, then carrot).</li>
           <li>Crops grow in <strong>real time</strong>, even while you're away or offline.</li>
@@ -509,6 +547,7 @@
         <h3>⚒️ Farming tools &amp; gear</h3>
         <p>Forge a <strong>hoe</strong> and dress for the fields — farming gear pays off both on
         crop patches and at farm plots:</p>
+        <div class="tablewrap">
         <table>
           <tr><th>Item</th><th>Effect</th></tr>
           <tr><td>⚒️ Copper Hoe</td><td>Tends crop patches 30% faster · crops you plant grow <strong>15% sooner</strong></td></tr>
@@ -517,6 +556,7 @@
           <tr><td>👒 Farmer's Sun Hat (helmet)</td><td>+10% Farming XP · sometimes a bonus crop. Craft: 10 Wheat + 5 Carrots</td></tr>
           <tr><td>💍 Grower's Ring (ring)</td><td>+25% Farming XP. Craft: 1 Amber + 1 Gemstone</td></tr>
         </table>
+        </div>
         <p>The growth boost locks in <strong>when you plant</strong> — whatever hoe is equipped at
         planting decides how fast that crop matures.</p>
       </section>
@@ -526,16 +566,19 @@
         <h2><span class="emoji">🍗</span> 5b. Energy &amp; Food</h2>
         <p>You can't adventure on an empty stomach. Every working action spends
         <strong>Energy</strong> (the 🍗 gauge on your HUD, max 100):</p>
+        <div class="tablewrap">
         <table>
           <tr><th>Action</th><th>Energy cost</th></tr>
           <tr><td>Gather (chop / mine / fish)</td><td>8</td></tr>
           <tr><td>Attack a monster</td><td>5</td></tr>
           <tr><td>Plant or harvest a crop</td><td>6</td></tr>
         </table>
+        </div>
         <p>When your energy is too low for an action, you'll be told you're <strong>too hungry</strong>
         and the action is refused until you eat.</p>
         <h3>Restoring energy</h3>
         <p>Eat food (from your Inventory) to refill — most food restores HP <em>and</em> energy:</p>
+        <div class="tablewrap">
         <table>
           <tr><th>Food</th><th>Restores</th><th>Get it by</th></tr>
           <tr><td>Bread</td><td>+30 HP, +25 energy</td><td>Baking wheat, or buying from Rudi (8g)</td></tr>
@@ -543,6 +586,7 @@
           <tr><td><img class="dishart" src="/assets/fish/dish-salmon.png" alt="" loading="lazy" />Grilled Salmon</td><td>+60 HP, +55 energy</td><td>Grilling Prized Salmon</td></tr>
           <tr><td><img class="dishart" src="/assets/fish/dish-abyssal-leviathan.png" alt="" loading="lazy" />Fish dishes ×10</td><td>up to +260 HP, full energy</td><td>Cooking rarer species — see <a href="#gather">Fishing</a></td></tr>
         </table>
+        </div>
         <div class="callout leaf">A slow trickle of energy returns over time, so you'll never be
         permanently stuck — but food is far faster, so a well-fed adventurer always out-works a
         hungry one. Tip: keep a stack of bread or cooked fish before a long gathering or hunting run.</div>
@@ -569,6 +613,7 @@
           <li><strong>Tools:</strong> three tiers that speed up gathering.</li>
         </ul>
         <h3>Tool tiers</h3>
+        <div class="tablewrap">
         <table>
           <tr><th>Tier</th><th>Speed</th><th>Bonus</th></tr>
           <tr><td><img class="art" src="/assets/items/copper-axe.png" alt="" loading="lazy" />Copper (axe / pickaxe / rod / hoe)</td><td>30% faster</td><td>hoe: crops grow 15% sooner</td></tr>
@@ -577,6 +622,7 @@
           <tr><td><img class="art" src="/assets/items/gilded-rod.png" alt="" loading="lazy" />Gilded Rod (fishing)</td><td>60% faster</td><td>50% bonus catch · <strong>+25% fishing XP</strong></td></tr>
           <tr><td><img class="art" src="/assets/items/abyssal-rod.png" alt="" loading="lazy" />Abyssal Rod (fishing)</td><td>65% faster</td><td>60% bonus catch · <strong>+50% fishing XP</strong> · pearls surface far more often</td></tr>
         </table>
+        </div>
         <p>Equip a tool from your Inventory into the <strong>tool slot</strong> (separate from your
         weapon). It only helps the matching skill.</p>
         <h3>🔧 Durability &amp; repairs</h3>
@@ -651,6 +697,7 @@
         <h3>🐉 The monster ladder</h3>
         <p>Each step up hits harder and takes longer to bring down, so the real question is
         whether you can out-heal it. Gear is what turns a losing fight into a winnable one.</p>
+        <div class="tablewrap">
         <table>
           <thead><tr><th>Monster</th><th>Where</th><th>HP</th><th>XP</th><th>Drops</th></tr></thead>
           <tbody>
@@ -663,6 +710,7 @@
             <tr><td><img class="mobart" src="/assets/mobs/mob-charred-sentinel.webp" alt="" loading="lazy" /><strong>Charred Sentinel</strong> 👑</td><td>Obsidian Reach</td><td>900</td><td>600</td><td><strong>Obsidian Shard</strong></td></tr>
           </tbody>
         </table>
+        </div>
         <div class="callout">👑 The <strong>Charred Sentinel</strong> is the world boss. Even in a
         full Ember set wielding the Obsidian Edge it will take you to your last few HP — bring
         food, and don't try it in steel. It respawns every 3 minutes, so a failed attempt isn't
@@ -671,6 +719,7 @@
         <h3>🛡️ Gear tiers</h3>
         <p>Armour is crafted from bars; the top tier needs monster drops. Higher tiers also last
         far longer before they need repairing.</p>
+        <div class="tablewrap">
         <table>
           <thead><tr><th>Tier</th><th>Rarity</th><th>Chest armour</th><th>Made from</th></tr></thead>
           <tbody>
@@ -680,6 +729,7 @@
             <tr><td><img class="art" src="/assets/items/ember-chest.png" alt="" loading="lazy" /><strong>Ember</strong></td><td>Epic</td><td><strong>88</strong></td><td>Steel bars + <strong>Ember Cores</strong></td></tr>
           </tbody>
         </table>
+        </div>
         <p>Each tier is a full four-piece set — helm, chest, gloves and boots:</p>
         <div class="fishgrid">
           <div class="fishcard"><img src="/assets/items/steel-helm.png" alt="Steel Helm" loading="lazy" /><div class="fname">Helm</div><div class="fmeta">head</div></div>
@@ -687,6 +737,7 @@
           <div class="fishcard"><img src="/assets/items/steel-gloves.png" alt="Steel Gloves" loading="lazy" /><div class="fname">Gloves</div><div class="fmeta">hands</div></div>
           <div class="fishcard"><img src="/assets/items/steel-boots.png" alt="Steel Boots" loading="lazy" /><div class="fname">Boots</div><div class="fmeta">feet</div></div>
         </div>
+        <div class="tablewrap">
         <table>
           <thead><tr><th>Weapon</th><th>Bonus damage</th><th>Made from</th></tr></thead>
           <tbody>
@@ -699,6 +750,7 @@
             <tr><td><img class="art" src="/assets/items/obsidian-blade.png" alt="" loading="lazy" /><strong>Obsidian Edge</strong></td><td><strong>+60</strong></td><td>Obsidian Shards + Ember Cores + steel</td></tr>
           </tbody>
         </table>
+        </div>
 
         <h3>Knockout &amp; respawn</h3>
         <p>If your HP hits 0 you're <strong>knocked out</strong>. Pay <strong>100 gold</strong> to
@@ -729,6 +781,7 @@
         <h2><span class="emoji">🗡️</span> 7b. PvP &amp; Danger Zones</h2>
         <p>Player-vs-player combat is <strong>opt-in by where you go</strong>. Every zone shows a
         <strong>danger tier</strong> banner when you enter:</p>
+        <div class="tablewrap">
         <table>
           <tr><th>Tier</th><th>Where</th><th>Rules</th></tr>
           <tr><td>🟢 <strong>Safe</strong></td><td>Hub, Community Lodge</td><td>No PvP, ever.</td></tr>
@@ -736,6 +789,7 @@
           <tr><td>🔴 <strong>Red</strong></td><td>Slime Grotto</td><td>Open PvP. On death you drop your <strong>gathered materials</strong>; gear survives.</td></tr>
           <tr><td>⚫ <strong>Black</strong></td><td>Obsidian Reach</td><td><strong>Full loot</strong> — drop your whole bag + half your loose gold. Richest rewards.</td></tr>
         </table>
+        </div>
         <p>To fight: <strong>left-click a player</strong> to target them, then attack. When someone
         is knocked out in a Red/Black zone, their dropped items form a <strong>loot bag</strong>
         anyone can grab with <span class="kbd">F</span>.</p>
@@ -1351,6 +1405,7 @@
         fields for a self-contained farming economy that ticks daily quests too.</p>
 
         <h3>🗺️ Expansion — burn $BASE to grow</h3>
+        <div class="tablewrap">
         <table>
           <tr><th>Step</th><th>Size</th><th>Burn cost</th></tr>
           <tr><td>Base</td><td>24×24 tiles</td><td>—</td></tr>
@@ -1358,12 +1413,14 @@
           <tr><td>2</td><td>32×32</td><td>🔥 250,000 $BASE</td></tr>
           <tr><td>3</td><td>36×36</td><td>🔥 500,000 $BASE</td></tr>
         </table>
+        </div>
         <p>Expanding also raises your build caps proportionally — a maxed World holds 2.25× the
         props of a fresh one. The resize happens live for everyone standing inside.</p>
 
         <h3>📐 Build caps — how much fits in a World</h3>
         <p>Every World has hard limits per category (they keep builds fair and fast to render).
         Caps scale with your World's area, so each expansion raises all of them:</p>
+        <div class="tablewrap">
         <table>
           <tr><th>Size</th><th>⛏️ Resource nodes</th><th>🌳 Props &amp; decor</th><th>🏠 Building plots</th><th>🌾 Farm plots</th></tr>
           <tr><td>24×24 (base)</td><td>24</td><td>120</td><td>12</td><td>16</td></tr>
@@ -1371,6 +1428,7 @@
           <tr><td>32×32</td><td>42</td><td>213</td><td>21</td><td>28</td></tr>
           <tr><td>36×36 (max)</td><td>54</td><td>270</td><td>27</td><td>36</td></tr>
         </table>
+        </div>
         <ul class="list">
           <li><strong>Resource nodes</strong> (trees, rocks, fishing spots) are the binding limit
           for gather-farm Worlds — plan them first. Mob dens, buildings, markets, and decorations
@@ -1399,6 +1457,7 @@
       <section id="world">
         <h2><span class="emoji">🗺️</span> 13. The World</h2>
         <p>Travel between zones through glowing <strong>portals</strong>. Each zone is themed:</p>
+        <div class="tablewrap">
         <table>
           <tr><th>Zone</th><th>Danger</th><th>What's there</th></tr>
           <tr><td><strong>MetricBase Hub</strong></td><td>🟢 Safe</td><td>The combat-free town square. Rudi, Aria,
@@ -1413,6 +1472,7 @@
           <tr><td><strong>Community Lodge</strong></td><td>🟢 Safe · VIP</td><td>A cosy VIP indoor space with the
           Base Rush arcade.</td></tr>
         </table>
+        </div>
         <div class="callout brand">MetricBase World is fully multiplayer — you'll see other players
         move, fight, and gather in real time. Very busy zones split into multiple copies of about
         20 players each, so the world always feels lively without lag.</div>
@@ -1442,6 +1502,7 @@
         and always stays free. What it buys is optional: capacity, status, convenience, and a place
         in the Season prize race. Every sink and flow below is publicly auditable:</p>
         <h3>🔥 Burn sinks</h3>
+        <div class="tablewrap">
         <table>
           <tr><th>Feature</th><th>Burn</th></tr>
           <tr><td>⚫ Black Zone lifetime access</td><td>1,000,000 $BASE (once)</td></tr>
@@ -1449,6 +1510,7 @@
           <tr><td>🗺️ World expansion</td><td>100k / 250k / 500k $BASE per step</td></tr>
           <tr><td>🎒 Bag expansion (16→24→32→40 slots)</td><td>10k / 50k / 150k $BASE per step</td></tr>
         </table>
+        </div>
         <h3>💱 Other $BASE flows</h3>
         <ul class="list">
           <li><strong>🏁 Season entry stake</strong> — a <em>refundable</em> 10,000 $BASE deposit to
@@ -1489,11 +1551,13 @@
         <a href="https://world.metricbase.org/dao">world.metricbase.org/dao</a> — a standalone
         page where the community creates polls and votes with the weight of its holdings. No game
         account needed: just connect your wallet.</p>
+        <div class="tablewrap">
         <table>
           <tr><th>Action</th><th>Requirement</th></tr>
           <tr><td>🗳️ Vote on a poll</td><td>Hold <strong>1,000,000+ $BASE</strong></td></tr>
           <tr><td>📜 Create a poll</td><td>Hold <strong>10,000,000+ $BASE</strong> (max 3 open polls per wallet)</td></tr>
         </table>
+        </div>
         <ul class="list">
           <li><strong>Token-weighted:</strong> your voting power equals your $BASE balance — one
           wallet, one vote per poll.</li>
