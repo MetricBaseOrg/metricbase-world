@@ -49,6 +49,39 @@ function savePending(entry: PendingOpen | null) {
 
 const RARITY_ORDER: ChestRarity[] = ["legendary", "epic", "rare", "uncommon", "common"];
 
+/**
+ * A tier's chest art, with its emoji as the fallback.
+ *
+ * The art is a plain 256px PNG under /assets/items, so a missing or failed
+ * file must not leave a blank space where the chest should be — especially on
+ * the opening stage, where an empty box mid-animation reads as a broken open
+ * rather than a missing image. `onError` drops back to the glyph the panel
+ * shipped with.
+ */
+export function ChestArt({ tier, size }: { tier: ChestTierDef | null; size: number }) {
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    setFailed(false);
+  }, [tier?.art]);
+
+  if (!tier || failed) {
+    return (
+      <span style={{ fontSize: size * 0.8, lineHeight: 1 }} aria-hidden="true">
+        {tier?.emoji ?? "🎁"}
+      </span>
+    );
+  }
+  return (
+    <img
+      src={`/assets/items/${tier.art}`}
+      alt=""
+      aria-hidden="true"
+      onError={() => setFailed(true)}
+      style={{ width: size, height: size, objectFit: "contain", display: "block" }}
+    />
+  );
+}
+
 /** The chest rattles for at least this long even if the server answers
  * instantly — a reveal that appears the same frame you tap reads as a bug, not
  * a reward. Capped by the round trip, which is usually the longer of the two. */
@@ -228,7 +261,7 @@ export function ChestPanel() {
           {CHEST_TIERS.map((tier) => (
             <div key={tier.id} className="chibi-card" style={{ marginTop: 10, padding: "10px 12px" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <div style={{ fontSize: 30, lineHeight: 1 }}>{tier.emoji}</div>
+                <ChestArt tier={tier} size={54} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 800, fontSize: "0.86rem" }}>{tier.name}</div>
                   <div className="chibi-text-muted" style={{ fontSize: "0.68rem" }}>
@@ -351,7 +384,12 @@ function ChestOpeningStage({ tier, bursting }: { tier: ChestTierDef | null; burs
             ✨
           </span>
         ))}
-      <div className="mb-chest-stage__chest">{tier?.emoji ?? "🎁"}</div>
+      {/* The art goes INSIDE the animated element rather than replacing it, so
+          the rattle/pop transforms and the drop-shadow keep working untouched
+          and the emoji fallback still inherits the same font-size. */}
+      <div className="mb-chest-stage__chest">
+        <ChestArt tier={tier} size={104} />
+      </div>
       <div className="mb-chest-stage__label">
         {bursting ? "It opens!" : `Opening your ${tier?.name ?? "chest"}…`}
       </div>

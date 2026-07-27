@@ -202,6 +202,21 @@ comm -23 <(grep -o 'item_[a-z0-9_]*' shared/src/items.ts | sort -u | sed 's/^ite
 
 (subtract the fish/dish ids from `shared/src/fishSpecies.ts` — those live in `assets/fish/`.)
 
+### Magic Chest tiers — `assets/items/` ✅ SHIPPED (4/4, v0.194.1)
+
+`wooden-chest.png`, `silver-chest.png`, `golden-chest.png`, `mythic-chest.png`.
+
+These live in the item folder and go through the same `process-items.mjs`
+pipeline, but they are **not items** — nothing in `shared/src/items.ts` has
+these ids, so the coverage check above will not see them and the 80/80 count
+excludes them. The filename is named explicitly by `art:` on each tier in
+`shared/src/chests.ts`; `ChestPanel.tsx` builds `/assets/items/<art>` and falls
+back to the tier's `emoji` if the file 404s.
+
+⚠️ Do not confuse these with `copper-chest.png` / `iron-chest.png` /
+`steel-chest.png` / `ember-chest.png` in the same folder — those are
+chest**plates** (armour), and the names sit right next to each other.
+
 ## Fine / Master craft variants — drop in `assets/items/` (86, all 🎨)
 
 **Requested 2026-07-26.** Craftable gear rolls **Fine** and **Master** quality when made by a
