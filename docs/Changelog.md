@@ -31,6 +31,37 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [0.194.1 – 0.195.0] — 2026-07-27 — Chest art, sound & the share bonus
+
+### Added
+
+- **Magic Chest art (v0.194.1)** — the four hand-drawn chests replace the tier
+  emoji on the buy cards (54px) and in the opening animation (104px). The
+  filename is data on `CHEST_TIERS` (`art:`), the same shared-names-the-file /
+  client-builds-the-URL split the fish art uses. The emoji stays as the
+  fallback: a blank box mid-animation would read as a broken open.
+- **Chest sound effects (v0.195.0)** — three beats matching the animation. The
+  rattle repeats every 1.44s (two turns of the CSS rattle) for as long as the
+  on-chain wait lasts, the burst is a latch snap into a major chord, and every
+  reward chimes as it lands — **rare and above get a brighter cue**, so a good
+  pull is audible before the card has been read. All procedural Web Audio, like
+  the other 47 sounds.
+- **𝕏 Share your haul — +10 season points (v0.195.0)** — posts what you pulled
+  once every card has landed. **The bonus is per CHEST, not per tap**: the claim
+  is a single `UPDATE … WHERE shared_at IS NULL AND player_name = $2` on the
+  chest's payment signature, so the next 10 points cost another chest. Season
+  points divide a 1,000,000 $BASE pool, so paying for a free repeatable client
+  action would have been a points printer. Booked under a new `xShare` category
+  rather than `chest`, which must stay "points bought with $BASE".
+
+### Fixed
+
+- **The Charred Sentinel's HP was wrong in-game (v0.194.1)** — the dashboard
+  update said 1,100; it was rebalanced to 900 in v0.180.1.
+- **"Reveal all" kept firing reward sounds (v0.195.0)** — it set the counter
+  without cancelling the pending timers, so the skipped cards still chimed one
+  by one into a finished reveal.
+
 ## [0.191.0 – 0.194.0] — 2026-07-27 — Magic Chests
 
 ### Added

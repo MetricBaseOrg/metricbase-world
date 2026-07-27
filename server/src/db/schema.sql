@@ -421,6 +421,11 @@ CREATE TABLE IF NOT EXISTS chest_opens (
   opened_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS chest_opens_player_idx ON chest_opens (player_name, opened_at DESC);
+-- When this haul was shared on X for the one-off season-point bonus. NULL =
+-- unclaimed. This column IS the anti-farm bound: the share award is keyed to a
+-- chest that was paid for, not to a button press, so points can't be minted by
+-- tapping Share repeatedly. Never reset it.
+ALTER TABLE chest_opens ADD COLUMN IF NOT EXISTS shared_at TIMESTAMPTZ;
 
 -- Cosmetic skins a player owns (won from chests). Deliberately NOT inventory
 -- items: cosmetics have no vendor value and must not be sellable into the gold

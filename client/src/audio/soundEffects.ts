@@ -45,7 +45,11 @@ export type SfxType =
   | "plant"
   | "harvest"
   | "loot_drop"
-  | "mob_die";
+  | "mob_die"
+  | "chest_rattle"
+  | "chest_burst"
+  | "chest_reward"
+  | "chest_reward_rare";
 
 const MASTER_VOLUME = 0.32;
 const MUTE_STORAGE_KEY = "metricbase-sfx-muted";
@@ -329,6 +333,42 @@ export function playSfx(type: SfxType): void {
       playNoiseBurst(ctx, masterGain, now, 0.06, 0.07);
       playTone(ctx, masterGain, now, 660, "triangle", 0.05, 0.12);
       playTone(ctx, masterGain, now + 0.06, 880, "triangle", 0.1, 0.14);
+      break;
+
+    // ── Magic Chests ────────────────────────────────────────────────────────
+    // Three beats matching the animation: the lid straining, the lid giving,
+    // then each reward landing. Kept QUIET relative to the burst — the rattle
+    // repeats for as long as the on-chain wait lasts (which can be ~10s), so
+    // it has to bear repetition without becoming irritating.
+    case "chest_rattle":
+      // Wooden knock: a dull low thud plus a scrape of the lid against the box.
+      playTone(ctx, masterGain, now, 150, "triangle", 0.05, 0.09);
+      playNoiseBurst(ctx, masterGain, now + 0.02, 0.05, 0.045);
+      playTone(ctx, masterGain, now + 0.13, 128, "triangle", 0.05, 0.07);
+      playNoiseBurst(ctx, masterGain, now + 0.15, 0.04, 0.035);
+      break;
+    case "chest_burst":
+      // The lid gives: latch snap, a rush of air, then a bright major chord.
+      playNoiseBurst(ctx, masterGain, now, 0.16, 0.16);
+      playSweep(ctx, masterGain, now, 220, 1400, 0.22, "sawtooth", 0.1);
+      playTone(ctx, masterGain, now + 0.1, 523, "triangle", 0.3, 0.15);
+      playTone(ctx, masterGain, now + 0.1, 659, "triangle", 0.3, 0.13);
+      playTone(ctx, masterGain, now + 0.14, 784, "triangle", 0.34, 0.15);
+      playTone(ctx, masterGain, now + 0.24, 1047, "sine", 0.3, 0.12);
+      break;
+    case "chest_reward":
+      // One card landing — short, so five of them in a row stay a rhythm
+      // rather than a drone.
+      playTone(ctx, masterGain, now, 880, "triangle", 0.05, 0.11);
+      playTone(ctx, masterGain, now + 0.05, 1175, "sine", 0.09, 0.1);
+      break;
+    case "chest_reward_rare":
+      // Rare and up: the same landing, capped with a rising sparkle so the
+      // good pull is audible before the player has read the card.
+      playTone(ctx, masterGain, now, 784, "triangle", 0.06, 0.13);
+      playTone(ctx, masterGain, now + 0.07, 1047, "triangle", 0.07, 0.13);
+      playTone(ctx, masterGain, now + 0.15, 1568, "sine", 0.16, 0.13);
+      playTone(ctx, masterGain, now + 0.24, 2093, "sine", 0.14, 0.08);
       break;
   }
 }

@@ -2,6 +2,7 @@ import { Client, getStateCallbacks, Room } from "colyseus.js";
 import {
   AttackResultPayload,
   type ChestOpenResultPayload,
+  type ChestShareResultPayload,
   ChopCancelPayload,
   ChopResultPayload,
   ChopStartPayload,
@@ -333,6 +334,7 @@ export class NetworkManager {
   private seasonStakeResultListeners = new Set<(payload: SeasonStakeResultPayload) => void>();
   private seasonPostResultListeners = new Set<(payload: SeasonStakeResultPayload) => void>();
   private chestOpenResultListeners = new Set<(payload: ChestOpenResultPayload) => void>();
+  private chestShareResultListeners = new Set<(payload: ChestShareResultPayload) => void>();
   private jobsStateListeners = new Set<(payload: JobsStatePayload) => void>();
   private jobResultListeners = new Set<(payload: JobResultPayload) => void>();
   private jobsChangedListeners = new Set<() => void>();
@@ -1006,6 +1008,17 @@ export class NetworkManager {
   onChestOpenResult(listener: (payload: ChestOpenResultPayload) => void) {
     this.chestOpenResultListeners.add(listener);
     return () => this.chestOpenResultListeners.delete(listener);
+  }
+
+  /** Claim the one-per-chest season-point bonus for sharing a haul on X. The
+   * server decides whether it pays — the signature is its idempotency key. */
+  sendChestShare(signature: string) {
+    this.room?.send("chestShare", { signature });
+  }
+
+  onChestShareResult(listener: (payload: ChestShareResultPayload) => void) {
+    this.chestShareResultListeners.add(listener);
+    return () => this.chestShareResultListeners.delete(listener);
   }
 
   onSeasonPostResult(listener: (payload: SeasonStakeResultPayload) => void) {
@@ -2156,6 +2169,9 @@ export class NetworkManager {
     });
     this.room.onMessage("chestOpenResult", (payload: ChestOpenResultPayload) => {
       for (const listener of this.chestOpenResultListeners) listener(payload);
+    });
+    this.room.onMessage("chestShareResult", (payload: ChestShareResultPayload) => {
+      for (const listener of this.chestShareResultListeners) listener(payload);
     });
     this.room.onMessage("seasonState", (payload: SeasonStatePayload) => {
       for (const listener of this.seasonStateListeners) listener(payload);

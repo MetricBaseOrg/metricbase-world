@@ -59,6 +59,7 @@ import {
   normalizeTxSignature,
   describeSignatureProblem,
   type ChestTierDef,
+  CHEST_SHARE_SEASON_POINTS,
   CHEST_SEASON_CATEGORY,
   SEASON_REWARD_REQUIRES_X,
   SEASON_REWARD_REQUIRES_POST,
@@ -525,7 +526,7 @@ import {
 } from "../db/seasonStake.js";
 import { getXStatus } from "../db/xLink.js";
 import { hasPostedFor, isPostUrlUsed, recordSeasonPost } from "../db/seasonPost.js";
-import { claimChestOpen, grantSkin, recordChestRewards } from "../db/chests.js";
+import { claimChestOpen, claimChestShare, grantSkin, isChestShared, recordChestRewards } from "../db/chests.js";
 import { isXLinkConfigured } from "../auth/xAuth.js";
 import { isTweetUrl, readTweet, taskCode } from "../auth/xVerify.js";
 
@@ -970,6 +971,9 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     });
     this.onProtectedMessage("chestRecover", (client, message: { signature?: string }) => {
       void this.handleChestRecover(client, String(message.signature ?? ""));
+    });
+    this.onProtectedMessage("chestShare", (client, message: { signature?: string }) => {
+      void this.handleChestShare(client, String(message.signature ?? ""));
     });
     this.onProtectedMessage("dailyClaimTask", (client, message: { taskId?: string }) => {
       void this.handleDailyClaimTask(client, String(message.taskId ?? ""));
@@ -4652,6 +4656,47 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
   /** Roll a chest and hand over everything in it. Shared by open + recover so
    * the two can never drift on what a chest actually pays. */
+  /**
+   * Award the one-off season-point bonus for sharing a chest haul on X.
+   *
+   * WHY THIS IS BOUNDED BY THE CHEST AND NOT THE TAP: season points decide how
+   * a 1,000,000 $BASE pool is divided. Paying for a free, repeatable client
+   * action would let anyone hold down the Share button and mint themselves a
+   * leaderboard position. `claimChestShare` is a single UPDATE guarded by
+   * `shared_at IS NULL AND player_name = $2`, so it returns a row exactly once,
+   * for the player who actually paid for that chest — the next 10 points cost
+   * another chest.
+   *
+   * We do NOT verify a post was published. That would need the paste-the-URL
+   * oEmbed flow the X tasks use (server/src/auth/xVerify.ts), which is a far
+   * heavier interaction for a 10-point flex. The chest cost is what makes the
+   * economics safe here; the post itself is on trust.
+   */
+  private async handleChestShare(client: Client, signature: string): Promise<void> {
+    const fail = (error: string) => client.send("chestShareResult", { ok: false, error });
+    try {
+      const player = this.state.players.get(client.sessionId);
+      if (!player) return fail("You're not in the world right now.");
+
+      const sig = normalizeTxSignature(signature);
+      if (!sig) return fail("That chest can't be identified.");
+
+      const claimed = await claimChestShare(sig, player.name);
+      if (!claimed) {
+        // Already shared, not this player's chest, or no database. All three
+        // are "no points", and none of them is worth telling apart on screen.
+        return client.send("chestShareResult", { ok: true, points: 0 });
+      }
+
+      void awardSeasonPointsDb(player.name, "xShare", CHEST_SHARE_SEASON_POINTS);
+      bumpMetric("chest.shared", 1);
+      client.send("chestShareResult", { ok: true, points: CHEST_SHARE_SEASON_POINTS });
+    } catch (error) {
+      console.error("[chest] share failed:", error);
+      fail("Couldn't record that share. Your chest rewards are safe.");
+    }
+  }
+
   private async rollAndGrantChest(
     client: Client,
     player: InstanceType<typeof PlayerSchema>,
@@ -4696,6 +4741,11 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       tierId: tier.id,
       rewards,
       gold: this.playerGold.get(this.pidOf(player)) ?? 0,
+      // Carried back so the share button can claim its one-per-chest bonus.
+      // `shared` covers a RECOVERED open: replaying a signature whose bonus was
+      // already taken must show the button as spent, not offer it again.
+      signature,
+      shared: await isChestShared(signature),
     });
   }
 

@@ -12,8 +12,11 @@
 import {
   CHEST_RARITY_COLOR,
   CHEST_RARITY_LABEL,
+  CHEST_SHARE_SEASON_POINTS,
   CHEST_TIERS,
+  chestShareText,
   expectedGold,
+  getChestTier,
   normalizeTxSignature,
   describeSignatureProblem,
   type ChestOpenResultPayload,
@@ -24,6 +27,7 @@ import { useEffect, useRef, useState } from "react";
 import { playSfx } from "../audio/soundEffects";
 import { networkManager, type PipGoldInfoPayload } from "../game/network";
 import { useGameStore } from "../store/gameStore";
+import { openExternalLink } from "../telegram/telegramApp";
 import { sendMetricbaseTokenPayment } from "../wallet/tokenPayment";
 import { ItemIcon } from "./ItemIcon";
 
@@ -90,6 +94,9 @@ const MIN_RATTLE_MS = 1100;
 const BURST_MS = 520;
 /** Gap between rewards landing. */
 const REVEAL_STAGGER_MS = 340;
+/** Rattle SFX cadence — two turns of the 0.72s CSS rattle, so the sound lands
+ * with the movement instead of drifting against it. */
+const RATTLE_SFX_MS = 1440;
 
 type OpenPhase = "idle" | "rattling" | "burst" | "reveal";
 
@@ -129,7 +136,7 @@ export function ChestPanel() {
         timers.current.push(
           window.setTimeout(() => {
             setPhase("burst");
-            playSfx("ui_open");
+            playSfx("chest_burst");
             timers.current.push(
               window.setTimeout(() => {
                 setResult(r);
@@ -156,6 +163,17 @@ export function ChestPanel() {
       offResult();
     };
   }, []);
+
+  // The rattle SFX repeats alongside the looping animation, because the wait
+  // it covers (approval → broadcast → on-chain verification) has no knowable
+  // length. Tied to the phase rather than started next to the animation, so
+  // every exit — success, failure, closing the panel — silences it.
+  useEffect(() => {
+    if (phase !== "rattling") return;
+    playSfx("chest_rattle");
+    const id = window.setInterval(() => playSfx("chest_rattle"), RATTLE_SFX_MS);
+    return () => window.clearInterval(id);
+  }, [phase]);
 
   // Finish a chest that was paid for but never opened (reload, dropped socket).
   useEffect(() => {
@@ -403,6 +421,89 @@ function ChestOpeningStage({ tier, bursting }: { tier: ChestTierDef | null; burs
 }
 
 /**
+ * Flex the haul on X, for +10 season points.
+ *
+ * THE BONUS IS PER CHEST, NOT PER TAP — the server keys the claim on this
+ * chest's payment signature (`chest_opens.shared_at`), so tapping again pays
+ * nothing and the next 10 points cost another chest. Anything else would be a
+ * free, unbounded points faucet into a pool that pays out real $BASE.
+ *
+ * The composer opens FIRST and the claim is sent after, because the composer
+ * needs to be a direct result of the tap: a popup opened from a network
+ * callback is a popup blocked by the browser. It does mean the points are
+ * awarded for opening the composer rather than for a verified post — the chest
+ * price is what makes that safe, and the paste-the-URL oEmbed flow the X tasks
+ * use is the upgrade path if proof is ever wanted.
+ */
+function ShareHaul({
+  signature,
+  tierName,
+  rewardLabels,
+  alreadyShared,
+}: {
+  signature: string;
+  tierName: string;
+  rewardLabels: string[];
+  alreadyShared: boolean;
+}) {
+  const [claimed, setClaimed] = useState(alreadyShared);
+  const [awarded, setAwarded] = useState<number | null>(null);
+
+  useEffect(() => {
+    const off = networkManager.onChestShareResult((r) => {
+      if (!r.ok) return;
+      setClaimed(true);
+      setAwarded(r.points ?? 0);
+    });
+    return () => {
+      off();
+    };
+  }, []);
+
+  const share = () => {
+    playSfx("ui_click");
+    const text = chestShareText(tierName, rewardLabels);
+    // openExternalLink, not window.open: inside Telegram's webview the latter
+    // is swallowed silently.
+    openExternalLink(`https://x.com/intent/post?text=${encodeURIComponent(text)}`, true);
+    networkManager.sendChestShare(signature);
+  };
+
+  if (claimed) {
+    return (
+      <div
+        className="chibi-card"
+        style={{ marginTop: 10, padding: "9px 12px", textAlign: "center", fontSize: "0.72rem" }}
+      >
+        {awarded && awarded > 0 ? (
+          <span style={{ fontWeight: 800 }}>𝕏 Shared — +{awarded} season points!</span>
+        ) : (
+          <span className="chibi-text-muted">
+            𝕏 Already shared this chest. Open another to earn the bonus again.
+          </span>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        className="chibi-btn chibi-btn--secondary"
+        style={{ width: "100%", padding: "9px 12px", marginTop: 10, fontWeight: 800 }}
+        onClick={share}
+      >
+        𝕏 Share your haul · +{CHEST_SHARE_SEASON_POINTS} season points
+      </button>
+      <div className="chibi-text-muted" style={{ fontSize: "0.62rem", marginTop: 4, textAlign: "center" }}>
+        One bonus per chest.
+      </div>
+    </>
+  );
+}
+
+/**
  * "I paid and got nothing" — paste the transaction signature and claim it.
  *
  * The automatic recovery (localStorage) only helps if the signature was stashed,
@@ -513,20 +614,38 @@ function ChestResult({ result, onAgain }: { result: ChestOpenResultPayload; onAg
   // Rewards land one at a time. `shown` also gates the summary and the button,
   // so the best-pull line can't spoil a legendary before its card arrives.
   const [shown, setShown] = useState(0);
+  const revealTimers = useRef<number[]>([]);
+  const stopReveal = () => {
+    for (const t of revealTimers.current) window.clearTimeout(t);
+    revealTimers.current = [];
+  };
+
   useEffect(() => {
     setShown(0);
-    const timers: number[] = [];
+    stopReveal();
     for (let i = 0; i < rewards.length; i++) {
-      timers.push(window.setTimeout(() => setShown(i + 1), i * REVEAL_STAGGER_MS));
+      revealTimers.current.push(
+        window.setTimeout(() => {
+          setShown(i + 1);
+          // Rare-and-up gets the brighter cue, so a good pull is audible
+          // before the card has been read.
+          const rare = RARITY_ORDER.indexOf(rewards[i].rarity) <= RARITY_ORDER.indexOf("rare");
+          playSfx(rare ? "chest_reward_rare" : "chest_reward");
+        }, i * REVEAL_STAGGER_MS),
+      );
     }
-    return () => {
-      for (const t of timers) window.clearTimeout(t);
-    };
+    return stopReveal;
     // Re-run per opening, not per render.
   }, [result]);
 
   const allShown = shown >= rewards.length;
-  const revealAll = () => setShown(rewards.length);
+  // Cancel the pending timers too, or "Reveal all" shows every card at once
+  // and then keeps firing their sounds one by one into an already-finished
+  // reveal.
+  const revealAll = () => {
+    stopReveal();
+    setShown(rewards.length);
+  };
 
   return (
     <div>
@@ -590,6 +709,18 @@ function ChestResult({ result, onAgain }: { result: ChestOpenResultPayload; onAg
         <div className="chibi-text-muted" style={{ fontSize: "0.7rem", marginTop: 8, textAlign: "center" }}>
           You now have {result.gold.toLocaleString()} gold.
         </div>
+      )}
+
+      {/* Held back until every card has landed — offering "share your haul"
+          while the haul is still arriving asks people to brag about something
+          they haven't seen. */}
+      {allShown && result.signature && (
+        <ShareHaul
+          signature={result.signature}
+          tierName={getChestTier(result.tierId ?? "")?.name ?? "chest"}
+          rewardLabels={rewards.map((r) => r.label)}
+          alreadyShared={Boolean(result.shared)}
+        />
       )}
 
       {/* Skip is essential, not a nicety: the stagger is charming once and

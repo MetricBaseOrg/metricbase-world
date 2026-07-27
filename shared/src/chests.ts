@@ -381,6 +381,38 @@ export interface ChestOpenResultPayload {
   rewards?: ChestReward[];
   /** Gold total after the grant, so the HUD can update without a refetch. */
   gold?: number;
+  /** The payment signature this chest was opened with — the client sends it
+   * back to claim the one-per-chest share bonus. Not a secret: it is public
+   * on-chain, and the server re-checks that this player owns the row. */
+  signature?: string;
+  /** True when the share bonus has already been taken for this chest (a
+   * recovered/replayed open), so the button can show as spent. */
+  shared?: boolean;
+}
+
+export interface ChestShareResultPayload {
+  ok: boolean;
+  error?: string;
+  /** Season points actually awarded — 0 when this chest was already shared. */
+  points?: number;
+}
+
+/**
+ * The post text for a chest haul. Lives in shared so the wording is one thing:
+ * the client renders it and it stays consistent with anything server-side that
+ * may later need to quote it.
+ *
+ * Deliberately factual about what a chest is — "opened" and the odds being
+ * public — rather than implying a guaranteed return. See the wording rule in
+ * this file's header: no "gamble"/"gambling" language, anywhere.
+ */
+export function chestShareText(tierName: string, rewardLabels: string[]): string {
+  const haul = rewardLabels.slice(0, 4).join(" · ");
+  const more = rewardLabels.length > 4 ? ` +${rewardLabels.length - 4} more` : "";
+  return (
+    `🎁 Opened a ${tierName} in MetricBase World and pulled:\n${haul}${more}\n\n` +
+    `Odds are public, the economy is player-run → https://world.metricbase.org #Solana`
+  );
 }
 
 /** Expected gold per chest, for the odds sheet in the UI. Advisory only. */

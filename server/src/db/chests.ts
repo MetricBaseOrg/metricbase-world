@@ -64,6 +64,51 @@ export async function releaseChestOpen(signature: string): Promise<void> {
   }
 }
 
+/**
+ * Claim the one-off "shared this haul on X" bonus for a chest.
+ *
+ * Returns true exactly once per chest. The guard is the UPDATE's own WHERE —
+ * `shared_at IS NULL` inside a single statement, so two taps racing each other
+ * cannot both come back with a row. Also requires the chest to belong to the
+ * claiming player, because the signature is public on-chain: without that check
+ * anyone could read a signature off Solscan and claim someone else's bonus.
+ *
+ * NO DATABASE = NO BONUS (returns false), deliberately: with nowhere to record
+ * the claim there is nothing to stop it being claimed forever, and season
+ * points are a real-money-adjacent currency.
+ */
+export async function claimChestShare(signature: string, playerName: string): Promise<boolean> {
+  const pool = getPool();
+  if (!pool) return false;
+  try {
+    const res = await pool.query(
+      `UPDATE chest_opens SET shared_at = NOW()
+        WHERE signature = $1 AND player_name = $2 AND shared_at IS NULL
+       RETURNING signature`,
+      [signature, playerName],
+    );
+    return (res.rowCount ?? 0) > 0;
+  } catch (error) {
+    console.warn("[chest] share claim failed:", error);
+    return false;
+  }
+}
+
+/** Whether this chest's share bonus is already spent (so the UI can say so). */
+export async function isChestShared(signature: string): Promise<boolean> {
+  const pool = getPool();
+  if (!pool) return false;
+  try {
+    const res = await pool.query(
+      "SELECT 1 FROM chest_opens WHERE signature = $1 AND shared_at IS NOT NULL LIMIT 1",
+      [signature],
+    );
+    return (res.rowCount ?? 0) > 0;
+  } catch {
+    return false;
+  }
+}
+
 // ── Skins ───────────────────────────────────────────────────────────────────
 
 export async function grantSkin(playerName: string, skinId: string): Promise<void> {

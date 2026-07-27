@@ -150,6 +150,15 @@ export function seasonTimeLeftMs(now = Date.now()): number {
   return Math.max(0, currentSeason(now).endMs - now);
 }
 
+/** Season points for sharing a Magic Chest haul on X.
+ *
+ * ⚠️ AWARDED ONCE PER CHEST, not once per tap. Season points decide how a
+ * 1,000,000 $BASE pool is split, so anything that pays for a free, repeatable
+ * client action is a points printer — you would tap Share in a loop. The claim
+ * is keyed on the chest's payment signature (`chest_opens.shared_at`), so the
+ * cost of the next 10 points is the cost of the next chest. */
+export const CHEST_SHARE_SEASON_POINTS = 10;
+
 /** Point-earning categories. `gather/mobs/craft/harvest/sell/visitWorld/jobs`
  * mirror the daily-quest counter keys, so one hook site feeds both systems. */
 export type SeasonCategory =
@@ -165,6 +174,7 @@ export type SeasonCategory =
   | "referral"
   | "xLink"
   | "xTask"
+  | "xShare"
   | "richest"
   | "chest";
 
@@ -189,6 +199,11 @@ export const SEASON_POINTS: Record<SeasonCategory, number> = {
   // Per-task reward (reply/repost campaigns); the actual amount is set per task,
   // so this per-unit default is unused (like richest).
   xTask: 0,
+  // Sharing a Magic Chest haul on X. Bounded by the CHEST, not by the click:
+  // one award per chest_opens signature, so another 10 points costs another
+  // chest (≥1,000 $BASE). A per-click award would be an unbounded free points
+  // faucet into a pool that pays out real $BASE.
+  xShare: CHEST_SHARE_SEASON_POINTS,
   // Richest is awarded on a fixed daily schedule by rank (SEASON_RICHEST_DAILY_BONUS),
   // not per-unit — this per-unit entry is unused.
   richest: 0,
@@ -230,6 +245,7 @@ export const SEASON_CATEGORY_LABEL: Record<SeasonCategory, string> = {
   referral: "Referrals",
   xLink: "X account",
   xTask: "X tasks",
+  xShare: "Chest shares",
   richest: "Richest bonus",
   chest: "Magic Chests",
 };

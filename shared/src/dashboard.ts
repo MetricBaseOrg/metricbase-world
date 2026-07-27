@@ -11,6 +11,10 @@ export const MOTTO_MAX_LENGTH = 80;
  */
 export const DASHBOARD_UPDATES: Array<{ title: string; body: string }> = [
   {
+    title: "v0.195 — Chests sound like chests, and flex like them too",
+    body: "Opening a chest now has sound: the lid strains while your payment clears, gives with a snap, and every reward chimes as it lands — with a brighter sparkle for anything rare or better. Once your haul is fully revealed there's a new 𝕏 Share your haul button that posts what you pulled and pays +10 season points. One bonus per chest, so it rewards each real opening rather than repeated tapping. Mute still works from the HUD if you'd rather play quietly.",
+  },
+  {
     title: "v0.191 — Magic Chests",
     body: "Four tiers of chest, opened with $BASE, rolling gold, weapons, armour, tools, materials and season points — with cosmetic skins coming once their art is ready. On average a chest returns more gold than spending the same $BASE at Rudi's desk, so the gold alone is worth it and the gear is the upside on top. Every chest shows its full rarity odds before you buy — and it is a roll, not a purchase, so a quiet run happens. Everything you spend goes into the Season reward pool. Open them from ⚙️ → 🎁 Magic Chests.",
   },
