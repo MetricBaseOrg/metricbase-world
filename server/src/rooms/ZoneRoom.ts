@@ -4575,11 +4575,21 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       // live payment path handed the client's string straight to the chain.
       const sig = repairTxSignature(signature);
       if (!sig || !isLikelyTxSignature(sig)) {
-        console.warn(`[chest] unusable signature from ${player.name}: ${signature?.slice(0, 140)}`);
+        // QUEUE IT ANYWAY. We can't read this one YET, but her tokens have
+        // moved, so dropping it is the one unacceptable outcome — a future
+        // repair (this is the third wallet shape we've had to learn) settles
+        // the row without her doing anything. Log it WHOLE: truncating the
+        // last one to 140 characters cost a round trip, because base58 isn't
+        // byte-aligned so a prefix decodes to nothing meaningful.
+        console.warn(
+          `[chest] unreadable signature from ${player.name} (${signature?.length ?? 0} chars): ${signature}`,
+        );
+        await recordPendingChest(signature, player.name, wallet, tier.id, "unreadable signature");
         return void fail(
-          "Your payment went through, but the wallet returned a transaction id we can't read. " +
-            "Use “Paid but didn't get your chest?” and paste the link from your wallet's activity — " +
-            "nothing has been lost.",
+          "Your payment went through, but your wallet returned a transaction id we can't read yet. " +
+            "Your $BASE is safe and the payment is recorded — we'll open the chest automatically. " +
+            "If you'd rather not wait, use “Paid but didn't get your chest?” and paste the link from " +
+            "your wallet's activity.",
         );
       }
       signature = sig;

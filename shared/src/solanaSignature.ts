@@ -113,6 +113,31 @@ function base58Decode(value: string): Uint8Array | null {
   return Uint8Array.from(bytes.reverse());
 }
 
+/** Base58 encode. Local so `shared` keeps no runtime dependency. */
+function base58Encode(bytes: Uint8Array): string {
+  const ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+  const digits: number[] = [0];
+  for (const byte of bytes) {
+    let carry = byte;
+    for (let i = 0; i < digits.length; i++) {
+      carry += digits[i] << 8;
+      digits[i] = carry % 58;
+      carry = (carry / 58) | 0;
+    }
+    while (carry > 0) {
+      digits.push(carry % 58);
+      carry = (carry / 58) | 0;
+    }
+  }
+  let out = "";
+  for (let k = 0; k < bytes.length && bytes[k] === 0; k++) out += "1";
+  for (let i = digits.length - 1; i >= 0; i--) out += ALPHABET[digits[i]];
+  return out;
+}
+
+/** Raw bytes of a 64-byte signature. */
+const SIGNATURE_BYTES = 64;
+
 /**
  * Best-effort repair of a signature that our own payment path produced.
  *
@@ -125,16 +150,34 @@ export function repairTxSignature(raw: string): string {
   const normalized = normalizeTxSignature(raw);
   if (!normalized || isLikelyTxSignature(normalized)) return normalized;
 
-  // Double-encoded: the bytes ARE the text of the real signature.
   const decoded = base58Decode(normalized);
-  if (decoded && decoded.length > 0) {
-    try {
-      const asText = new TextDecoder().decode(decoded).trim();
-      const inner = normalizeTxSignature(asText);
-      if (isLikelyTxSignature(inner)) return inner;
-    } catch {
-      // Not text — fall through.
-    }
+  if (!decoded || decoded.length === 0) return normalized;
+
+  // Case 1 — double-encoded: the bytes ARE the text of the real signature.
+  try {
+    const asText = new TextDecoder().decode(decoded).trim();
+    const inner = normalizeTxSignature(asText);
+    if (isLikelyTxSignature(inner)) return inner;
+  } catch {
+    // Not text — fall through.
   }
+
+  // Case 2 — the wallet returned the whole SERIALIZED TRANSACTION instead of
+  // the signature. A legacy transaction is laid out as:
+  //   [compact-u16 signature count][64-byte signature]...[message]
+  // so for the common single-signer case the signature is bytes 1..65. Nothing
+  // is guessed at the player's expense: a wrong extraction simply fails
+  // verification against the chain, exactly as an unknown signature would.
+  if (decoded.length > SIGNATURE_BYTES) {
+    const count = decoded[0];
+    if (count >= 1 && count <= 8 && decoded.length >= 1 + count * SIGNATURE_BYTES) {
+      const candidate = base58Encode(decoded.slice(1, 1 + SIGNATURE_BYTES));
+      if (isLikelyTxSignature(candidate)) return candidate;
+    }
+    // Some bridges drop the count byte and hand back signature-then-message.
+    const bare = base58Encode(decoded.slice(0, SIGNATURE_BYTES));
+    if (isLikelyTxSignature(bare)) return bare;
+  }
+
   return normalized;
 }
