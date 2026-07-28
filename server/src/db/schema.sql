@@ -427,6 +427,26 @@ CREATE INDEX IF NOT EXISTS chest_opens_player_idx ON chest_opens (player_name, o
 -- tapping Share repeatedly. Never reset it.
 ALTER TABLE chest_opens ADD COLUMN IF NOT EXISTS shared_at TIMESTAMPTZ;
 
+-- Chests PAID FOR but not yet verifiable, because Solana was unreachable or
+-- hadn't indexed the transaction when the player clicked.
+--
+-- THIS TABLE EXISTS SO A PAYMENT CAN NEVER BE LOST TO AN RPC OUTAGE. A row here
+-- is not a promise of a chest — it is a signature to keep checking. The grant
+-- still runs the full on-chain verification and the same claimChestOpen dedupe,
+-- so a signature that never verifies simply never pays out, and one that
+-- verifies pays out exactly once.
+CREATE TABLE IF NOT EXISTS pending_chest_opens (
+  signature VARCHAR(128) PRIMARY KEY,
+  player_name VARCHAR(16) NOT NULL,
+  wallet VARCHAR(64) NOT NULL,
+  tier_id VARCHAR(16) NOT NULL,
+  attempts INTEGER NOT NULL DEFAULT 0,
+  last_error TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  last_tried_at TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS pending_chest_opens_player_idx ON pending_chest_opens (player_name);
+
 -- Cosmetic skins a player owns (won from chests). Deliberately NOT inventory
 -- items: cosmetics have no vendor value and must not be sellable into the gold
 -- economy, and keeping them out of ITEMS avoids touching shop/craft/value code.

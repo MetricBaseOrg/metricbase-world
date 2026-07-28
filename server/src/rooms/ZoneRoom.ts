@@ -526,7 +526,17 @@ import {
 } from "../db/seasonStake.js";
 import { getXStatus } from "../db/xLink.js";
 import { hasPostedFor, isPostUrlUsed, recordSeasonPost } from "../db/seasonPost.js";
-import { claimChestOpen, claimChestShare, grantSkin, isChestShared, recordChestRewards } from "../db/chests.js";
+import {
+  bumpPendingChestAttempt,
+  claimChestOpen,
+  claimChestShare,
+  clearPendingChest,
+  grantSkin,
+  isChestShared,
+  listPendingChests,
+  recordChestRewards,
+  recordPendingChest,
+} from "../db/chests.js";
 import { isXLinkConfigured } from "../auth/xAuth.js";
 import { isTweetUrl, readTweet, taskCode } from "../auth/xVerify.js";
 
@@ -2008,6 +2018,11 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
     void this.checkVisitZoneObjectives(client, player.name, this.zoneConfig.id);
     void this.notifyMissingPayoutWallet(client, wallet);
+    // Anything they paid for but we couldn't confirm last time gets settled the
+    // moment they're back in the world.
+    void this.settlePendingChests(client, player).catch((error) => {
+      console.error("[chest] settle on join failed:", error);
+    });
   }
 
   /**
@@ -4563,7 +4578,31 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         mint: getBlackZoneBurnMint(),
         minUiAmount: tier.price,
       });
-      if (!result.ok) return void fail(result.error ?? "Payment could not be verified.");
+      if (!result.ok) {
+        // "We couldn't look" is not "you didn't pay". Her tokens have already
+        // left her wallet, so an RPC outage here must never end the story —
+        // remember the payment and settle it the moment the chain answers.
+        if (result.retryable) {
+          await recordPendingChest(signature, player.name, wallet, tier.id, result.error ?? null);
+          // Most outages are a bad minute, not a bad day — try again while
+          // they're still here rather than making them log back in for it.
+          for (const delay of [20_000, 60_000, 180_000]) {
+            this.clock.setTimeout(() => {
+              const stillHere = this.state.players.get(client.sessionId);
+              if (!stillHere) return; // onJoin will pick it up next time.
+              void this.settlePendingChests(client, stillHere).catch((error) => {
+                console.error("[chest] delayed settle failed:", error);
+              });
+            }, delay);
+          }
+          return void fail(
+            "Solana is slow to answer right now, so we couldn't confirm your payment yet. " +
+              "Your $BASE is safe — the chest is queued and opens automatically as soon as the " +
+              "network answers, usually within a few minutes. Carry on playing.",
+          );
+        }
+        return void fail(result.error ?? "Payment could not be verified.");
+      }
 
       // Claim the signature BEFORE granting anything.
       const claimed = await claimChestOpen(signature, player.name, wallet, tier.id, tier.price);
@@ -4672,6 +4711,84 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
    * heavier interaction for a 10-point flex. The chest cost is what makes the
    * economics safe here; the post itself is on trust.
    */
+  /**
+   * Settle chests that were PAID FOR but couldn't be verified at the time.
+   *
+   * The guarantee this exists to make: once a player's tokens have moved, the
+   * chest is owed, and no RPC outage can cancel that debt. Runs on join and
+   * shortly after a payment is queued, so the common case (a provider having a
+   * bad minute) settles within minutes and the worst case settles next login.
+   *
+   * SAFETY — this grants nothing on trust. Every row still goes through the
+   * full on-chain verification and the same claimChestOpen dedupe as a live
+   * open, so a queued signature that was never a real payment simply never
+   * pays out, and a real one pays out exactly once even if the client's own
+   * localStorage retry is racing us.
+   */
+  private async settlePendingChests(
+    client: Client,
+    player: InstanceType<typeof PlayerSchema>,
+  ): Promise<void> {
+    const pending = await listPendingChests(player.name);
+    if (pending.length === 0) return;
+
+    const treasury = getTreasuryWallet();
+    if (!treasury) return; // Can't verify anything right now; keep them queued.
+
+    for (const row of pending) {
+      const tier = getChestTier(row.tierId);
+      if (!tier) {
+        await clearPendingChest(row.signature);
+        continue;
+      }
+      // The client's own retry may have already settled this one.
+      if (await isPurchaseRedeemed(row.signature)) {
+        await clearPendingChest(row.signature);
+        continue;
+      }
+
+      const result = await verifyMetricbaseTokenTransfer(row.signature, {
+        payerWallet: row.wallet,
+        treasuryWallet: treasury,
+        mint: getBlackZoneBurnMint(),
+        minUiAmount: tier.price,
+      });
+
+      if (!result.ok) {
+        if (result.retryable) {
+          // Still don't know. Keep it — but not forever: a signature that has
+          // never been indexed after this many tries was almost certainly never
+          // a real transaction, and Solana indexes real ones in seconds. The
+          // manual "Paid but didn't get your chest?" claim remains either way.
+          if (row.attempts >= 20) {
+            console.warn(
+              `[chest] giving up on pending ${row.signature} for ${player.name} after ${row.attempts} tries`,
+            );
+            await clearPendingChest(row.signature);
+          } else {
+            await bumpPendingChestAttempt(row.signature, result.error ?? "unknown");
+          }
+          continue;
+        }
+        // A real verdict from the chain — this was never a valid payment.
+        await clearPendingChest(row.signature);
+        continue;
+      }
+
+      const claimed = await claimChestOpen(row.signature, player.name, row.wallet, tier.id, tier.price);
+      await clearPendingChest(row.signature);
+      if (!claimed) continue; // Already opened elsewhere.
+
+      await recordTokenPurchase(row.signature, row.wallet, `chest_${tier.id}`, tier.price);
+      bumpMetric("chest.settledLate", 1);
+      client.send(
+        "chat",
+        this.systemChat("Chests", `🎁 Your ${tier.name} payment cleared — opening it now.`),
+      );
+      await this.rollAndGrantChest(client, player, tier, row.signature, false);
+    }
+  }
+
   private async handleChestShare(client: Client, signature: string): Promise<void> {
     const fail = (error: string) => client.send("chestShareResult", { ok: false, error });
     try {

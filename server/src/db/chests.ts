@@ -109,6 +109,102 @@ export async function isChestShared(signature: string): Promise<boolean> {
   }
 }
 
+// ── Paid-but-unverified queue ───────────────────────────────────────────────
+//
+// A player's tokens leave their wallet BEFORE we can verify anything. If Solana
+// is unreachable at that moment, the honest state is "we don't know yet", and
+// the one thing we must never do is treat that as "no" and walk away from real
+// money. These rows are the memory of a payment we still owe an answer on.
+
+export interface PendingChestRow {
+  signature: string;
+  playerName: string;
+  wallet: string;
+  tierId: string;
+  attempts: number;
+}
+
+/** Remember a payment we couldn't verify yet. Safe to call repeatedly. */
+export async function recordPendingChest(
+  signature: string,
+  playerName: string,
+  wallet: string,
+  tierId: string,
+  lastError: string | null,
+): Promise<void> {
+  const pool = getPool();
+  if (!pool) return;
+  try {
+    await pool.query(
+      `INSERT INTO pending_chest_opens (signature, player_name, wallet, tier_id, last_error)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (signature) DO UPDATE SET last_error = EXCLUDED.last_error`,
+      [signature, playerName, wallet, tierId, lastError],
+    );
+  } catch (error) {
+    console.warn("[chest] could not queue pending payment:", error);
+  }
+}
+
+/** Payments still owed to this player. */
+export async function listPendingChests(playerName: string): Promise<PendingChestRow[]> {
+  const pool = getPool();
+  if (!pool) return [];
+  try {
+    const res = await pool.query<{
+      signature: string;
+      player_name: string;
+      wallet: string;
+      tier_id: string;
+      attempts: number;
+    }>(
+      `SELECT signature, player_name, wallet, tier_id, attempts
+         FROM pending_chest_opens
+        WHERE player_name = $1
+        ORDER BY created_at ASC
+        LIMIT 20`,
+      [playerName],
+    );
+    return res.rows.map((r) => ({
+      signature: r.signature,
+      playerName: r.player_name,
+      wallet: r.wallet,
+      tierId: r.tier_id,
+      attempts: r.attempts,
+    }));
+  } catch (error) {
+    console.warn("[chest] could not list pending payments:", error);
+    return [];
+  }
+}
+
+/** Settled — either granted, or proven never to have been a real payment. */
+export async function clearPendingChest(signature: string): Promise<void> {
+  const pool = getPool();
+  if (!pool) return;
+  try {
+    await pool.query("DELETE FROM pending_chest_opens WHERE signature = $1", [signature]);
+  } catch (error) {
+    console.warn("[chest] could not clear pending payment:", error);
+  }
+}
+
+/** Still unknown. Record the attempt so a stuck payment is visible, not silent. */
+export async function bumpPendingChestAttempt(signature: string, lastError: string): Promise<void> {
+  const pool = getPool();
+  if (!pool) return;
+  try {
+    await pool.query(
+      `UPDATE pending_chest_opens
+          SET attempts = attempts + 1, last_tried_at = NOW(), last_error = $2
+        WHERE signature = $1`,
+      [signature, lastError],
+    );
+  } catch (error) {
+    console.warn("[chest] could not bump pending attempt:", error);
+  }
+}
+
 // ── Skins ───────────────────────────────────────────────────────────────────
 
 export async function grantSkin(playerName: string, skinId: string): Promise<void> {

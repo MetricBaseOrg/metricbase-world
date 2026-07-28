@@ -26,6 +26,14 @@ export interface TokenTransferVerification {
    * difference between guessing at an outage and knowing which provider is
    * refusing us and with what. */
   detail?: string;
+  /**
+   * TRUE when the failure was about REACHING the chain, not about what the
+   * chain said. The player's money may well have moved and we simply couldn't
+   * look — so the caller must queue the payment and retry rather than telling
+   * them no. False for real verdicts (failed on-chain, wrong recipient, amount
+   * too small), which retrying can never change.
+   */
+  retryable?: boolean;
 }
 
 export async function verifyMetricbaseTokenTransfer(
@@ -68,12 +76,16 @@ export async function verifyMetricbaseTokenTransfer(
   }
 
   if (!tx) {
+    // Either nobody answered, or nobody has indexed it YET. Both are "we don't
+    // know", never "no" — a transaction that isn't visible to us right now is
+    // routinely one that settles fine a minute later.
     return {
       ok: false,
       error: reached
         ? "Transaction not found yet. Wait a moment and try again."
         : "Couldn't reach Solana to check that transaction. Try again shortly.",
       detail: failures.join(" | "),
+      retryable: true,
     };
   }
 
