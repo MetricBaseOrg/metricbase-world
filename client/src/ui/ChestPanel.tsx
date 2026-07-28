@@ -165,6 +165,24 @@ export function ChestPanel() {
     };
   }, []);
 
+  // KEEP ASKING UNTIL WE KNOW. requestPipGoldInfo is `room?.send(...)` — a
+  // no-op that reports nothing when the room isn't connected yet. This panel
+  // mounts the instant `joined` flips, which can be before the room is ready,
+  // so a single fire-and-forget request could be dropped and `pipInfo` would
+  // stay null for the WHOLE session. Every chest tap then said "Chests are
+  // closed right now", blaming the server for a message that never left the
+  // client. Re-ask when the panel opens, and keep re-asking while unknown.
+  useEffect(() => {
+    if (!open || pipInfo) return;
+    networkManager.requestPipGoldInfo();
+    let tries = 0;
+    const id = window.setInterval(() => {
+      if (++tries > 10) return window.clearInterval(id);
+      networkManager.requestPipGoldInfo();
+    }, 1500);
+    return () => window.clearInterval(id);
+  }, [open, pipInfo]);
+
   // The rattle SFX repeats alongside the looping animation, because the wait
   // it covers (approval → broadcast → on-chain verification) has no knowable
   // length. Tied to the phase rather than started next to the animation, so
@@ -198,7 +216,11 @@ export function ChestPanel() {
 
   const buy = async (tier: ChestTierDef) => {
     if (!walletAddress) return setNotice("Connect your wallet to open chests.");
-    if (!pipInfo?.enabled || !pipInfo.treasury) return setNotice("Chests are closed right now.");
+    // "We haven't heard back yet" and "the server has chests switched off" are
+    // different facts and used to share one message. Saying "closed" while the
+    // answer is simply outstanding sends the player away from a working shop.
+    if (!pipInfo) return setNotice("Still checking with the server — try again in a moment.");
+    if (!pipInfo.enabled || !pipInfo.treasury) return setNotice("Chests are closed right now.");
     playSfx("ui_click");
     setBusyTier(tier.id);
     setNotice(null);
@@ -302,9 +324,16 @@ export function ChestPanel() {
                   className="chibi-btn chibi-btn--gold"
                   style={{ flex: 1, padding: "9px 12px", fontWeight: 800 }}
                   onClick={() => void buy(tier)}
-                  disabled={busyTier !== null || (pipInfo != null && !pipInfo.enabled)}
+                  // Disabled while the shop state is UNKNOWN too, not just when
+                  // it's known-closed — a live-looking button that answers
+                  // "closed" is worse than one that says it's still checking.
+                  disabled={busyTier !== null || pipInfo == null || !pipInfo.enabled}
                 >
-                  {busyTier === tier.id ? "Opening…" : `Open · ${tier.price.toLocaleString()} $BASE`}
+                  {busyTier === tier.id
+                    ? "Opening…"
+                    : pipInfo == null
+                      ? "Checking…"
+                      : `Open · ${tier.price.toLocaleString()} $BASE`}
                 </button>
                 <button
                   type="button"
