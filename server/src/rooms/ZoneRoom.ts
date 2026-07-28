@@ -4583,7 +4583,14 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         // left her wallet, so an RPC outage here must never end the story —
         // remember the payment and settle it the moment the chain answers.
         if (result.retryable) {
-          await recordPendingChest(signature, player.name, wallet, tier.id, result.error ?? null);
+          // The per-endpoint reason is the only thing that explains WHY a
+          // configured provider refused us. Log it every time — diagnosing this
+          // from "try again shortly" is guesswork, and it cost three rounds of
+          // it. host() strips path and query, so an RPC key can't leak.
+          console.warn(
+            `[chest] queueing unverifiable payment for ${player.name}: ${result.detail ?? result.error}`,
+          );
+          await recordPendingChest(signature, player.name, wallet, tier.id, result.detail ?? result.error ?? null);
           // Most outages are a bad minute, not a bad day — try again while
           // they're still here rather than making them log back in for it.
           for (const delay of [20_000, 60_000, 180_000]) {
@@ -4598,7 +4605,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
           return void fail(
             "Solana is slow to answer right now, so we couldn't confirm your payment yet. " +
               "Your $BASE is safe — the chest is queued and opens automatically as soon as the " +
-              "network answers, usually within a few minutes. Carry on playing.",
+              "network answers, usually within a few minutes. Carry on playing." +
+              (result.detail ? ` [${result.detail}]` : ""),
           );
         }
         return void fail(result.error ?? "Payment could not be verified.");
@@ -4679,6 +4687,20 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       // the person who can report it. Safe to show — host() strips the path and
       // query, so a private RPC key in SOLANA_RPC_URL can never leak here.
       const detail = result.detail ? ` [${result.detail}]` : "";
+      // Same rule as the live open: "we couldn't look" must not end the story
+      // for a payment that has already left someone's wallet. Queue it with the
+      // tier UNRESOLVED — the recovery path derives the tier from the on-chain
+      // amount, so pinning one here could hand a 25,000 payer a wooden chest.
+      if (result.retryable) {
+        console.warn(
+          `[chest] queueing unverifiable recovery for ${player.name}: ${result.detail ?? result.error}`,
+        );
+        await recordPendingChest(trimmed, player.name, wallet, ZoneRoom.PENDING_TIER_FROM_AMOUNT, result.error ?? null);
+        return void fail(
+          "Solana didn't answer just now, so we couldn't confirm it yet. Your $BASE is safe — " +
+            `this payment is queued and the chest opens automatically once the network responds.${detail}`,
+        );
+      }
       return void fail(`${result.error ?? "Payment could not be verified."}${detail}`);
     }
 
@@ -4712,6 +4734,12 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
    * economics safe here; the post itself is on trust.
    */
   /**
+   * Queued from the RECOVERY path, where the tier isn't known yet because the
+   * on-chain amount decides it. Never a real tier id, so it can't collide.
+   */
+  private static readonly PENDING_TIER_FROM_AMOUNT = "auto";
+
+  /**
    * Settle chests that were PAID FOR but couldn't be verified at the time.
    *
    * The guarantee this exists to make: once a player's tokens have moved, the
@@ -4736,8 +4764,11 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     if (!treasury) return; // Can't verify anything right now; keep them queued.
 
     for (const row of pending) {
-      const tier = getChestTier(row.tierId);
-      if (!tier) {
+      // A row queued from the RECOVERY path has no tier yet — the chain decides
+      // it, from the amount actually paid.
+      const fromAmount = row.tierId === ZoneRoom.PENDING_TIER_FROM_AMOUNT;
+      const tier = fromAmount ? null : getChestTier(row.tierId);
+      if (!fromAmount && !tier) {
         await clearPendingChest(row.signature);
         continue;
       }
@@ -4751,7 +4782,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         payerWallet: row.wallet,
         treasuryWallet: treasury,
         mint: getBlackZoneBurnMint(),
-        minUiAmount: tier.price,
+        minUiAmount: fromAmount ? cheapestChestPrice() : tier!.price,
       });
 
       if (!result.ok) {
@@ -4775,17 +4806,30 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         continue;
       }
 
-      const claimed = await claimChestOpen(row.signature, player.name, row.wallet, tier.id, tier.price);
+      // The chain is the authority on which chest this bought.
+      const settledTier = fromAmount ? bestChestTierForAmount(result.uiAmount ?? 0) : tier!;
+      if (!settledTier) {
+        await clearPendingChest(row.signature);
+        continue; // Paid, but not enough for any chest.
+      }
+
+      const claimed = await claimChestOpen(
+        row.signature,
+        player.name,
+        row.wallet,
+        settledTier.id,
+        settledTier.price,
+      );
       await clearPendingChest(row.signature);
       if (!claimed) continue; // Already opened elsewhere.
 
-      await recordTokenPurchase(row.signature, row.wallet, `chest_${tier.id}`, tier.price);
+      await recordTokenPurchase(row.signature, row.wallet, `chest_${settledTier.id}`, settledTier.price);
       bumpMetric("chest.settledLate", 1);
       client.send(
         "chat",
-        this.systemChat("Chests", `🎁 Your ${tier.name} payment cleared — opening it now.`),
+        this.systemChat("Chests", `🎁 Your ${settledTier.name} payment cleared — opening it now.`),
       );
-      await this.rollAndGrantChest(client, player, tier, row.signature, false);
+      await this.rollAndGrantChest(client, player, settledTier, row.signature, false);
     }
   }
 
