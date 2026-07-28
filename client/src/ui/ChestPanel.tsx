@@ -27,8 +27,8 @@ import { useEffect, useRef, useState } from "react";
 import { playSfx } from "../audio/soundEffects";
 import { networkManager, type PipGoldInfoPayload } from "../game/network";
 import { useGameStore } from "../store/gameStore";
-import { openExternalLink } from "../telegram/telegramApp";
-import { sendMetricbaseTokenPayment } from "../wallet/tokenPayment";
+import { isTelegramMiniApp, openExternalLink } from "../telegram/telegramApp";
+import { isTokenPaymentError, jupiterSwapUrl, sendMetricbaseTokenPayment } from "../wallet/tokenPayment";
 import { ItemIcon } from "./ItemIcon";
 
 const PENDING_KEY = "chestPendingOpen";
@@ -108,6 +108,7 @@ export function ChestPanel() {
   const [pipInfo, setPipInfo] = useState<PipGoldInfoPayload | null>(null);
   const [busyTier, setBusyTier] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [needsTokens, setNeedsTokens] = useState(false);
   const [result, setResult] = useState<ChestOpenResultPayload | null>(null);
   const [oddsFor, setOddsFor] = useState<string | null>(null);
   const [phase, setPhase] = useState<OpenPhase>("idle");
@@ -201,6 +202,7 @@ export function ChestPanel() {
     playSfx("ui_click");
     setBusyTier(tier.id);
     setNotice(null);
+    setNeedsTokens(false);
     setResult(null);
     // The rattle starts at the WALLET prompt, not at the server reply, so the
     // whole wait — approval, broadcast, verification — is covered by it.
@@ -224,6 +226,10 @@ export function ChestPanel() {
       clearTimers();
       setPhase("idle");
       setOpeningTier(null);
+      // Not having the tokens is the single commonest reason a chest fails —
+      // the game is free to play, so most wallets hold no $BASE at all. Offer
+      // the way to get some instead of just reporting the shortfall.
+      setNeedsTokens(isTokenPaymentError(err) && err.kind !== "no-sol");
       setNotice(err instanceof Error ? err.message : "Payment was cancelled.");
     }
   };
@@ -353,6 +359,31 @@ export function ChestPanel() {
         <div className="chibi-text-muted" style={{ fontSize: "0.68rem", marginTop: 8 }}>
           {notice}
         </div>
+      )}
+      {needsTokens && pipInfo?.mint && (
+        <a
+          className="chibi-btn chibi-btn--gold"
+          href={jupiterSwapUrl(pipInfo.mint)}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => {
+            // Telegram's webview swallows a plain target=_blank.
+            if (isTelegramMiniApp()) {
+              e.preventDefault();
+              openExternalLink(jupiterSwapUrl(pipInfo.mint), true);
+            }
+          }}
+          style={{
+            display: "block",
+            textAlign: "center",
+            padding: "9px 12px",
+            marginTop: 8,
+            fontWeight: 800,
+            textDecoration: "none",
+          }}
+        >
+          Get $BASE on Jupiter ↗
+        </a>
       )}
     </div>
   );
