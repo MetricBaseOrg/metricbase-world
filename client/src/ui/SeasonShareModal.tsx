@@ -7,6 +7,9 @@ import { isTelegramMiniApp, openExternalLink, shareToTelegram, TELEGRAM_BOT } fr
 
 const PLAY_URL = "world.metricbase.org";
 
+/** Only name the field size in a share post once it flatters us. See shareText. */
+const SHARE_FIELD_SIZE_MIN = 100;
+
 /** A branded, downloadable personal Season card + one-tap X share. Drawn on a
  * canvas so there's no server-side image infra — the player can save the PNG
  * and attach it, and the "Share to X" button pre-fills their personal stats. */
@@ -74,7 +77,15 @@ export function SeasonShareModal({ season, onClose }: { season: SeasonStatePaylo
     ctx.fillText(hasRank ? `#${season.rank}` : "—", 78, 400);
     ctx.fillStyle = "#999999";
     ctx.font = "600 30px sans-serif";
-    ctx.fillText(hasRank ? `of ${season.totalPlayers.toLocaleString()} players` : "join the race", 82, 490);
+    // Same rule as shareText: the field size goes on the card only once it is
+    // big enough to impress. "of 12 players" under a giant #3 is an argument
+    // against joining, printed on our own share image.
+    const rankSubtitle = !hasRank
+      ? "join the race"
+      : season.totalPlayers >= SHARE_FIELD_SIZE_MIN
+        ? `of ${season.totalPlayers.toLocaleString()} players`
+        : `Season ${season.seasonNumber} leaderboard`;
+    ctx.fillText(rankSubtitle, 82, 490);
 
     // Stat pills on the right
     const stat = (label: string, value: string, y: number) => {
@@ -101,8 +112,16 @@ export function SeasonShareModal({ season, onClose }: { season: SeasonStatePaylo
 
   const shareText = () => {
     const hasRank = season.points > 0 && season.rank > 0;
+    // "#3 of 12" tells everyone who reads the post that twelve people are
+    // playing. The field size is only a flex once it is LARGE — below that it
+    // is the strongest possible argument against joining, published by our own
+    // players, on our own template. Rank alone still reads as an achievement.
+    const outOf =
+      season.totalPlayers >= SHARE_FIELD_SIZE_MIN
+        ? ` of ${season.totalPlayers.toLocaleString()}`
+        : "";
     const line = hasRank
-      ? `🏆 Ranked #${season.rank} of ${season.totalPlayers.toLocaleString()} in MetricBase World — Season ${season.seasonNumber}!\n\n${season.points.toLocaleString()} points · est. ${season.estimatedReward.toLocaleString()} $BASE from the prize pool.`
+      ? `🏆 Ranked #${season.rank}${outOf} in MetricBase World — Season ${season.seasonNumber}!\n\n${season.points.toLocaleString()} points · est. ${season.estimatedReward.toLocaleString()} $BASE from the prize pool.`
       : `🌍 Competing in MetricBase World Season ${season.seasonNumber} — a real player-run economy on Solana.`;
     return `${line}\n\nBuild, trade & climb → https://${PLAY_URL} #Solana`;
   };
