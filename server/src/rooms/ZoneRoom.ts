@@ -57,6 +57,8 @@ import {
   bestChestTierForAmount,
   cheapestChestPrice,
   normalizeTxSignature,
+  repairTxSignature,
+  isLikelyTxSignature,
   describeSignatureProblem,
   type ChestTierDef,
   CHEST_SHARE_SEASON_POINTS,
@@ -919,11 +921,11 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     });
 
     this.onProtectedMessage("burnForBlackPass", (client, message: { signature?: string }) => {
-      void this.handleBurnForBlackPass(client, message.signature ?? "");
+      void this.handleBurnForBlackPass(client, repairTxSignature(String(message.signature ?? "")));
     });
 
     this.onProtectedMessage("buyVipPass", (client, message: { signature?: string }) => {
-      void this.handleBuyVipPass(client, message.signature ?? "");
+      void this.handleBuyVipPass(client, repairTxSignature(String(message.signature ?? "")));
     });
 
     this.onProtectedMessage("buyVipPassGold", (client) => {
@@ -935,7 +937,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       void this.handleBuyZoneSlot(client);
     });
     this.onProtectedMessage("buyGoldFromPip", (client, message: { signature?: string; gold?: number }) => {
-      void this.handleBuyGoldFromPip(client, message.signature ?? "", Number(message.gold) || 0);
+      void this.handleBuyGoldFromPip(client, repairTxSignature(String(message.signature ?? "")), Number(message.gold) || 0);
     });
     this.onMessage("pipGoldInfo", (client) => {
       this.handlePipGoldInfo(client);
@@ -971,19 +973,19 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       void this.handleSeasonState(client);
     });
     this.onProtectedMessage("seasonStake", (client, message: { signature?: string }) => {
-      void this.handleSeasonStake(client, String(message.signature ?? ""));
+      void this.handleSeasonStake(client, repairTxSignature(String(message.signature ?? "")));
     });
     this.onProtectedMessage("seasonPostVerify", (client, message: { url?: string }) => {
       void this.handleSeasonPostVerify(client, String(message.url ?? ""));
     });
     this.onProtectedMessage("chestOpen", (client, message: { tierId?: string; signature?: string }) => {
-      void this.handleChestOpen(client, String(message.tierId ?? ""), String(message.signature ?? ""));
+      void this.handleChestOpen(client, String(message.tierId ?? ""), repairTxSignature(String(message.signature ?? "")));
     });
     this.onProtectedMessage("chestRecover", (client, message: { signature?: string }) => {
-      void this.handleChestRecover(client, String(message.signature ?? ""));
+      void this.handleChestRecover(client, repairTxSignature(String(message.signature ?? "")));
     });
     this.onProtectedMessage("chestShare", (client, message: { signature?: string }) => {
-      void this.handleChestShare(client, String(message.signature ?? ""));
+      void this.handleChestShare(client, repairTxSignature(String(message.signature ?? "")));
     });
     this.onProtectedMessage("dailyClaimTask", (client, message: { taskId?: string }) => {
       void this.handleDailyClaimTask(client, String(message.taskId ?? ""));
@@ -992,10 +994,10 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       void this.handleDailyClaimLogin(client);
     });
     this.onProtectedMessage("zoneExpand", (client, message: { zoneId?: string; signature?: string }) => {
-      void this.handleZoneExpand(client, String(message.zoneId ?? ""), String(message.signature ?? ""));
+      void this.handleZoneExpand(client, String(message.zoneId ?? ""), repairTxSignature(String(message.signature ?? "")));
     });
     this.onProtectedMessage("bagExpand", (client, message: { signature?: string }) => {
-      void this.handleBagExpand(client, String(message.signature ?? ""));
+      void this.handleBagExpand(client, repairTxSignature(String(message.signature ?? "")));
     });
     this.onMessage("worldsList", (client) => {
       this.handleWorldsList(client);
@@ -1069,7 +1071,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     });
 
     this.onProtectedMessage("marketFillAsk", (client, message: { orderId?: string; signature?: string }) => {
-      void this.handleMarketFillAsk(client, message.orderId ?? "", message.signature ?? "");
+      void this.handleMarketFillAsk(client, message.orderId ?? "", repairTxSignature(String(message.signature ?? "")));
     });
 
     this.onProtectedMessage("marketAcceptBid", (client, message: { orderId?: string }) => {
@@ -1077,7 +1079,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     });
 
     this.onProtectedMessage("marketPayBid", (client, message: { orderId?: string; signature?: string }) => {
-      void this.handleMarketPayBid(client, message.orderId ?? "", message.signature ?? "");
+      void this.handleMarketPayBid(client, message.orderId ?? "", repairTxSignature(String(message.signature ?? "")));
     });
 
     this.onMessage("marketRefresh", (client, message: { currency?: string }) => {
@@ -1180,7 +1182,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       void this.sendCasinoState(client);
     });
     this.onProtectedMessage("casinoDeposit", (client, message: { currencyId?: string; signature?: string }) => {
-      void this.handleCasinoDeposit(client, message.currencyId ?? "", message.signature ?? "");
+      void this.handleCasinoDeposit(client, message.currencyId ?? "", repairTxSignature(String(message.signature ?? "")));
     });
     this.onProtectedMessage("casinoWithdraw", (client, message: { currencyId?: string; amount?: number }) => {
       void this.handleCasinoWithdraw(client, message.currencyId ?? "", Number(message.amount) || 0);
@@ -1353,7 +1355,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     this.onProtectedMessage(
       "housingBuyResaleBase",
       (client, message: { plotId?: string; signature?: string }) => {
-        void this.handleHousingBuyResaleBase(client, message.plotId ?? "", message.signature ?? "");
+        void this.handleHousingBuyResaleBase(client, message.plotId ?? "", repairTxSignature(String(message.signature ?? "")));
       },
     );
 
@@ -4566,7 +4568,21 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       if (!wallet || !isWalletIdentity(wallet)) {
         return void fail("Link a Solana wallet to open chests.");
       }
-      if (!signature || signature.length < 32) return void fail("Missing payment transaction.");
+      // REPAIR BEFORE USE. Some wallets return the signature's ASCII bytes,
+      // which our encoder turns into a 119-char value that is valid base58 but
+      // decodes to 87 bytes — every RPC answers "Invalid param: WrongSize" and
+      // it reads exactly like an outage. Only the paste paths normalised; the
+      // live payment path handed the client's string straight to the chain.
+      const sig = repairTxSignature(signature);
+      if (!sig || !isLikelyTxSignature(sig)) {
+        console.warn(`[chest] unusable signature from ${player.name}: ${signature?.slice(0, 140)}`);
+        return void fail(
+          "Your payment went through, but the wallet returned a transaction id we can't read. " +
+            "Use “Paid but didn't get your chest?” and paste the link from your wallet's activity — " +
+            "nothing has been lost.",
+        );
+      }
+      signature = sig;
       if (await isPurchaseRedeemed(signature)) return void fail("That payment was already used.");
 
       const treasury = getTreasuryWallet();
@@ -4772,13 +4788,23 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         await clearPendingChest(row.signature);
         continue;
       }
+      // Rows queued BEFORE the repair existed still hold the mangled signature.
+      // Repair on the way out so they settle themselves rather than retrying a
+      // string no RPC can ever resolve.
+      const sig = repairTxSignature(row.signature);
+      if (!isLikelyTxSignature(sig)) {
+        console.warn(`[chest] pending signature is unusable, dropping: ${row.signature.slice(0, 140)}`);
+        await clearPendingChest(row.signature);
+        continue;
+      }
+
       // The client's own retry may have already settled this one.
       if (await isPurchaseRedeemed(row.signature)) {
         await clearPendingChest(row.signature);
         continue;
       }
 
-      const result = await verifyMetricbaseTokenTransfer(row.signature, {
+      const result = await verifyMetricbaseTokenTransfer(sig, {
         payerWallet: row.wallet,
         treasuryWallet: treasury,
         mint: getBlackZoneBurnMint(),

@@ -5,6 +5,7 @@ import {
 } from "@solana/wallet-standard-features";
 import { Transaction, type VersionedTransaction } from "@solana/web3.js";
 import bs58 from "bs58";
+import { repairTxSignature } from "@metricbase/shared";
 import { getWallets } from "@wallet-standard/app";
 import type { Wallet, WalletAccount } from "@wallet-standard/base";
 import { StandardConnect } from "@wallet-standard/features";
@@ -25,6 +26,17 @@ export type SignableTransaction = Transaction | VersionedTransaction;
  * ArrayBuffer and plain number arrays, since wallets differ there too.
  */
 export function toBase58Signature(value: unknown): string {
+  const encoded = encodeSignature(value);
+  // VALIDATE, don't just encode. A wallet that returns the base58 STRING as its
+  // ASCII BYTES still satisfies `instanceof Uint8Array`, so encoding it yields a
+  // 119-character value that is valid base58 but decodes to 87 bytes instead of
+  // 64. Every RPC then answers "Invalid param: WrongSize", which looks like a
+  // Solana outage and isn't — the signature never referred to a transaction.
+  // repairTxSignature reads those bytes back as text and recovers the original.
+  return repairTxSignature(encoded);
+}
+
+function encodeSignature(value: unknown): string {
   if (typeof value === "string") return value;
   if (value instanceof Uint8Array) return bs58.encode(value);
   if (value instanceof ArrayBuffer) return bs58.encode(new Uint8Array(value));

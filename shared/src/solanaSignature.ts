@@ -73,3 +73,68 @@ export function describeSignatureProblem(value: string): string | null {
   }
   return null;
 }
+
+// ── Repairing a signature a WALLET mangled ──────────────────────────────────
+//
+// Distinct from the paste problem above: this one arrives from our own payment
+// code, after the tokens have already moved.
+//
+// The wallet-standard `signAndSendTransaction` returns `signature` as raw
+// bytes, so we base58-encode it. Some wallets instead hand back the base58
+// STRING — and some hand back that string's ASCII BYTES. Those are still a
+// Uint8Array, so encoding them produces a 119-character value that is perfectly
+// valid base58 but decodes to 87 bytes instead of 64. Every RPC then answers
+// "Invalid param: WrongSize", which reads like a network fault and is not one:
+// the signature never referred to a transaction at all.
+//
+// Recovery is exact, because the original is still in there — decode the bad
+// value and read the bytes back as text.
+
+/** Base58 decode. Local so `shared` keeps no runtime dependency. */
+function base58Decode(value: string): Uint8Array | null {
+  const ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+  const bytes: number[] = [0];
+  for (const char of value) {
+    const digit = ALPHABET.indexOf(char);
+    if (digit < 0) return null;
+    let carry = digit;
+    for (let i = 0; i < bytes.length; i++) {
+      carry += bytes[i] * 58;
+      bytes[i] = carry & 0xff;
+      carry >>= 8;
+    }
+    while (carry > 0) {
+      bytes.push(carry & 0xff);
+      carry >>= 8;
+    }
+  }
+  // Leading '1's are leading zero bytes.
+  for (let k = 0; k < value.length && value[k] === "1"; k++) bytes.push(0);
+  return Uint8Array.from(bytes.reverse());
+}
+
+/**
+ * Best-effort repair of a signature that our own payment path produced.
+ *
+ * Returns a usable signature when it can, otherwise whatever normalising left —
+ * so the caller still gets to reject it with a real message. NEVER throws: it
+ * runs on a path where the player's money has already moved, and losing the
+ * signature is the one outcome worse than a bad one.
+ */
+export function repairTxSignature(raw: string): string {
+  const normalized = normalizeTxSignature(raw);
+  if (!normalized || isLikelyTxSignature(normalized)) return normalized;
+
+  // Double-encoded: the bytes ARE the text of the real signature.
+  const decoded = base58Decode(normalized);
+  if (decoded && decoded.length > 0) {
+    try {
+      const asText = new TextDecoder().decode(decoded).trim();
+      const inner = normalizeTxSignature(asText);
+      if (isLikelyTxSignature(inner)) return inner;
+    } catch {
+      // Not text — fall through.
+    }
+  }
+  return normalized;
+}
