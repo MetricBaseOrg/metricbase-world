@@ -13,6 +13,7 @@ import {
 } from "@metricbase/shared";
 import { deleteGuild, loadGuilds, saveGuild, type StoredGuild } from "../db/guilds.js";
 import { releaseGuildTerritories } from "../territory/territoryRegistry.js";
+import { isOnline } from "../social/presence.js";
 
 // Process-global registry of guilds, shared across zone rooms and persisted to
 // the DB so memberships survive restarts.
@@ -191,13 +192,39 @@ export function leaveGuild(name: string): GuildActionResult {
     return { ok: true };
   }
 
-  // Hand leadership to the next member if the leader left.
+  // Hand leadership on if the leader left.
   if (guild.leaderName === name) {
-    guild.leaderName = guild.members[0];
+    guild.leaderName = successorFor(guild);
     guild.officers = guild.officers.filter((member) => member !== guild.leaderName);
   }
   void saveGuild(guild);
   return { ok: true };
+}
+
+/**
+ * Who inherits a guild when its leader leaves.
+ *
+ * This used to be `members[0]` — join order, nothing else. The MetricBase Guild
+ * lost its leader that way to a level 1 account that had logged in once a month
+ * earlier and never returned, while an officer who plays daily was sitting in
+ * the same roster. A guild with an absent leader is stuck: only the leader can
+ * promote, set tax, or hand leadership on.
+ *
+ * So: prefer someone the departing leader already trusted (an officer), and
+ * within each group prefer someone actually here. `isOnline` is the only
+ * activity signal available synchronously — the registry is in-memory and this
+ * runs on the leave path — but it is a much better guess than array order, and
+ * an online officer is very likely the person the guild would have picked.
+ */
+function successorFor(guild: StoredGuild): string {
+  const officers = guild.members.filter((member) => guild.officers.includes(member));
+  const candidates = [
+    officers.find(isOnline),
+    officers[0],
+    guild.members.find(isOnline),
+    guild.members[0],
+  ];
+  return candidates.find((member): member is string => Boolean(member)) ?? guild.members[0];
 }
 
 /** Remove a (deleted) guild id from every other guild's war list. */
