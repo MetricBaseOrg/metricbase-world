@@ -11,6 +11,10 @@ export const MOTTO_MAX_LENGTH = 80;
  */
 export const DASHBOARD_UPDATES: Array<{ title: string; body: string }> = [
   {
+    title: "v0.197 — The invite leaderboard is public",
+    body: "The public stats page now has a 🤝 Invites section: who has brought the most players into MetricBase World, how many invites have been redeemed all time, and how many of those players actually got going. It ranks by the second number, not the first — a referral only counts once the player you invited reaches level 3, which is the same rule that decides season points. Handing out codes is easy; bringing in someone who stays is the part worth showing off. Find it at world.metricbase.org/stats.",
+  },
+  {
     title: "v0.195 — Chests sound like chests, and flex like them too",
     body: "Opening a chest now has sound: the lid strains while your payment clears, gives with a snap, and every reward chimes as it lands — with a brighter sparkle for anything rare or better. Once your haul is fully revealed there's a new 𝕏 Share your haul button that posts what you pulled and pays +10 season points. One bonus per chest, so it rewards each real opening rather than repeated tapping. Mute still works from the HUD if you'd rather play quietly.",
   },

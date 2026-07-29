@@ -24,6 +24,7 @@ import { getItemFlows } from "../economy/itemFlows.js";
 import { getPlayerHeldBase } from "../solana/playerHeldBase.js";
 import { getBaseFlows, type BaseFlows } from "../db/baseFlows.js";
 import { getRetention, type Retention } from "../db/retention.js";
+import { getInviteBoard, type InviteBoard } from "../db/invitations.js";
 import { adService, type AdPublicStats } from "../ads/adService.js";
 import { countOpenJobs } from "../jobs/jobRegistry.js";
 
@@ -61,6 +62,7 @@ interface EconomyStats {
   baseToken: { burned: number; heldByPlayers: number; holders: number };
   baseFlows: BaseFlows | null;
   retention: Retention | null;
+  inviteBoard: InviteBoard | null;
   /** On-chain $BASE burn sinks, broken down by feature. */
   burnSinks: {
     blackPasses: number;
@@ -239,6 +241,7 @@ export async function buildStats(): Promise<EconomyStats> {
   const playerHeld = await getPlayerHeldBase();
   const baseFlows = await getBaseFlows();
   const retention = await getRetention();
+  const inviteBoard = await getInviteBoard();
   const ads = await adService.getPublicStats();
   const richest = await getRichestBoard();
   const seasonInfo = currentSeason();
@@ -279,6 +282,7 @@ export async function buildStats(): Promise<EconomyStats> {
     assetMarket: { listings: alCount, askValue: alValue, totalOwned: aiOwned },
     baseFlows,
     retention,
+    inviteBoard,
     baseToken: {
       burned: activity["base.burned"] ?? 0,
       heldByPlayers: playerHeld?.totalHeld ?? 0,

@@ -148,6 +148,7 @@ export const STATS_PAGE_HTML = `<!doctype html>
   <a href="#season">🏆 Season</a>
   <a href="#richest">👑 Richest</a>
   <a href="#retention">🌱 Retention</a>
+  <a href="#invites">🤝 Invites</a>
   <a href="#token">🪙 $BASE</a>
   <a href="#economy">💰 Economy</a>
   <a href="#prices">🏷️ Prices</a>
@@ -206,6 +207,22 @@ export const STATS_PAGE_HTML = `<!doctype html>
     <div class="card wide" style="margin-top:14px">
       <h2>📈 New players per week</h2>
       <div id="retSignups"></div>
+    </div>
+  </section>
+
+  <section id="invites">
+    <div class="sec"><span class="em">🤝</span><h2>Invite Leaderboard</h2></div>
+    <div class="grid">
+      <div class="card"><h2>🤝 Players invited</h2><div class="big mint" id="invRedeemed">—</div><div class="sub">codes redeemed all time · by <span id="invInviters">—</span> different players</div></div>
+      <div class="card"><h2>✅ Actually got going</h2><div class="big gold" id="invQualified">—</div><div class="sub">invitees who reached Lv <span id="invLevel">—</span></div></div>
+      <div class="card"><h2>📈 Invite conversion</h2><div class="big" id="invRate">—</div><div class="sub">share of invitees who stuck around</div></div>
+    </div>
+    <div class="card wide" style="margin-top:14px">
+      <h2>🏅 Top inviters</h2>
+      <div style="overflow-x:auto"><table class="ptable" id="invTable"><thead><tr>
+        <th>Player</th><th>Invited</th><th>Got going</th>
+      </tr></thead><tbody></tbody></table></div>
+      <div class="legend" style="margin-top:10px"><span>Ranked by how many invitees actually started playing, not by how many codes were handed out — that is also how season points are paid. A referral only credits the inviter once the invited player reaches Lv <span id="invLevel2">—</span>, which is what stops throwaway wallets from farming the prize pool now that entry is free. <b>Invited</b> counts every redeemed code; <b>got going</b> counts the ones who made it past the first few minutes.</span></div>
     </div>
   </section>
 
@@ -357,6 +374,11 @@ function kfmt(n){n=Math.round(n)||0;var a=Math.abs(n);
   if(a>=1e4)return (n/1e3).toFixed(a>=1e5?0:1).replace(/\\.0$/,"")+"k";
   return n.toLocaleString();}
 function el(id){return document.getElementById(id);}
+// Player names are free-form (sanitizeName only trims to 16 chars), and these
+// tables build rows with innerHTML — so anything player-controlled goes through
+// this first. 16 chars is still enough for e.g. a <base href> tag.
+function esc(v){return String(v==null?"":v).replace(/[&<>"']/g,function(c){
+  return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];});}
 // Set text; play a soft "bump" when the value actually changed.
 function set(id,v){var e=el(id);if(!e)return;if(e.textContent!==String(v)){e.textContent=v;
   if(e.classList.contains("big")){e.classList.remove("bump");void e.offsetWidth;e.classList.add("bump");}}}
@@ -522,6 +544,26 @@ async function load(){
       }),rowHtml);
     }
 
+    // ---- Invite leaderboard ----
+    (function(){
+      var ib=s.inviteBoard;
+      var tb=el("invTable").querySelector("tbody");
+      var empty='<tr><td colspan="3" class="base">Nobody has invited a player yet 🌱</td></tr>';
+      if(!ib){tb.innerHTML=empty;return;}
+      setBig("invRedeemed",ib.totalRedeemed,"");
+      set("invInviters",fmt(ib.inviters));
+      setBig("invQualified",ib.totalQualified,"");
+      set("invLevel",fmt(ib.qualifyLevel));
+      set("invLevel2",fmt(ib.qualifyLevel));
+      set("invRate",ib.totalRedeemed>0
+        ? Math.round(ib.totalQualified/ib.totalRedeemed*100)+"%"
+        : "—");
+      tb.innerHTML=(ib.entries||[]).map(function(x,i){
+        var rk=i<3?["🥇","🥈","🥉"][i]:"#"+(i+1);
+        return '<tr><td class="nm"><span class="rk">'+rk+'</span>'+esc(x.name)+'</td><td>'+fmt(x.redeemed)+'</td><td class="gold">'+fmt(x.qualified)+'</td></tr>';
+      }).join("")||empty;
+    })();
+
     var bf=s.baseFlows;
     if(bf){
       setBig("flowIn",bf.inflowTotal," $BASE");
@@ -642,7 +684,7 @@ async function load(){
       {k:"🌾 Gather tax to owners",v:fmt(w.taxGold||0)+"g"},
       {k:"🗺️ Expanded Worlds",v:fmt(w.expanded||0)+" / "+fmt(w.total||0)}
     ],function(x){return '<div class="row"><span>'+x.k+'</span><b>'+x.v+'</b></div>';});
-    rows(el("holders"),s.topHolders,function(x,i){return '<div class="row"><span><span class="rk">'+(i<3?["🥇","🥈","🥉"][i]:"#"+(i+1))+'</span>'+x.name+'</span><b>'+fmt(x.gold)+'g</b></div>';});
+    rows(el("holders"),s.topHolders,function(x,i){return '<div class="row"><span><span class="rk">'+(i<3?["🥇","🥈","🥉"][i]:"#"+(i+1))+'</span>'+esc(x.name)+'</span><b>'+fmt(x.gold)+'g</b></div>';});
 
     // ---- Season points leaderboard ----
     (function(){
@@ -654,7 +696,7 @@ async function load(){
       tb.innerHTML=(q.top||[]).map(function(x,i){
         var rk=i<3?["🥇","🥈","🥉"][i]:"#"+(i+1);
         var est=q.totalPoints>0?Math.floor(x.points/q.totalPoints*q.rewardPool):0;
-        return '<tr><td class="nm"><span class="rk">'+rk+'</span>'+x.name+'</td><td>'+fmt(x.points)+'</td><td class="gold">'+fmt(est)+'</td></tr>';
+        return '<tr><td class="nm"><span class="rk">'+rk+'</span>'+esc(x.name)+'</td><td>'+fmt(x.points)+'</td><td class="gold">'+fmt(est)+'</td></tr>';
       }).join("")||'<tr><td colspan="3" class="base">Nothing here yet 🌱</td></tr>';
     })();
 
@@ -669,7 +711,7 @@ async function load(){
           :x.change>0?'<span class="up">▲ +'+kfmt(x.change)+'g</span>'
           :x.change<0?'<span class="down">▼ −'+kfmt(-x.change)+'g</span>'
           :'<span class="flat">＝</span>';
-        return '<tr><td class="nm"><span class="rk">'+rk+'</span>'+x.name+'</td><td title="'+fmt(x.netWorth)+'g">'+fmt(x.netWorth)+'g</td><td>'+ch+'</td></tr>';
+        return '<tr><td class="nm"><span class="rk">'+rk+'</span>'+esc(x.name)+'</td><td title="'+fmt(x.netWorth)+'g">'+fmt(x.netWorth)+'g</td><td>'+ch+'</td></tr>';
       }).join("")||'<tr><td colspan="3" class="base">Nothing here yet 🌱</td></tr>';
     })();
 

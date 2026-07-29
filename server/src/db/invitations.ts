@@ -199,6 +199,83 @@ export async function sweepQualifiedReferrals(): Promise<void> {
   }
 }
 
+export interface InviteBoardEntry {
+  name: string;
+  /** Codes this player handed out that someone actually redeemed. */
+  redeemed: number;
+  /** Of those, how many invitees reached REFERRAL_QUALIFY_LEVEL. */
+  qualified: number;
+}
+
+export interface InviteBoard {
+  entries: InviteBoardEntry[];
+  totalRedeemed: number;
+  totalQualified: number;
+  /** Distinct wallets that have brought in at least one player. */
+  inviters: number;
+  qualifyLevel: number;
+}
+
+/**
+ * Public invite leaderboard for /stats.
+ *
+ * Deliberately NOT `getInvitationsLeaderboard()` — that one is the in-game view
+ * and returns wallet addresses, which have no business on a public page. This
+ * returns character names only.
+ *
+ * "Qualified" is derived from the invitee's CURRENT level, not from
+ * `rewarded_at`. The v0.173 backfill stamped every pre-cutoff invite as rewarded
+ * regardless of whether the invitee ever played, so counting stamps would
+ * flatter the old rows. Levels can't be backfilled.
+ */
+export async function getInviteBoard(): Promise<InviteBoard | null> {
+  const db = getPool();
+  if (!db) return null;
+
+  try {
+    const [board, totals] = await Promise.all([
+      db.query<{ name: string; redeemed: string; qualified: string }>(
+        `SELECT c.name AS name,
+                COUNT(*) AS redeemed,
+                COUNT(*) FILTER (WHERE ic.level >= $1) AS qualified
+           FROM invitations i
+           JOIN characters c ON c.wallet_address = i.inviter_wallet
+           LEFT JOIN characters ic ON ic.wallet_address = i.invitee_wallet
+          WHERE i.invitee_wallet IS NOT NULL
+          GROUP BY c.name
+          ORDER BY qualified DESC, redeemed DESC, c.name ASC
+          LIMIT 10`,
+        [REFERRAL_QUALIFY_LEVEL],
+      ),
+      db.query<{ redeemed: string; qualified: string; inviters: string }>(
+        `SELECT COUNT(*) AS redeemed,
+                COUNT(*) FILTER (WHERE ic.level >= $1) AS qualified,
+                COUNT(DISTINCT i.inviter_wallet) AS inviters
+           FROM invitations i
+           LEFT JOIN characters ic ON ic.wallet_address = i.invitee_wallet
+          WHERE i.invitee_wallet IS NOT NULL`,
+        [REFERRAL_QUALIFY_LEVEL],
+      ),
+    ]);
+
+    const t = totals.rows[0];
+    return {
+      entries: board.rows.map((r) => ({
+        name: r.name,
+        redeemed: Number(r.redeemed),
+        qualified: Number(r.qualified),
+      })),
+      totalRedeemed: Number(t?.redeemed ?? 0),
+      totalQualified: Number(t?.qualified ?? 0),
+      inviters: Number(t?.inviters ?? 0),
+      qualifyLevel: REFERRAL_QUALIFY_LEVEL,
+    };
+  } catch (error) {
+    console.warn("[invite-board] query failed:", error);
+    return null;
+  }
+}
+
 export interface InvitationsLeaderboardEntry {
   playerName: string | null;
   walletAddress: string;
