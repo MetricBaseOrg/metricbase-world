@@ -68,6 +68,9 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
    * re-runs itself when the device comes back online. */
   const [bootstrapOffline, setBootstrapOffline] = useState(false);
   const [bootstrapAttempt, setBootstrapAttempt] = useState(0);
+  /** Consecutive failed connection attempts, for the auto-retry backoff. Reset
+   *  by the first request that gets an answer, not by the retry itself. */
+  const autoRetriesRef = useRef(0);
   const [gateEnabled, setGateEnabled] = useState(true);
   const [tokenMint, setTokenMint] = useState(METRICBASE_TOKEN_MINT);
   const [minTokenAmount, setMinTokenAmount] = useState(1000);
@@ -140,6 +143,9 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
 
       try {
         const info = await fetchTokenGateInfo();
+        // The connection answered — start the backoff over, so the next drop
+        // retries promptly instead of inheriting an old, long delay.
+        autoRetriesRef.current = 0;
         setGateEnabled(info.enabled);
         setTokenMint(info.mint);
         setMinTokenAmount(info.minUiAmount);
@@ -201,12 +207,49 @@ export function LoginOverlay({ onJoin }: LoginOverlayProps) {
 
   // Come back by itself when the connection does. Someone who opened the app
   // on a dead network shouldn't have to work out that a retry is needed.
+  //
+  // The `online` event alone was not enough, and the case it missed is the one
+  // that actually happens. On an Android/TWA cold start the first request beats
+  // the network coming up, but Android already has an interface, so
+  // navigator.onLine is true throughout and no offline->online transition ever
+  // fires. The failure is classified "unreachable", never "offline", so the
+  // listener sat waiting for an event that could not arrive and the player was
+  // stuck looking at a connection error until they killed the app.
+  //
+  // So: also retry on a backoff timer, and whenever the app returns to the
+  // foreground — a TWA resume is the usual moment the network is finally there.
   useEffect(() => {
     if (!bootstrapOffline) return;
-    const retry = () => setBootstrapAttempt((n) => n + 1);
+
+    // Events can arrive together (focus + visibilitychange on the same resume);
+    // collapse them so one return to the app is one retry.
+    let lastRetryAt = 0;
+    const retry = () => {
+      if (Date.now() - lastRetryAt < 1500) return;
+      lastRetryAt = Date.now();
+      setBootstrapAttempt((n) => n + 1);
+    };
+
+    // Backoff is capped: a player who left the app open on a dead network
+    // shouldn't have it polling forever, but should still be connected when
+    // they look again.
+    const delay = Math.min(2000 * 2 ** autoRetriesRef.current, 30_000);
+    autoRetriesRef.current += 1;
+    const timer = window.setTimeout(retry, delay);
+
+    const onForeground = () => {
+      if (document.visibilityState === "visible") retry();
+    };
     window.addEventListener("online", retry);
-    return () => window.removeEventListener("online", retry);
-  }, [bootstrapOffline]);
+    window.addEventListener("focus", onForeground);
+    document.addEventListener("visibilitychange", onForeground);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("online", retry);
+      window.removeEventListener("focus", onForeground);
+      document.removeEventListener("visibilitychange", onForeground);
+    };
+  }, [bootstrapOffline, bootstrapAttempt]);
 
   const loadBondedCharacter = async (accessToken: string) => {
     setLoadingCharacter(true);
