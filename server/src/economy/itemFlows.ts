@@ -17,7 +17,10 @@ import { getPool } from "../db/pool.js";
 import { bumpMetric } from "./metrics.js";
 
 const WINDOW_DAYS = 7;
-const REFRESH_MS = 10 * 60_000;
+/** Hourly, not every 10 minutes: this reads a 7-DAY window, so a finer cadence
+ *  changed nothing except keeping the Neon compute permanently awake. See
+ *  MAINTENANCE_INTERVAL_MS in index.ts. */
+const REFRESH_MS = 60 * 60_000;
 
 export interface ItemFlow {
   produced: number;

@@ -212,7 +212,33 @@ await initTerritoryRegistry();
 await initSiegeRegistry();
 await adService.init();
 
+/**
+ * How often background work is allowed to touch the database.
+ *
+ * This is a COST control, not a correctness one. Neon bills compute by the
+ * hour and suspends an idle compute after ~5 minutes, so the cadence of the
+ * chattiest background job decides the bill. Three jobs were running every 10
+ * minutes against that 5-minute window: the database woke, sat, suspended, and
+ * was woken again before it had banked any real sleep. It was effectively
+ * awake 24/7 — 195 CU-hours over the second half of July (~$21) for a game
+ * with a handful of concurrent players and a 13 MB database.
+ *
+ * At one hour, every periodic job lands in a single wake window (they all
+ * start at boot, so they stay clustered) and the compute sleeps the rest of
+ * the time. Nothing here needs finer resolution: the two economy refreshes are
+ * 7-day rolling averages, and the referral sweep pays season points.
+ *
+ * The cost of this: after an idle stretch the first query pays a cold start of
+ * roughly half a second. At this concurrency that is a good trade.
+ *
+ * If you add a periodic DB job, put it on this interval rather than inventing
+ * a shorter one. Event-driven writes are unaffected — the metrics and ad
+ * flushes stay frequent because they no-op when nothing is dirty.
+ */
+export const MAINTENANCE_INTERVAL_MS = 60 * 60 * 1000;
+
 // Warm + periodically refresh the live $BASE holder count for the billboard.
+// Solana RPC only — never touches the database, so its cadence is free.
 void getBaseHolderCount();
 setInterval(() => void getBaseHolderCount(), 5 * 60 * 1000).unref();
 
@@ -222,12 +248,16 @@ setInterval(() => void getBaseHolderCount(), 5 * 60 * 1000).unref();
 void setupTelegramBot();
 
 void captureNetWorthSnapshot();
-setInterval(() => void captureNetWorthSnapshot(), 60 * 60 * 1000).unref();
+setInterval(() => void captureNetWorthSnapshot(), MAINTENANCE_INTERVAL_MS).unref();
 
 // Pay referrers whose invitee has actually started playing (see
 // sweepQualifiedReferrals — anti-farming, idempotent via rewarded_at).
+//
+// Hourly, not every 10 minutes, and that cadence is deliberate: see
+// MAINTENANCE_INTERVAL_MS. A referral paid up to an hour later is invisible to
+// the player — the points land either way.
 void sweepQualifiedReferrals();
-setInterval(() => void sweepQualifiedReferrals(), 10 * 60 * 1000).unref();
+setInterval(() => void sweepQualifiedReferrals(), MAINTENANCE_INTERVAL_MS).unref();
 
 // Merchant Company daily payouts (salaries + dividends). Runs hourly and on
 // boot; each company is paid at most once per UTC day (idempotent via
@@ -236,7 +266,7 @@ setInterval(() => void sweepQualifiedReferrals(), 10 * 60 * 1000).unref();
 runCompanyDailyPayouts((name, amount) => ZoneRoom.creditPlayerGlobal(name, amount));
 setInterval(
   () => runCompanyDailyPayouts((name, amount) => ZoneRoom.creditPlayerGlobal(name, amount)),
-  60 * 60 * 1000,
+  MAINTENANCE_INTERVAL_MS,
 ).unref();
 
 // Weekly share dividends: pay shareholders a share-weighted % of each listed
@@ -248,7 +278,7 @@ const runShareDividends = () => {
   }
 };
 runShareDividends();
-setInterval(runShareDividends, 60 * 60 * 1000).unref();
+setInterval(runShareDividends, MAINTENANCE_INTERVAL_MS).unref();
 
 httpServer.listen(PORT, () => {
   console.log(`MetricBase game server listening on ws://localhost:${PORT}`);

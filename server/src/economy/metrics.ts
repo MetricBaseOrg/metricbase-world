@@ -23,9 +23,14 @@ export async function initMetrics(): Promise<void> {
   } catch (error) {
     console.warn("[metrics] init failed:", error);
   }
+  // Frequent, but free when idle: flush() returns immediately unless something
+  // was actually bumped, so an empty server never wakes the database.
   setInterval(() => void flush(), 15_000);
+  // Mint pressure is a 7-DAY rolling ratio. Refreshing it every 10 minutes
+  // bought no accuracy and kept the Neon compute from ever suspending — see
+  // MAINTENANCE_INTERVAL_MS in index.ts.
   void refreshMintPressure();
-  setInterval(() => void refreshMintPressure(), 10 * 60_000);
+  setInterval(() => void refreshMintPressure(), 60 * 60_000);
 }
 
 /** Increment a metric's lifetime + today's counters (accumulated, flushed later). */
