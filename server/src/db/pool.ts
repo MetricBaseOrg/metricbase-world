@@ -20,6 +20,8 @@ export function getPool(): pg.Pool | null {
     const connectionString = normalizeDatabaseUrl(process.env.DATABASE_URL);
     pool = new Pool({
       connectionString,
+      max: 5,
+      idleTimeoutMillis: 10000,
       ssl: needsSsl(connectionString) ? { rejectUnauthorized: false } : undefined,
     });
   }
