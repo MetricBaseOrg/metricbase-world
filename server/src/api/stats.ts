@@ -331,7 +331,64 @@ export async function buildStats(): Promise<EconomyStats> {
   };
 }
 
+/**
+ * Cached /api/stats.
+ *
+ * Building this payload costs ~54 database queries and several seconds. The
+ * endpoint is polled by every open dashboard, plus uptime checks and crawlers,
+ * and measured in production that was a build roughly every two minutes —
+ * against a database that suspends after five minutes of quiet. It was the last
+ * thing keeping the Neon compute awake around the clock once the background
+ * jobs moved to an hourly cadence, and the compute is the whole bill.
+ *
+ * The TTL is deliberately tied to whether anyone is playing. With players in
+ * the world the database is already awake serving gameplay, so a fresh page
+ * costs nothing extra. With an empty world, a long TTL is precisely what lets
+ * the compute sleep — and nobody is watching a live economy dashboard for a
+ * game nobody is currently playing.
+ */
+const STATS_TTL_ACTIVE_MS = 60_000;
+const STATS_TTL_IDLE_MS = 30 * 60_000;
+
+let statsCache: { at: number; payload: EconomyStats } | null = null;
+let statsInFlight: Promise<EconomyStats> | null = null;
+
+function statsTtlMs(): number {
+  return ZoneRoom.onlinePlayerCount() > 0 ? STATS_TTL_ACTIVE_MS : STATS_TTL_IDLE_MS;
+}
+
+async function getStatsCached(): Promise<EconomyStats> {
+  if (statsCache && Date.now() - statsCache.at < statsTtlMs()) return statsCache.payload;
+  // Collapse concurrent misses into a single build. Without this a burst of
+  // pollers arriving together each starts its own 54-query pass.
+  if (!statsInFlight) {
+    statsInFlight = buildStats()
+      .then((payload) => {
+        statsCache = { at: Date.now(), payload };
+        return payload;
+      })
+      .finally(() => {
+        statsInFlight = null;
+      });
+  }
+  try {
+    return await statsInFlight;
+  } catch (error) {
+    // A stale page beats an error page, and beats waking the database to retry.
+    if (statsCache) return statsCache.payload;
+    throw error;
+  }
+}
+
 statsRouter.get("/stats", async (_req, res) => {
-  res.set("Cache-Control", "public, max-age=15");
-  res.json(await buildStats());
+  const payload = await getStatsCached();
+  res.set("Cache-Control", "public, max-age=60");
+  // The two live values come from memory, never the database, so they stay
+  // truthful however old the cached body is. `updatedAt` is deliberately NOT
+  // refreshed — the page renders it as "updated N ago", and that should tell
+  // the truth about the figures below it.
+  res.json({
+    ...payload,
+    players: { ...payload.players, online: ZoneRoom.onlinePlayerCount() },
+  });
 });
