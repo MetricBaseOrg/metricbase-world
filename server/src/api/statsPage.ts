@@ -235,7 +235,7 @@ export const STATS_PAGE_HTML = `<!doctype html>
   <section id="membership" style="display:none">
     <div class="sec"><span class="em">👑</span><h2>NFT Membership</h2></div>
     <div class="grid">
-      <div class="card"><h2>👑 Holders</h2><div class="big gold" id="nftHolders">—</div><div class="sub"><span id="nftPct">—</span> of wallet players hold <span id="nftName">—</span></div></div>
+      <div class="card"><h2>👑 Holders</h2><div class="big gold" id="nftHolders">—</div><div class="sub"><span id="nftPct">—</span> of wallet players hold <span id="nftName">—</span></div><div id="nftTiers" style="margin-top:8px"></div></div>
       <div class="card"><h2>🎨 What it grants</h2><div class="sub" style="margin-bottom:10px">A holder-only character skin and a 👑 nameplate badge. Status and cosmetics only — never yield, damage, XP, or any economic edge. Entry to the game stays free for everyone.</div><a id="nftMint" class="share-x" style="margin-top:0" href="#" target="_blank" rel="noopener noreferrer">👑 View the collection</a></div>
     </div>
   </section>
@@ -579,6 +579,13 @@ async function load(){
       set("nftName",esc(n.name||"the collection"));
       var a=el("nftMint");
       if(a){ if(n.mintUrl){a.href=n.mintUrl;a.style.display="";}else{a.style.display="none";} }
+      var tw=el("nftTiers");
+      if(tw){
+        var tiers=(n.byTier||[]).filter(function(t){return t.count>0;});
+        tw.innerHTML=tiers.length?tiers.map(function(t){
+          return '<div class="row"><span>'+t.badge+' '+esc(t.name)+'</span><b>'+fmt(t.count)+'</b></div>';
+        }).join(""):'';
+      }
     })();
 
     // ---- Invite leaderboard ----

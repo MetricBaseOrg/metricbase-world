@@ -11,6 +11,10 @@ export const MOTTO_MAX_LENGTH = 80;
  */
 export const DASHBOARD_UPDATES: Array<{ title: string; body: string }> = [
   {
+    title: "v0.200 — Founder tiers, revealed after mint",
+    body: "The Founders collection now has rarity tiers — Bronze, Gold and Ember. Your tier is hidden at mint and revealed afterwards, and it decides your badge, how many holder skins you unlock, and the size of your DAO voting boost. Hold more than one? You get the highest. It's all still status and cosmetics — never gameplay power — and the reveal upgrades you automatically the next time you log in. Peek at the tiers in ⚙️ → 👑 Membership.",
+  },
+  {
     title: "v0.199 — Founder group + a wardrobe",
     body: "Two more Founder perks are wired up. A /founder command on our Telegram bot verifies your NFT and hands you a private, one-time invite to the holders-only group. And the Membership screen now shows the full Founder wardrobe — a set of holder-exclusive character skins you unlock by holding, with more on the way as their art lands. Both are cosmetic and community only; the game stays free and there's still zero pay-to-win.",
   },

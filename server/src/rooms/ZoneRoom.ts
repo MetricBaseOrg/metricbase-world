@@ -1996,7 +1996,10 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       void syncNftHolder(player.name, wallet)
         .then((status) => {
           const current = this.state.players.get(client.sessionId);
-          if (current && this.pidOf(current) === joinPid) current.nftHolder = status.holder;
+          if (current && this.pidOf(current) === joinPid) {
+            current.nftHolder = status.holder;
+            current.nftTier = status.tierKey ?? "";
+          }
         })
         .catch(() => {});
     }
@@ -2228,7 +2231,10 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         try {
           const status = await syncNftHolder(player.name, wallet);
           const current = room.state.players.get(sessionId);
-          if (current) current.nftHolder = status.holder;
+          if (current) {
+            current.nftHolder = status.holder;
+            current.nftTier = status.tierKey ?? "";
+          }
         } catch {
           /* holder resync is best-effort */
         }

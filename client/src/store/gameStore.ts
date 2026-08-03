@@ -17,6 +17,9 @@ interface GameStore {
   /** Local player holds a MetricBase NFT (cosmetic status only). */
   nftHolder: boolean;
   setNftHolder: (holder: boolean) => void;
+  /** Highest membership tier key held ("" when none). */
+  nftTier: string;
+  setNftTier: (tier: string) => void;
   playerLevel: number;
   playerXp: number;
   woodcuttingLevel: number;
@@ -243,6 +246,7 @@ export const useGameStore = create<GameStore>((set) => ({
   playerName: "Traveler",
   characterAppearance: null,
   nftHolder: false,
+  nftTier: "",
   playerLevel: 1,
   playerXp: 0,
   woodcuttingLevel: 1,
@@ -322,6 +326,7 @@ export const useGameStore = create<GameStore>((set) => ({
   setPlayerName: (name) => set({ playerName: name }),
   setCharacterAppearance: (characterAppearance) => set({ characterAppearance }),
   setNftHolder: (nftHolder) => set({ nftHolder }),
+  setNftTier: (nftTier) => set({ nftTier }),
   setPlayerLevel: (level) => set({ playerLevel: level }),
   setPlayerXp: (xp) => set({ playerXp: xp }),
   setSkillState: (

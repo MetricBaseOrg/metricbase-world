@@ -115,6 +115,8 @@ export interface RemotePlayer {
   hauling: boolean;
   /** Holds a MetricBase NFT — drives the 👑 nameplate badge. Cosmetic only. */
   nftHolder: boolean;
+  /** Highest membership tier key held ("" when none) — picks the tier badge. */
+  nftTier: string;
 }
 
 export interface ItemUsedPayload {
@@ -2686,6 +2688,7 @@ export class NetworkManager {
       stamina: Number((player as any).stamina) || 0,
       hauling: Boolean((player as any).hauling),
       nftHolder: Boolean((player as any).nftHolder),
+      nftTier: String((player as any).nftTier ?? ""),
       appearance: normalizeCharacterAppearance({
         bodyColor: player.bodyColor,
         hairColor: player.hairColor,

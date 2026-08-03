@@ -1,4 +1,5 @@
 import { PublicKey } from "@solana/web3.js";
+import { NFT_TIER_TRAIT, highestTier, tierFromAttribute } from "@metricbase/shared";
 
 // Holder detection for the MetricBase NFT collection (Phase 1 membership drop).
 //
@@ -18,6 +19,8 @@ const HOLDER_TTL_MS = 30 * 60 * 1000;
 
 interface HolderEntry {
   count: number;
+  /** Highest tier key held, or null when not a holder. */
+  tierKey: string | null;
   at: number;
 }
 const holderCache = new Map<string, HolderEntry>();
@@ -51,10 +54,18 @@ export function isNftConfigured(): boolean {
 
 interface DasAsset {
   grouping?: { group_key: string; group_value: string }[];
+  content?: { metadata?: { attributes?: { trait_type?: string; value?: string }[] } };
 }
 interface DasAssetList {
   items?: DasAsset[];
   total?: number;
+}
+
+/** Read the tier attribute off one asset's metadata (empty when unrevealed). */
+function tierValueOf(asset: DasAsset): string {
+  const attrs = asset.content?.metadata?.attributes ?? [];
+  const hit = attrs.find((a) => (a.trait_type ?? "").toLowerCase() === NFT_TIER_TRAIT.toLowerCase());
+  return hit?.value ?? "";
 }
 
 async function dasCall<T>(rpcUrl: string, method: string, params: unknown): Promise<T> {
@@ -79,25 +90,30 @@ async function dasCall<T>(rpcUrl: string, method: string, params: unknown): Prom
 }
 
 /**
- * How many NFTs from the configured collection a wallet holds, uncached.
- * Returns 0 on any failure — a holder we can't verify right now is treated as a
- * non-holder for perks (fail-closed cosmetics, never fail-open power, and there
- * is no power here anyway). Paginates defensively but a normal wallet holds a
- * handful, so one page is the common case.
+ * Collection NFTs a wallet holds, with the highest TIER among them, uncached.
+ * Returns { count: 0, tierKey: null } on any failure — a holder we can't verify
+ * right now is treated as a non-holder for perks (fail-closed cosmetics, never
+ * fail-open power, and there is no power here anyway). Paginates defensively but
+ * a normal wallet holds a handful, so one page is the common case.
+ *
+ * Tier comes from each asset's on-chain Tier attribute; an unrevealed / missing
+ * value falls back to the base tier (see tierFromAttribute), so pre-reveal
+ * holders still count and get a crown.
  */
-async function fetchHeldCount(wallet: string): Promise<number> {
+async function fetchHolding(wallet: string): Promise<{ count: number; tierKey: string | null }> {
   const rpcUrl = getDasRpcUrl();
   const collection = getCollectionAddress();
-  if (!rpcUrl || !collection) return 0;
+  if (!rpcUrl || !collection) return { count: 0, tierKey: null };
 
   let owner: string;
   try {
     owner = new PublicKey(wallet).toBase58();
   } catch {
-    return 0;
+    return { count: 0, tierKey: null };
   }
 
   let held = 0;
+  const tierKeys: string[] = [];
   for (let page = 1; page <= 10; page++) {
     const list = await dasCall<DasAssetList>(rpcUrl, "getAssetsByOwner", {
       ownerAddress: owner,
@@ -109,35 +125,46 @@ async function fetchHeldCount(wallet: string): Promise<number> {
       const inCollection = (asset.grouping ?? []).some(
         (g) => g.group_key === "collection" && g.group_value === collection,
       );
-      if (inCollection) held++;
+      if (!inCollection) continue;
+      held++;
+      tierKeys.push(tierFromAttribute(tierValueOf(asset)).key);
     }
     if (items.length < 1000) break; // last page
   }
-  return held;
+  return { count: held, tierKey: held > 0 ? (highestTier(tierKeys)?.key ?? null) : null };
 }
 
-/**
- * Cached count of collection NFTs held by a wallet. Refreshes past HOLDER_TTL_MS.
- * On an RPC error the last known value is kept (or 0 if never fetched).
- */
-export async function heldNftCount(wallet: string): Promise<number> {
-  if (!isNftConfigured()) return 0;
+/** Cached holding (count + highest tier). Refreshes past HOLDER_TTL_MS; on an
+ *  RPC error the last known value is kept. */
+async function heldHolding(wallet: string): Promise<{ count: number; tierKey: string | null }> {
+  if (!isNftConfigured()) return { count: 0, tierKey: null };
   const now = Date.now();
   const cached = holderCache.get(wallet);
-  if (cached && now - cached.at < HOLDER_TTL_MS) return cached.count;
+  if (cached && now - cached.at < HOLDER_TTL_MS) return { count: cached.count, tierKey: cached.tierKey };
   try {
-    const count = await fetchHeldCount(wallet);
-    holderCache.set(wallet, { count, at: now });
-    return count;
+    const holding = await fetchHolding(wallet);
+    holderCache.set(wallet, { ...holding, at: now });
+    return holding;
   } catch (error) {
     console.warn(`[nft] holder lookup failed for ${wallet}: ${(error as Error).message}`);
-    return cached?.count ?? 0;
+    return cached ? { count: cached.count, tierKey: cached.tierKey } : { count: 0, tierKey: null };
   }
+}
+
+/** Cached count of collection NFTs held by a wallet. */
+export async function heldNftCount(wallet: string): Promise<number> {
+  return (await heldHolding(wallet)).count;
+}
+
+/** Highest tier key a wallet holds, or null when it holds none. */
+export async function holderTierKey(wallet: string | null | undefined): Promise<string | null> {
+  if (!wallet) return null;
+  return (await heldHolding(wallet)).tierKey;
 }
 
 export async function isHolder(wallet: string | null | undefined): Promise<boolean> {
   if (!wallet) return false;
-  return (await heldNftCount(wallet)) > 0;
+  return (await heldHolding(wallet)).count > 0;
 }
 
 /** Drop a wallet's cached result so the next check re-reads the chain. */

@@ -37,6 +37,9 @@ export const PlayerSchema = schema({
    *  badge only, never any gameplay effect. Set on join + the maintenance sweep
    *  (see nft/holderSync.ts); false for everyone when the NFT layer is off. */
   nftHolder: "boolean",
+  /** Highest membership tier key held ("" when not a holder) — drives the
+   *  tier badge/colour on the nameplate. Cosmetic only. */
+  nftTier: "string",
 });
 
 export type Player = InstanceType<typeof PlayerSchema>;

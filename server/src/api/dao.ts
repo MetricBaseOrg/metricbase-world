@@ -11,7 +11,6 @@ import {
   DAO_MIN_DURATION_DAYS,
   DAO_MIN_OPTIONS,
   DAO_MIN_VOTE_BALANCE,
-  DAO_NFT_HOLDER_WEIGHT_BONUS,
   DAO_MAX_DELEGATORS_COUNTED,
   DAO_OPTION_MAX,
   DAO_TITLE_MAX,
@@ -27,32 +26,33 @@ import { loadCharacterByWallet } from "../db/characters.js";
 import { getPool } from "../db/pool.js";
 import { getGuildForMember } from "../guild/guildRegistry.js";
 import { getWalletTokenBalance } from "../solana/tokenBalance.js";
-import { isHolder } from "../solana/playerHeldNfts.js";
+import { holderTierKey } from "../solana/playerHeldNfts.js";
+import { nftTierByKey } from "@metricbase/shared";
 
 export const daoRouter = Router();
 
-/** Configured NFT-holder voting-weight bonus (env override; 0 disables). */
-function holderWeightBonusAmount(): number {
-  const raw = process.env.DAO_NFT_HOLDER_WEIGHT_BONUS;
-  if (raw !== undefined) {
-    const n = Number(raw);
-    return Number.isFinite(n) && n >= 0 ? n : 0;
-  }
-  return DAO_NFT_HOLDER_WEIGHT_BONUS;
-}
-
 /**
  * Extra voting weight a wallet earns as an NFT holder — added on top of its
- * $BASE balance. Zero when the wallet isn't a holder, the NFT layer is off, or
- * the bonus is configured to 0. Never gates: the $BASE threshold is checked
- * against the raw balance elsewhere, so this only amplifies an already-eligible
- * vote.
+ * $BASE balance, and SCALED BY TIER (see NFT_TIERS). Zero when the wallet isn't
+ * a holder or the NFT layer is off. A flat env override
+ * (DAO_NFT_HOLDER_WEIGHT_BONUS) forces one value for every tier (0 disables the
+ * whole thing). Never gates: the $BASE threshold is checked against the raw
+ * balance elsewhere, so this only amplifies an already-eligible vote.
  */
 async function holderVoteBonus(wallet: string): Promise<number> {
-  const bonus = holderWeightBonusAmount();
-  if (bonus <= 0) return 0;
+  const override = process.env.DAO_NFT_HOLDER_WEIGHT_BONUS;
+  if (override !== undefined) {
+    const n = Number(override);
+    if (!Number.isFinite(n) || n <= 0) return 0;
+    try {
+      return (await holderTierKey(wallet)) ? n : 0;
+    } catch {
+      return 0;
+    }
+  }
   try {
-    return (await isHolder(wallet)) ? bonus : 0;
+    const tier = nftTierByKey(await holderTierKey(wallet));
+    return tier?.daoWeightBonus ?? 0;
   } catch {
     return 0;
   }

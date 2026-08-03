@@ -43,6 +43,7 @@ import {
   SIEGE_ATTACK_RANGE,
   AD_SLOTS,
   billboardSlotForZone,
+  nftTierByKey,
   type AdServedCreative,
 } from "@metricbase/shared";
 import {
@@ -218,7 +219,8 @@ function nameplateText(player: RemotePlayer): string {
   if (player.spectator) {
     return `[SPECTATOR] ${player.name}`;
   }
-  const holder = player.nftHolder ? "👑 " : "";
+  const tierBadge = player.nftTier ? nftTierByKey(player.nftTier)?.badge : null;
+  const holder = tierBadge ? `${tierBadge} ` : player.nftHolder ? "👑 " : "";
   const base = player.guildTag ? `${holder}[${player.guildTag}] ${player.name}` : `${holder}${player.name}`;
   const tier = useGameStore.getState().zoneDangerTier;
   const showCargo = player.hauling && (tier === "red" || tier === "black");
@@ -1717,6 +1719,7 @@ export class GameScene extends Phaser.Scene {
       stamina: 0,
       hauling: false,
       nftHolder: false,
+      nftTier: "",
       x: spawn.x,
       y: spawn.y,
       level: useGameStore.getState().playerLevel,
@@ -1736,10 +1739,13 @@ export class GameScene extends Phaser.Scene {
     const sessionId = networkManager.sessionId ?? player.sessionId;
     this.localSessionId = sessionId;
     this.localSpeedMult = player.speedMult || 1;
-    // Mirror the local player's holder flag to the store so the React
-    // Membership panel can show "you're a holder" without its own on-chain read.
+    // Mirror the local player's holder flag + tier to the store so the React
+    // Membership panel can show status without its own on-chain read.
     if (useGameStore.getState().nftHolder !== player.nftHolder) {
       useGameStore.getState().setNftHolder(player.nftHolder);
+    }
+    if (useGameStore.getState().nftTier !== player.nftTier) {
+      useGameStore.getState().setNftTier(player.nftTier);
     }
 
     if (this.localAvatar) {

@@ -26,7 +26,7 @@ import { getBaseFlows, type BaseFlows } from "../db/baseFlows.js";
 import { getRetention, type Retention } from "../db/retention.js";
 import { getInviteBoard, type InviteBoard } from "../db/invitations.js";
 import { isNftConfigured } from "../solana/playerHeldNfts.js";
-import { NFT_COLLECTION_NAME, NFT_MINT_URL } from "@metricbase/shared";
+import { NFT_COLLECTION_NAME, NFT_MINT_URL, NFT_TIERS } from "@metricbase/shared";
 import { adService, type AdPublicStats } from "../ads/adService.js";
 import { countOpenJobs } from "../jobs/jobRegistry.js";
 
@@ -66,9 +66,16 @@ interface EconomyStats {
   retention: Retention | null;
   inviteBoard: InviteBoard | null;
   /** NFT membership layer. `enabled` is false (and the /stats card hidden) until
-   *  a collection is configured; holders/bonded come from the cached
-   *  characters.nft_holder column, so no RPC runs in the stats path. */
-  nft: { enabled: boolean; name: string; mintUrl: string; holders: number; bonded: number };
+   *  a collection is configured; holders/bonded/byTier come from the cached
+   *  characters.nft_holder/nft_tier columns, so no RPC runs in the stats path. */
+  nft: {
+    enabled: boolean;
+    name: string;
+    mintUrl: string;
+    holders: number;
+    bonded: number;
+    byTier: { key: string; name: string; badge: string; count: number }[];
+  };
   /** On-chain $BASE burn sinks, broken down by feature. */
   burnSinks: {
     blackPasses: number;
@@ -255,6 +262,20 @@ export async function buildStats(): Promise<EconomyStats> {
         scalar("SELECT COUNT(DISTINCT wallet_address) v FROM characters WHERE wallet_address IS NOT NULL"),
       ])
     : [0, 0];
+  const nftByTier: { key: string; name: string; badge: string; count: number }[] = [];
+  if (nftEnabled && pool) {
+    try {
+      const tr = await pool.query<{ nft_tier: string | null; c: string }>(
+        "SELECT nft_tier, COUNT(*) c FROM characters WHERE nft_holder = true GROUP BY nft_tier",
+      );
+      const counts = new Map(tr.rows.map((r) => [r.nft_tier ?? "", Number(r.c)]));
+      for (const t of NFT_TIERS) {
+        nftByTier.push({ key: t.key, name: t.name, badge: t.badge, count: counts.get(t.key) ?? 0 });
+      }
+    } catch {
+      /* tier breakdown is optional */
+    }
+  }
   const ads = await adService.getPublicStats();
   const richest = await getRichestBoard();
   const seasonInfo = currentSeason();
@@ -302,6 +323,7 @@ export async function buildStats(): Promise<EconomyStats> {
       mintUrl: NFT_MINT_URL,
       holders: nftHolders,
       bonded: nftBonded,
+      byTier: nftByTier,
     },
     baseToken: {
       burned: activity["base.burned"] ?? 0,

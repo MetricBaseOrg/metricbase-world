@@ -83,6 +83,9 @@ CREATE UNIQUE INDEX IF NOT EXISTS characters_x_user_id_idx
 ALTER TABLE characters ADD COLUMN IF NOT EXISTS nft_holder BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE characters ADD COLUMN IF NOT EXISTS nft_count INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE characters ADD COLUMN IF NOT EXISTS nft_checked_at TIMESTAMPTZ;
+-- Highest membership tier key held (see NFT_TIERS in shared/src/nft.ts); NULL =
+-- not a holder. Drives the tier badge, tier skins, and the tiered DAO bonus.
+ALTER TABLE characters ADD COLUMN IF NOT EXISTS nft_tier VARCHAR(24);
 
 -- X engagement tasks (Phase 2): admin-posted reply/quote campaigns players
 -- complete for season points. Verified via X's public oEmbed (see api/xTasks).
