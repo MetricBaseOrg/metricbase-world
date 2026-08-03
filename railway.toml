@@ -1,5 +1,12 @@
+# Railway migrated this service off Nixpacks to Railpack (2026-08). With the
+# builder set to NIXPACKS here but forced to Railpack at the service level, the
+# whole [build] block was ignored and Railpack auto-detected a broken command
+# ("pnpm --filter @metricbase/server build" — no install, no shared build), so
+# the server couldn't compile against @metricbase/shared and every deploy FAILED
+# while the last good build kept serving. Matching the builder to RAILPACK makes
+# these explicit commands honoured again.
 [build]
-builder = "NIXPACKS"
+builder = "RAILPACK"
 buildCommand = "pnpm install && pnpm --filter @metricbase/shared build && pnpm --filter @metricbase/server build"
 # The server depends on @metricbase/shared (GAME_VERSION, zone/resource logic),
 # so shared-only changes MUST redeploy. Without this, Railway's default watch
