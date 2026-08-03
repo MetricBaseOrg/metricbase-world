@@ -23,4 +23,6 @@ export interface PlayerProfilePayload {
   pvpRating?: number;
   pvpKills?: number;
   honor?: number;
+  /** Holds a MetricBase NFT — a cosmetic 👑 badge on the profile, nothing more. */
+  nftHolder?: boolean;
 }

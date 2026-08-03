@@ -8,6 +8,7 @@ interface RosterEntry {
   name: string;
   level: number;
   you: boolean;
+  holder: boolean;
 }
 
 export function WhoPanel() {
@@ -20,7 +21,7 @@ export function WhoPanel() {
     const unsubscribe = networkManager.onPlayersChange((list, localId) => {
       setPlayers(
         list
-          .map((p) => ({ name: p.name, level: p.level, you: p.sessionId === localId }))
+          .map((p) => ({ name: p.name, level: p.level, you: p.sessionId === localId, holder: p.nftHolder }))
           .sort((a, b) => b.level - a.level || a.name.localeCompare(b.name)),
       );
     });
@@ -70,6 +71,7 @@ export function WhoPanel() {
                 style={p.you ? undefined : { cursor: "pointer" }}
                 onClick={p.you ? undefined : () => useGameStore.getState().setProfileFor(p.name)}
               >
+                {p.holder ? "👑 " : ""}
                 {p.name}
                 {p.you ? " (you)" : ""}
               </span>

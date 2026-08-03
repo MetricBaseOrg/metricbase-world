@@ -205,6 +205,8 @@ export interface InviteBoardEntry {
   redeemed: number;
   /** Of those, how many invitees reached REFERRAL_QUALIFY_LEVEL. */
   qualified: number;
+  /** Inviter is an NFT holder — a 👑 next to their name. Cosmetic only. */
+  holder: boolean;
 }
 
 export interface InviteBoard {
@@ -234,10 +236,11 @@ export async function getInviteBoard(): Promise<InviteBoard | null> {
 
   try {
     const [board, totals] = await Promise.all([
-      db.query<{ name: string; redeemed: string; qualified: string }>(
+      db.query<{ name: string; redeemed: string; qualified: string; holder: boolean }>(
         `SELECT c.name AS name,
                 COUNT(*) AS redeemed,
-                COUNT(*) FILTER (WHERE ic.level >= $1) AS qualified
+                COUNT(*) FILTER (WHERE ic.level >= $1) AS qualified,
+                bool_or(c.nft_holder) AS holder
            FROM invitations i
            JOIN characters c ON c.wallet_address = i.inviter_wallet
            LEFT JOIN characters ic ON ic.wallet_address = i.invitee_wallet
@@ -264,6 +267,7 @@ export async function getInviteBoard(): Promise<InviteBoard | null> {
         name: r.name,
         redeemed: Number(r.redeemed),
         qualified: Number(r.qualified),
+        holder: Boolean(r.holder),
       })),
       totalRedeemed: Number(t?.redeemed ?? 0),
       totalQualified: Number(t?.qualified ?? 0),

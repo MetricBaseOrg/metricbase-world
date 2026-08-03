@@ -88,9 +88,15 @@ export function PlayerProfilePanel() {
               </div>
               <div style={{ minWidth: 0 }}>
                 <div style={{ fontWeight: 900, fontSize: "1.05rem", overflowWrap: "anywhere" }}>
+                  {profile.nftHolder ? "👑 " : ""}
                   {profile.guildTag ? `[${profile.guildTag}] ` : ""}
                   {profile.name}
                 </div>
+                {profile.nftHolder && (
+                  <div style={{ fontSize: "0.72rem", fontWeight: 700, marginTop: 2, color: "#c99a12" }}>
+                    👑 Founder — NFT holder
+                  </div>
+                )}
                 <div style={{ fontSize: "0.78rem", fontWeight: 700, marginTop: 2 }}>
                   <span style={{ color: profile.online ? "#2a8c5c" : "#9aa7b0" }}>
                     {profile.online ? "🟢 Online" : "⚪ Offline"}

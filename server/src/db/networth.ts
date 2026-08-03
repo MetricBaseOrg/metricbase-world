@@ -208,6 +208,8 @@ export interface RichestEntry {
   netWorth: number;
   /** Change vs the latest prior-day snapshot this season; null = no baseline yet. */
   change: number | null;
+  /** NFT holder — a 👑 next to the name. Cosmetic recognition only. */
+  holder?: boolean;
 }
 
 export interface RichestBoard {
@@ -248,12 +250,31 @@ export async function getRichestBoard(limit = 10): Promise<RichestBoard> {
     } catch {
       /* table may not exist yet — every entry just shows "new" */
     }
+    // NFT holders among the top names → a 👑 on the board. One indexed query.
+    const holders = new Set<string>();
+    try {
+      const names = top.map((r) => r.name);
+      if (names.length) {
+        const hr = await pool.query<{ name: string }>(
+          "SELECT name FROM characters WHERE nft_holder = true AND name = ANY($1)",
+          [names],
+        );
+        for (const r of hr.rows) holders.add(r.name);
+      }
+    } catch {
+      /* holder flair is optional — never block the board on it */
+    }
     boardCache = {
       season: season + 1,
       day: daysSinceLaunch(now),
       entries: top.map((row) => {
         const prev = baseline.get(row.key);
-        return { name: row.name, netWorth: row.netWorth, change: prev === undefined ? null : row.netWorth - prev };
+        return {
+          name: row.name,
+          netWorth: row.netWorth,
+          change: prev === undefined ? null : row.netWorth - prev,
+          holder: holders.has(row.name),
+        };
       }),
     };
     boardCachedAt = now;

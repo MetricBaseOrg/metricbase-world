@@ -346,6 +346,23 @@ async function findExistingNameCI(name: string): Promise<string | null> {
   return result.rowCount ? result.rows[0].name : null;
 }
 
+/** Cached NFT-holder flag for a character, for the profile badge on OFFLINE
+ *  players (online players read the live schema flag instead). Cheap indexed
+ *  read; false on any miss or when the NFT layer is off. */
+export async function isHolderByName(name: string): Promise<boolean> {
+  const db = getPool();
+  if (!db) return false;
+  try {
+    const r = await db.query<{ nft_holder: boolean }>(
+      "SELECT nft_holder FROM characters WHERE name = $1 LIMIT 1",
+      [name],
+    );
+    return Boolean(r.rows[0]?.nft_holder);
+  } catch {
+    return false;
+  }
+}
+
 export class CharacterBindingError extends Error {
   constructor(
     message: string,

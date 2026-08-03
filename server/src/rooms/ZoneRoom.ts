@@ -280,6 +280,7 @@ import { getMinTokenUiAmount, isTokenGateEnabled } from "../auth/tokenGate.js";
 import {
   CharacterBindingError,
   loadCharacterByName,
+  isHolderByName,
   loadCharacterByWallet,
   renameCharacter,
   resolveCharacterForJoin,
@@ -8034,6 +8035,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       pvpRating: record.pvpRating,
       pvpKills: record.pvpKills,
       honor: record.honor,
+      nftHolder: live?.nftHolder ?? (await isHolderByName(record.name)),
     } satisfies PlayerProfilePayload);
   }
 

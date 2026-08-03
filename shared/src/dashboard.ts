@@ -11,6 +11,10 @@ export const MOTTO_MAX_LENGTH = 80;
  */
 export const DASHBOARD_UPDATES: Array<{ title: string; body: string }> = [
   {
+    title: "v0.199 — Founders get their crown, everywhere",
+    body: "NFT holders now wear a 👑 wherever the game shows people: on their name tag in the world, in the who's-online list, on their profile, and next to their name on the public Richest and Invites leaderboards. It's pure recognition — still no gameplay power of any kind. Non-holders lose nothing; this just gives the people backing the world a little shine.",
+  },
+  {
     title: "v0.198 — Founder membership is coming",
     body: "We're adding an optional NFT membership on Solana — a collectible that grants status and cosmetics, and nothing else. Holders get a 👑 badge on their name and a holder-only character skin. That's the whole deal: no yield, no damage, no XP, no economic edge, and the game stays completely free to play whether or not you ever hold one. Open ⚙️ → 👑 Membership to see what's coming; the collection goes live soon.",
   },

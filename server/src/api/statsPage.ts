@@ -597,7 +597,7 @@ async function load(){
         : "—");
       tb.innerHTML=(ib.entries||[]).map(function(x,i){
         var rk=i<3?["🥇","🥈","🥉"][i]:"#"+(i+1);
-        return '<tr><td class="nm"><span class="rk">'+rk+'</span>'+esc(x.name)+'</td><td>'+fmt(x.redeemed)+'</td><td class="gold">'+fmt(x.qualified)+'</td></tr>';
+        return '<tr><td class="nm"><span class="rk">'+rk+'</span>'+(x.holder?'👑 ':'')+esc(x.name)+'</td><td>'+fmt(x.redeemed)+'</td><td class="gold">'+fmt(x.qualified)+'</td></tr>';
       }).join("")||empty;
     })();
 
@@ -748,7 +748,7 @@ async function load(){
           :x.change>0?'<span class="up">▲ +'+kfmt(x.change)+'g</span>'
           :x.change<0?'<span class="down">▼ −'+kfmt(-x.change)+'g</span>'
           :'<span class="flat">＝</span>';
-        return '<tr><td class="nm"><span class="rk">'+rk+'</span>'+esc(x.name)+'</td><td title="'+fmt(x.netWorth)+'g">'+fmt(x.netWorth)+'g</td><td>'+ch+'</td></tr>';
+        return '<tr><td class="nm"><span class="rk">'+rk+'</span>'+(x.holder?'👑 ':'')+esc(x.name)+'</td><td title="'+fmt(x.netWorth)+'g">'+fmt(x.netWorth)+'g</td><td>'+ch+'</td></tr>';
       }).join("")||'<tr><td colspan="3" class="base">Nothing here yet 🌱</td></tr>';
     })();
 
