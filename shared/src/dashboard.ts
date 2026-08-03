@@ -11,6 +11,10 @@ export const MOTTO_MAX_LENGTH = 80;
  */
 export const DASHBOARD_UPDATES: Array<{ title: string; body: string }> = [
   {
+    title: "v0.198 — Founder membership is coming",
+    body: "We're adding an optional NFT membership on Solana — a collectible that grants status and cosmetics, and nothing else. Holders get a 👑 badge on their name and a holder-only character skin. That's the whole deal: no yield, no damage, no XP, no economic edge, and the game stays completely free to play whether or not you ever hold one. Open ⚙️ → 👑 Membership to see what's coming; the collection goes live soon.",
+  },
+  {
     title: "v0.197 — The invite leaderboard is public",
     body: "The public stats page now has a 🤝 Invites section: who has brought the most players into MetricBase World, how many invites have been redeemed all time, and how many of those players actually got going. It ranks by the second number, not the first — a referral only counts once the player you invited reaches level 3, which is the same rule that decides season points. Handing out codes is easy; bringing in someone who stays is the part worth showing off. Find it at world.metricbase.org/stats.",
   },

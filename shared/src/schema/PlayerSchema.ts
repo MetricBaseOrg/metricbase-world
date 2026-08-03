@@ -33,6 +33,10 @@ export const PlayerSchema = schema({
    * zones (where the cargo drops on death), so haulers can be escorted or
    * intercepted. Reconciled with the active-run registry each tick. */
   hauling: "boolean",
+  /** Holds an NFT from the MetricBase collection — a cosmetic 👑 nameplate
+   *  badge only, never any gameplay effect. Set on join + the maintenance sweep
+   *  (see nft/holderSync.ts); false for everyone when the NFT layer is off. */
+  nftHolder: "boolean",
 });
 
 export type Player = InstanceType<typeof PlayerSchema>;

@@ -258,6 +258,11 @@ void setupTelegramBot();
 void captureNetWorthSnapshot();
 setInterval(() => void captureNetWorthSnapshot(), MAINTENANCE_INTERVAL_MS).unref();
 
+// Re-check NFT holder status for online players so a mid-session buy/sell
+// reflects without a reconnect. Cosmetic-only + cached + inert when the NFT
+// layer isn't configured, so it rides the same slow maintenance cadence.
+setInterval(() => void ZoneRoom.resyncNftHolders(), MAINTENANCE_INTERVAL_MS).unref();
+
 // Pay referrers whose invitee has actually started playing (see
 // sweepQualifiedReferrals — anti-farming, idempotent via rewarded_at).
 //

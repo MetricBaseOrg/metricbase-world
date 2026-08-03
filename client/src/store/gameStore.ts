@@ -14,6 +14,9 @@ import { create } from "zustand";
 interface GameStore {
   playerName: string;
   characterAppearance: CharacterAppearance | null;
+  /** Local player holds a MetricBase NFT (cosmetic status only). */
+  nftHolder: boolean;
+  setNftHolder: (holder: boolean) => void;
   playerLevel: number;
   playerXp: number;
   woodcuttingLevel: number;
@@ -109,8 +112,10 @@ interface GameStore {
   shop: ShopOpenPayload | null;
   shopOpen: boolean;
   invitationsOpen: boolean;
+  membershipOpen: boolean;
   spectator: boolean;
   setInvitationsOpen: (open: boolean) => void;
+  setMembershipOpen: (open: boolean) => void;
   setSpectator: (spectator: boolean) => void;
   setPlayerName: (name: string) => void;
   setCharacterAppearance: (appearance: CharacterAppearance | null) => void;
@@ -227,6 +232,7 @@ export function isAnyPanelOpen(s: GameStore): boolean {
     s.playerShopOpen ||
     s.shopOpen ||
     s.invitationsOpen ||
+    s.membershipOpen ||
     s.cropMarketOpen !== null ||
     s.profileFor !== null ||
     s.adminOpen
@@ -236,6 +242,7 @@ export function isAnyPanelOpen(s: GameStore): boolean {
 export const useGameStore = create<GameStore>((set) => ({
   playerName: "Traveler",
   characterAppearance: null,
+  nftHolder: false,
   playerLevel: 1,
   playerXp: 0,
   woodcuttingLevel: 1,
@@ -310,9 +317,11 @@ export const useGameStore = create<GameStore>((set) => ({
   shop: null,
   shopOpen: false,
   invitationsOpen: false,
+  membershipOpen: false,
   spectator: false,
   setPlayerName: (name) => set({ playerName: name }),
   setCharacterAppearance: (characterAppearance) => set({ characterAppearance }),
+  setNftHolder: (nftHolder) => set({ nftHolder }),
   setPlayerLevel: (level) => set({ playerLevel: level }),
   setPlayerXp: (xp) => set({ playerXp: xp }),
   setSkillState: (
@@ -445,5 +454,6 @@ export const useGameStore = create<GameStore>((set) => ({
   setShop: (shop) => set({ shop }),
   setShopOpen: (shopOpen) => set({ shopOpen }),
   setInvitationsOpen: (invitationsOpen) => set({ invitationsOpen }),
+  setMembershipOpen: (membershipOpen) => set({ membershipOpen }),
   setSpectator: (spectator) => set({ spectator }),
 }));

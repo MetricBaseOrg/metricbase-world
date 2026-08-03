@@ -439,6 +439,11 @@ export function TopBar({ onLeave }: TopBarProps) {
             ✉️ Invite Friends
           </button>
 
+          <button type="button" className="chibi-btn chibi-btn--secondary" style={{ width: "100%", marginTop: 8, padding: "8px 10px" }}
+            onClick={() => { playSfx("ui_open"); useGameStore.getState().setMembershipOpen(true); setMenuOpen(false); }}>
+            👑 Membership
+          </button>
+
           {/* Wallet players only — a `tg:` account IS the Telegram side and has
               nothing to link. Lives here because the redemption step was
               otherwise only on /dashboard, which is unreachable on mobile. */}

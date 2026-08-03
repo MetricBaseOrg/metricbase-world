@@ -66,6 +66,7 @@ import { LeaderboardPanel } from "./ui/LeaderboardPanel";
 import { GuildPanel } from "./ui/GuildPanel";
 import { PartyPanel } from "./ui/PartyPanel";
 import { InvitationsModal } from "./ui/InvitationsModal";
+import { MembershipPanel } from "./ui/MembershipPanel";
 
 export function App() {
   const [joined, setJoined] = useState(false);
@@ -87,6 +88,8 @@ export function App() {
     setSkillState,
     invitationsOpen,
     setInvitationsOpen,
+    membershipOpen,
+    setMembershipOpen,
     worldEditing,
   } = useGameStore();
   const panelOpen = useGameStore(isAnyPanelOpen);
@@ -453,6 +456,7 @@ export function App() {
       {joined && <TouchControls />}
       {joined && <DeathOverlay />}
       {joined && invitationsOpen && <InvitationsModal onClose={() => setInvitationsOpen(false)} />}
+      {joined && membershipOpen && <MembershipPanel onClose={() => setMembershipOpen(false)} />}
       {!joined && <LoginOverlay onJoin={handleJoin} />}
     </div>
   );

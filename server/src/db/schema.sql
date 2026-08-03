@@ -76,6 +76,14 @@ ALTER TABLE characters ADD COLUMN IF NOT EXISTS x_reward_awarded BOOLEAN NOT NUL
 CREATE UNIQUE INDEX IF NOT EXISTS characters_x_user_id_idx
   ON characters (x_user_id) WHERE x_user_id IS NOT NULL;
 
+-- NFT community layer (Phase 1). Cached holder status for the bonded wallet, so
+-- the nameplate badge + holder skins don't need an RPC call on every render.
+-- Refreshed on join and on the hourly-ish maintenance sweep. Cosmetics granted
+-- to holders reuse the player_skins table below (holder-only skin ids).
+ALTER TABLE characters ADD COLUMN IF NOT EXISTS nft_holder BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE characters ADD COLUMN IF NOT EXISTS nft_count INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE characters ADD COLUMN IF NOT EXISTS nft_checked_at TIMESTAMPTZ;
+
 -- X engagement tasks (Phase 2): admin-posted reply/quote campaigns players
 -- complete for season points. Verified via X's public oEmbed (see api/xTasks).
 CREATE TABLE IF NOT EXISTS x_tasks (

@@ -221,6 +221,25 @@ export async function grantSkin(playerName: string, skinId: string): Promise<voi
   }
 }
 
+/**
+ * Remove skins a player no longer qualifies for (e.g. sold the NFT that granted
+ * a holder-only skin). Only ever called with holder-exclusive skin ids, which
+ * live in their own namespace and can't be won any other way — so this can't
+ * strip a cosmetic someone earned from a chest.
+ */
+export async function revokeSkins(playerName: string, skinIds: string[]): Promise<void> {
+  const pool = getPool();
+  if (!pool || skinIds.length === 0) return;
+  try {
+    await pool.query(
+      "DELETE FROM player_skins WHERE player_name = $1 AND skin_id = ANY($2)",
+      [playerName, skinIds],
+    );
+  } catch (error) {
+    console.warn("[nft] revoke skins failed:", error);
+  }
+}
+
 export async function loadOwnedSkins(playerName: string): Promise<string[]> {
   const pool = getPool();
   if (!pool) return [];

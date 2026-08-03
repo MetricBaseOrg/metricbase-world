@@ -528,6 +528,8 @@ import {
 } from "../db/seasonStake.js";
 import { getXStatus } from "../db/xLink.js";
 import { hasPostedFor, isPostUrlUsed, recordSeasonPost } from "../db/seasonPost.js";
+import { syncNftHolder } from "../nft/holderSync.js";
+import { isNftConfigured } from "../solana/playerHeldNfts.js";
 import {
   bumpPendingChestAttempt,
   claimChestOpen,
@@ -1984,6 +1986,20 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     this.mobGoldClaimed.set(this.pidOf(player), saved?.mobGoldClaimed ?? {});
     this.playerSkills.set(this.pidOf(player), normalizeSkills(saved?.skills));
 
+    // NFT holder status → cosmetic 👑 badge only. Fire-and-forget: an on-chain
+    // read must never sit in the join path. Reconciles the public flag + holder
+    // skins when it resolves, if the player is still here. Inert (instant false)
+    // when the NFT layer isn't configured.
+    if (wallet && !player.spectator) {
+      const joinPid = this.pidOf(player);
+      void syncNftHolder(player.name, wallet)
+        .then((status) => {
+          const current = this.state.players.get(client.sessionId);
+          if (current && this.pidOf(current) === joinPid) current.nftHolder = status.holder;
+        })
+        .catch(() => {});
+    }
+
     this.sendProfile(client, player);
     this.sendQuestState(client, player.name);
     this.sendInventory(client, player.name);
@@ -2192,6 +2208,31 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     const succeeded = results.filter((r) => r.status === "fulfilled").length;
     const failed = results.filter((r) => r.status === "rejected").length;
     console.log(`[Autosave] Persistence complete. Succeeded: ${succeeded}, Failed: ${failed}.`);
+  }
+
+  /**
+   * Re-check NFT holder status for every online wallet-bonded player, so a
+   * buy/sell mid-session eventually reflects without a reconnect. Called on the
+   * hourly-ish maintenance sweep, never faster (holder detection is cached and
+   * this is cosmetic — see MAINTENANCE_INTERVAL_MS). No-op when the NFT layer
+   * isn't configured.
+   */
+  public static async resyncNftHolders(): Promise<void> {
+    if (!isNftConfigured()) return;
+    for (const room of ZoneRoom.activeRooms) {
+      for (const [sessionId, player] of room.state.players.entries()) {
+        if (player.spectator) continue;
+        const wallet = room.playerWallets.get(sessionId);
+        if (!wallet) continue;
+        try {
+          const status = await syncNftHolder(player.name, wallet);
+          const current = room.state.players.get(sessionId);
+          if (current) current.nftHolder = status.holder;
+        } catch {
+          /* holder resync is best-effort */
+        }
+      }
+    }
   }
 
   private buildWorldStats(): WorldStatsPayload {

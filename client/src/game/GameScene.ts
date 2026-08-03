@@ -218,7 +218,8 @@ function nameplateText(player: RemotePlayer): string {
   if (player.spectator) {
     return `[SPECTATOR] ${player.name}`;
   }
-  const base = player.guildTag ? `[${player.guildTag}] ${player.name}` : player.name;
+  const holder = player.nftHolder ? "👑 " : "";
+  const base = player.guildTag ? `${holder}[${player.guildTag}] ${player.name}` : `${holder}${player.name}`;
   const tier = useGameStore.getState().zoneDangerTier;
   const showCargo = player.hauling && (tier === "red" || tier === "black");
   return showCargo ? `${base} 📦` : base;
@@ -1715,6 +1716,7 @@ export class GameScene extends Phaser.Scene {
       maxHp: 0,
       stamina: 0,
       hauling: false,
+      nftHolder: false,
       x: spawn.x,
       y: spawn.y,
       level: useGameStore.getState().playerLevel,
@@ -1734,6 +1736,11 @@ export class GameScene extends Phaser.Scene {
     const sessionId = networkManager.sessionId ?? player.sessionId;
     this.localSessionId = sessionId;
     this.localSpeedMult = player.speedMult || 1;
+    // Mirror the local player's holder flag to the store so the React
+    // Membership panel can show "you're a holder" without its own on-chain read.
+    if (useGameStore.getState().nftHolder !== player.nftHolder) {
+      useGameStore.getState().setNftHolder(player.nftHolder);
+    }
 
     if (this.localAvatar) {
       const existing = this.localAvatar;

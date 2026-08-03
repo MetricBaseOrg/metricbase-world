@@ -25,6 +25,8 @@ import { getPlayerHeldBase } from "../solana/playerHeldBase.js";
 import { getBaseFlows, type BaseFlows } from "../db/baseFlows.js";
 import { getRetention, type Retention } from "../db/retention.js";
 import { getInviteBoard, type InviteBoard } from "../db/invitations.js";
+import { isNftConfigured } from "../solana/playerHeldNfts.js";
+import { NFT_COLLECTION_NAME, NFT_MINT_URL } from "@metricbase/shared";
 import { adService, type AdPublicStats } from "../ads/adService.js";
 import { countOpenJobs } from "../jobs/jobRegistry.js";
 
@@ -63,6 +65,10 @@ interface EconomyStats {
   baseFlows: BaseFlows | null;
   retention: Retention | null;
   inviteBoard: InviteBoard | null;
+  /** NFT membership layer. `enabled` is false (and the /stats card hidden) until
+   *  a collection is configured; holders/bonded come from the cached
+   *  characters.nft_holder column, so no RPC runs in the stats path. */
+  nft: { enabled: boolean; name: string; mintUrl: string; holders: number; bonded: number };
   /** On-chain $BASE burn sinks, broken down by feature. */
   burnSinks: {
     blackPasses: number;
@@ -242,6 +248,13 @@ export async function buildStats(): Promise<EconomyStats> {
   const baseFlows = await getBaseFlows();
   const retention = await getRetention();
   const inviteBoard = await getInviteBoard();
+  const nftEnabled = isNftConfigured();
+  const [nftHolders, nftBonded] = nftEnabled
+    ? await Promise.all([
+        scalar("SELECT COUNT(*) v FROM characters WHERE nft_holder = true"),
+        scalar("SELECT COUNT(DISTINCT wallet_address) v FROM characters WHERE wallet_address IS NOT NULL"),
+      ])
+    : [0, 0];
   const ads = await adService.getPublicStats();
   const richest = await getRichestBoard();
   const seasonInfo = currentSeason();
@@ -283,6 +296,13 @@ export async function buildStats(): Promise<EconomyStats> {
     baseFlows,
     retention,
     inviteBoard,
+    nft: {
+      enabled: nftEnabled,
+      name: NFT_COLLECTION_NAME,
+      mintUrl: NFT_MINT_URL,
+      holders: nftHolders,
+      bonded: nftBonded,
+    },
     baseToken: {
       burned: activity["base.burned"] ?? 0,
       heldByPlayers: playerHeld?.totalHeld ?? 0,

@@ -232,6 +232,14 @@ export const STATS_PAGE_HTML = `<!doctype html>
     </div>
   </section>
 
+  <section id="membership" style="display:none">
+    <div class="sec"><span class="em">👑</span><h2>NFT Membership</h2></div>
+    <div class="grid">
+      <div class="card"><h2>👑 Holders</h2><div class="big gold" id="nftHolders">—</div><div class="sub"><span id="nftPct">—</span> of wallet players hold <span id="nftName">—</span></div></div>
+      <div class="card"><h2>🎨 What it grants</h2><div class="sub" style="margin-bottom:10px">A holder-only character skin and a 👑 nameplate badge. Status and cosmetics only — never yield, damage, XP, or any economic edge. Entry to the game stays free for everyone.</div><a id="nftMint" class="share-x" style="margin-top:0" href="#" target="_blank" rel="noopener noreferrer">👑 View the collection</a></div>
+    </div>
+  </section>
+
   <section id="token">
     <div class="sec"><span class="em">🪙</span><h2>$BASE Token</h2></div>
     <div class="grid">
@@ -558,6 +566,20 @@ async function load(){
         return {k:"Week of "+w.week,v:fmt(w.players)+" new"};
       }),rowHtml);
     }
+
+    // ---- NFT membership (only shown once a collection is configured) ----
+    (function(){
+      var n=s.nft;
+      var sec=el("membership");
+      if(!sec) return;
+      if(!n||!n.enabled){sec.style.display="none";return;}
+      sec.style.display="";
+      setBig("nftHolders",n.holders,"");
+      set("nftPct",n.bonded>0?Math.round(n.holders/n.bonded*100)+"%":"0%");
+      set("nftName",esc(n.name||"the collection"));
+      var a=el("nftMint");
+      if(a){ if(n.mintUrl){a.href=n.mintUrl;a.style.display="";}else{a.style.display="none";} }
+    })();
 
     // ---- Invite leaderboard ----
     (function(){

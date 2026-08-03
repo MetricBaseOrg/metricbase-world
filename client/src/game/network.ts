@@ -113,6 +113,8 @@ export interface RemotePlayer {
   stamina: number;
   /** Carrying caravan cargo — drives the 📦 nameplate badge in PvP zones. */
   hauling: boolean;
+  /** Holds a MetricBase NFT — drives the 👑 nameplate badge. Cosmetic only. */
+  nftHolder: boolean;
 }
 
 export interface ItemUsedPayload {
@@ -2683,6 +2685,7 @@ export class NetworkManager {
       maxHp: Number((player as any).maxHp) || 0,
       stamina: Number((player as any).stamina) || 0,
       hauling: Boolean((player as any).hauling),
+      nftHolder: Boolean((player as any).nftHolder),
       appearance: normalizeCharacterAppearance({
         bodyColor: player.bodyColor,
         hairColor: player.hairColor,
