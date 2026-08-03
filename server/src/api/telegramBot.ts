@@ -1,6 +1,9 @@
 import crypto from "node:crypto";
 import { Router } from "express";
+import { NFT_MINT_URL } from "@metricbase/shared";
 import { isTelegramLoginConfigured } from "../auth/telegramAuth.js";
+import { loadWalletByTelegramId } from "../db/characters.js";
+import { isHolder, isNftConfigured } from "../solana/playerHeldNfts.js";
 
 /**
  * The Telegram bot itself — the front door for anyone who finds
@@ -52,8 +55,85 @@ interface TelegramUpdate {
   message?: {
     chat?: { id?: number };
     text?: string;
-    from?: { first_name?: string };
+    from?: { id?: number; first_name?: string };
   };
+}
+
+/** The holder-only Telegram group's chat id. Unset = Founder access disabled. */
+function holderChatId(): string | null {
+  return process.env.TELEGRAM_HOLDER_CHAT_ID?.trim() || null;
+}
+
+/**
+ * `/founder` — a linked player asks for access to the holder-only group.
+ * Verifies the wallet bonded to their Telegram account holds an NFT, then hands
+ * back a single-use, short-lived invite link to the group.
+ *
+ * Inert unless BOTH the NFT layer and a holder group are configured. Requires
+ * the bot to be an admin (with invite permission) in that group — owner ops.
+ */
+async function handleFounderCommand(chatId: number, fromId: number | undefined): Promise<void> {
+  const reply = (text: string, url?: string) =>
+    callBotApi("sendMessage", {
+      chat_id: chatId,
+      text,
+      parse_mode: "Markdown",
+      ...(url ? { reply_markup: { inline_keyboard: [[{ text: "👑 View the collection", url }]] } } : {}),
+    });
+
+  const group = holderChatId();
+  if (!isNftConfigured() || !group) {
+    await reply("👑 Founder perks aren't set up yet — check back soon.");
+    return;
+  }
+  if (!fromId) {
+    await reply("I couldn't read your Telegram account. Try again from a direct chat with me.");
+    return;
+  }
+
+  const linked = await loadWalletByTelegramId(fromId);
+  if (!linked) {
+    await reply(
+      "Link a wallet-bonded character first: open the game, connect your wallet, then link Telegram in ⚙️. " +
+        "Founder access checks the wallet on that character.",
+    );
+    return;
+  }
+
+  let holder = false;
+  try {
+    holder = await isHolder(linked.wallet);
+  } catch {
+    await reply("Couldn't reach Solana to check your wallet just now — please try again in a minute.");
+    return;
+  }
+
+  if (!holder) {
+    await reply(
+      `You're not a Founder yet, ${linked.name}. Holding one MetricBase NFT unlocks the group.`,
+      NFT_MINT_URL || undefined,
+    );
+    return;
+  }
+
+  // Single-use link that expires in an hour — enough to click, not to share.
+  const invite = (await callBotApi("createChatInviteLink", {
+    chat_id: group,
+    name: `Founder: ${linked.name}`.slice(0, 32),
+    member_limit: 1,
+    expire_date: Math.floor(Date.now() / 1000) + 3600,
+  })) as { ok?: boolean; result?: { invite_link?: string } };
+
+  const link = invite.result?.invite_link;
+  if (!link) {
+    await reply("Verified you as a Founder 👑 — but I couldn't create an invite link. The group may not be set up yet.");
+    return;
+  }
+  await callBotApi("sendMessage", {
+    chat_id: chatId,
+    text: `Verified 👑 Welcome, Founder ${linked.name}. Your private invite (one use, expires in 1 hour):`,
+    reply_markup: { inline_keyboard: [[{ text: "🔑 Join the Founders' group", url: link }]] },
+  });
 }
 
 telegramBotRouter.post("/telegram/webhook", async (req, res) => {
@@ -69,7 +149,15 @@ telegramBotRouter.post("/telegram/webhook", async (req, res) => {
     const update = req.body as TelegramUpdate;
     const chatId = update.message?.chat?.id;
     const text = String(update.message?.text ?? "").trim();
-    if (!chatId || !text.startsWith("/start")) return;
+    if (!chatId) return;
+
+    // `/founder` — holder-only group access (accepts the `/founder@Bot` form too).
+    if (text === "/founder" || text.startsWith("/founder ") || text.startsWith("/founder@")) {
+      await handleFounderCommand(chatId, update.message?.from?.id);
+      return;
+    }
+
+    if (!text.startsWith("/start")) return;
 
     // `/start INV-1234-ABCD` — a referral link. Carry the code into the game so
     // the invite survives, exactly like the Mini App's `startapp` payload.
@@ -117,7 +205,11 @@ export async function setupTelegramBot(): Promise<void> {
       menu_button: { type: "web_app", text: "🎮 Play", web_app: { url: PLAY_URL } },
     });
     await callBotApi("setMyCommands", {
-      commands: [{ command: "start", description: "Play MetricBase World" }],
+      commands: [
+        { command: "start", description: "Play MetricBase World" },
+        // Only advertise Founder access once a holder group is configured.
+        ...(holderChatId() ? [{ command: "founder", description: "👑 Founder group access (NFT holders)" }] : []),
+      ],
     });
     await callBotApi("setWebhook", {
       url: `https://${host}/api/telegram/webhook`,

@@ -11,6 +11,10 @@ export const MOTTO_MAX_LENGTH = 80;
  */
 export const DASHBOARD_UPDATES: Array<{ title: string; body: string }> = [
   {
+    title: "v0.199 — Founder group + a wardrobe",
+    body: "Two more Founder perks are wired up. A /founder command on our Telegram bot verifies your NFT and hands you a private, one-time invite to the holders-only group. And the Membership screen now shows the full Founder wardrobe — a set of holder-exclusive character skins you unlock by holding, with more on the way as their art lands. Both are cosmetic and community only; the game stays free and there's still zero pay-to-win.",
+  },
+  {
     title: "v0.199 — Founders get their crown, everywhere",
     body: "NFT holders now wear a 👑 wherever the game shows people: on their name tag in the world, in the who's-online list, on their profile, and next to their name on the public Richest and Invites leaderboards. It's pure recognition — still no gameplay power of any kind. Non-holders lose nothing; this just gives the people backing the world a little shine.",
   },

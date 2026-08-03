@@ -346,6 +346,25 @@ async function findExistingNameCI(name: string): Promise<string | null> {
   return result.rowCount ? result.rows[0].name : null;
 }
 
+/** Wallet + name bonded to a Telegram user id, for the bot's Founder check.
+ *  null when the user hasn't linked a wallet-bonded character. */
+export async function loadWalletByTelegramId(
+  telegramId: number,
+): Promise<{ name: string; wallet: string } | null> {
+  const db = getPool();
+  if (!db) return null;
+  try {
+    const r = await db.query<{ name: string; wallet_address: string | null }>(
+      "SELECT name, wallet_address FROM characters WHERE telegram_id = $1 AND wallet_address IS NOT NULL LIMIT 1",
+      [telegramId],
+    );
+    const row = r.rows[0];
+    return row?.wallet_address ? { name: row.name, wallet: row.wallet_address } : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Cached NFT-holder flag for a character, for the profile badge on OFFLINE
  *  players (online players read the live schema flag instead). Cheap indexed
  *  read; false on any miss or when the NFT layer is off. */

@@ -1,5 +1,6 @@
 import {
   HOLDER_PERKS,
+  HOLDER_SKINS,
   NFT_COLLECTION_NAME,
   NFT_MINT_PRICE_SOL,
   NFT_MINT_URL,
@@ -27,7 +28,7 @@ export function MembershipPanel({ onClose }: MembershipPanelProps) {
 
   const perks = [
     { icon: HOLDER_PERKS.badge, label: "A 👑 badge on your name, everywhere you go" },
-    { icon: "🎨", label: "A holder-exclusive character skin" },
+    { icon: "🎨", label: `${HOLDER_SKINS.length} holder-exclusive character skins` },
     { icon: "🪪", label: "Verified holder status on the public dashboard" },
   ];
 
@@ -89,6 +90,33 @@ export function MembershipPanel({ onClose }: MembershipPanelProps) {
               <span>{perk.label}</span>
             </div>
           ))}
+        </div>
+
+        <div style={{ fontWeight: 800, fontSize: "0.9rem", margin: "4px 0 8px" }}>🎨 Founder wardrobe</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 16 }}>
+          {HOLDER_SKINS.map((skin) => {
+            const unlocked = holder;
+            const state = !unlocked
+              ? { tag: "🔒 Hold to unlock", color: "var(--chibi-ink, #7a6f5c)" }
+              : skin.available
+                ? { tag: "✅ Ready to wear", color: "#2a8c5c" }
+                : { tag: "🎨 Art coming", color: "#c99a12" };
+            return (
+              <div
+                key={skin.id}
+                className="chibi-card"
+                style={{ padding: "8px 10px", display: "flex", justifyContent: "space-between", gap: 8, opacity: unlocked ? 1 : 0.7 }}
+              >
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontWeight: 700, fontSize: "0.84rem" }}>{skin.name}</div>
+                  <div className="chibi-text-muted" style={{ fontSize: "0.72rem" }}>{skin.blurb}</div>
+                </div>
+                <div style={{ fontSize: "0.68rem", fontWeight: 700, color: state.color, whiteSpace: "nowrap", alignSelf: "center" }}>
+                  {state.tag}
+                </div>
+              </div>
+            );
+          })}
         </div>
 
         <div
