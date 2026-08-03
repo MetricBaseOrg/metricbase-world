@@ -11,6 +11,10 @@ export const MOTTO_MAX_LENGTH = 80;
  */
 export const DASHBOARD_UPDATES: Array<{ title: string; body: string }> = [
   {
+    title: "v0.202 — Founders earn boosted season points",
+    body: "Holding a Founder now multiplies the season points you earn — Bronze ×1.5, Gold ×2, Ember ×3 — which means a bigger share of the $BASE prize pool for the same play. Combat and gathering are untouched (no extra damage, gather speed, or drop rate), and the game stays free for everyone. This is a real edge for holders; mint from ⚙️ → 👑 Membership.",
+  },
+  {
     title: "v0.201 — Founders mint is LIVE",
     body: "The MetricBase Founders collection is open: 1,000 passes on Solana, 0.1 SOL each, and 100% of every mint is pooled as community rewards. Hold one and you unlock a tier badge, holder-only skins, a Founders group, and a DAO voting boost — all cosmetic and status, never gameplay power, and the game stays completely free. Your rarity tier is hidden until reveal. Mint from ⚙️ → 👑 Membership, or at launchmynft.io/mint/founder.",
   },

@@ -3,10 +3,12 @@ import { getPool } from "./pool.js";
 import {
   SEASON_RICHEST_DAILY_BONUS,
   currentSeason,
+  nftTierByKey,
   seasonRewardPool,
   type SeasonCategory,
   type SeasonLeaderEntry,
 } from "@metricbase/shared";
+import type { Pool } from "pg";
 
 /** Per-player season points, one row per player. `season_id` bumps when the
  * season rolls over (handled in code); points/breakdown reset with it. */
@@ -108,10 +110,33 @@ export function getSeasonRewardPool(): number {
 /** Award season points directly in the DB (for offline players, e.g. a referrer
  * whose invitee just registered). Handles season rollover in SQL and increments
  * the category breakdown. */
+/**
+ * NFT-holder season-point multiplier. Points decide each player's share of the
+ * $BASE prize pool, so this is a DELIBERATE pay-to-earn perk (see
+ * NftTier.seasonPointMult): a holder earns a bigger cut of real rewards for the
+ * same play. Reads the character's cached nft_tier (set on join / the holder
+ * sweep); non-holders and an unconfigured NFT layer both resolve to 1×. One
+ * indexed lookup; season awards fire on meaningful events, not per frame.
+ */
+async function holderPointMultiplier(pool: Pool, playerName: string): Promise<number> {
+  try {
+    const r = await pool.query<{ nft_tier: string | null }>(
+      "SELECT nft_tier FROM characters WHERE name = $1 LIMIT 1",
+      [playerName],
+    );
+    return nftTierByKey(r.rows[0]?.nft_tier ?? null)?.seasonPointMult ?? 1;
+  } catch {
+    return 1;
+  }
+}
+
 export async function awardSeasonPointsDb(playerName: string, category: SeasonCategory, points: number): Promise<void> {
   const pool = getPool();
   if (!pool || points <= 0) return;
   const seasonId = currentSeason().id;
+  // Boost the award by the holder's tier multiplier before it lands.
+  const mult = await holderPointMultiplier(pool, playerName);
+  if (mult !== 1) points = Math.max(1, Math.round(points * mult));
   try {
     await pool.query(
       // $3 is cast to int at every use — Postgres can't infer a bind param's

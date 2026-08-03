@@ -52,6 +52,12 @@ export interface NftTier {
   /** Extra DAO voting weight ($BASE-equivalent). Status, not power; kept below
    *  the vote floor so it never dominates. */
   daoWeightBonus: number;
+  /**
+   * Season-point multiplier for this tier. Points decide each player's share of
+   * the $BASE prize pool, so this is a DELIBERATE pay-to-earn perk — a holder
+   * earns a bigger cut of real rewards for the same play. 1 = no boost.
+   */
+  seasonPointMult: number;
   /** Holder skins unlocked at this tier (cumulative up the ladder). */
   skinIds: string[];
   /** On-chain Tier attribute values that map here (case-insensitive). Include
@@ -73,6 +79,7 @@ export const NFT_TIERS: NftTier[] = [
     flairColor: "#cd7f32",
     rank: 1,
     daoWeightBonus: 100_000,
+    seasonPointMult: 1.5,
     skinIds: ["skin_holder_founder"],
     match: ["bronze", "common", "standard", "citizen"],
   },
@@ -83,6 +90,7 @@ export const NFT_TIERS: NftTier[] = [
     flairColor: "#f5c518",
     rank: 2,
     daoWeightBonus: 250_000,
+    seasonPointMult: 2,
     skinIds: ["skin_holder_founder", "skin_holder_midnight"],
     match: ["gold", "rare", "patron"],
   },
@@ -93,6 +101,7 @@ export const NFT_TIERS: NftTier[] = [
     flairColor: "#e8705f",
     rank: 3,
     daoWeightBonus: 500_000,
+    seasonPointMult: 3,
     skinIds: ["skin_holder_founder", "skin_holder_midnight", "skin_holder_aurora"],
     match: ["ember", "legendary", "mythic", "obsidian"],
   },

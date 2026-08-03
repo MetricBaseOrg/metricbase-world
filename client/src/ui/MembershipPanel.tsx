@@ -29,9 +29,10 @@ export function MembershipPanel({ onClose }: MembershipPanelProps) {
   const live = NFT_MINT_URL.length > 0;
 
   const perks = [
+    { icon: "🏆", label: "Boosted season points — a bigger share of the $BASE prize pool" },
     { icon: "👑", label: "A tier badge on your name, everywhere you go" },
     { icon: "🎨", label: `Up to ${HOLDER_SKINS.length} holder-exclusive character skins` },
-    { icon: "🗳️", label: "A modest DAO voting-weight boost (bigger by tier)" },
+    { icon: "🗳️", label: "A DAO voting-weight boost (bigger by tier)" },
     { icon: "🪪", label: "Verified holder status on the public dashboard" },
   ];
 
@@ -60,9 +61,9 @@ export function MembershipPanel({ onClose }: MembershipPanelProps) {
           👑 {NFT_COLLECTION_NAME}
         </h2>
         <p className="chibi-text-muted" style={{ marginTop: 0, fontSize: "0.86rem" }}>
-          A membership collectible on Solana. Holding one is a badge of support —
-          it grants status and cosmetics, never an advantage. The game is free to
-          play with or without it.
+          A membership collectible on Solana. Holding one earns a season-point
+          multiplier — a bigger cut of the $BASE prize pool — plus status and
+          cosmetics. The game stays free to play with or without it.
         </p>
 
         {holder ? (
@@ -74,7 +75,7 @@ export function MembershipPanel({ onClose }: MembershipPanelProps) {
               {tier ? `${tier.badge} You're a ${tier.name}` : "✅ You're a holder"}
             </div>
             <div className="chibi-text-muted" style={{ fontSize: "0.82rem" }}>
-              Your badge, tier skins and DAO boost are unlocked. Thanks for backing the world.
+              {tier ? `×${tier.seasonPointMult} season points` : "Boosted season points"}, your badge, tier skins and DAO boost are unlocked. Thanks for backing the world.
             </div>
           </div>
         ) : (
@@ -111,7 +112,7 @@ export function MembershipPanel({ onClose }: MembershipPanelProps) {
                     {isMine ? " · yours" : ""}
                   </div>
                   <div className="chibi-text-muted" style={{ fontSize: "0.72rem" }}>
-                    {t.skinIds.length} skin{t.skinIds.length === 1 ? "" : "s"} · +{t.daoWeightBonus.toLocaleString()} DAO weight
+                    ×{t.seasonPointMult} season points · {t.skinIds.length} skin{t.skinIds.length === 1 ? "" : "s"} · +{t.daoWeightBonus.toLocaleString()} DAO weight
                   </div>
                 </div>
               </div>
@@ -165,8 +166,9 @@ export function MembershipPanel({ onClose }: MembershipPanelProps) {
           className="chibi-text-muted"
           style={{ fontSize: "0.72rem", marginBottom: 14, lineHeight: 1.5 }}
         >
-          No pay-to-win: a holder never gets more yield, damage, XP, drop-rate, or
-          any economic edge. This is cosmetic and status only.
+          Founders earn more season points, so they take a bigger share of the
+          $BASE prize pool. Combat and gathering are untouched — no extra damage,
+          gather speed, or drop rate — and the game stays free to play for everyone.
         </div>
 
         {live && (
