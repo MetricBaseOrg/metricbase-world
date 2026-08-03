@@ -12,7 +12,7 @@ export const MOTTO_MAX_LENGTH = 80;
 export const DASHBOARD_UPDATES: Array<{ title: string; body: string }> = [
   {
     title: "v0.201 — Founders mint is LIVE",
-    body: "The MetricBase Founders collection is open: 1,000 passes on Solana, 0.1 SOL each, and 100% of every mint is pooled as community rewards. Hold one and you unlock a tier badge, holder-only skins, a Founders group, and a DAO voting boost — all cosmetic and status, never gameplay power, and the game stays completely free. Your rarity tier is hidden until reveal. Mint from ⚙️ → 👑 Membership, or at launchmynft.io/mint/metricbase.",
+    body: "The MetricBase Founders collection is open: 1,000 passes on Solana, 0.1 SOL each, and 100% of every mint is pooled as community rewards. Hold one and you unlock a tier badge, holder-only skins, a Founders group, and a DAO voting boost — all cosmetic and status, never gameplay power, and the game stays completely free. Your rarity tier is hidden until reveal. Mint from ⚙️ → 👑 Membership, or at launchmynft.io/mint/founders.",
   },
   {
     title: "v0.200 — Founder tiers, revealed after mint",
