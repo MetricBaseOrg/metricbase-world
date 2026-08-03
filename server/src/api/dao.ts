@@ -11,6 +11,7 @@ import {
   DAO_MIN_DURATION_DAYS,
   DAO_MIN_OPTIONS,
   DAO_MIN_VOTE_BALANCE,
+  DAO_NFT_HOLDER_WEIGHT_BONUS,
   DAO_MAX_DELEGATORS_COUNTED,
   DAO_OPTION_MAX,
   DAO_TITLE_MAX,
@@ -26,8 +27,36 @@ import { loadCharacterByWallet } from "../db/characters.js";
 import { getPool } from "../db/pool.js";
 import { getGuildForMember } from "../guild/guildRegistry.js";
 import { getWalletTokenBalance } from "../solana/tokenBalance.js";
+import { isHolder } from "../solana/playerHeldNfts.js";
 
 export const daoRouter = Router();
+
+/** Configured NFT-holder voting-weight bonus (env override; 0 disables). */
+function holderWeightBonusAmount(): number {
+  const raw = process.env.DAO_NFT_HOLDER_WEIGHT_BONUS;
+  if (raw !== undefined) {
+    const n = Number(raw);
+    return Number.isFinite(n) && n >= 0 ? n : 0;
+  }
+  return DAO_NFT_HOLDER_WEIGHT_BONUS;
+}
+
+/**
+ * Extra voting weight a wallet earns as an NFT holder — added on top of its
+ * $BASE balance. Zero when the wallet isn't a holder, the NFT layer is off, or
+ * the bonus is configured to 0. Never gates: the $BASE threshold is checked
+ * against the raw balance elsewhere, so this only amplifies an already-eligible
+ * vote.
+ */
+async function holderVoteBonus(wallet: string): Promise<number> {
+  const bonus = holderWeightBonusAmount();
+  if (bonus <= 0) return 0;
+  try {
+    return (await isHolder(wallet)) ? bonus : 0;
+  } catch {
+    return 0;
+  }
+}
 
 interface PollRow {
   id: string;
@@ -118,6 +147,8 @@ daoRouter.get("/dao/polls", async (req, res) => {
       } catch {
         /* RPC hiccup — the page just hides the balance chip */
       }
+      const bonus = await holderVoteBonus(wallet);
+      if (bonus > 0) payload.holderBonus = bonus;
     }
     res.json(payload);
   } catch (error) {
@@ -274,15 +305,20 @@ daoRouter.post("/dao/polls/:id/vote", requireAuth, async (req, res) => {
     }
 
     const balance = await getWalletTokenBalance(wallet);
+    // The $BASE gate is on the raw balance — an NFT never buys past it, it only
+    // amplifies an already-eligible vote.
     if (balance < DAO_MIN_VOTE_BALANCE) {
       return fail(403, `Voting requires ${DAO_MIN_VOTE_BALANCE.toLocaleString()} $BASE (you hold ${Math.floor(balance).toLocaleString()}).`);
     }
+    // Founders (NFT holders) carry a modest fixed weight bonus — status, not
+    // power; frozen into the vote row like the balance itself.
+    const weight = balance + (await holderVoteBonus(wallet));
     // One vote per wallet, final — ON CONFLICT DO NOTHING + rowCount tells us
     // whether this was a duplicate without a read-then-write race.
     const insert = await pool.query(
       `INSERT INTO dao_votes (poll_id, wallet, option_index, weight)
        VALUES ($1, $2, $3, $4) ON CONFLICT (poll_id, wallet) DO NOTHING`,
-      [pollId, wallet, optionIndex, balance],
+      [pollId, wallet, optionIndex, weight],
     );
     if ((insert.rowCount ?? 0) === 0) return fail(409, "You already voted on this poll — votes are final.");
 
@@ -309,10 +345,12 @@ daoRouter.post("/dao/polls/:id/vote", requireAuth, async (req, res) => {
             const w = c.wallet_address as string;
             const delegatorBalance = await getWalletTokenBalance(w);
             if (delegatorBalance <= 0) continue;
+            // A delegator who is a Founder still gets their holder bonus.
+            const delegatorWeight = delegatorBalance + (await holderVoteBonus(w));
             const cast = await pool.query(
               `INSERT INTO dao_votes (poll_id, wallet, option_index, weight, via_delegation)
                VALUES ($1, $2, $3, $4, true) ON CONFLICT (poll_id, wallet) DO NOTHING`,
-              [pollId, w, optionIndex, delegatorBalance],
+              [pollId, w, optionIndex, delegatorWeight],
             );
             if ((cast.rowCount ?? 0) > 0) delegatesCounted++;
           } catch {

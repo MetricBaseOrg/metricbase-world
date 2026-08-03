@@ -57,6 +57,7 @@ function timeLeft(endsAt: number): string {
 export function DaoPage() {
   const [polls, setPolls] = useState<DaoPoll[] | null>(null);
   const [balance, setBalance] = useState<number | null>(null);
+  const [holderBonus, setHolderBonus] = useState(0);
   const [wallet, setWallet] = useState<string | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [connecting, setConnecting] = useState(false);
@@ -104,6 +105,7 @@ export function DaoPage() {
     const body = (await response.json()) as DaoPollsResponse;
     setPolls(body.polls);
     setBalance(typeof body.balance === "number" ? body.balance : null);
+    setHolderBonus(typeof body.holderBonus === "number" ? body.holderBonus : 0);
     if (token) void loadDelegation(token);
   };
 
@@ -344,6 +346,15 @@ export function DaoPage() {
                 {balance !== null && (
                   <span className="chibi-stat-pill" style={{ fontSize: "0.76rem" }} title={`${Math.floor(balance).toLocaleString()} $BASE`}>
                     💎 {kfmt(balance)} $BASE
+                  </span>
+                )}
+                {holderBonus > 0 && (
+                  <span
+                    className="chibi-stat-pill"
+                    style={{ fontSize: "0.76rem", color: "#c99a12" }}
+                    title={`Founders vote with +${holderBonus.toLocaleString()} weight on top of their $BASE balance`}
+                  >
+                    👑 +{kfmt(holderBonus)} weight
                   </span>
                 )}
               </>

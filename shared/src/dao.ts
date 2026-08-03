@@ -14,6 +14,18 @@ export const DAO_MIN_CREATE_BALANCE = 10_000_000;
 /** Minimum $BASE (UI amount) a wallet must hold to vote. */
 export const DAO_MIN_VOTE_BALANCE = 1_000_000;
 
+/**
+ * Extra voting weight an NFT holder's vote carries, as $BASE-equivalent units,
+ * ADDED on top of their live $BASE balance. Deliberately modest — ~25% of the
+ * vote floor, so it's a real voice boost for a minimum-stake holder and
+ * negligible for a whale (it doesn't scale with holdings, unlike a multiplier).
+ * It never bypasses the $BASE gate: you still need the full DAO_MIN_VOTE_BALANCE
+ * in $BASE to vote at all. Governance influence is status, not gameplay power,
+ * so this stays within the no-pay-to-win invariant. Server env
+ * DAO_NFT_HOLDER_WEIGHT_BONUS overrides (0 disables); inert with no NFT layer.
+ */
+export const DAO_NFT_HOLDER_WEIGHT_BONUS = 250_000;
+
 export const DAO_TITLE_MAX = 100;
 export const DAO_DESCRIPTION_MAX = 1000;
 export const DAO_OPTION_MAX = 60;
@@ -50,6 +62,9 @@ export interface DaoPollsResponse {
   polls: DaoPoll[];
   /** The requesting wallet's live $BASE balance (present when signed in). */
   balance?: number;
+  /** Extra voting weight this wallet gets as an NFT holder (0 / absent if not a
+   *  holder or the NFT layer is off). Surfaced so the voter sees their boost. */
+  holderBonus?: number;
 }
 
 export interface DaoActionResponse {
