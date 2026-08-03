@@ -91,7 +91,9 @@ export function GuildPanel() {
               {/* Guild bank */}
               <div className="chibi-card" style={{ fontSize: "0.76rem", padding: "8px 10px", marginBottom: 8 }}>
                 <div style={{ fontWeight: 800 }}>🏦 Bank: {myGuild.bank.toLocaleString()} gold</div>
-                <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+                {/* Wrap so the buttons drop to their own row instead of the
+                    Withdraw button overflowing the fixed-width panel. */}
+                <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
                   <input
                     className="chibi-input"
                     value={amount}
@@ -99,7 +101,7 @@ export function GuildPanel() {
                     placeholder="amount"
                     onChange={(e) => setAmount(e.target.value.replace(/[^0-9]/g, ""))}
                     {...numberInputProps}
-                    style={{ padding: "4px 6px", fontSize: "0.74rem", width: 70 }}
+                    style={{ padding: "4px 6px", fontSize: "0.74rem", flex: "1 1 100%", minWidth: 0 }}
                     aria-label="Bank amount"
                   />
                   <button
@@ -107,7 +109,7 @@ export function GuildPanel() {
                     className="chibi-btn chibi-btn--mint"
                     disabled={amountNum <= 0 || amountNum > playerGold}
                     onClick={() => networkManager.sendGuildDeposit(amountNum)}
-                    style={{ padding: "4px 8px", fontSize: "0.72rem" }}
+                    style={{ padding: "4px 8px", fontSize: "0.72rem", flex: "1 1 0", minWidth: 0 }}
                   >
                     Deposit
                   </button>
@@ -117,7 +119,7 @@ export function GuildPanel() {
                       className="chibi-btn chibi-btn--gold"
                       disabled={amountNum <= 0 || amountNum > myGuild.bank}
                       onClick={() => networkManager.sendGuildWithdraw(amountNum)}
-                      style={{ padding: "4px 8px", fontSize: "0.72rem" }}
+                      style={{ padding: "4px 8px", fontSize: "0.72rem", flex: "1 1 0", minWidth: 0 }}
                     >
                       Withdraw
                     </button>

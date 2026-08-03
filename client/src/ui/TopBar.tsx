@@ -24,6 +24,22 @@ interface TopBarProps {
   onLeave: () => void;
 }
 
+/**
+ * Max height for the top-left dropdown menus (gear + notifications).
+ *
+ * These drop straight down from the top-left card and sit ABOVE the chat panel
+ * (z-index 24 vs 17), which lives in the same left column at the bottom. Capped
+ * only at a viewport fraction, a tall menu grew down over the chat and covered
+ * it. The 600px reserve is the top bar's own height (~210px at its tallest,
+ * with the season badge showing) plus the chat panel's footprint (~340px:
+ * 220px log + input + toggle) plus gaps, so the menu stops above the chat and
+ * scrolls internally past that. Deliberately generous — over-reserving only
+ * makes the menu a little shorter, while under-reserving brings the covered
+ * chat back. vh (not dvh) so the value stays valid on browsers without dvh —
+ * an invalid arg would void the whole min() and drop the cap entirely.
+ */
+const TOPBAR_MENU_MAX_HEIGHT = "min(70vh, calc(100vh - 600px))";
+
 /** onClick for an internal link: inside an app-shell (Telegram Mini App or the
  *  installed app) navigate in place, so the link doesn't escape to the system
  *  browser and get captured by the native app. Elsewhere the `_blank` href wins. */
@@ -271,7 +287,7 @@ export function TopBar({ onLeave }: TopBarProps) {
       )}
 
       {bellOpen && (
-        <div className="chibi-topbar__menu" style={{ maxHeight: "min(60vh, 420px)", overflowY: "auto" }}>
+        <div className="chibi-topbar__menu" style={{ maxHeight: TOPBAR_MENU_MAX_HEIGHT, overflowY: "auto" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
             <span style={{ fontWeight: 800, fontSize: "0.85rem" }}>🔔 Notifications</span>
             <button
@@ -319,7 +335,7 @@ export function TopBar({ onLeave }: TopBarProps) {
         <div
           className="chibi-topbar__menu"
           ref={menuRef}
-          style={{ maxHeight: "min(70vh, 520px)", overflowY: "auto" }}
+          style={{ maxHeight: TOPBAR_MENU_MAX_HEIGHT, overflowY: "auto" }}
         >
           {(equippedWeaponId || equippedToolId) && (
             <div className="chibi-text-muted" style={{ fontSize: "0.74rem", marginBottom: 6 }}>
