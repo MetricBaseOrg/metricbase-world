@@ -566,7 +566,7 @@ export function DashboardPage() {
                             on-chain and can't be recovered from a typo. */}
                         {savedPayoutWallet && !payoutError && (
                           <p style={{ fontSize: "0.75rem", color: "var(--chibi-ink-soft)", margin: "6px 0 0" }}>
-                            Rewards go to <b style={{ fontFamily: "monospace" }}>{savedPayoutWallet}</b>.
+                            Rewards go to <b style={{ fontFamily: "monospace", overflowWrap: "anywhere" }}>{savedPayoutWallet}</b>.
                             Double-check it — on-chain transfers can't be undone.
                           </p>
                         )}
@@ -581,7 +581,7 @@ export function DashboardPage() {
                           ✈️ <span>Telegram</span>
                         </div>
                         {data.telegramLinked ? (
-                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                             <span style={{ fontSize: "0.8rem", color: "#7ed6df" }}>
                               ✓ Linked — open the Mini App and tap Continue with Telegram.
                             </span>
@@ -636,8 +636,8 @@ export function DashboardPage() {
                           𝕏 <span>X (Twitter)</span>
                         </div>
                         {data.xLinked ? (
-                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                            <span style={{ fontSize: "0.8rem", color: "#7ed6df" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                            <span style={{ fontSize: "0.8rem", color: "#7ed6df", overflowWrap: "anywhere", minWidth: 0 }}>
                               ✓ Connected as @{data.xUsername}
                             </span>
                             <button

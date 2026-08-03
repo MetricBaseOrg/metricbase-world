@@ -101,6 +101,12 @@
   color: var(--chibi-ink-soft);
   margin: 0 0 12px;
 }
+/* Long unbreakable tokens — the 44-char monospace reward-wallet echo, link
+   codes, X handles — must wrap instead of pushing the page sideways on mobile. */
+.mb-dash-card p,
+.mb-dash-news__body {
+  overflow-wrap: anywhere;
+}
 
 /* ---- Profile ---- */
 .mb-dash-profile {
