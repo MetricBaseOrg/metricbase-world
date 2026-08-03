@@ -62,6 +62,12 @@ export const STATS_PAGE_HTML = `<!doctype html>
     box-shadow:0 3px 0 var(--shadow);transition:transform .12s,box-shadow .12s;}
   .share-x:hover{transform:translateY(-2px);box-shadow:0 5px 0 var(--shadow);}
   .share-x:active{transform:translateY(1px);box-shadow:0 2px 0 var(--shadow);}
+  .refresh{cursor:pointer;font-family:inherit;font-weight:800;font-size:.72rem;color:var(--ink);
+    background:rgba(255,255,255,.6);border:1.5px solid var(--line);border-radius:999px;padding:2px 10px;
+    transition:transform .1s,background .1s;}
+  .refresh:hover{background:#fff;transform:translateY(-1px);}
+  .refresh:active{transform:translateY(1px);}
+  .refresh[disabled]{opacity:.55;cursor:default;transform:none;}
   nav{position:sticky;top:0;z-index:10;display:flex;gap:8px;justify-content:flex-start;overflow-x:auto;
     padding:10px 14px;margin-top:14px;background:rgba(253,243,223,.92);backdrop-filter:blur(6px);
     border-bottom:2px solid var(--line);scrollbar-width:none;}
@@ -139,7 +145,7 @@ export const STATS_PAGE_HTML = `<!doctype html>
 <body>
 <header>
   <h1><span class="spark">✦</span> <span class="globe">🌍</span> MetricBase World — Economy <span class="spark r">✦</span></h1>
-  <p><span class="live"><span class="dotp"></span><span id="onlineTop">—</span> playing now</span> · <span class="pill" id="ver">…</span> · <span id="updated">loading…</span></p>
+  <p><span class="live"><span class="dotp"></span><span id="onlineTop">—</span> playing now</span> · <span class="pill" id="ver">…</span> · <span id="updated">loading…</span> · <button type="button" class="refresh" id="refresh" title="Reload the latest numbers">🔄 Refresh</button></p>
   <button type="button" class="share-x" id="shareX" title="Share these numbers on 𝕏">𝕏 Share the numbers</button>
 </header>
 
@@ -459,8 +465,12 @@ function tileHtml(t){var v=t[2]||0;
   return '<div class="tile'+(v?'':' zero')+'" title="'+fmt(v)+'"><div class="n">'+kfmt(v)+'</div><div class="l"><span class="e">'+t[0]+'</span>'+t[1]+'</div></div>';}
 
 var lastLoad=0,lastStats=null;
+// Client-only ticker (no fetch) — just relabels how long ago the numbers were
+// pulled. Since the page is manual-refresh now, this can run to minutes/hours,
+// so format accordingly instead of "3600s ago".
 setInterval(function(){if(!lastLoad)return;var s=Math.round((Date.now()-lastLoad)/1000);
-  set("updated","updated "+(s<3?"just now":s+"s ago"));},1000);
+  var ago=s<3?"just now":s<60?s+"s ago":s<3600?Math.floor(s/60)+"m ago":Math.floor(s/3600)+"h "+Math.floor(s%3600/60)+"m ago";
+  set("updated","updated "+ago);},1000);
 
 // 𝕏 share: compose a "World in numbers" post from the freshest stats.
 // X's intent page hard-errors ("Something went wrong…") when the prefilled
@@ -492,7 +502,12 @@ el("shareX").onclick=function(){
   window.open("https://x.com/intent/post?text="+encodeURIComponent(text),"_blank","noopener");
 };
 
+var loading=false;
 async function load(){
+  if(loading)return;
+  loading=true;
+  var btn=el("refresh");
+  if(btn){btn.disabled=true;btn.textContent="⏳ Refreshing…";}
   try{
     var s=await (await fetch("/api/stats",{cache:"no-store"})).json();
     lastLoad=Date.now();lastStats=s;
@@ -791,9 +806,18 @@ async function load(){
     // every field below the failure point for a whole release with no visible
     // error anywhere.
     console.error("[stats] render failed; showing last known values:",e);
+  }finally{
+    loading=false;
+    var b=el("refresh");
+    if(b){b.disabled=false;b.textContent="🔄 Refresh";}
   }
 }
-load();setInterval(load,20000);
+// Load once on open. The page no longer polls on a timer — /api/stats is cached
+// and, more importantly, every poll from every open tab was waking the Neon
+// compute and keeping it from suspending. Readers pull fresh numbers with the
+// Refresh button; the "updated Ns ago" label makes staleness visible.
+el("refresh").onclick=load;
+load();
 </script>
 </body>
 </html>`;

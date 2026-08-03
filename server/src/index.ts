@@ -223,10 +223,18 @@ await adService.init();
  * awake 24/7 — 195 CU-hours over the second half of July (~$21) for a game
  * with a handful of concurrent players and a 13 MB database.
  *
- * At one hour, every periodic job lands in a single wake window (they all
- * start at boot, so they stay clustered) and the compute sleeps the rest of
- * the time. Nothing here needs finer resolution: the two economy refreshes are
- * 7-day rolling averages, and the referral sweep pays season points.
+ * Every periodic job lands in a single wake window (they all start at boot, so
+ * they stay clustered) and the compute sleeps the rest of the time. Nothing
+ * here needs finer resolution: the two economy refreshes are 7-day rolling
+ * averages, and the referral sweep pays season points.
+ *
+ * Three hours, not one, because the org is on Neon's FREE plan now: the limit
+ * there is a monthly compute-hours allowance enforced by SUSPENDING the
+ * compute, not by billing. Always-on (~720 h/mo) would exhaust it in ~8 days
+ * and take the game offline until the quota reset; hourly wakes cost ~120 h/mo,
+ * three-hourly ~40 h/mo — a comfortable cushion under the allowance. Every job
+ * on this interval is day- or week-keyed and idempotent, so paying out up to
+ * three hours later changes nothing a player can see.
  *
  * The cost of this: after an idle stretch the first query pays a cold start of
  * roughly half a second. At this concurrency that is a good trade.
@@ -235,7 +243,7 @@ await adService.init();
  * a shorter one. Event-driven writes are unaffected — the metrics and ad
  * flushes stay frequent because they no-op when nothing is dirty.
  */
-export const MAINTENANCE_INTERVAL_MS = 60 * 60 * 1000;
+export const MAINTENANCE_INTERVAL_MS = 3 * 60 * 60 * 1000;
 
 // Warm + periodically refresh the live $BASE holder count for the billboard.
 // Solana RPC only — never touches the database, so its cadence is free.
