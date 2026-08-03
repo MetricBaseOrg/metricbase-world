@@ -20,7 +20,7 @@ export const NFT_MINT_PRICE_SOL = 0.1;
  * Marketplace / mint link shown on the Membership panel. Empty means "not live
  * yet" and the client shows a coming-soon state instead of a dead link.
  */
-export const NFT_MINT_URL = "";
+export const NFT_MINT_URL = "https://launchmynft.io/mint/metricbase";
 
 // ── Tiers + reveal ───────────────────────────────────────────────────────────
 //
