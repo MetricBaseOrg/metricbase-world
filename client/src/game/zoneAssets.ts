@@ -54,7 +54,12 @@ const ANCHOR: Record<string, number> = {
   // Sweet Harvest market stall (world/scenery-stall.webp): tall awning + sign
   // above, baked cobblestone base in the lower third → base sits fairly low.
   stall: 0.78,
-  bakery: 0.65, "bakery-stall": 0.65, barn: 0.65, blacksmith: 0.65, church: 0.65,
+  bakery: 0.65, "bakery-stall": 0.65, barn: 0.65, blacksmith: 0.65,
+  // Church art has a THICK terrain-block base (grass top + deep soil strata), so
+  // its green ground surface sits higher up the image than the thin-based
+  // buildings — the shared 0.65 guess pinned a lower pixel to the tile and left
+  // the base raised above the flat grid. Anchor its green top surface instead.
+  church: 0.59,
   "guard-tower": 0.65, library: 0.65, mosque: 0.65, stable: 0.65, tavern: 0.65, townhall: 0.65,
   // resources (base surface)
   pine: 0.791, "pine-small": 0.6, sapling: 0.559, "young-oak": 0.701, "wild-oak": 0.748,
