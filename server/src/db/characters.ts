@@ -365,6 +365,23 @@ export async function loadWalletByTelegramId(
   }
 }
 
+/** Cached NFT tier key for a WALLET (null = no synced holder character), from
+ *  the characters.nft_tier column. Lets DB-side paths (DAO weight) apply the
+ *  tier without a live on-chain read — mirrors how season points do it. */
+export async function holderTierByWallet(wallet: string): Promise<string | null> {
+  const db = getPool();
+  if (!db) return null;
+  try {
+    const r = await db.query<{ nft_tier: string | null }>(
+      "SELECT nft_tier FROM characters WHERE wallet_address = $1 AND nft_tier IS NOT NULL LIMIT 1",
+      [wallet],
+    );
+    return r.rows[0]?.nft_tier ?? null;
+  } catch {
+    return null;
+  }
+}
+
 /** Cached NFT-holder flag for a character, for the profile badge on OFFLINE
  *  players (online players read the live schema flag instead). Cheap indexed
  *  read; false on any miss or when the NFT layer is off. */

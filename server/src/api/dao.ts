@@ -26,33 +26,36 @@ import { loadCharacterByWallet } from "../db/characters.js";
 import { getPool } from "../db/pool.js";
 import { getGuildForMember } from "../guild/guildRegistry.js";
 import { getWalletTokenBalance } from "../solana/tokenBalance.js";
-import { holderTierKey } from "../solana/playerHeldNfts.js";
+import { holderTierByWallet } from "../db/characters.js";
 import { nftTierByKey } from "@metricbase/shared";
 
 export const daoRouter = Router();
 
 /**
- * Extra voting weight a wallet earns as an NFT holder — added on top of its
- * $BASE balance, and SCALED BY TIER (see NFT_TIERS). Zero when the wallet isn't
- * a holder or the NFT layer is off. A flat env override
- * (DAO_NFT_HOLDER_WEIGHT_BONUS) forces one value for every tier (0 disables the
- * whole thing). Never gates: the $BASE threshold is checked against the raw
- * balance elsewhere, so this only amplifies an already-eligible vote.
+ * Extra voting weight for a resolved tier key, SCALED BY TIER (see NFT_TIERS).
+ * A flat env override (DAO_NFT_HOLDER_WEIGHT_BONUS) forces one value for every
+ * tier (0 disables). Zero for a non-holder / no tier. Pure — no I/O.
  */
-async function holderVoteBonus(wallet: string): Promise<number> {
+function tierWeightBonus(tierKey: string | null): number {
+  if (!tierKey) return 0;
   const override = process.env.DAO_NFT_HOLDER_WEIGHT_BONUS;
   if (override !== undefined) {
     const n = Number(override);
-    if (!Number.isFinite(n) || n <= 0) return 0;
-    try {
-      return (await holderTierKey(wallet)) ? n : 0;
-    } catch {
-      return 0;
-    }
+    return Number.isFinite(n) && n > 0 ? n : 0;
   }
+  return nftTierByKey(tierKey)?.daoWeightBonus ?? 0;
+}
+
+/**
+ * Holder voting-weight bonus for a wallet, added on top of its $BASE balance.
+ * Reads the CACHED characters.nft_tier column (no on-chain call) — mirrors the
+ * season-points multiplier and keeps the vote path off the chain, so a
+ * guild-leader vote with many delegators can't stall on per-wallet RPC. Never
+ * gates: the $BASE threshold is checked against the raw balance elsewhere.
+ */
+async function holderVoteBonus(wallet: string): Promise<number> {
   try {
-    const tier = nftTierByKey(await holderTierKey(wallet));
-    return tier?.daoWeightBonus ?? 0;
+    return tierWeightBonus(await holderTierByWallet(wallet));
   } catch {
     return 0;
   }
@@ -333,9 +336,10 @@ daoRouter.post("/dao/polls/:id/vote", requireAuth, async (req, res) => {
       );
       const delegatorWallets = delegations.rows.map((r) => r.wallet as string);
       if (delegatorWallets.length > 0) {
-        // Still-a-member check in one query: wallet -> character name.
+        // Still-a-member check in one query: wallet -> character name + tier
+        // (tier comes free here, so no per-delegator holder lookup is needed).
         const chars = await pool.query(
-          "SELECT wallet_address, name FROM characters WHERE wallet_address = ANY($1)",
+          "SELECT wallet_address, name, nft_tier FROM characters WHERE wallet_address = ANY($1)",
           [delegatorWallets],
         );
         const memberNames = new Set(membership.guild.members);
@@ -345,8 +349,9 @@ daoRouter.post("/dao/polls/:id/vote", requireAuth, async (req, res) => {
             const w = c.wallet_address as string;
             const delegatorBalance = await getWalletTokenBalance(w);
             if (delegatorBalance <= 0) continue;
-            // A delegator who is a Founder still gets their holder bonus.
-            const delegatorWeight = delegatorBalance + (await holderVoteBonus(w));
+            // A delegator who is a Founder still gets their holder bonus, read
+            // from the tier fetched above — no extra query, no on-chain call.
+            const delegatorWeight = delegatorBalance + tierWeightBonus((c.nft_tier as string | null) ?? null);
             const cast = await pool.query(
               `INSERT INTO dao_votes (poll_id, wallet, option_index, weight, via_delegation)
                VALUES ($1, $2, $3, $4, true) ON CONFLICT (poll_id, wallet) DO NOTHING`,
