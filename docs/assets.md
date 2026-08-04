@@ -26,21 +26,18 @@ file into the folder named in its section header.
 ## 👉 START HERE
 
 The original list is **done**: all tiles, buildings, nodes, **Mobs (6)**, **NPCs (8)**, all
-**interiors (15)** + farm/billboard/portal (4), and most of both character sets shipped.
+**interiors (15)** + farm/billboard/portal (4), and **both character sets are now complete**
+(146/146 — idle, walk, chop, fish, attack in all 4 directions, plus both portraits).
 Nothing referenced by code 404s today, and the **base item roster is 80/80 complete** as of
-v0.188.1. **What's still open (124 files):**
+v0.188.1. **What's still open (86 files):**
 
-1. **Character gaps (38)** — portraits ×2, girl attack (16), boy+girl fish (16), boy
-   back-attack (4) — exact file list in the character section. The only *hole* left, as
-   opposed to an upgrade: the fish frames are the most visible, since fishing is a core
-   gather skill with no animation for either character.
-2. **Fine/Master craft variants (86)** — requested 2026-07-26, own section below. This is an
+1. **Fine/Master craft variants (86)** — requested 2026-07-26, own section below. This is an
    enhancement, not a gap: those items already render their base art plus a quality ring.
    Read the section before starting — it's more files than the whole existing roster, and it
    suggests a 10-file pilot first.
-3. Iso ground tileset + ambience details (talk before drawing).
+2. Iso ground tileset + ambience details (talk before drawing).
 
-Note the source-tree gap: `assets/characters/` holds only a `.gitkeep`, while 93 shipped
+Note the source-tree gap: `assets/characters/` holds only a `.gitkeep`, while all 146 shipped
 frames live in `client/public/assets/characters/`. Every other category keeps its 1024px
 sources in `assets/` — the character sources were never committed. Drop new frames into
 `assets/characters/` per the spec below.
@@ -335,27 +332,18 @@ draw the bases with clean silhouettes so hats/capes/auras can layer on top).
 Plus per character: `boy-portrait.png`, `girl-portrait.png` (bust, 768×768 — HUD, login,
 profile card). **Total: 98 files.**
 
-### Progress (live manifest: boy = idle 2 / walk 4 / chop 4 / attack 4 · girl = idle 2 / walk 4 / chop 4)
+### Progress (live manifest: boy/girl = idle 2 / walk 4 / chop 4 / fish 4 / attack 4)
 
-Per character the live target is **65 files** — idle 8 (2×4 dirs), walk 16, chop 16, attack 16,
-fish 8, portrait 1. **130 total; 92 shipped, 38 missing.**
+Per character the live target is **73 files** — idle 8 (2×4 dirs), walk 16, chop 16, fish 16,
+attack 16, portrait 1 (`*-portrait.webp`). **146 total; 146 shipped, 0 missing.**
 
-**Boy ✅ (52/65 files):** idle + walk + chop complete in all 4 directions; attack in
-front/right/tqright. **Still 🎨 (13):**
+**Boy ✅ (73/73 files):** idle, walk, chop, fish, attack and portrait complete.
 
-- `boy-back-attack-0..3` (4)
-- `boy-<front|back|right|tqright>-fish-0..1` (8) — no fish frames exist yet for anyone
-- `boy-portrait.png` (1)
+**Girl ✅ (73/73 files):** idle, walk, chop, fish, attack and portrait complete.
 
-**Girl ✅ (40/65 files):** idle + walk + chop complete in all 4 directions. **Still 🎨 (25):**
-
-- `girl-<front|back|right|tqright>-attack-0..3` (16) — match the boy's 4-frame attack
-- `girl-<front|back|right|tqright>-fish-0..1` (8)
-- `girl-portrait.png` (1)
-
-(Chop/attack shipped as 4-frame actions — new directions must match the manifest count for that
-action. Fish is new: 2+ frames, any count, it just goes in the manifest. Undrawn combos fall
-back to the HD idle pose, not the procedural doll, since v0.109.0.)
+Chop/attack ship as 4-frame actions. Fish also ships as 4 frames per direction so the hand-drawn
+loader can use the same cadence as the shared procedural animation. Undrawn future combos fall
+back to the HD idle pose, not the procedural doll, since v0.109.0.
 
 ### Full set (later polish, optional) — matches current engine frame counts
 
