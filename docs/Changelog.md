@@ -31,6 +31,22 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [0.203.2] — 2026-08-04 — Restart to reload the restored ad balance
+
+No code change. `adService` holds member earnings in memory and flushes them
+with an ABSOLUTE write, so the balance restored in the DB after the v0.203.1
+bug was overwritten twice by the still-running process's stale cached row —
+the same "edit the DB, then restart, or the registry wins" trap that applies to
+every in-memory registry in this server.
+
+A version bump is the restart lever available here (Railway redeploys on push),
+so this ships purely to cycle the process. The restore is written in the seconds
+after boot, while the member map is still empty and there is nothing stale to
+flush.
+
+*Lesson: with a write-through cache holding absolute values, a DB edit is not a
+fix until the process that owns the cache has been cycled.*
+
 ## [0.203.1] — 2026-08-04 — A World impression could wipe the owner's claimable $BASE
 
 ### Fixed
