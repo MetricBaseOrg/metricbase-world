@@ -7146,13 +7146,18 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         // global banner, and that impression is billed under the ordinary
         // platform split — the owner is paid for their own inventory, not for
         // every ad a visitor happens to look at.
-        const earned = adService.recordCampaignImpression(
+        const billed = adService.recordCampaignImpression(
           campaignId,
           wallet,
           slot.playerWorlds ? worldOwner : null,
         );
-        if (slot.playerWorlds && earned.ownerEarnedUi > 0) {
-          recordZoneAdImpression(zoneId, earned.ownerEarnedUi);
+        // The owner's half settles asynchronously (their stored balance has to
+        // be read before it can be added to), so book the World's display
+        // counters when it resolves rather than assuming it did.
+        if (slot.playerWorlds) {
+          void billed.ownerCredit.then((earnedUi) => {
+            if (earnedUi > 0) recordZoneAdImpression(zoneId, earnedUi);
+          });
         }
       }
     }

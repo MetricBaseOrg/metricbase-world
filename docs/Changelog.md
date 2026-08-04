@@ -31,6 +31,46 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [0.203.1] — 2026-08-04 — A World impression could wipe the owner's claimable $BASE
+
+### Fixed
+
+**A data-loss bug shipped in v0.203.0 and fired in production within the hour.**
+
+`saveMember` writes ABSOLUTE values (`SET earnings = EXCLUDED.earnings`). The
+new World-owner credit path built its in-memory `MemberState` **without reading
+the stored row first** — so for an owner who wasn't already loaded into memory
+(offline, or simply never touched this server lifetime), the first visitor
+impression created a zeroed row and the next 30-second flush wrote that zero
+over their real balance. Claimable earnings, lifetime and impression count all
+went with it.
+
+One wallet was affected — the only ad-program member — losing roughly
+**21,390 $BASE of claimable balance**, restored from the `ad_member_daily` /
+`ad_daily` snapshots (it had never claimed, so `earnings` tracked `lifetime`
+exactly, which made the restore value unambiguous).
+
+- All member state now loads through one guarded path, `loadMemberState`, which
+  reads the DB row first and only creates a zeroed one when there genuinely
+  isn't one. `join()` and `ensureMemberLoaded()` route through it too, so there
+  is no longer any way to construct member state without a read.
+- Concurrent callers share one in-flight read (`memberLoads`), because two
+  parallel loads would each create a state and the second would discard the
+  first's accrual.
+- The owner's half is therefore **async**: `recordCampaignImpression` returns
+  `{ ownerCredit: Promise<number> }` and the World's display counters are booked
+  when it resolves, rather than assuming it did.
+- A failed read skips that impression's owner share and logs, rather than
+  crediting an unverified state or rejecting into a fire-and-forget tick.
+
+The regression is now covered by 9 asserts: no state created synchronously, a
+flush landing mid-read finds nothing to write, an existing balance is added to
+rather than replaced, and concurrent credits land on one state.
+
+*Lesson: an absolute write is only as safe as the read that precedes it. Adding
+a second writer to a read-modify-write cache means auditing every path that can
+create the cache entry, not just the one you added.*
+
 ## [0.203.0] — 2026-08-04 — Worlds run ads and keep half the revenue
 
 ### Added

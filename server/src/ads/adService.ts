@@ -100,6 +100,9 @@ class AdService {
   private campaigns = new Map<string, AdCampaignRow>();
   private brands = new Map<string, BrandState>();
   private members = new Map<string, MemberState>();
+  // In-flight DB reads for member state, so concurrent loads can't each create
+  // a row and clobber one another. See loadMemberState.
+  private memberLoads = new Map<string, Promise<MemberState>>();
   private dirtyCampaigns = new Set<string>();
   private assignment = new Map<string, string>(); // slotId -> campaignId
   private loaded = false;
@@ -270,8 +273,8 @@ class AdService {
     campaignId: string,
     viewerWallet: string | null,
     worldOwnerWallet: string | null = null,
-  ): { ownerEarnedUi: number } {
-    const none = { ownerEarnedUi: 0 };
+  ): { ownerCredit: Promise<number> } {
+    const none = { ownerCredit: Promise.resolve(0) };
     const c = this.campaigns.get(campaignId);
     if (!c) return none;
     // The ad was shown, so the impression counts either way.
@@ -299,42 +302,80 @@ class AdService {
       if (this.accrue(m, share)) m.impressions += 1;
     }
 
-    let ownerEarned = 0;
-    if (worldOwnerWallet) {
-      const ownerShare = Math.floor(cost * AD_WORLD_OWNER_SHARE);
-      // A World owner earns from inventory they own, so they are credited
-      // whether or not they ever joined the viewer program (which is gated on
-      // invites). Create the ledger row on first earning.
-      const owner = this.ensureMemberState(worldOwnerWallet);
-      if (this.accrue(owner, ownerShare)) {
-        owner.impressions += 1;
-        owner.worldLifetime += ownerShare;
-        owner.worldImpressions += 1;
-        ownerEarned = ownerShare;
-      }
-    }
+    // A World owner earns from inventory they own, so they are credited whether
+    // or not they ever joined the viewer program (which is gated on invites).
+    // This half is deferred: their stored balance has to be read before
+    // anything can be added to it.
+    const ownerCredit = worldOwnerWallet
+      ? this.creditWorldOwner(worldOwnerWallet, Math.floor(cost * AD_WORLD_OWNER_SHARE))
+      : Promise.resolve(0);
 
     // If this drained the brand, re-rank so a funded bid can take the slot.
     if (brand.balance < cost) this.recompute();
-    return { ownerEarnedUi: ownerEarned > 0 ? toUiAmount(ownerEarned, "base") : 0 };
+    return { ownerCredit };
   }
 
-  /** In-memory member row, created on demand (World owners earn without joining). */
-  private ensureMemberState(wallet: string): MemberState {
-    let m = this.members.get(wallet);
-    if (!m) {
-      m = {
-        earnings: 0,
-        lifetime: 0,
-        impressions: 0,
-        worldLifetime: 0,
-        worldImpressions: 0,
-        joined: false,
-        dirty: false,
-      };
-      this.members.set(wallet, m);
+  /**
+   * Load a wallet's member state into memory exactly once, reading the DB row
+   * first and creating a zeroed one only when there genuinely isn't one.
+   *
+   * NEVER construct MemberState without going through here. `saveMember` writes
+   * ABSOLUTE values, so a fresh zeroed row for a wallet that already has stored
+   * earnings would have the next flush overwrite that balance with the zero —
+   * silently wiping a player's claimable $BASE. Concurrent callers share one
+   * in-flight read for the same reason: two parallel loads would each create a
+   * state and the second would discard the first's accrual.
+   */
+  private async loadMemberState(wallet: string): Promise<MemberState> {
+    const loaded = this.members.get(wallet);
+    if (loaded) return loaded;
+    let inFlight = this.memberLoads.get(wallet);
+    if (!inFlight) {
+      inFlight = (async () => {
+        const row = await dbGetMember(wallet);
+        // Re-check: another caller may have populated it during the await.
+        const raced = this.members.get(wallet);
+        if (raced) return raced;
+        const state: MemberState = {
+          earnings: row?.earnings ?? 0,
+          lifetime: row?.lifetime ?? 0,
+          impressions: row?.impressions ?? 0,
+          worldLifetime: row?.worldLifetime ?? 0,
+          worldImpressions: row?.worldImpressions ?? 0,
+          joined: row?.joined ?? false,
+          dirty: false,
+        };
+        this.members.set(wallet, state);
+        return state;
+      })();
+      this.memberLoads.set(wallet, inFlight);
+      void inFlight.finally(() => this.memberLoads.delete(wallet));
     }
-    return m;
+    return inFlight;
+  }
+
+  /**
+   * Credit a World owner's half. Async because it must read any stored balance
+   * before it can add to it. Resolves the amount credited in $BASE UI units (0
+   * when the solvency guard skipped it).
+   */
+  private async creditWorldOwner(wallet: string, share: number): Promise<number> {
+    let owner: MemberState;
+    try {
+      owner = await this.loadMemberState(wallet);
+    } catch (error) {
+      // Drop this impression's owner share rather than risk crediting a state
+      // we couldn't verify against the DB. Never rethrow: the caller is a
+      // fire-and-forget tick, and an unhandled rejection would take the
+      // process down over one minute of one World's ad revenue.
+      console.error("[ads] world owner credit skipped — member load failed:", error);
+      return 0;
+    }
+    if (!this.accrue(owner, share)) return 0;
+    owner.impressions += 1;
+    owner.worldLifetime += share;
+    owner.worldImpressions += 1;
+    return toUiAmount(share, "base");
   }
 
   /**
@@ -730,42 +771,17 @@ class AdService {
   // ---- Member (player) ops ----
 
   async join(wallet: string): Promise<void> {
-    const already = this.members.get(wallet);
-    if (already?.joined) return;
+    // Loads any stored balance first — a World owner may already hold a ledger
+    // row from owner earnings, and joining must not disturb it.
+    const state = await this.loadMemberState(wallet);
+    if (state.joined) return;
     await joinProgram(wallet);
-    // A World owner may already hold a ledger row from owner earnings — joining
-    // flips them into the viewer program without disturbing their balance.
-    if (already) {
-      already.joined = true;
-      already.dirty = true;
-      return;
-    }
-    const existing = await dbGetMember(wallet);
-    this.members.set(wallet, {
-      earnings: existing?.earnings ?? 0,
-      lifetime: existing?.lifetime ?? 0,
-      impressions: existing?.impressions ?? 0,
-      worldLifetime: existing?.worldLifetime ?? 0,
-      worldImpressions: existing?.worldImpressions ?? 0,
-      joined: true,
-      dirty: false,
-    });
+    state.joined = true;
+    state.dirty = true;
   }
 
   async ensureMemberLoaded(wallet: string): Promise<void> {
-    if (this.members.has(wallet)) return;
-    const existing = await dbGetMember(wallet);
-    if (existing) {
-      this.members.set(wallet, {
-        earnings: existing.earnings,
-        lifetime: existing.lifetime,
-        impressions: existing.impressions,
-        worldLifetime: existing.worldLifetime,
-        worldImpressions: existing.worldImpressions,
-        joined: existing.joined,
-        dirty: false,
-      });
-    }
+    await this.loadMemberState(wallet);
   }
 
   getProgram(wallet: string, invitedCount = 0): AdProgramPayload {
