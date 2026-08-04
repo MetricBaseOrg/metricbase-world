@@ -8,10 +8,13 @@ import { claimXTask, createXTask, fetchXTasks, setXTaskActive, updateXTask, type
  * with it prefilled, and takes the pasted proof-tweet URL to claim the points.
  * Admins additionally see inactive tasks and can create / edit / hide them.
  */
+const XTASKS_COLLAPSED_COUNT = 3;
+
 export function XTasksCard({ accessToken, onClaimed }: { accessToken: string | null; onClaimed?: () => void }) {
   const [tasks, setTasks] = useState<XTaskView[] | null>(null);
   const [linked, setLinked] = useState(true);
   const [admin, setAdmin] = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
   const reload = () => {
     if (!accessToken) return;
@@ -40,12 +43,19 @@ export function XTasksCard({ accessToken, onClaimed }: { accessToken: string | n
         <p style={{ fontSize: "0.85rem", color: "var(--chibi-ink-soft)", margin: 0 }}>Loading tasks…</p>
       )}
       <div style={{ display: "grid", gap: 12 }}>
-        {tasks?.map((t) => (
+        {(expanded ? tasks : tasks?.slice(0, XTASKS_COLLAPSED_COUNT))?.map((t) => (
           <XTaskItem key={t.id} task={t} accessToken={accessToken} linked={linked} admin={admin}
             onChanged={reload}
             onClaimed={() => { setTasks((prev) => prev?.map((x) => x.id === t.id ? { ...x, claimed: true } : x) ?? prev); onClaimed?.(); }} />
         ))}
       </div>
+      {tasks && tasks.length > XTASKS_COLLAPSED_COUNT && (
+        <button type="button" className="chibi-btn chibi-btn--ghost"
+          style={{ marginTop: 12, padding: "8px 16px", fontSize: "0.8rem" }}
+          onClick={() => setExpanded((v) => !v)}>
+          {expanded ? "Show less" : `Show all ${tasks.length} tasks`}
+        </button>
+      )}
       {admin && <NewTaskButton accessToken={accessToken} onCreated={reload} />}
     </section>
   );

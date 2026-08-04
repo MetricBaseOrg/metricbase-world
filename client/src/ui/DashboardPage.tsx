@@ -33,22 +33,6 @@ import "./dashboard.css";
 const PLAY_URL = "/play?auto=1";
 const SPECTATE_URL = "/play?spectate=1";
 
-/** Evergreen in-game activities surfaced as "events". */
-const EVENTS: Array<{ title: string; body: string }> = [
-  {
-    title: "Daily Quests & Login Streak",
-    body: "Three fresh tasks every day plus a login-streak chest. Complete them for gold and gems before the daily reset.",
-  },
-  {
-    title: "PvP Season — Climb the Ladder",
-    body: "Flag up for duels or brave the red and black zones. Rating resets each season; the top of the ladder earns honor.",
-  },
-  {
-    title: "Guild Wars & Castle Sieges",
-    body: "Declare war, contest territories, and lay siege to the castle with your guild for territory buffs and guild coin.",
-  },
-];
-
 // Recent release highlights live in shared/src/dashboard.ts (DASHBOARD_UPDATES)
 // right next to GAME_VERSION, so every release updates them in one place.
 
@@ -701,18 +685,6 @@ export function DashboardPage() {
               </section>
 
               <XTasksCard accessToken={accessToken} />
-
-              <section className="chibi-panel mb-dash-card">
-                <h2>Events</h2>
-                <div className="mb-dash-news">
-                  {EVENTS.map((event) => (
-                    <div key={event.title} className="mb-dash-news__item">
-                      <div className="mb-dash-news__title">{event.title}</div>
-                      <div className="mb-dash-news__body">{event.body}</div>
-                    </div>
-                  ))}
-                </div>
-              </section>
             </div>
 
             <div className="mb-dash__col">
