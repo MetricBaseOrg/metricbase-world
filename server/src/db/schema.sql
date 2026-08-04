@@ -190,6 +190,15 @@ CREATE TABLE IF NOT EXISTS ad_members (
   impressions BIGINT NOT NULL DEFAULT 0,
   joined_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+-- World-owner revenue share: the slice of `lifetime`/`impressions` above that
+-- was earned by OWNING a World the ad ran in rather than by viewing one. A
+-- World owner is credited here even if they never joined the viewer program,
+-- so `earnings` can be non-zero for a non-member (see adService.creditWorldOwner).
+ALTER TABLE ad_members ADD COLUMN IF NOT EXISTS world_lifetime BIGINT NOT NULL DEFAULT 0;
+ALTER TABLE ad_members ADD COLUMN IF NOT EXISTS world_impressions BIGINT NOT NULL DEFAULT 0;
+-- Joined the invite-gated VIEWER program (vs. holding a row only because a World
+-- they own earned). Defaults true so every pre-existing row stays a member.
+ALTER TABLE ad_members ADD COLUMN IF NOT EXISTS joined BOOLEAN NOT NULL DEFAULT true;
 -- Idempotent on-chain ledger for ad deposits + player claims.
 CREATE TABLE IF NOT EXISTS ad_ledger (
   signature VARCHAR(128) PRIMARY KEY,
@@ -350,6 +359,14 @@ ALTER TABLE player_zones ADD COLUMN IF NOT EXISTS passes_sold INTEGER NOT NULL D
 ALTER TABLE player_zones ADD COLUMN IF NOT EXISTS pass_gold BIGINT NOT NULL DEFAULT 0;
 ALTER TABLE player_zones ADD COLUMN IF NOT EXISTS tax_gold BIGINT NOT NULL DEFAULT 0;
 ALTER TABLE player_zones ADD COLUMN IF NOT EXISTS lifetime_earnings BIGINT NOT NULL DEFAULT 0;
+-- Ad revenue sharing (opt-in): a billboard by the spawn shows the auction's
+-- Player Worlds creative and the owner earns a share of every impression it
+-- generates. Default OFF — an existing World never starts running ads.
+ALTER TABLE player_zones ADD COLUMN IF NOT EXISTS ads_enabled BOOLEAN NOT NULL DEFAULT false;
+-- Lifetime $BASE earned from ads in this World (display counter; the claimable
+-- balance lives in ad_members).
+ALTER TABLE player_zones ADD COLUMN IF NOT EXISTS ad_base_earned NUMERIC(20, 6) NOT NULL DEFAULT 0;
+ALTER TABLE player_zones ADD COLUMN IF NOT EXISTS ad_impressions BIGINT NOT NULL DEFAULT 0;
 
 -- Build-asset inventory: how many of each placeable asset a player owns (bought
 -- from the Build Shop or P2P, consumed when placed, returned when removed).

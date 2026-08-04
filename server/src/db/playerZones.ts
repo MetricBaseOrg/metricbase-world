@@ -46,9 +46,12 @@ export async function loadPlayerZones(): Promise<PlayerZoneRecord[]> {
       expand_level: number | null;
       danger_tier: string | null;
       guild_only: boolean | null;
+      ads_enabled: boolean | null;
+      ad_base_earned: string | number | null;
+      ad_impressions: string | number | null;
       build: unknown;
     }>(
-      "SELECT zone_id, owner_wallet, owner_name, display_name, pass_price, published, earnings, visits, gather_tax, passes_sold, pass_gold, tax_gold, lifetime_earnings, created_at, expand_level, danger_tier, guild_only, build FROM player_zones",
+      "SELECT zone_id, owner_wallet, owner_name, display_name, pass_price, published, earnings, visits, gather_tax, passes_sold, pass_gold, tax_gold, lifetime_earnings, created_at, expand_level, danger_tier, guild_only, ads_enabled, ad_base_earned, ad_impressions, build FROM player_zones",
     );
     return res.rows.map((row) => ({
       zoneId: row.zone_id,
@@ -69,6 +72,9 @@ export async function loadPlayerZones(): Promise<PlayerZoneRecord[]> {
       expandLevel: row.expand_level ?? 0,
       dangerTier: normalizePlayerZoneTier(row.danger_tier),
       guildOnly: Boolean(row.guild_only),
+      adsEnabled: Boolean(row.ads_enabled),
+      adBaseEarned: Number(row.ad_base_earned ?? 0),
+      adImpressions: Number(row.ad_impressions ?? 0),
       build: normalizeBuild(row.build),
     }));
   } catch (error) {
@@ -82,8 +88,8 @@ export async function savePlayerZone(zone: PlayerZoneRecord): Promise<void> {
   if (!pool) return;
   try {
     await pool.query(
-      `INSERT INTO player_zones (zone_id, owner_wallet, owner_name, display_name, pass_price, published, earnings, visits, gather_tax, passes_sold, pass_gold, tax_gold, lifetime_earnings, expand_level, danger_tier, guild_only, build)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+      `INSERT INTO player_zones (zone_id, owner_wallet, owner_name, display_name, pass_price, published, earnings, visits, gather_tax, passes_sold, pass_gold, tax_gold, lifetime_earnings, expand_level, danger_tier, guild_only, ads_enabled, ad_base_earned, ad_impressions, build)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
        ON CONFLICT (zone_id)
        DO UPDATE SET owner_wallet = EXCLUDED.owner_wallet, owner_name = EXCLUDED.owner_name,
                      display_name = EXCLUDED.display_name, pass_price = EXCLUDED.pass_price,
@@ -92,7 +98,9 @@ export async function savePlayerZone(zone: PlayerZoneRecord): Promise<void> {
                      passes_sold = EXCLUDED.passes_sold, pass_gold = EXCLUDED.pass_gold,
                      tax_gold = EXCLUDED.tax_gold, lifetime_earnings = EXCLUDED.lifetime_earnings,
                      expand_level = EXCLUDED.expand_level, danger_tier = EXCLUDED.danger_tier,
-                     guild_only = EXCLUDED.guild_only, build = EXCLUDED.build`,
+                     guild_only = EXCLUDED.guild_only, ads_enabled = EXCLUDED.ads_enabled,
+                     ad_base_earned = EXCLUDED.ad_base_earned, ad_impressions = EXCLUDED.ad_impressions,
+                     build = EXCLUDED.build`,
       [
         zone.zoneId,
         zone.ownerWallet,
@@ -110,6 +118,9 @@ export async function savePlayerZone(zone: PlayerZoneRecord): Promise<void> {
         zone.expandLevel,
         normalizePlayerZoneTier(zone.dangerTier),
         Boolean(zone.guildOnly),
+        Boolean(zone.adsEnabled),
+        zone.adBaseEarned ?? 0,
+        zone.adImpressions ?? 0,
         JSON.stringify(zone.build ?? emptyPlayerZoneBuild()),
       ],
     );

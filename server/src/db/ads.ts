@@ -187,13 +187,25 @@ export interface AdMemberRow {
   earnings: number;
   lifetime: number;
   impressions: number;
+  /** Of `lifetime`, the part earned as a World owner rather than as a viewer. */
+  worldLifetime: number;
+  worldImpressions: number;
+  /** Joined the invite-gated viewer program (false = World-owner earnings only). */
+  joined: boolean;
 }
 
 export async function getMember(wallet: string): Promise<AdMemberRow | null> {
   const db = getPool();
   if (!db) return null;
-  const r = await db.query<{ earnings: string; lifetime: string; impressions: string }>(
-    `SELECT earnings, lifetime, impressions FROM ad_members WHERE wallet_address = $1`,
+  const r = await db.query<{
+    earnings: string;
+    lifetime: string;
+    impressions: string;
+    world_lifetime: string;
+    world_impressions: string;
+    joined: boolean;
+  }>(
+    `SELECT earnings, lifetime, impressions, world_lifetime, world_impressions, joined FROM ad_members WHERE wallet_address = $1`,
     [wallet],
   );
   if (!r.rowCount) return null;
@@ -202,6 +214,9 @@ export async function getMember(wallet: string): Promise<AdMemberRow | null> {
     earnings: Number(r.rows[0].earnings),
     lifetime: Number(r.rows[0].lifetime),
     impressions: Number(r.rows[0].impressions),
+    worldLifetime: Number(r.rows[0].world_lifetime),
+    worldImpressions: Number(r.rows[0].world_impressions),
+    joined: Boolean(r.rows[0].joined),
   };
 }
 
@@ -215,13 +230,34 @@ export async function joinProgram(wallet: string): Promise<void> {
 }
 
 /** Write-through member earnings/impressions from adService. */
-export async function saveMember(wallet: string, earnings: number, lifetime: number, impressions: number): Promise<void> {
+export async function saveMember(
+  wallet: string,
+  earnings: number,
+  lifetime: number,
+  impressions: number,
+  worldLifetime = 0,
+  worldImpressions = 0,
+  joined = true,
+): Promise<void> {
   const db = getPool();
   if (!db) return;
   await db.query(
-    `INSERT INTO ad_members (wallet_address, earnings, lifetime, impressions) VALUES ($1, $2, $3, $4)
-     ON CONFLICT (wallet_address) DO UPDATE SET earnings = EXCLUDED.earnings, lifetime = EXCLUDED.lifetime, impressions = EXCLUDED.impressions`,
-    [wallet, Math.floor(earnings), Math.floor(lifetime), Math.floor(impressions)],
+    `INSERT INTO ad_members (wallet_address, earnings, lifetime, impressions, world_lifetime, world_impressions, joined)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
+     ON CONFLICT (wallet_address) DO UPDATE SET earnings = EXCLUDED.earnings, lifetime = EXCLUDED.lifetime,
+       impressions = EXCLUDED.impressions, world_lifetime = EXCLUDED.world_lifetime,
+       world_impressions = EXCLUDED.world_impressions,
+       -- Membership is one-way: an owner-only row that later joins stays joined.
+       joined = ad_members.joined OR EXCLUDED.joined`,
+    [
+      wallet,
+      Math.floor(earnings),
+      Math.floor(lifetime),
+      Math.floor(impressions),
+      Math.floor(worldLifetime),
+      Math.floor(worldImpressions),
+      joined,
+    ],
   );
 }
 

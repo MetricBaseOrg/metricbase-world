@@ -116,6 +116,7 @@ export function WorldsPanel() {
       gatherTax?: number;
       dangerTier?: DangerTier;
       guildOnly?: boolean;
+      adsEnabled?: boolean;
     },
   ) => {
     playSfx("ui_click");
@@ -507,6 +508,49 @@ export function WorldsPanel() {
                   >
                     Collect {w.earnings > 0 ? `${w.earnings.toLocaleString()}g` : ""}
                   </button>
+                </div>
+                <div
+                  style={{
+                    marginTop: 8,
+                    padding: "8px 10px",
+                    borderRadius: 10,
+                    background: w.adsEnabled ? "rgba(90, 200, 140, 0.12)" : "rgba(255,255,255,0.05)",
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    <button
+                      type="button"
+                      className={`chibi-btn ${w.adsEnabled ? "chibi-btn--mint" : "chibi-btn--secondary"}`}
+                      style={{ padding: "8px 10px", fontSize: "0.76rem" }}
+                      disabled={pending}
+                      title={
+                        w.adsEnabled
+                          ? "A billboard by your spawn is running ads and paying you a share"
+                          : "Run ads in this World and earn 50% of what they make"
+                      }
+                      onClick={() => saveMeta(w, { adsEnabled: !w.adsEnabled })}
+                    >
+                      {w.adsEnabled ? "📣 Ads on" : "📣 Run ads"}
+                    </button>
+                    <span style={{ fontSize: "0.72rem" }}>
+                      {w.adsEnabled ? (
+                        <>
+                          <strong>{(w.adBaseEarned ?? 0).toLocaleString()} $BASE</strong> earned ·{" "}
+                          {(w.adImpressions ?? 0).toLocaleString()} views
+                        </>
+                      ) : (
+                        <span className="chibi-text-muted">You keep 50% · visitors share the other 50%</span>
+                      )}
+                    </span>
+                  </div>
+                  {w.adsEnabled && !w.published && (
+                    <div className="chibi-text-muted" style={{ fontSize: "0.68rem", marginTop: 4 }}>
+                      ⚠️ Publish your World for the billboard to start earning — unpublished Worlds get no visitors.
+                    </div>
+                  )}
+                  <div className="chibi-text-muted" style={{ fontSize: "0.68rem", marginTop: 4 }}>
+                    Paid in $BASE to your wallet — claim it in ⚙️ → 📣 Ads &amp; Earnings.
+                  </div>
                 </div>
                 <div className="chibi-text-muted" style={{ fontSize: "0.7rem", marginTop: 6 }}>
                   ✏️ Tap “🔨 Build” to enter your World — the Build bar appears bottom-left for placing props & painting ground.

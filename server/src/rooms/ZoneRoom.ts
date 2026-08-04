@@ -463,10 +463,12 @@ import {
   expandZone,
   grantZonePass,
   isPlayerZoneId,
+  recordZoneAdImpression,
   recordZoneVisit,
   sanitizeBuild,
   setZoneBuild,
   setZoneMeta,
+  zoneServesAds,
 } from "../zones/zoneRegistry.js";
 import { creditTreasuryGold } from "../economy/treasury.js";
 import { fillTownOrder, getTownOrders, playerOrderGoldRemaining } from "../economy/townDemand.js";
@@ -4269,6 +4271,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       gatherTax?: number;
       dangerTier?: DangerTier;
       guildOnly?: boolean;
+      adsEnabled?: boolean;
     },
   ) {
     const player = this.state.players.get(client.sessionId);
@@ -4276,6 +4279,14 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     const zone = getPlayerZone(zoneId);
     if (!zone || zone.ownerName !== player.name) {
       return void client.send("zoneResult", { ok: false, error: "You don't own that World." });
+    }
+    // Ad earnings are paid in $BASE to the owner's wallet, so a World whose
+    // owner has no bonded wallet can't opt in — there is nowhere to pay.
+    if (patch.adsEnabled === true && !zone.ownerWallet) {
+      return void client.send("zoneResult", {
+        ok: false,
+        error: "Connect a wallet to your character before running ads — that's where the $BASE goes.",
+      });
     }
     const tierChanged = patch.dangerTier !== undefined && patch.dangerTier !== zone.dangerTier;
     const accessChanged = typeof patch.guildOnly === "boolean" && patch.guildOnly !== zone.guildOnly;
@@ -4286,7 +4297,19 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       gatherTax: patch.gatherTax,
       dangerTier: patch.dangerTier,
       guildOnly: patch.guildOnly,
+      adsEnabled: patch.adsEnabled,
     });
+    // The billboard appears/disappears for everyone currently inside, so push
+    // the rebuilt config rather than waiting for a rejoin.
+    if (typeof patch.adsEnabled === "boolean" && patch.adsEnabled !== zone.adsEnabled) {
+      const record = getPlayerZone(zoneId);
+      for (const room of ZoneRoom.activeRooms) {
+        if (record && room.zoneConfig.id === zoneId) {
+          room.zoneConfig = playerZoneToConfig(record);
+          room.broadcast("playerZoneConfig", room.zoneConfig);
+        }
+      }
+    }
     // Access changes only gate NEW entries — visitors already inside are told,
     // not ejected (matches how pass expiry behaves).
     if (accessChanged) {
@@ -5361,6 +5384,9 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         online: ZoneRoom.zoneOnlineCount(z.zoneId),
         expandLevel: z.expandLevel,
         gridSize: zoneGridSize(z.expandLevel),
+        adsEnabled: Boolean(z.adsEnabled),
+        adBaseEarned: z.adBaseEarned ?? 0,
+        adImpressions: z.adImpressions ?? 0,
         build: z.build,
       })),
     });
@@ -7095,6 +7121,10 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   /** Every minute, each viewing player generates one impression per visible slot. */
   private tickAdImpressions() {
     const zoneId = this.zoneConfig.id;
+    // Player Worlds carry their own billboard, and their owner takes a share of
+    // everything it earns. An unpublished or opted-out World serves nothing.
+    const world = isPlayerZoneId(zoneId) ? getPlayerZone(zoneId) : undefined;
+    const worldOwner = zoneServesAds(world) ? world!.ownerWallet : null;
     for (const [sessionId, player] of this.state.players) {
       if (player.spectator) continue;
       const wallet = this.playerWallets.get(sessionId) ?? null;
@@ -7102,12 +7132,28 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       // it shows on several surfaces (e.g. its own billboard + banner fallback).
       const charged = new Set<string>();
       for (const slot of AD_SLOTS) {
-        // Banner = everyone; billboard = players in that billboard's zone.
-        if (slot.surface === "billboard" && slot.zoneId !== zoneId) continue;
+        // Banner = everyone; billboard = players in that billboard's zone; the
+        // Worlds slot = players inside a World that runs ads.
+        if (slot.playerWorlds) {
+          if (!worldOwner) continue;
+        } else if (slot.surface === "billboard" && slot.zoneId !== zoneId) {
+          continue;
+        }
         const campaignId = adService.slotCampaign(slot.id);
         if (!campaignId || charged.has(campaignId)) continue;
         charged.add(campaignId);
-        adService.recordCampaignImpression(campaignId, wallet);
+        // Only the Worlds slot pays the owner. A World visitor also sees the
+        // global banner, and that impression is billed under the ordinary
+        // platform split — the owner is paid for their own inventory, not for
+        // every ad a visitor happens to look at.
+        const earned = adService.recordCampaignImpression(
+          campaignId,
+          wallet,
+          slot.playerWorlds ? worldOwner : null,
+        );
+        if (slot.playerWorlds && earned.ownerEarnedUi > 0) {
+          recordZoneAdImpression(zoneId, earned.ownerEarnedUi);
+        }
       }
     }
     const serving = adService.getServing();

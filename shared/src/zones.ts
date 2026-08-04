@@ -103,6 +103,13 @@ export interface ZoneConfig {
   tiles?: { x: number; y: number; type: string }[];
   /** Square grid size for player zones (24 base, larger when expanded). */
   gridSize?: number;
+  /**
+   * Player zones only: where this World's ad billboard stands, when the owner
+   * has opted into ad revenue sharing. Built-in zones carry their billboard
+   * positions on their AD_SLOTS entry instead; a World's is derived from its
+   * spawn, so it travels with the config.
+   */
+  adBillboardTiles?: { x: number; y: number }[];
 }
 
 export const ZONE_CONFIGS: Record<string, ZoneConfig> = {

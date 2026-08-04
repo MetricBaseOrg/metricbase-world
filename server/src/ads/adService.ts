@@ -6,6 +6,7 @@
 import {
   AD_MIN_CLAIM,
   AD_PLAYER_SHARE,
+  AD_WORLD_OWNER_SHARE,
   AD_REQUIRED_INVITES,
   AD_SLOTS,
   METRICBASE_TOKEN_MINT,
@@ -82,6 +83,16 @@ interface MemberState {
   earnings: number; // base units, claimable
   lifetime: number;
   impressions: number;
+  /** Of `lifetime`, the part earned as a World owner rather than as a viewer. */
+  worldLifetime: number;
+  worldImpressions: number;
+  /**
+   * Actually joined the viewer program (invite-gated). A World owner gets a
+   * ledger row the first time their World earns, WITHOUT joining — otherwise
+   * owning a World would be a side door around the invite requirement for
+   * viewer earnings. They can still claim what they've earned.
+   */
+  joined: boolean;
   dirty: boolean;
 }
 
@@ -250,10 +261,19 @@ class AdService {
    * once per player per minute regardless of how many surfaces show it
    * (frequency cap). The player's share is only accrued while the house wallet
    * can cover total liabilities (solvency guard).
+   *
+   * `worldOwnerWallet` marks an impression generated inside an opted-in player
+   * World: its owner takes AD_WORLD_OWNER_SHARE on top of the viewer's share,
+   * so World inventory pays out in full and the platform keeps nothing.
    */
-  recordCampaignImpression(campaignId: string, viewerWallet: string | null): void {
+  recordCampaignImpression(
+    campaignId: string,
+    viewerWallet: string | null,
+    worldOwnerWallet: string | null = null,
+  ): { ownerEarnedUi: number } {
+    const none = { ownerEarnedUi: 0 };
     const c = this.campaigns.get(campaignId);
-    if (!c) return;
+    if (!c) return none;
     // The ad was shown, so the impression counts either way.
     c.impressions += 1;
     this.dirtyCampaigns.add(c.id);
@@ -261,27 +281,74 @@ class AdService {
     const brand = this.brand(c.brandWallet);
     const cost = Math.floor(c.cpm / 1000);
     // Unfunded (free) house promo — no charge and no player payout.
-    if (cost <= 0 || brand.balance < cost) return;
+    if (cost <= 0 || brand.balance < cost) return none;
 
     brand.balance -= cost;
     brand.lifetimeSpent += cost;
     brand.dirty = true;
     c.spent += cost;
 
-    if (viewerWallet && this.members.has(viewerWallet)) {
+    // An owner viewing their own World would otherwise collect both halves, so
+    // pay them the owner share only — the bigger of the two, and the one they
+    // earn by providing the inventory rather than by standing in front of it.
+    const ownerIsViewer = !!worldOwnerWallet && worldOwnerWallet === viewerWallet;
+
+    if (viewerWallet && !ownerIsViewer && this.isMember(viewerWallet)) {
       const share = Math.floor(cost * AD_PLAYER_SHARE);
-      // Solvency guard: only accrue what the house wallet can actually pay out.
-      if (share > 0 && this.liabilities + share <= this.houseBalanceUnits) {
-        const m = this.members.get(viewerWallet)!;
-        m.earnings += share;
-        m.lifetime += share;
-        m.impressions += 1;
-        m.dirty = true;
-        this.liabilities += share;
+      const m = this.members.get(viewerWallet)!;
+      if (this.accrue(m, share)) m.impressions += 1;
+    }
+
+    let ownerEarned = 0;
+    if (worldOwnerWallet) {
+      const ownerShare = Math.floor(cost * AD_WORLD_OWNER_SHARE);
+      // A World owner earns from inventory they own, so they are credited
+      // whether or not they ever joined the viewer program (which is gated on
+      // invites). Create the ledger row on first earning.
+      const owner = this.ensureMemberState(worldOwnerWallet);
+      if (this.accrue(owner, ownerShare)) {
+        owner.impressions += 1;
+        owner.worldLifetime += ownerShare;
+        owner.worldImpressions += 1;
+        ownerEarned = ownerShare;
       }
     }
+
     // If this drained the brand, re-rank so a funded bid can take the slot.
     if (brand.balance < cost) this.recompute();
+    return { ownerEarnedUi: ownerEarned > 0 ? toUiAmount(ownerEarned, "base") : 0 };
+  }
+
+  /** In-memory member row, created on demand (World owners earn without joining). */
+  private ensureMemberState(wallet: string): MemberState {
+    let m = this.members.get(wallet);
+    if (!m) {
+      m = {
+        earnings: 0,
+        lifetime: 0,
+        impressions: 0,
+        worldLifetime: 0,
+        worldImpressions: 0,
+        joined: false,
+        dirty: false,
+      };
+      this.members.set(wallet, m);
+    }
+    return m;
+  }
+
+  /**
+   * Accrue a share against the solvency guard: only credit what the house
+   * wallet can actually pay out. Returns false when the share was skipped, so
+   * the caller doesn't count an impression it didn't pay for.
+   */
+  private accrue(m: MemberState, share: number): boolean {
+    if (share <= 0 || this.liabilities + share > this.houseBalanceUnits) return false;
+    m.earnings += share;
+    m.lifetime += share;
+    m.dirty = true;
+    this.liabilities += share;
+    return true;
   }
 
   async flush(): Promise<void> {
@@ -298,7 +365,7 @@ class AdService {
     for (const [wallet, m] of this.members) {
       if (!m.dirty) continue;
       m.dirty = false;
-      await saveMember(wallet, m.earnings, m.lifetime, m.impressions);
+      await saveMember(wallet, m.earnings, m.lifetime, m.impressions, m.worldLifetime, m.worldImpressions, m.joined);
     }
   }
 
@@ -663,13 +730,24 @@ class AdService {
   // ---- Member (player) ops ----
 
   async join(wallet: string): Promise<void> {
-    if (this.members.has(wallet)) return;
+    const already = this.members.get(wallet);
+    if (already?.joined) return;
     await joinProgram(wallet);
+    // A World owner may already hold a ledger row from owner earnings — joining
+    // flips them into the viewer program without disturbing their balance.
+    if (already) {
+      already.joined = true;
+      already.dirty = true;
+      return;
+    }
     const existing = await dbGetMember(wallet);
     this.members.set(wallet, {
       earnings: existing?.earnings ?? 0,
       lifetime: existing?.lifetime ?? 0,
       impressions: existing?.impressions ?? 0,
+      worldLifetime: existing?.worldLifetime ?? 0,
+      worldImpressions: existing?.worldImpressions ?? 0,
+      joined: true,
       dirty: false,
     });
   }
@@ -682,6 +760,9 @@ class AdService {
         earnings: existing.earnings,
         lifetime: existing.lifetime,
         impressions: existing.impressions,
+        worldLifetime: existing.worldLifetime,
+        worldImpressions: existing.worldImpressions,
+        joined: existing.joined,
         dirty: false,
       });
     }
@@ -690,17 +771,19 @@ class AdService {
   getProgram(wallet: string, invitedCount = 0): AdProgramPayload {
     const m = this.members.get(wallet);
     return {
-      member: !!m,
+      member: !!m?.joined,
       earnings: toUiAmount(m?.earnings ?? 0, "base"),
       lifetime: toUiAmount(m?.lifetime ?? 0, "base"),
       impressions: m?.impressions ?? 0,
       withdrawEnabled: isWithdrawEnabled(),
       invitedCount,
+      worldOwnerLifetime: toUiAmount(m?.worldLifetime ?? 0, "base"),
+      worldImpressions: m?.worldImpressions ?? 0,
     };
   }
 
   isMember(wallet: string): boolean {
-    return this.members.has(wallet);
+    return this.members.get(wallet)?.joined === true;
   }
 
   /** Pay out a member's accrued earnings to their wallet. */
@@ -710,7 +793,7 @@ class AdService {
     const m = this.members.get(wallet);
     if (m && m.dirty) {
       m.dirty = false;
-      await saveMember(wallet, m.earnings, m.lifetime, m.impressions);
+      await saveMember(wallet, m.earnings, m.lifetime, m.impressions, m.worldLifetime, m.worldImpressions, m.joined);
     }
     // Enforce the minimum claim before zeroing the balance.
     const current = m ? m.earnings : (await dbGetMember(wallet))?.earnings ?? 0;
@@ -727,7 +810,15 @@ class AdService {
     if (!payout.ok) {
       // Refund the claim back to the member on payout failure.
       const cur = await dbGetMember(wallet);
-      await saveMember(wallet, (cur?.earnings ?? 0) + amount, cur?.lifetime ?? 0, cur?.impressions ?? 0);
+      await saveMember(
+        wallet,
+        (cur?.earnings ?? 0) + amount,
+        cur?.lifetime ?? 0,
+        cur?.impressions ?? 0,
+        cur?.worldLifetime ?? 0,
+        cur?.worldImpressions ?? 0,
+        cur?.joined ?? true,
+      );
       if (m) m.earnings = (cur?.earnings ?? 0) + amount;
       this.liabilities += amount;
       return { ok: false, error: payout.error ?? "Payout failed." };

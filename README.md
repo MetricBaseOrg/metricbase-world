@@ -143,7 +143,8 @@ assets/   Source art notes
   seasons & ranks, mounts, pets, gear rarity + enhancement.
 - **Player Worlds** 🌍 — buy a zone (1M gold), build it with a full in-game
   editor (rivers/bridges, soil farm plots, working crop markets, gatherable
-  nodes), sell visitor passes + gather tax, expand the grid by burning $BASE.
+  nodes), sell visitor passes + gather tax, run ads for a 50% cut of what they
+  earn, expand the grid by burning $BASE.
 - **$BASE utility** — burn sinks (Black Zone, VIP, World & bag expansion),
   Rudi's 1:1 gold desk, casino blackjack, and **Magic Chests** — four tiers
   (1k/3k/10k/25k $BASE) that roll gold, materials, gear and season points with
@@ -178,6 +179,13 @@ assets/   Source art notes
   `/setdomain`).
 - **Ad marketplace** — brands bid CPM in $BASE; 50% of spend is paid to the
   players viewing; standalone wallet-only **Brand Portal** at `/brands`.
+- **World ad revenue sharing** 🌍 — a World owner switches ads on and a
+  billboard goes up by their spawn. Impressions inside a World pay out **in
+  full: 50% owner / 50% the viewing member, 0% platform**. One shared "Player
+  Worlds" slot in the same CPM auction serves every opted-in World, so
+  inventory grows as owners join without reworking the auction. The owner half
+  needs no invites (they own the space); an owner can't collect both halves in
+  their own World, and both halves stay behind the payout-solvency guard.
 - **Transparency** — public live dashboard at `/stats` (gold flow, burns,
   markets, Worlds economy, ads, **$BASE treasury in-vs-out**) with an 𝕏 share
   card.

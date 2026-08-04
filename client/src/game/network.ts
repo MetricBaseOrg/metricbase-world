@@ -163,6 +163,10 @@ export interface MyWorldEntry {
   /** Expansion steps purchased (0 = base) and the resulting grid size. */
   expandLevel: number;
   gridSize: number;
+  /** Ad revenue sharing: opted in, and lifetime $BASE + impressions earned. */
+  adsEnabled?: boolean;
+  adBaseEarned?: number;
+  adImpressions?: number;
   build: PlayerZoneBuild;
 }
 export interface CropMarketResultPayload {
@@ -644,6 +648,7 @@ export class NetworkManager {
       gatherTax?: number;
       dangerTier?: DangerTier;
       guildOnly?: boolean;
+      adsEnabled?: boolean;
     },
   ) {
     this.room?.send("zoneMetaSet", { zoneId, ...patch });

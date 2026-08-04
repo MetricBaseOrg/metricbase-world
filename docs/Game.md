@@ -193,6 +193,35 @@ on-chain to the treasury wallet; claims signed by the house wallet).
 - **Claim** pays out in $BASE to your wallet (minimum **10,000 $BASE**; cash-out
   requires the house wallet to be configured).
 
+### For World owners (revenue sharing)
+
+An owner switches **📣 Run ads** on for a published World and a billboard goes up
+near its spawn, carrying the auction's shared **Player Worlds** creative.
+Impressions generated inside a World are paid out **in full**:
+
+| Share | Recipient |
+|---|---|
+| **50%** | The World's owner |
+| **50%** | The program member who viewed it |
+| 0% | Platform — it keeps nothing on World inventory |
+
+- The **owner half is not invite-gated**. The 5-friend requirement gates the
+  *viewer* program; an owner earns because they supply the inventory, so they get
+  a ledger row and a claim path without joining. Membership and owner earnings
+  are tracked separately (`ad_members.joined`) so owning a World can't be used as
+  a side door into viewer earnings.
+- **Requires published + a bonded wallet.** No visitors, no impressions; no
+  wallet, nowhere to send $BASE.
+- **No self-dealing.** An owner standing in their own World is paid the owner
+  share only, never both halves.
+- Both halves pass through the same **solvency guard** — nothing accrues that the
+  house wallet can't actually pay. Since World inventory earns the platform
+  nothing, that guard is what keeps the liability honest.
+- The billboard **does not block movement**: dropping a solid object into
+  already-built Worlds could wall off a path the owner laid out earlier.
+- Counters (`player_zones.ad_base_earned` / `ad_impressions`) are display-only and
+  batch-flushed every 5 minutes; the claimable balance lives in `ad_members`.
+
 ### For brands (Advertise tab)
 
 - **Deposit** $BASE (min **100**) to fund your balance; a "Credit a past deposit"

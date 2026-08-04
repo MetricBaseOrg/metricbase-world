@@ -42,6 +42,7 @@ import {
   KING_CRYSTAL_TILE,
   SIEGE_ATTACK_RANGE,
   AD_SLOTS,
+  AD_WORLD_SLOT_ID,
   billboardSlotForZone,
   nftTierByKey,
   type AdServedCreative,
@@ -2899,16 +2900,20 @@ export class GameScene extends Phaser.Scene {
   /** In-world ad billboards: two signs per zone showing the current served ad. */
   private renderAdBillboards(zoneId: string) {
     this.clearAdBillboards();
-    const slotId = billboardSlotForZone(zoneId);
+    // A player World that runs ads carries its own billboard position on the
+    // zone config (derived from its spawn); built-in zones look theirs up on
+    // the slot. Either way there's one slot id driving the creative.
+    const worldTiles = resolveZoneConfig(zoneId).adBillboardTiles;
+    const slotId = worldTiles?.length ? AD_WORLD_SLOT_ID : billboardSlotForZone(zoneId);
     if (!slotId) return;
-    const slot = AD_SLOTS.find((s) => s.id === slotId);
-    if (!slot?.tiles) return;
+    const tiles = worldTiles?.length ? worldTiles : AD_SLOTS.find((s) => s.id === slotId)?.tiles;
+    if (!tiles?.length) return;
     // Show this zone's own ranked ad, or fall back to the top-ranked ad so every
     // zone's billboard displays an ad whenever any campaign is serving.
     const creative =
       this.latestAdServing.find((c) => c.slotId === slotId) ?? this.latestAdServing[0] ?? null;
 
-    for (const t of slot.tiles) {
+    for (const t of tiles) {
       const { x, y } = tileToWorld(t.x, t.y);
       const sprite = this.add.sprite(x, y, "billboard").setOrigin(0.5, 0.92).setDepth(y).setDisplaySize(150, 124);
       this.adBillboards.push(sprite);

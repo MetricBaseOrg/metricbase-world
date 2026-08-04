@@ -33,6 +33,27 @@ const passes = new Map<string, StoredZonePass>(); // key: `${zoneId}|${holderNam
 
 const passKey = (zoneId: string, holderName: string) => `${zoneId}|${holderName}`;
 
+// Ad-impression counters tick once a minute per viewer, which is far too hot to
+// write through on every change. They're display-only, so batch them: mark the
+// zone dirty and flush the set on an interval (the DB stays asleep between
+// flushes, which matters on a serverless Postgres).
+const adDirtyZones = new Set<string>();
+const AD_COUNTER_FLUSH_MS = 5 * 60_000;
+
+function markZoneDirty(zoneId: string): void {
+  adDirtyZones.add(zoneId);
+}
+
+async function flushZoneAdCounters(): Promise<void> {
+  if (adDirtyZones.size === 0) return;
+  const ids = [...adDirtyZones];
+  adDirtyZones.clear();
+  for (const id of ids) {
+    const zone = zones.get(id);
+    if (zone) await savePlayerZone(zone);
+  }
+}
+
 export async function initZoneRegistry(): Promise<void> {
   for (const zone of await loadPlayerZones()) {
     // gatherTax became a PERCENT (was a flat gold fee up to 1,000): clamp
@@ -41,6 +62,7 @@ export async function initZoneRegistry(): Promise<void> {
     zones.set(zone.zoneId, zone);
   }
   for (const pass of await loadZonePasses()) passes.set(passKey(pass.zoneId, pass.holderName), pass);
+  setInterval(() => void flushZoneAdCounters(), AD_COUNTER_FLUSH_MS);
 }
 
 export function getPlayerZone(zoneId: string): PlayerZoneRecord | undefined {
@@ -87,6 +109,9 @@ export function createPlayerZone(ownerName: string, ownerWallet: string | null):
     expandLevel: 0,
     dangerTier: "safe",
     guildOnly: false,
+    adsEnabled: false,
+    adBaseEarned: 0,
+    adImpressions: 0,
     build: emptyPlayerZoneBuild(),
   };
   zones.set(zoneId, record);
@@ -163,6 +188,7 @@ export function setZoneMeta(
     gatherTax?: number;
     dangerTier?: DangerTier;
     guildOnly?: boolean;
+    adsEnabled?: boolean;
   },
 ): void {
   const zone = zones.get(zoneId);
@@ -181,7 +207,31 @@ export function setZoneMeta(
   }
   if (typeof patch.published === "boolean") zone.published = patch.published;
   if (typeof patch.guildOnly === "boolean") zone.guildOnly = patch.guildOnly;
+  if (typeof patch.adsEnabled === "boolean") zone.adsEnabled = patch.adsEnabled;
   void savePlayerZone(zone);
+}
+
+/**
+ * A World serves ads only while it is BOTH opted in and published, and only
+ * when its owner has a wallet to be paid into. Unpublished Worlds have no
+ * visitors to count, and a wallet-less owner has nowhere to receive $BASE.
+ */
+export function zoneServesAds(zone: PlayerZoneRecord | undefined): boolean {
+  return !!zone && zone.adsEnabled && zone.published && !!zone.ownerWallet;
+}
+
+/**
+ * Book one World ad impression against the owner's counters. The claimable
+ * $BASE lives in the ad program's member ledger — these are the display
+ * totals shown in the owner's World panel, so they're written through lazily
+ * (the caller runs on the per-minute impression path).
+ */
+export function recordZoneAdImpression(zoneId: string, baseEarnedUi: number): void {
+  const zone = zones.get(zoneId);
+  if (!zone) return;
+  zone.adImpressions += 1;
+  zone.adBaseEarned += baseEarnedUi;
+  markZoneDirty(zoneId);
 }
 
 /** The per-gather visitor tax an owner charges in a zone (0 if none/unknown). */

@@ -31,6 +31,56 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [0.203.0] — 2026-08-04 — Worlds run ads and keep half the revenue
+
+### Added
+
+- **World ad revenue sharing** — a World owner switches on **📣 Run ads** and a
+  billboard goes up near their spawn. Impressions generated inside a World pay
+  out **in full: 50% to the owner, 50% to the member who viewed it, nothing to
+  the platform.** Worlds were already generating billable banner impressions
+  for visitors; now the owner is paid for the footfall they built.
+- **One shared "Player Worlds" slot** in the existing CPM auction (weight 70,
+  between the Global Banner and the Wilderness billboard). Its winning creative
+  serves in *every* opted-in World, so inventory grows as owners join without
+  per-World auction lines, dynamic slot ranking, or empty Worlds serving
+  nothing. Brands buy the reach once.
+- **Owner earnings without the invite gate.** The 5-friend requirement gates the
+  *viewer* program; an owner earns because they supply the space. They get a
+  ledger row and a claim path on first earning, and `ad_members.joined` keeps
+  the two things distinct — otherwise owning a World would have been a side
+  door into viewer earnings. Joining later keeps the accrued balance.
+
+### Notes on the money
+
+- **The platform keeps nothing on World inventory,** so those impressions add
+  payout liabilities with no matching income. Both halves therefore pass
+  through the existing solvency guard: nothing accrues that the house wallet
+  can't actually pay, and an impression isn't counted as paid when it's
+  skipped.
+- **No self-dealing.** An owner idling in their own World is paid the owner
+  share only, never both halves.
+- A World must be **published** with a **wallet-bonded owner** to serve ads —
+  no visitors means no impressions, and no wallet means nowhere to send $BASE.
+- Gold never enters this path: ad revenue is brand-deposited $BASE moving to
+  players, exactly as before.
+
+### Implementation
+
+- `AD_WORLD_OWNER_SHARE` + the `playerWorlds` slot flag in `shared/src/ads.ts`;
+  the split itself is a third argument on `recordCampaignImpression`, with the
+  solvency check factored into one `accrue()` used by both halves.
+- The billboard's position is **derived from the spawn tile**, not placed in the
+  editor — retro-fitting a placement step would have meant no existing World
+  served an ad until its owner re-edited it. It doesn't block movement, since
+  dropping a solid object into an already-built World could wall off a path.
+- Per-World counters batch-flush every 5 minutes rather than writing through on
+  the per-minute impression path (the DB stays asleep between flushes).
+- Verified with a 27-assert harness against the real `adService`: exact split
+  arithmetic, non-World impressions unchanged, self-dealing blocked, the invite
+  gate intact, solvency at zero and partial house balance, and unfunded house
+  promos paying nobody.
+
 ## [0.198.0 – 0.202.1] — 2026-08-01 → 2026-08-04 — Founders: the NFT community layer
 
 Full design notes: [`docs/nft-community.md`](nft-community.md).

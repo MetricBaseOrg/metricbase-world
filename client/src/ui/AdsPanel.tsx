@@ -3,6 +3,7 @@ import {
   AD_MIN_CPM,
   AD_MIN_DEPOSIT,
   AD_PLAYER_SHARE,
+  AD_WORLD_OWNER_SHARE,
   AD_REQUIRED_INVITES,
   type AdCampaign,
   type AdProgramPayload,
@@ -191,8 +192,19 @@ export function AdsPanel() {
               Earn <strong>{Math.round(AD_PLAYER_SHARE * 100)}%</strong> of the ad revenue from impressions you generate
               just by playing. Earnings pay out in $BASE. To qualify you must invite <strong>{AD_REQUIRED_INVITES} friends</strong>, then apply.
             </p>
+            <p className="chibi-text-muted" style={{ fontSize: "0.78rem" }}>
+              🌍 <strong>Own a World?</strong> Switch ads on in ⚙️ → 🌍 Worlds and you earn{" "}
+              <strong>{Math.round(AD_WORLD_OWNER_SHARE * 100)}%</strong> of everything its billboard makes — the members
+              playing there share the other {Math.round(AD_PLAYER_SHARE * 100)}%. No invites needed for that half.
+            </p>
             {!program?.member ? (
               <>
+                {(program?.earnings ?? 0) > 0 && (
+                  <div className="chibi-ads__balance" style={{ marginBottom: 8 }}>
+                    🌍 <strong>{(program?.earnings ?? 0).toLocaleString()} $BASE</strong> from ads in your World —
+                    claimable below. Owning inventory pays whether or not you're in the viewer program.
+                  </div>
+                )}
                 <div className="chibi-ads__balance">
                   Invited friends: <strong>{program?.invitedCount ?? 0} / {AD_REQUIRED_INVITES}</strong>
                 </div>
@@ -208,6 +220,17 @@ export function AdsPanel() {
                       ? `Invite ${AD_REQUIRED_INVITES - (program?.invitedCount ?? 0)} more friend(s) to apply`
                       : "Apply to the Ad Program"}
                 </button>
+                {(program?.earnings ?? 0) > 0 && (
+                  <button
+                    type="button"
+                    className="chibi-btn chibi-btn--gold"
+                    style={{ marginTop: 6 }}
+                    disabled={busy || !program?.withdrawEnabled || (program?.earnings ?? 0) < AD_MIN_CLAIM}
+                    onClick={() => { setBusy(true); networkManager.sendAdClaim(); }}
+                  >
+                    Claim {(program?.earnings ?? 0).toLocaleString()} $BASE
+                  </button>
+                )}
               </>
             ) : (
               <>
@@ -216,6 +239,12 @@ export function AdsPanel() {
                   <Stat label="Lifetime" value={`${program.lifetime.toLocaleString()} $BASE`} />
                   <Stat label="Impressions" value={program.impressions.toLocaleString()} />
                 </div>
+                {program.worldOwnerLifetime > 0 && (
+                  <div className="chibi-text-muted" style={{ fontSize: "0.72rem" }}>
+                    🌍 Of that, <strong>{program.worldOwnerLifetime.toLocaleString()} $BASE</strong> came from ads in
+                    Worlds you own ({program.worldImpressions.toLocaleString()} views).
+                  </div>
+                )}
                 <button
                   type="button"
                   className="chibi-btn chibi-btn--gold"
