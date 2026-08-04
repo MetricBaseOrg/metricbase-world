@@ -413,6 +413,41 @@ restarts.
 
 ---
 
+## Founders — NFT Membership 👑
+
+**MetricBase Founders** is a 1,000-piece Solana collection (0.1 SOL mint).
+Holding one is recognised in-game through the **👑 Membership** panel on the top
+bar. Design notes and wiring: [`nft-community.md`](nft-community.md).
+
+Three tiers, read from each NFT's on-chain `Tier` trait; a wallet uses the
+highest it holds:
+
+| Tier | Badge | Season points | DAO weight bonus | Holder skins |
+|---|---|---|---|---|
+| Bronze Founder | 👑 | ×1.5 | +100,000 | 1 |
+| Gold Founder | 🌟 | ×2 | +250,000 | 2 |
+| Ember Founder | 🔥 | ×3 | +500,000 | 3 |
+
+What holders get: a tiered nameplate badge (also in the who's-online list, on
+player profiles, and on the `/stats` Richest and Invites boards), holder-only
+cosmetic skins, a `/founder` Telegram invite to the holders' group, extra DAO
+voting weight, and multiplied season points.
+
+**What they don't get is power.** Damage, gather yield, XP and drop rates are
+identical at every tier. The DAO bonus is a flat add on a balance that must
+already clear the 1,000,000 $BASE vote floor — a boost, never a bypass. The
+season multiplier changes how a **fixed, pre-funded** prize pool is *divided*;
+it mints no $BASE and opens no gold→$BASE path.
+
+Detection runs on join and on the maintenance sweep and is cached on the
+character row, so no gameplay path pays for an RPC call. Before reveal, NFTs
+have no `Tier` trait and fall back to the base tier; the next sync upgrades the
+holder automatically. Selling removes the badge, tier perks and holder skins at
+the next sync — everything earned by playing stays. The whole layer is **inert**
+unless `NFT_COLLECTION_ADDRESS` is set on a DAS-capable RPC.
+
+---
+
 ## Architecture
 
 ```

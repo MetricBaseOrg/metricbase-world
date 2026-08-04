@@ -117,7 +117,7 @@ docs/     Design docs, changelog, dev notes
 assets/   Source art notes
 ```
 
-## What's in the game (v0.194.x)
+## What's in the game (v0.202.x)
 
 - **Everyday loop** — woodcutting, mining, fishing, farming (wheat & carrot),
   cooking, energy/food, quests, day/night & weather.
@@ -156,7 +156,18 @@ assets/   Source art notes
   points are credited once the invitee actually reaches level 3, so a free
   sign-up can't farm the pool. From **Season 2** (2026-08-20) the payout split
   is decided by a **refundable 10,000 $BASE entry stake** — playing and scoring
-  stay free. Rewards require a connected X account and a public post.
+  stay free. Rewards require a connected X account and a public post. Founder
+  NFT holders score at a tier multiplier (see below), applied centrally in
+  `awardSeasonPointsDb` so it covers every points source.
+- **Founders NFT membership** 👑 — a 1,000-piece Solana collection (0.1 SOL)
+  whose holders get status, not power: a tiered nameplate badge
+  (Bronze/Gold/Ember, read from each NFT's on-chain `Tier` trait), holder-only
+  skins, recognition on `/stats` and profiles, a `/founder` Telegram group
+  invite, a DAO voting-weight bonus that never bypasses the 1M $BASE vote
+  floor, and a season-point multiplier (×1.5/×2/×3) that changes how the
+  **pre-funded** pool is split, never how much $BASE exists. Damage, yield, XP
+  and drop rates are untouched. The whole layer is **inert** until
+  `NFT_COLLECTION_ADDRESS` is set — see [`docs/nft-community.md`](docs/nft-community.md).
 - **X integration** — link an X account for +50 season points, and complete
   admin-posted reply/repost campaigns for more, verified free via oEmbed with a
   per-wallet code that can't be shared.

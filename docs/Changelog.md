@@ -31,6 +31,90 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [0.198.0 – 0.202.1] — 2026-08-01 → 2026-08-04 — Founders: the NFT community layer
+
+Full design notes: [`docs/nft-community.md`](nft-community.md).
+
+### Added
+
+- **Founder membership (v0.198.0)** — holders of the **MetricBase Founders**
+  collection (1,000 pieces, 0.1 SOL) get a 👑 nameplate badge and holder-only
+  skins. Nothing else: status and cosmetics only. Detection is DAS
+  `getAssetsByOwner` on a Helius-class RPC, cached per wallet for 30 minutes,
+  synced fire-and-forget on join and on the maintenance sweep — the join path
+  never waits on Solana. **Inert until `NFT_COLLECTION_ADDRESS` is set:** with
+  no collection configured there is no network call, the `/stats` card hides,
+  and the Membership panel shows a coming-soon state.
+- **Recognition everywhere (v0.199.0)** — the crown reaches every surface where
+  players judge status: nameplate, who's-online list, player profile, and the
+  `/stats` Richest and Invites boards. Recognition only, still no power.
+- **DAO voting-weight bonus (v0.199.1)** — holders vote with extra weight. It
+  **never bypasses the 1,000,000 $BASE vote floor**, which is still checked on
+  the raw balance; it's a flat add rather than a multiplier so it can't amplify
+  whales, and it's frozen into the vote row like any other weight. Governance is
+  status, so this stays inside the invariants.
+- **Telegram Founder access + wardrobe (v0.199.2)** — `/founder` on the bot
+  resolves telegram_id → wallet → holder and issues a single-use one-hour invite
+  to the holders' group. The holder cosmetic set grew to three skins, shown as a
+  Founder wardrobe in the Membership panel (Unlocked / Hold-to-unlock /
+  Art-coming) derived purely from the existing store flag — no new server or DB
+  surface.
+- **Tiers + reveal (v0.200.0)** — **Bronze 👑 / Gold 🌟 / Ember 🔥**, ascending,
+  fully data-driven in `shared/src/nft.ts`. Perks scale as status only: badge,
+  name colour, cumulative skins (1/2/3), DAO bonus (100k/250k/500k — all under
+  the vote floor). A wallet's tier is the highest it holds. **Reveal needs no
+  special event**: tier reads each NFT's on-chain `Tier` trait, pre-reveal
+  metadata has none and falls back to the base tier, and the next resync
+  upgrades the holder once revealed metadata lands.
+- **Go live (v0.201.0 – 0.201.2)** — mint URL and the final Founders collection
+  address wired in.
+- **Founder season-point multiplier (v0.202.0)** — **×1.5 / ×2 / ×3** by tier,
+  applied centrally in `awardSeasonPointsDb`, so one indexed read of
+  `characters.nft_tier` covers *every* points source (gameplay, chests,
+  referral, richest, X). Season points decide each player's share of a **fixed,
+  pre-funded** pool: this redistributes a pot that already exists — it mints no
+  $BASE, opens no gold→$BASE path, and leaves damage, yield, XP and drop rates
+  untouched. Non-holder or unconfigured → ×1.
+
+### Fixed
+
+- **DAO holder tier read on-chain per vote (v0.202.1)** — now read from the
+  cached `characters.nft_tier` column. A vote shouldn't cost an RPC round-trip.
+
+## [0.195.1 – 0.197.3] — 2026-07-28 → 2026-07-31 — Payment durability, invites & the Neon bill
+
+### Added
+
+- **Invite leaderboard on `/stats` (v0.197.0)** — ranked by invitees who
+  actually **stayed**, not by raw sign-ups, so the board rewards bringing
+  players rather than addresses.
+
+### Fixed
+
+- **A paid chest can no longer be lost to an RPC outage (v0.196.0 – 0.196.3)** —
+  payments that can't be verified are queued for durable recovery instead of
+  dropped, on the recovery path too, with the reason logged. Signature handling
+  now recovers a signature from a whole serialized transaction, which is what
+  the "Invalid param: WrongSize" reports actually were — a broken signature,
+  not Solana.
+- **Chest error copy (v0.195.1 – 0.195.3)** — "Simulation failed" with no $BASE
+  now says so and offers the fix; "Chests are closed" no longer fires when the
+  answer simply hadn't arrived yet; share posts stopped advertising how small
+  the field is.
+- **Guild inherited the first name in the array (v0.197.1).**
+- **Cold start that never went offline (v0.197.2).**
+- **Gear menu covered chat; guild Withdraw overflowed (v0.197.3).**
+
+### Changed
+
+- **Neon compute cost (v0.197.x, perf commits)** — the free plan's compute was
+  being held awake around the clock. Background DB jobs were consolidated to an
+  hourly then 3-hourly cadence, `/api/stats` is cached so polling can't keep the
+  compute alive, `/stats` refresh became manual, and the pool got
+  `idleTimeoutMillis` plus a cap so idle sockets are released promptly. See
+  the `neon-compute-cost` notes for the pgbouncer idle-connection trap that
+  makes suspend tests lie.
+
 ## [0.194.1 – 0.195.0] — 2026-07-27 — Chest art, sound & the share bonus
 
 ### Added

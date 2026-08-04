@@ -93,6 +93,12 @@ Server reads from `server/.env`:
 | `TOKEN_GATE_DISABLED` | **Local dev only.** An AUTH BYPASS (skips signature + ban checks), *not* the free-to-play switch — honoured only when `NODE_ENV` is `development`/`test` |
 | `SOLANA_RPC_URL` | Solana RPC endpoint |
 | `TOKEN_TREASURY_WALLET` | Wallet that receives SPL token purchases |
+| `NFT_COLLECTION_ADDRESS` | Founders collection. **Unset = the whole NFT layer is inert** (no detection call, no crowns, panel shows coming-soon) |
+| `DAO_NFT_HOLDER_WEIGHT_BONUS` | Overrides the per-tier DAO bonus; `0` disables it. Never bypasses the 1M $BASE vote floor |
+| `TELEGRAM_HOLDER_CHAT_ID` | Holders-only group for `/founder`. Unset = the command isn't advertised |
+
+Holder detection needs a **DAS-capable RPC** (Helius/Shyft/QuickNode/Triton);
+`getDasRpcUrl` regex-gates on that, so a plain RPC leaves the layer inert too.
 
 ## Solana / Token integration
 
@@ -156,6 +162,16 @@ authoritative server and rendered by the client.
   hub **billboard** shows the live `$BASE` holder count
   (`server/src/solana/holderCount.ts`, `getProgramAccounts`, cached) + players
   online, pushed via `worldStats`.
+- **Founders NFT membership** (`shared/src/nft.ts`,
+  `server/src/solana/playerHeldNfts.ts`, `server/src/nft/holderSync.ts`): tiers,
+  perks and holder skins are pure data in `nft.ts`. Detection is DAS
+  `getAssetsByOwner`, cached per wallet 30 min, synced fire-and-forget on join
+  and on the maintenance sweep — **never block the join path on Solana**. The
+  result is cached in `characters.nft_holder / nft_count / nft_tier`; every read
+  path (nameplate, `/stats`, DAO weight, season points) uses those columns, not
+  an RPC. Perks are status/cosmetic only — the season-point multiplier splits a
+  pre-funded pool and mints nothing; damage, yield, XP and drop rates must stay
+  untouched. Full design: `docs/nft-community.md`.
 - **Leaderboard** (`shared/src/leaderboard.ts`, `server/src/db/leaderboard.ts`):
   `requestLeaderboard` → top-10 by Level, net worth (Richest — gold + inventory
   + owned Worlds/plots/build assets, valued in `server/src/db/networth.ts`), and
