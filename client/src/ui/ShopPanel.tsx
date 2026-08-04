@@ -20,7 +20,7 @@ import {
   type ShopResultPayload,
 } from "@metricbase/shared";
 import { useState } from "react";
-import { playSfx } from "../audio/soundEffects";
+import { playCoinSfx, playSfx } from "../audio/soundEffects";
 import { networkManager } from "../game/network";
 import { useGameStore } from "../store/gameStore";
 import { sendSolPayment } from "../wallet/solPayment";
@@ -277,7 +277,7 @@ export function ShopPanel() {
       return;
     }
     playSfx("shop_sell");
-    playSfx("coin");
+    playCoinSfx();
     const nextGold = result.gold ?? playerGold;
     setPlayerGold(nextGold);
     // Prefer the server's dynamic catalog so the price drop shows immediately.

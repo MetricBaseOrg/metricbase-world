@@ -24,6 +24,7 @@ export type SfxType =
   | "chop_fell"
   | "footstep"
   | "coin"
+  | "coin_pile"
   | "item_pickup"
   | "fish_cast"
   | "fish_splash"
@@ -219,6 +220,15 @@ export function playSfx(type: SfxType): void {
     case "coin":
       playTone(ctx, masterGain, now, 1568, "triangle", 0.04, 0.12);
       playTone(ctx, masterGain, now + 0.05, 2093, "triangle", 0.08, 0.14);
+      break;
+    case "coin_pile":
+      // A big payout: the same chime opened out into a rising cascade with a
+      // little clink underneath, so a 50,000g sale doesn't sound like a 2g one.
+      playTone(ctx, masterGain, now, 1319, "triangle", 0.05, 0.12);
+      playTone(ctx, masterGain, now + 0.04, 1568, "triangle", 0.05, 0.13);
+      playTone(ctx, masterGain, now + 0.09, 2093, "triangle", 0.07, 0.14);
+      playTone(ctx, masterGain, now + 0.15, 2637, "sine", 0.12, 0.1);
+      playNoiseBurst(ctx, masterGain, now + 0.02, 0.05, 0.03);
       break;
     case "item_pickup":
       playTone(ctx, masterGain, now, 660, "sine", 0.05, 0.14);
@@ -458,4 +468,29 @@ function playNoiseBurst(
   gain.connect(output);
   source.start(start);
   source.stop(start + duration + 0.02);
+}
+// ---- Coins ----
+
+/** Gold gain at or above this plays the fuller cascade instead of the chime. */
+const COIN_PILE_THRESHOLD = 1_000;
+/**
+ * One earn event can reach us from several directions at once — the store's
+ * gold diff, a panel's own success handler, the loot-scatter animation landing
+ * — and each of those is a legitimate place to ask for a coin sound. Rather
+ * than make every caller reason about the others, they all funnel through here
+ * and anything inside this window collapses into the first sound.
+ */
+const COIN_SFX_COOLDOWN_MS = 350;
+let lastCoinSfxAt = 0;
+
+/**
+ * Play the coin sound for gold *earned*, rate-limited so a single payout never
+ * machine-guns (selling a stack can patch gold several times in a few frames).
+ * Pass the amount to get the heavier cue on a big payout.
+ */
+export function playCoinSfx(amount = 0): void {
+  const now = Date.now();
+  if (now - lastCoinSfxAt < COIN_SFX_COOLDOWN_MS) return;
+  lastCoinSfxAt = now;
+  playSfx(amount >= COIN_PILE_THRESHOLD ? "coin_pile" : "coin");
 }

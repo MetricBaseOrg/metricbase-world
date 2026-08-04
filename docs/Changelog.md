@@ -31,6 +31,43 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [0.204.0] — 2026-08-04 — Coins land with a sound
+
+### Added
+
+- **A coin sound every time you earn gold**, from any source — vendor sales,
+  gather drops, quest and mob rewards, mail attachments, player-shop takings,
+  World pass and gather tax, job payouts, daily rewards.
+
+  It hooks the **one value all of those write** (`playerGold` in the store)
+  rather than the dozens of places that credit it, so a new gold source is
+  audible the day it ships without anyone remembering to add a `playSfx` call.
+  Spending stays silent — the shop already has its own sounds.
+- **A heavier cue for a big payout** (`coin_pile`, at 1,000g and above): the
+  same chime opened into a rising cascade with a clink under it, so a 50,000g
+  World withdrawal doesn't sound identical to picking up 2g.
+
+### Notes
+
+- **One earn = one sound.** All callers funnel through a rate-limited
+  `playCoinSfx()` with a 350ms window, because a single payout legitimately
+  reaches the client from several directions at once (the store's gold diff, a
+  panel's own success handler, the loot-scatter animation landing). The three
+  pre-existing `playSfx("coin")` sites now go through it too, so they collapse
+  into the global one rather than doubling up. It also stops a stack sale, which
+  patches gold several times in a few frames, from machine-gunning.
+- **Joining is not a payout.** The store's pre-profile default is 0 and arrives
+  before the real balance, so adopting the first value seen would make the
+  handshake register as earning your entire net worth (the test caught exactly
+  this). The baseline waits for a real figure and adopts it silently, and a
+  dropped connection invalidates it so a reconnect restore stays quiet too.
+- Accepted trade-off: a player sitting at exactly 0 gold gets no sound on their
+  first earn, since that gain is indistinguishable from the handshake. Every
+  earn after it behaves normally.
+- Verified with an 11-assert harness over the trigger logic: join, earn, spend,
+  threshold either side of 1,000g, five patches inside one window, a full
+  disconnect/rejoin cycle, and a zone transfer that re-sends the same balance.
+
 ## [0.203.2] — 2026-08-04 — Restart to reload the restored ad balance
 
 No code change. `adService` holds member earnings in memory and flushes them

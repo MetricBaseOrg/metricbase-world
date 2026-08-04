@@ -1,6 +1,6 @@
 import { getItemDefinition, type ShopListing } from "@metricbase/shared";
 import { useEffect, useState } from "react";
-import { playSfx } from "../audio/soundEffects";
+import { playCoinSfx, playSfx } from "../audio/soundEffects";
 import { networkManager } from "../game/network";
 import { useGameStore } from "../store/gameStore";
 import { ItemIcon } from "./ItemIcon";
@@ -40,7 +40,7 @@ export function PlayerShopPanel() {
         playSfx("shop_fail");
         setError(payload.error ?? "Action failed.");
       } else {
-        playSfx("coin");
+        playCoinSfx();
         setError(null);
       }
     });

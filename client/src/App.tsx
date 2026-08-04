@@ -1,6 +1,7 @@
 import { type CharacterAppearance } from "@metricbase/shared";
 import { useEffect, useRef, useState } from "react";
 import { initSoundEffects, playSfx } from "./audio/soundEffects";
+import { startGoldEarnSfx } from "./audio/goldEarnSfx";
 import { startBackgroundMusic, stopBackgroundMusic } from "./audio/backgroundMusic";
 import { startWeatherAmbience, stopWeatherAmbience } from "./audio/weatherAmbience";
 import { bindUiTypingFocusGuard, resetMobileInput } from "./game/inputControl";
@@ -103,6 +104,7 @@ export function App() {
 
   useEffect(() => bindUiTypingFocusGuard(), []);
   useEffect(() => initSoundEffects(), []);
+  useEffect(() => startGoldEarnSfx(), []);
   // Fetch the hand-drawn character manifest early so avatars/portraits know
   // whether PNG frames exist (procedural renderer covers the gap either way).
   useEffect(() => initHandDrawnAvatars(), []);

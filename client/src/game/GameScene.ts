@@ -61,7 +61,7 @@ import {
   getMobileAxis,
   isUiTypingActive,
 } from "./inputControl";
-import { playSfx } from "../audio/soundEffects";
+import { playCoinSfx, playSfx } from "../audio/soundEffects";
 import { useGameStore } from "../store/gameStore";
 import { ITEM_ICONS } from "../ui/InventoryPanel";
 import { networkManager, RemotePlayer } from "./network";
@@ -4395,7 +4395,7 @@ export class GameScene extends Phaser.Scene {
               duration: 230,
               ease: "Cubic.easeIn",
               onComplete: () => {
-                if (i === coins - 1) playSfx("coin");
+                if (i === coins - 1) playCoinSfx();
                 g.destroy();
               },
             });
