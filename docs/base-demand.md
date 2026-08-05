@@ -17,14 +17,51 @@ Owner decisions, 2026-07-26:
 | Amount | **10,000 $BASE** | Anchored to the cheapest existing sink (VIP pass burn, first bag expansion). |
 
 Mechanics: `seasonStakeAmount()` / `seasonRequiresStake()` in
-`shared/src/season.ts`; `season_stake` table + `server/src/db/seasonStake.ts`;
-the `seasonStake` room message verifies a **transfer to the treasury** (not a
-burn — the money has to come back) and dedupes by signature; `SeasonStakeCard`
-carries the same paid-but-unclaimed localStorage recovery as the gold desk.
+`shared/src/season.ts`; the `seasonStake` room message verifies a **transfer to
+the treasury** (not a burn — the money has to come back) and dedupes by
+signature; `SeasonStakeCard` carries the same paid-but-unclaimed localStorage
+recovery as the gold desk.
 
-The payout (`server/src/season/payout.ts`) now splits the pool **pro-rata over
-entrants' points only**, and returns every unrefunded deposit before paying any
-prize. Solvency checks `prizes + deposits`, not just prizes.
+The payout (`server/src/season/payout.ts`) splits the pool **pro-rata over
+entrants' points only**.
+
+## P1 extended — the deposit vault (v0.205.0)
+
+Owner decisions, 2026-08-05. The fixed one-shot stake became a **balance** a
+player tops up and withdraws from:
+
+| Decision | Chosen | Note |
+|---|---|---|
+| Multiplier shape | **Smooth: `min(2, sqrt(deposit / floor))`** | No tiers — a tier is a cliff edge, and a cliff edge is a thing to game. Every token does something. |
+| Multiplier cap | **2×**, reached at 40,000 $BASE | Uncapped, the season goes to whoever holds the most $BASE. Beyond the cap the UI says extra buys nothing rather than quietly taking it. |
+| Refund | **Manual, partial withdrawals** | Nothing is auto-returned. What you leave in keeps earning next season, so a returning player never re-deposits. |
+| Withdrawal fee | **5%, on the amount withdrawn** | Prize winnings are paid in full. |
+| Fee destination | **Treasury** | This is the inflow the whole stake exists to create — each season part-funds the next. |
+
+**Why the fee is load-bearing.** A refundable deposit that buys a multiplier is
+otherwise *free* advantage: deposit, outscore everyone, take it all back. The
+5% (plus the lockup) is the entire real cost of the multiplier — 2,000 $BASE to
+run at 2× for a season. Lower it and the mechanic becomes a pure capital
+advantage; remove it and there is no inflow at all.
+
+**Timing is deliberate.** The multiplier applies at AWARD time, to points earned
+after the deposit — it never re-scores points already banked. Otherwise the
+optimal play is to deposit 40,000 on the last day of the season and double a
+month of work retroactively.
+
+Mechanics: `seasonStakeMultiplier()` / `seasonWithdrawSplit()` in
+`shared/src/season.ts`; `season_vault_deposit` + `season_vault_withdrawal`
+ledgers with `server/src/db/seasonVault.ts`. **Balance is derived from the
+ledgers**, never stored as a mutable number, so it can always be reconstructed
+from what actually moved on-chain; `characters.season_vault_units` caches it for
+the points-award hot path only. Withdrawals use the payout's
+reserve → send → stamp discipline, and an ambiguous failure stays `pending`
+(money out of the balance) rather than being released, because paying twice is
+worse than paying late.
+
+Deposits are no longer returned by the payout — they sit in the vault until the
+player withdraws. They remain a treasury liability, so payout solvency checks
+`prizes + sumVaultBalances()`, not just prizes.
 
 ## Reward gate — connect X to be paid (v0.189.0, 2026-07-26)
 

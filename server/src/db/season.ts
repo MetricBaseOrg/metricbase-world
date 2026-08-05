@@ -5,6 +5,7 @@ import {
   currentSeason,
   nftTierByKey,
   seasonRewardPool,
+  seasonStakeMultiplier,
   type SeasonCategory,
   type SeasonLeaderEntry,
 } from "@metricbase/shared";
@@ -107,35 +108,43 @@ export function getSeasonRewardPool(): number {
   return seasonRewardPool(currentSeason().number);
 }
 
-/** Award season points directly in the DB (for offline players, e.g. a referrer
- * whose invitee just registered). Handles season rollover in SQL and increments
- * the category breakdown. */
 /**
- * NFT-holder season-point multiplier. Points decide each player's share of the
- * $BASE prize pool, so this is a DELIBERATE pay-to-earn perk (see
- * NftTier.seasonPointMult): a holder earns a bigger cut of real rewards for the
- * same play. Reads the character's cached nft_tier (set on join / the holder
- * sweep); non-holders and an unconfigured NFT layer both resolve to 1×. One
- * indexed lookup; season awards fire on meaningful events, not per frame.
+ * Combined season-point multiplier: Founder NFT tier × deposit vault.
+ *
+ * Both are pay-to-earn perks over a FIXED, PRE-FUNDED pool, so both redistribute
+ * a pot that already exists rather than minting anything. They multiply
+ * together because they're bought with different things — the NFT with SOL that
+ * is spent, the vault with $BASE that is locked up and returned minus a fee —
+ * and a player who has done both has committed on both fronts.
+ *
+ * Read from the character row's CACHED columns (nft_tier from the holder sweep,
+ * season_vault_units from the vault ledgers) so this stays one indexed lookup
+ * on a path that fires on every meaningful gameplay event.
  */
-async function holderPointMultiplier(pool: Pool, playerName: string): Promise<number> {
+async function pointMultiplier(pool: Pool, playerName: string): Promise<number> {
   try {
-    const r = await pool.query<{ nft_tier: string | null }>(
-      "SELECT nft_tier FROM characters WHERE name = $1 LIMIT 1",
+    const r = await pool.query<{ nft_tier: string | null; season_vault_units: string | null }>(
+      "SELECT nft_tier, season_vault_units FROM characters WHERE name = $1 LIMIT 1",
       [playerName],
     );
-    return nftTierByKey(r.rows[0]?.nft_tier ?? null)?.seasonPointMult ?? 1;
+    const row = r.rows[0];
+    const holder = nftTierByKey(row?.nft_tier ?? null)?.seasonPointMult ?? 1;
+    const vault = seasonStakeMultiplier(Number(row?.season_vault_units ?? 0), currentSeason().number);
+    return holder * vault;
   } catch {
     return 1;
   }
 }
 
+/** Award season points directly in the DB (for offline players, e.g. a referrer
+ * whose invitee just registered). Handles season rollover in SQL and increments
+ * the category breakdown. */
 export async function awardSeasonPointsDb(playerName: string, category: SeasonCategory, points: number): Promise<void> {
   const pool = getPool();
   if (!pool || points <= 0) return;
   const seasonId = currentSeason().id;
-  // Boost the award by the holder's tier multiplier before it lands.
-  const mult = await holderPointMultiplier(pool, playerName);
+  // Boost the award by the player's multipliers (NFT tier x deposit vault).
+  const mult = await pointMultiplier(pool, playerName);
   if (mult !== 1) points = Math.max(1, Math.round(points * mult));
   try {
     await pool.query(

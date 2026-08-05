@@ -523,6 +523,64 @@ CREATE TABLE IF NOT EXISTS season_stake (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS season_stake_signature_idx ON season_stake (signature);
 
+-- ── Deposit vault (v0.205) ───────────────────────────────────────────────────
+-- The stake became a BALANCE a player tops up and withdraws from, so the
+-- one-row-per-season-per-player shape above no longer fits: a player makes many
+-- deposits and many withdrawals. Balance is derived from these two ledgers
+-- rather than stored as a mutable number, so it can always be reconstructed and
+-- can never silently drift away from the on-chain history.
+--
+-- `season_stake` is superseded. It is dropped ONLY when empty — if any real
+-- entry ever landed in it, it stays put and this fails loudly rather than
+-- deleting somebody's deposit record.
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'season_stake')
+     AND NOT EXISTS (SELECT 1 FROM season_stake LIMIT 1) THEN
+    DROP TABLE season_stake;
+  END IF;
+END $$;
+
+-- Every top-up. `season_id` is the season the deposit was MADE in, which is
+-- what locks it: a deposit cannot be withdrawn until that season has ended.
+CREATE TABLE IF NOT EXISTS season_vault_deposit (
+  id BIGSERIAL PRIMARY KEY,
+  season_id VARCHAR(12) NOT NULL,
+  player_name VARCHAR(16) NOT NULL,
+  wallet VARCHAR(44) NOT NULL,
+  amount BIGINT NOT NULL,
+  signature VARCHAR(128) NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+-- One on-chain transfer can only ever be credited once.
+CREATE UNIQUE INDEX IF NOT EXISTS season_vault_deposit_sig_idx ON season_vault_deposit (signature);
+CREATE INDEX IF NOT EXISTS season_vault_deposit_player_idx ON season_vault_deposit (player_name);
+
+-- Every withdrawal. Rows are inserted BEFORE the transfer as an atomic
+-- reservation (they immediately reduce the derived balance), then stamped with
+-- the signature on success or marked failed on failure — the same
+-- claim → send → stamp dance the payout uses, because paying twice is worse
+-- than paying late. `fee` never leaves the treasury; it is simply not sent.
+CREATE TABLE IF NOT EXISTS season_vault_withdrawal (
+  id BIGSERIAL PRIMARY KEY,
+  player_name VARCHAR(16) NOT NULL,
+  wallet VARCHAR(44) NOT NULL,
+  -- gross = fee + net. Gross leaves the balance; net leaves the treasury.
+  gross BIGINT NOT NULL,
+  fee BIGINT NOT NULL,
+  net BIGINT NOT NULL,
+  status VARCHAR(12) NOT NULL DEFAULT 'pending',
+  signature VARCHAR(128),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS season_vault_withdrawal_player_idx ON season_vault_withdrawal (player_name, status);
+
+-- Cached vault balance, mirrored onto the character row so the season-points
+-- award path can read the deposit multiplier in the SAME query it already runs
+-- for the NFT tier. The ledgers above stay the source of truth; this is a
+-- read cache, rewritten from them after every deposit and withdrawal.
+ALTER TABLE characters ADD COLUMN IF NOT EXISTS season_vault_units BIGINT NOT NULL DEFAULT 0;
+
 -- Player-to-player jobs: employer escrows the reward at posting; the worker
 -- is paid on verified completion. delivered items await employer pickup.
 CREATE TABLE IF NOT EXISTS jobs (

@@ -214,6 +214,14 @@ export interface SeasonStakeResultPayload {
   error?: string;
 }
 
+/** Result of a vault withdrawal — carries the tx so the player can verify it. */
+export interface SeasonWithdrawResultPayload {
+  ok: boolean;
+  message?: string;
+  error?: string;
+  signature?: string;
+}
+
 export interface PipGoldInfoPayload {
   enabled: boolean;
   treasury: string | null;
@@ -340,6 +348,7 @@ export class NetworkManager {
   private dailyStateListeners = new Set<(payload: DailyStatePayload) => void>();
   private seasonStateListeners = new Set<(payload: SeasonStatePayload) => void>();
   private seasonStakeResultListeners = new Set<(payload: SeasonStakeResultPayload) => void>();
+  private seasonWithdrawResultListeners = new Set<(payload: SeasonWithdrawResultPayload) => void>();
   private seasonPostResultListeners = new Set<(payload: SeasonStakeResultPayload) => void>();
   private chestOpenResultListeners = new Set<(payload: ChestOpenResultPayload) => void>();
   private chestShareResultListeners = new Set<(payload: ChestShareResultPayload) => void>();
@@ -998,6 +1007,11 @@ export class NetworkManager {
     this.room?.send("seasonStake", { signature });
   }
 
+  /** Withdraw `amount` $BASE from the season deposit vault (5% fee applies). */
+  sendSeasonWithdraw(amount: number) {
+    this.room?.send("seasonWithdraw", { amount });
+  }
+
   /** Submit the season proof-post URL for verification. */
   sendSeasonPostVerify(url: string) {
     this.room?.send("seasonPostVerify", { url });
@@ -1038,6 +1052,11 @@ export class NetworkManager {
   onSeasonStakeResult(listener: (payload: SeasonStakeResultPayload) => void) {
     this.seasonStakeResultListeners.add(listener);
     return () => this.seasonStakeResultListeners.delete(listener);
+  }
+
+  onSeasonWithdrawResult(listener: (payload: SeasonWithdrawResultPayload) => void) {
+    this.seasonWithdrawResultListeners.add(listener);
+    return () => this.seasonWithdrawResultListeners.delete(listener);
   }
 
   sendDailyClaimTask(taskId: string) {
@@ -2172,6 +2191,9 @@ export class NetworkManager {
     });
     this.room.onMessage("seasonStakeResult", (payload: SeasonStakeResultPayload) => {
       for (const listener of this.seasonStakeResultListeners) listener(payload);
+    });
+    this.room.onMessage("seasonWithdrawResult", (payload: SeasonWithdrawResultPayload) => {
+      for (const listener of this.seasonWithdrawResultListeners) listener(payload);
     });
     this.room.onMessage("seasonPostResult", (payload: SeasonStakeResultPayload) => {
       for (const listener of this.seasonPostResultListeners) listener(payload);

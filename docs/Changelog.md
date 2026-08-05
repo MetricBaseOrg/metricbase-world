@@ -31,6 +31,72 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [0.205.0] — 2026-08-05 — The season stake becomes a deposit vault
+
+### Added
+
+- **Deposit more, score more.** The season entry stake is now a **vault balance**
+  a player tops up, and the balance sets a **season-point multiplier**:
+  `min(2, sqrt(deposit / 10,000))`. 10,000 = 1.00×, 20,000 = 1.41×,
+  40,000 = 2.00× and capped there.
+  - **Smooth, not tiered.** A tier is a cliff edge and a cliff edge is a thing
+    to game — deposit exactly enough to clear a step and not one token more,
+    and feel cheated at one token under. Every token now does something, with
+    diminishing returns built in.
+  - **Capped at 2×** so a season can't simply be bought by whoever holds the
+    most $BASE. Past the cap the panel says extra buys nothing rather than
+    quietly taking it.
+  - **Applies at award time**, to points earned after the deposit. It never
+    re-scores points already banked — otherwise the optimal play is to deposit
+    40,000 on the final day and retroactively double a month of work.
+  - Stacks with the Founder NFT tier multiplier; both are applied in
+    `awardSeasonPointsDb` from cached columns in a single indexed read, so
+    every points source is covered by one change.
+- **Manual, partial withdrawals with a 5% fee.** Nothing is auto-returned at
+  payout any more. A player withdraws as much or as little as they like once
+  the season they deposited in has ended; what they leave in keeps earning its
+  multiplier, so a returning player never has to re-deposit. The 5% is kept by
+  the treasury — it never leaves, it is simply not sent.
+  - **Prize winnings are paid in full.** The fee is only ever on the deposit
+    being taken back out.
+  - **The fee is load-bearing, not a revenue grab.** A refundable deposit that
+    buys a multiplier is otherwise free advantage: deposit, outscore everyone,
+    take it all back. The fee plus the lockup is the entire real cost of the
+    multiplier — 2,000 $BASE to run at 2× for a season.
+  - Deposits are **locked while the season they were made in is running**, and
+    unlock when the season number rolls — no sweep, no scheduled job.
+  - Withdrawing below the 10,000 floor drops you out of the prize split and
+    back to 1×. The panel warns before a withdrawal would do that.
+
+### Fixed
+
+- **An overpaid stake used to silently lose the excess.** The transfer verifier
+  takes a MINIMUM, but the old code recorded the *configured* 10,000 whatever
+  had actually been sent — so anyone who sent more forfeited the difference.
+  Deposits are now credited at the amount that actually moved on-chain.
+
+### Notes
+
+- **Balance is derived from ledgers** (`season_vault_deposit`,
+  `season_vault_withdrawal`), never stored as a mutable number, so it can always
+  be reconstructed from what really moved. `characters.season_vault_units` is a
+  read cache for the points hot path only.
+- Withdrawals follow the payout's **reserve → send → stamp** discipline: the row
+  exists (and the balance is already reduced) before any transfer is attempted,
+  so a double-submit or a concurrent request can't be sized against the same
+  money. An ambiguous failure stays `pending` rather than being released —
+  paying twice is worse than paying late — and `listPendingWithdrawals()`
+  surfaces those for a human.
+- Deposits remain a treasury liability, so payout solvency now checks
+  `prizes + sumVaultBalances()` rather than prizes plus the refunds it was about
+  to send.
+- `season_stake` is superseded and dropped **only when empty**, guarded in SQL —
+  if a real entry had ever landed in it the migration leaves it alone.
+- Verified with a 29-assert harness (multiplier curve incl. monotonicity, fee
+  rounding, lock-by-season, pending/failed/sent withdrawal accounting,
+  dropping below the floor) plus the migration and the balance/entrant SQL run
+  against a disposable Neon branch forked from production.
+
 ## [0.204.0] — 2026-08-04 — Coins land with a sound
 
 ### Added

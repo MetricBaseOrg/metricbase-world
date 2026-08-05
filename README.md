@@ -156,10 +156,14 @@ assets/   Source art notes
   paid from a fixed, pre-funded $BASE pool (points never mint tokens). Referral
   points are credited once the invitee actually reaches level 3, so a free
   sign-up can't farm the pool. From **Season 2** (2026-08-20) the payout split
-  is decided by a **refundable 10,000 $BASE entry stake** — playing and scoring
-  stay free. Rewards require a connected X account and a public post. Founder
-  NFT holders score at a tier multiplier (see below), applied centrally in
-  `awardSeasonPointsDb` so it covers every points source.
+  is decided by a **10,000 $BASE deposit vault** — playing and scoring stay free.
+  Deposit more for a **season-point multiplier** (`min(2, sqrt(deposit/floor))`
+  — smooth, no tier cliffs, capped at 2× so a season isn't simply bought), and
+  **withdraw it yourself** after the season, in part or in full, minus a **5%
+  fee** to the treasury. Prize winnings are paid in full. Rewards require a
+  connected X account and a public post. Founder NFT holders score at a tier
+  multiplier too; both are applied centrally in `awardSeasonPointsDb` so they
+  cover every points source.
 - **Founders NFT membership** 👑 — a 1,000-piece Solana collection (0.1 SOL)
   whose holders get status, not power: a tiered nameplate badge
   (Bronze/Gold/Ember, read from each NFT's on-chain `Tier` trait), holder-only

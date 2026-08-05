@@ -1141,6 +1141,8 @@
           <li><strong>👑 Founders earn multiplied points</strong> — ×1.5 / ×2 / ×3 by tier, applied
           to every source above. It changes how the fixed pool is <em>split</em>, never its size;
           see <a href="#founders">14c. Founders</a>.</li>
+          <li><strong>💰 Your deposit multiplies points too</strong> — up to ×2, and it stacks with
+          the Founder tier. See the deposit vault below.</li>
         </ul>
 
         <h3>𝕏 Earn with X</h3>
@@ -1172,23 +1174,67 @@
         post counts for one player. The supplied wording says you're collecting a Season reward
         because that's what it is — we'd rather be straight with your followers about it.</p>
 
-        <h3>🏁 Entering the prize race</h3>
+        <h3>🏁 Entering the prize race — the deposit vault</h3>
         <p><strong>From Season 2 onward</strong>, the pool is split between players who
-        <strong>enter</strong> it. Entry is a <strong>refundable 10,000 $BASE deposit</strong>.</p>
+        <strong>enter</strong> it. Entry is a <strong>10,000 $BASE deposit</strong> into your own
+        vault — you withdraw it yourself once the season ends.</p>
         <ul class="list">
-          <li><strong>You get every token back</strong> when the season pays out — win or lose. It
-          is a deposit, not a fee.</li>
           <li><strong>Playing stays completely free.</strong> Without entering you still earn
           points, still hold your leaderboard rank, and still play every part of the game. Entering
           only decides who is in the payout split.</li>
-          <li>Enter from <em>⚙️ → 📅 Daily &amp; Season</em> → <em>🏁 Enter the prize race</em>.
-          You need a connected Solana wallet — the deposit is sent from it, and refunded to it.</li>
+          <li>Deposit from <em>⚙️ → 📅 Daily &amp; Season</em>. You need a connected Solana wallet —
+          the deposit is sent from it and withdrawn back to it.</li>
           <li><strong>Season 1 had no entry</strong> and pays out under its original rules.</li>
+        </ul>
+
+        <h3>📈 Deposit more, score more</h3>
+        <p>Your deposit sets a <strong>season-point multiplier</strong>. Every point you earn is
+        multiplied by it, so a bigger deposit means a bigger slice of the same pool:</p>
+        <div class="tablewrap">
+        <table>
+          <thead><tr><th>Deposited</th><th>Multiplier</th></tr></thead>
+          <tbody>
+            <tr><td>10,000 $BASE (entry)</td><td>1.00×</td></tr>
+            <tr><td>20,000 $BASE</td><td>1.41×</td></tr>
+            <tr><td>25,000 $BASE</td><td>1.58×</td></tr>
+            <tr><td><strong>40,000 $BASE</strong></td><td><strong>2.00× — the maximum</strong></td></tr>
+          </tbody>
+        </table>
+        </div>
+        <ul class="list">
+          <li><strong>No tiers, no cliff edges.</strong> The curve is smooth (it's the square root
+          of your deposit over the entry floor), so every token does something and you're never one
+          token short of a step.</li>
+          <li><strong>It caps at 2× (40,000 $BASE).</strong> Past that, more deposit buys no extra
+          points and the panel says so rather than quietly taking it — a season shouldn't just go
+          to whoever holds the most $BASE.</li>
+          <li><strong>It applies from the moment you deposit</strong>, to points earned after it —
+          it does not reach back and re-score the points you already banked. Topping up late boosts
+          the rest of the season, not the whole of it.</li>
+          <li>Top up any time; a top-up has no minimum once you're in.</li>
+        </ul>
+
+        <h3>💸 Withdrawing your deposit</h3>
+        <ul class="list">
+          <li><strong>You withdraw it yourself</strong>, whenever you like, once the season you
+          deposited in has ended. Nothing is auto-returned — so if you want to keep competing, you
+          simply leave it in and it keeps working next season.</li>
+          <li><strong>Take out as much or as little as you want.</strong> Withdraw part of it and
+          the rest keeps earning its multiplier.</li>
+          <li><strong>A 5% fee</strong> is kept by the treasury on whatever you withdraw. Withdraw
+          10,000 and you receive 9,500.</li>
+          <li><strong>Prize winnings are paid in full</strong> — the fee is only ever on the
+          deposit you take back out.</li>
+          <li>Your deposit is <strong>locked while the season it was made in is running</strong>.
+          That's the point of it: it's what you're competing with.</li>
+          <li>Drop below 10,000 and you leave the prize split (and your multiplier returns to 1×)
+          until you top back up. The panel warns you before a withdrawal does that.</li>
         </ul>
         <div class="callout brand">Why it exists: the prize pool pays $BASE <em>out</em> every
         season, and nothing comparable was coming back <em>in</em>. The deposit ties the two
-        together without ever gating who can play — which is why it's refundable, and why entry to
-        the game itself remains free.</div>
+        together without ever gating who can play — which is why you get it back, and why entry to
+        the game itself remains free. The 5% is what makes a large deposit cost something real
+        rather than being free advantage.</div>
         <div class="callout">✈️ <strong>Telegram players:</strong> entering needs a Solana wallet to
         send the deposit from, so a Telegram-only account can't join the race yet. Your points and
         rank still count — link a wallet to enter.</div>
@@ -1579,9 +1625,9 @@
         </div>
         <h3>💱 Other $BASE flows</h3>
         <ul class="list">
-          <li><strong>🏁 Season entry stake</strong> — a <em>refundable</em> 10,000 $BASE deposit to
-          join the prize race, returned in full at payout (Season 2 onward). Not a burn and not a
-          fee — see <a href="#daily">9c. Daily Rewards &amp; Seasons</a>.</li>
+          <li><strong>🏁 Season deposit vault</strong> — 10,000 $BASE to join the prize race, more
+          for up to a 2× point multiplier. You withdraw it yourself after the season, minus a 5%
+          fee to the treasury. Not a burn — see <a href="#daily">9c. Daily Rewards &amp; Seasons</a>.</li>
           <li><strong>🏆 Season prize pool</strong> — paid <em>out</em> from the treasury to players,
           split by Season points. Fixed and pre-funded; points never mint new $BASE.</li>
           <li><strong>Gold Market</strong> — trade gold peer-to-peer for $BASE (and other currencies).</li>

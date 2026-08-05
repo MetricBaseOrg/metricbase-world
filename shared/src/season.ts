@@ -74,6 +74,91 @@ export function seasonRequiresStake(seasonNumber: number): boolean {
   return seasonStakeAmount(seasonNumber) > 0;
 }
 
+// ── Deposit vault: bigger deposit, bigger multiplier ─────────────────────────
+//
+// The stake is a VAULT BALANCE, not a one-shot fee. A player tops it up to
+// raise their season-point multiplier, and withdraws from it (in part or in
+// full) once the season it was deposited in has ended.
+//
+// Why a smooth curve rather than tiers: tiers create cliff edges, and a cliff
+// edge is a thing to game — deposit exactly enough to clear a step and not one
+// token more, and feel cheated at 1 token under. sqrt() means every token does
+// something, with diminishing returns built in.
+//
+// Why it is capped: uncapped, the season would simply be won by whoever holds
+// the most $BASE. The cap puts a ceiling on what capital alone can buy, which
+// is reached at CAP² × the floor — past that, extra deposit buys nothing and
+// the UI says so plainly rather than quietly taking it.
+//
+// INVARIANT CHECK (same reasoning as the Founder NFT multiplier in
+// shared/src/nft.ts): season points decide each player's SHARE of a fixed,
+// PRE-FUNDED pool. A multiplier redistributes a pot that already exists — it
+// mints no $BASE, and it opens no gold → $BASE path. What is new here is that
+// the deposit comes BACK, so the multiplier's real cost is the withdrawal fee
+// plus the lockup, not the deposit itself.
+
+/** Ceiling on the deposit multiplier. Reached at CAP² × the entry floor. */
+export const SEASON_STAKE_MULT_CAP = 2;
+
+/**
+ * Season-point multiplier for a vault balance.
+ *
+ * Below the entry floor there is no multiplier — that player isn't in the
+ * split at all, so there is nothing to multiply.
+ */
+export function seasonStakeMultiplier(balance: number, seasonNumber: number): number {
+  const floor = seasonStakeAmount(seasonNumber);
+  if (floor <= 0 || !Number.isFinite(balance) || balance < floor) return 1;
+  return Math.min(SEASON_STAKE_MULT_CAP, Math.sqrt(balance / floor));
+}
+
+/** The deposit at which the multiplier caps out (extra beyond this buys none). */
+export function seasonStakeMultiplierCapAt(seasonNumber: number): number {
+  return seasonStakeAmount(seasonNumber) * SEASON_STAKE_MULT_CAP * SEASON_STAKE_MULT_CAP;
+}
+
+// ── Withdrawals ──────────────────────────────────────────────────────────────
+//
+// Withdrawing is MANUAL and PARTIAL: a player takes out as much or as little as
+// they like, whenever their deposit has unlocked, and what they leave in keeps
+// working as their multiplier for the next season. Nothing is auto-returned at
+// payout, so a player who wants to keep competing never has to re-deposit.
+//
+// The fee is what makes the multiplier cost something. Without it a large
+// deposit would be free advantage — put it in, outscore everyone, take it all
+// back. It is charged on the amount WITHDRAWN (not on the balance, and not on
+// prize winnings, which are paid in full), and it stays in the treasury, which
+// is the inflow the whole stake mechanism exists to create.
+
+/** Percent taken from each withdrawal, kept by the treasury. */
+export const SEASON_WITHDRAW_FEE_PCT = 5;
+
+/** Split a requested withdrawal into the treasury's fee and the player's net.
+ *  The fee rounds UP so rounding can never pay out more than was withdrawn. */
+export function seasonWithdrawSplit(amount: number): { fee: number; net: number } {
+  if (!Number.isFinite(amount) || amount <= 0) return { fee: 0, net: 0 };
+  const fee = Math.ceil((amount * SEASON_WITHDRAW_FEE_PCT) / 100);
+  return { fee, net: Math.max(0, amount - fee) };
+}
+
+/** A player's vault, as the season panel renders it. All in $BASE UI units. */
+export interface SeasonVaultView {
+  /** Everything currently deposited. Drives the multiplier and entry. */
+  balance: number;
+  /** Deposited during the CURRENT season — locked until it ends. */
+  locked: number;
+  /** balance − locked: what can be withdrawn right now. */
+  withdrawable: number;
+  /** Multiplier this balance is currently earning. */
+  multiplier: number;
+  /** Balance at which the multiplier caps out. */
+  capAt: number;
+  /** Fee percent charged on a withdrawal. */
+  feePct: number;
+  /** Lifetime fees this player has paid on withdrawals. */
+  feesPaid: number;
+}
+
 /**
  * Season rewards require a connected X account.
  *
@@ -287,12 +372,14 @@ export interface SeasonStatePayload {
   posted: boolean;
   /** This player's unguessable proof code, "" until X is linked. */
   postCode: string;
-  /** Refundable $BASE stake to compete for the pool; 0 = no stake this season. */
+  /** Minimum $BASE deposit to compete for the pool; 0 = no stake this season. */
   stakeAmount: number;
-  /** Whether this player has staked into the current season's prize race. */
+  /** Whether this player's vault balance meets the entry floor. */
   staked: boolean;
   /** How many players have staked in. */
   entrants: number;
+  /** This player's deposit vault — balance, lock state and multiplier. */
+  vault: SeasonVaultView;
 }
 
 /** Estimated pool share for `points` given the total points in play.

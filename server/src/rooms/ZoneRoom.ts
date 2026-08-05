@@ -51,6 +51,10 @@ import {
   currentSeason,
   estimateReward,
   seasonStakeAmount,
+  seasonStakeMultiplier,
+  seasonStakeMultiplierCapAt,
+  seasonWithdrawSplit,
+  SEASON_WITHDRAW_FEE_PCT,
   getChestTier,
   getSkin,
   rollChest,
@@ -524,11 +528,15 @@ import {
   hasPayoutWallet,
 } from "../db/season.js";
 import {
-  countSeasonEntrants,
-  hasStakedIn,
-  isStakeSignatureUsed,
-  recordSeasonStake,
-} from "../db/seasonStake.js";
+  countVaultEntrants,
+  failWithdrawal,
+  finalizeWithdrawal,
+  isDepositSignatureUsed,
+  loadVault,
+  recordVaultDeposit,
+  reserveWithdrawal,
+  syncVaultCache,
+} from "../db/seasonVault.js";
 import { getXStatus } from "../db/xLink.js";
 import { hasPostedFor, isPostUrlUsed, recordSeasonPost } from "../db/seasonPost.js";
 import { syncNftHolder } from "../nft/holderSync.js";
@@ -979,6 +987,10 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     });
     this.onProtectedMessage("seasonStake", (client, message: { signature?: string }) => {
       void this.handleSeasonStake(client, repairTxSignature(String(message.signature ?? "")));
+    });
+
+    this.onProtectedMessage("seasonWithdraw", (client, message: { amount?: number }) => {
+      void this.handleSeasonWithdraw(client, Number(message.amount ?? 0));
     });
     this.onProtectedMessage("seasonPostVerify", (client, message: { url?: string }) => {
       void this.handleSeasonPostVerify(client, String(message.url ?? ""));
@@ -4552,12 +4564,13 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     // The X status is keyed by wallet identity (the characters row), so a
     // walletless/spectator session simply reads as unlinked.
     const identity = this.playerWallets.get(client.sessionId) ?? null;
-    const [agg, rank, rewardPool, staked, entrants, xStatus, posted] = await Promise.all([
+    const floor = seasonStakeAmount(season.number);
+    const [agg, rank, rewardPool, vault, entrants, xStatus, posted] = await Promise.all([
       loadSeasonAggregate(season.id, 25),
       loadSeasonRank(season.id, player.name),
       getSeasonRewardPool(),
-      hasStakedIn(season.id, player.name),
-      countSeasonEntrants(season.id),
+      loadVault(player.name, season.id),
+      countVaultEntrants(floor),
       identity ? getXStatus(identity) : Promise.resolve(null),
       hasPostedFor(season.id, player.name),
     ]);
@@ -4585,9 +4598,20 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       // The code is derived from the identity, so it's stable across sessions and
       // never stored. Withheld until X is linked — it's meaningless before then.
       postCode: identity && xStatus?.linked ? taskCode(identity, seasonPostTaskId(season.id)) : "",
-      stakeAmount: seasonStakeAmount(season.number),
-      staked,
+      stakeAmount: floor,
+      // Entry is a live check on the balance, not a one-off flag: withdraw below
+      // the floor and you're out of the split, top back up and you're in again.
+      staked: floor > 0 && vault.balance >= floor,
       entrants,
+      vault: {
+        balance: vault.balance,
+        locked: vault.locked,
+        withdrawable: vault.withdrawable,
+        multiplier: seasonStakeMultiplier(vault.balance, season.number),
+        capAt: seasonStakeMultiplierCapAt(season.number),
+        feePct: SEASON_WITHDRAW_FEE_PCT,
+        feesPaid: vault.feesPaid,
+      },
     };
     client.send("seasonState", payload);
   }
@@ -5096,12 +5120,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     const fail = (error: string) => client.send("seasonStakeResult", { ok: false, error });
 
     const season = currentSeason();
-    const amount = seasonStakeAmount(season.number);
-    if (amount <= 0) return void fail("This season has no entry stake — you're already in the prize race.");
-
-    if (await hasStakedIn(season.id, player.name)) {
-      return void fail("You're already entered in this season.");
-    }
+    const floor = seasonStakeAmount(season.number);
+    if (floor <= 0) return void fail("This season has no entry stake — you're already in the prize race.");
 
     const wallet = this.playerWallets.get(client.sessionId) ?? null;
     // A Telegram-only player has no wallet to send $BASE from. They can still
@@ -5109,37 +5129,129 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
     if (!wallet || !isWalletIdentity(wallet)) {
       return void fail("Link a Solana wallet to enter the prize race.");
     }
-    if (!signature || signature.length < 32) return void fail("Missing stake transaction.");
-    if (await isStakeSignatureUsed(signature)) return void fail("That transaction was already used.");
+    if (!signature || signature.length < 32) return void fail("Missing deposit transaction.");
+    if (await isDepositSignatureUsed(signature)) return void fail("That transaction was already used.");
 
     const treasury = getTreasuryWallet();
     if (!treasury) return void fail("Staking isn't configured on this server yet.");
+
+    // A top-up only has to clear the floor when it's the FIRST deposit — once a
+    // player is in the race, any amount may be added to raise their multiplier.
+    const before = await loadVault(player.name, season.id);
+    const minimum = before.balance >= floor ? 1 : floor;
 
     const result = await verifyMetricbaseTokenTransfer(signature, {
       payerWallet: wallet,
       treasuryWallet: treasury,
       mint: getBlackZoneBurnMint(),
-      minUiAmount: amount,
+      minUiAmount: minimum,
     });
-    if (!result.ok) return void fail(result.error ?? "Stake transfer could not be verified.");
+    if (!result.ok) return void fail(result.error ?? "Deposit transfer could not be verified.");
 
-    // Record only after the chain confirms. A false return is ambiguous — it
-    // means either this player already had a row (a harmless double-submit from
-    // the client's recovery loop) or the signature was already spent on someone
-    // else's entry. Re-read the state to tell those apart, because reporting
-    // "you're in" to a player who is NOT recorded would be a silent loss of
-    // 10,000 $BASE.
-    const recorded = await recordSeasonStake(season.id, player.name, wallet, amount, signature);
-    if (!recorded && !(await hasStakedIn(season.id, player.name))) {
-      return void fail("That transaction was already used for another entry.");
-    }
-    await recordTokenPurchase(signature, wallet, "season_stake", amount);
+    // Credit what ACTUALLY moved, not what was asked for. The verifier takes a
+    // MINIMUM, so a player who sends more than the floor would otherwise have
+    // the excess silently swallowed — which is exactly what the old fixed-amount
+    // record did.
+    const deposited = Math.floor(result.uiAmount ?? minimum);
+    if (deposited <= 0) return void fail("That transfer moved no $BASE.");
+
+    // Record only after the chain confirms. A false return means the signature
+    // was already credited — re-read rather than reporting success, because
+    // telling a player "you're in" when nothing was recorded is a silent loss
+    // of their deposit.
+    const recorded = await recordVaultDeposit(season.id, player.name, wallet, deposited, signature);
+    if (!recorded) return void fail("That transaction was already used for another deposit.");
+
+    const after = await loadVault(player.name, season.id);
+    await syncVaultCache(player.name, after.balance);
+    await recordTokenPurchase(signature, wallet, "season_stake", deposited);
     bumpMetric("season.staked", 1);
-    bumpMetric("season.stakeBase", amount);
+    bumpMetric("season.stakeBase", deposited);
 
+    const mult = seasonStakeMultiplier(after.balance, season.number);
+    const capped = after.balance >= seasonStakeMultiplierCapAt(season.number);
     client.send("seasonStakeResult", {
       ok: true,
-      message: `You're in the Season ${season.number} prize race. Your ${amount.toLocaleString()} $BASE is returned when the season pays out.`,
+      message:
+        `Deposited ${deposited.toLocaleString()} $BASE — vault ${after.balance.toLocaleString()}, ` +
+        `earning ${mult.toFixed(2)}× season points${capped ? " (max)" : ""}. ` +
+        `Withdraw it after Season ${season.number} ends.`,
+    });
+    await this.handleSeasonState(client);
+  }
+
+  /**
+   * Withdraw $BASE from the season deposit vault, in part or in full.
+   *
+   * Deposits made during the running season are locked until it ends; anything
+   * older is withdrawable at any time. A withdrawal costs
+   * SEASON_WITHDRAW_FEE_PCT, which simply stays in the treasury — the deposit
+   * is already there, so the fee is the part we don't send back.
+   *
+   * This is an irreversible on-chain send, so it follows the payout's
+   * reserve → send → stamp discipline: the row exists (and the balance is
+   * already reduced) before any transfer is attempted, so a double-submit or a
+   * concurrent request cannot be sized against the same money.
+   */
+  private async handleSeasonWithdraw(client: Client, requested: number): Promise<void> {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const fail = (error: string) => client.send("seasonWithdrawResult", { ok: false, error });
+
+    const wallet = this.playerWallets.get(client.sessionId) ?? null;
+    if (!wallet || !isWalletIdentity(wallet)) {
+      return void fail("Link a Solana wallet to withdraw your deposit.");
+    }
+    if (!isWithdrawEnabled()) return void fail("Withdrawals aren't available on this server yet.");
+
+    const season = currentSeason();
+    const vault = await loadVault(player.name, season.id);
+    if (vault.balance <= 0) return void fail("You have nothing deposited.");
+    if (vault.withdrawable <= 0) {
+      return void fail(
+        `Your deposit is locked until Season ${season.number} ends — that's what it's competing with.`,
+      );
+    }
+
+    const amount = Math.floor(requested);
+    if (!Number.isFinite(amount) || amount <= 0) return void fail("Enter an amount to withdraw.");
+    if (amount > vault.withdrawable) {
+      return void fail(`You can withdraw up to ${vault.withdrawable.toLocaleString()} $BASE right now.`);
+    }
+
+    const { fee, net } = seasonWithdrawSplit(amount);
+    if (net <= 0) return void fail("That amount is too small to withdraw after the fee.");
+
+    // Reserve BEFORE sending. From here the money is out of the balance whether
+    // or not the transfer lands, and only an explicit failure puts it back.
+    const id = await reserveWithdrawal(player.name, wallet, amount, fee, net);
+    if (id == null) return void fail("Couldn't start the withdrawal — try again in a moment.");
+
+    const payout = await sendPayout(wallet, "base", toBaseUnits(net, "base"), getBlackZoneBurnMint());
+    if (!payout.ok) {
+      // Only release on a definite failure. sendPayout reports ok:false for a
+      // transfer it knows didn't happen; anything ambiguous stays `pending` and
+      // out of the balance until a human checks the chain, because paying twice
+      // is worse than paying late.
+      await failWithdrawal(id);
+      return void fail(payout.error ?? "Withdrawal failed — your deposit is untouched.");
+    }
+    await finalizeWithdrawal(id, payout.signature ?? "");
+
+    const after = await loadVault(player.name, season.id);
+    await syncVaultCache(player.name, after.balance);
+    bumpMetric("season.withdraw", 1);
+    bumpMetric("season.withdrawFee", fee);
+
+    const mult = seasonStakeMultiplier(after.balance, season.number);
+    client.send("seasonWithdrawResult", {
+      ok: true,
+      signature: payout.signature,
+      message:
+        `Withdrew ${net.toLocaleString()} $BASE (${fee.toLocaleString()} fee). ` +
+        (after.balance > 0
+          ? `${after.balance.toLocaleString()} still deposited, earning ${mult.toFixed(2)}× season points.`
+          : "Your vault is empty — you're out of the prize split until you deposit again."),
     });
     await this.handleSeasonState(client);
   }

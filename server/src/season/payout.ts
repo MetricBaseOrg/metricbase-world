@@ -15,6 +15,7 @@ import {
   currentSeason,
   seasonRewardPool,
   seasonRequiresStake,
+  seasonStakeAmount,
   SEASON_REWARD_REQUIRES_X,
   SEASON_REWARD_REQUIRES_POST,
   METRICBASE_TOKEN_MINT,
@@ -31,13 +32,7 @@ import {
   unclaimSeasonPayout,
   getSeasonPayoutSummary,
 } from "../db/season.js";
-import {
-  loadSeasonStakes,
-  claimStakeRefund,
-  finalizeStakeRefund,
-  releaseStakeRefund,
-  listUnstampedRefunds,
-} from "../db/seasonStake.js";
+import { loadSeasonEntrants, sumVaultBalances, listPendingWithdrawals } from "../db/seasonVault.js";
 
 export interface PayoutLine {
   name: string;
@@ -49,9 +44,8 @@ export interface PayoutLine {
   error?: string;
 }
 
-/** A stake being returned. Kept separate from the prize line because it goes to
- * the wallet that PAID the stake, which is not necessarily the wallet the
- * player later nominated for prizes — a deposit goes back where it came from. */
+/** Retained so an older report still type-checks. Since v0.205 deposits are
+ * withdrawn by the player from their vault, so the payout never fills this. */
 export interface RefundLine {
   name: string;
   wallet: string;
@@ -93,10 +87,13 @@ export interface PayoutReport {
   missingPostNames: string[];
   /** $BASE held back across ALL unmet requirements — money sitting unpaid. */
   totalHeldForX: number;
-  /** Stake deposits being returned, and their total. */
+  /** Always empty since v0.205 — players withdraw deposits themselves. */
   refunds: RefundLine[];
   totalToRefund: number;
-  /** Refunds a previous run claimed but never stamped — needs a human. */
+  /** $BASE sitting in deposit vaults. Not paid here, but the treasury must
+   *  stay able to honour it, so solvency is checked against prizes + this. */
+  vaultLiability: number;
+  /** Withdrawals reserved but never resolved — needs a human to check the chain. */
   stuckRefunds: string[];
   error?: string;
 }
@@ -132,6 +129,7 @@ export async function distributeSeasonRewards(seasonNumber: number, execute: boo
     totalHeldForX: 0,
     refunds: [],
     totalToRefund: 0,
+    vaultLiability: 0,
     stuckRefunds: [],
   };
 
@@ -140,12 +138,17 @@ export async function distributeSeasonRewards(seasonNumber: number, execute: boo
     return { ...report, error: "That season hasn't ended yet." };
   }
 
-  // Stakes drive both halves of a staked season: who is in the split, and who
-  // is owed their deposit back. Seasons before SEASON_STAKE_FIRST_SEASON have
-  // no stakes at all, so this is empty and the split stays open to everyone.
-  const stakes = await loadSeasonStakes(seasonId);
-  const entrants = new Set(stakes.map((s) => s.playerName));
-  report.stuckRefunds = await listUnstampedRefunds(seasonId);
+  // Who is in the split: everyone whose deposit vault still meets the entry
+  // floor. It is a LIVE balance check rather than a record of having once paid,
+  // so a player who withdrew below the floor before the season ended took
+  // themselves out of the split — which is the same rule the panel shows them
+  // all season. Seasons before SEASON_STAKE_FIRST_SEASON have no floor, so this
+  // is empty and the split stays open to everyone.
+  const floor = seasonStakeAmount(seasonNumber);
+  const entrants = new Set((await loadSeasonEntrants(floor)).map((e) => e.playerName));
+  // Withdrawals that reserved but never resolved — a human must check the chain
+  // before those players are told anything about their balance.
+  report.stuckRefunds = (await listPendingWithdrawals()).map((w) => w.playerName);
 
   const allTargets = await loadSeasonPayoutTargets(seasonId);
   const staketargets = staked ? allTargets.filter((t) => entrants.has(t.name)) : allTargets;
@@ -201,28 +204,32 @@ export async function distributeSeasonRewards(seasonNumber: number, execute: boo
   report.totalHeldForX =
     totalPoints > 0 ? heldBack.reduce((sum, t) => sum + Math.floor((t.points / totalPoints) * pool), 0) : 0;
 
-  // Refunds are owed to every entrant who hasn't been repaid — including one
-  // who scored zero points and so has no prize line at all. A deposit is not
-  // contingent on performance.
-  const refunds: RefundLine[] = stakes
-    .filter((s) => !s.refunded && s.amount >= 1)
-    .map((s) => ({ name: s.playerName, wallet: s.wallet, amount: s.amount }));
-  const totalToRefund = refunds.reduce((sum, r) => sum + r.amount, 0);
-  report.refunds = refunds;
-  report.totalToRefund = totalToRefund;
+  // Deposits are NOT returned here. Since v0.205 the stake is a vault the
+  // player withdraws from themselves, in part or in full, once the season it
+  // was deposited in has ended — so a player who wants to keep competing never
+  // has to re-deposit, and nobody's capital moves without them asking.
+  //
+  // The deposits are still a treasury liability, though, so the solvency check
+  // below must still cover them: paying out prizes down to a balance that can
+  // no longer honour the vault would be spending other people's money.
+  const vaultLiability = await sumVaultBalances();
+  report.refunds = [];
+  report.totalToRefund = 0;
+  report.vaultLiability = vaultLiability;
 
-  if (totalPoints <= 0 && totalToRefund <= 0) {
+  if (totalPoints <= 0) {
     return {
       ...report,
       error: staked
-        ? "No staked entrants with points, and no deposits to return."
+        ? "No staked entrants with points."
         : "No eligible players (need season points and a bonded wallet).",
     };
   }
 
-  // Solvency must cover prizes AND the deposits we owe back. Checking only the
-  // prizes could drain the treasury below the refund liability.
-  const owed = totalToPay + totalToRefund;
+  // Solvency must cover prizes AND every deposit still sitting in a vault.
+  // Checking only the prizes could drain the treasury below what players are
+  // owed back the moment they withdraw.
+  const owed = totalToPay + vaultLiability;
   const house = getHouseWalletAddress();
   const houseBalance = house ? await getHouseBalanceUi(house, "base", resolveMint()) : null;
   report.houseBalance = houseBalance;
@@ -238,31 +245,11 @@ export async function distributeSeasonRewards(seasonNumber: number, execute: boo
   if (!report.solvent) {
     return {
       ...report,
-      error: `House wallet can't cover ${owed} $BASE (${totalToPay} prizes + ${totalToRefund} deposits, balance ${houseBalance ?? 0}).`,
+      error: `House wallet can't cover ${owed} $BASE (${totalToPay} prizes + ${vaultLiability} held in deposit vaults, balance ${houseBalance ?? 0}).`,
     };
   }
 
   report.executed = true;
-
-  // Deposits first: they are other people's money, so they get paid before
-  // prizes if the run is interrupted partway.
-  for (const refund of refunds) {
-    const claimed = await claimStakeRefund(seasonId, refund.name);
-    if (!claimed) {
-      refund.status = "skipped";
-      continue;
-    }
-    const res = await sendPayout(refund.wallet, "base", toBaseUnits(refund.amount, "base"), resolveMint());
-    if (res.ok) {
-      refund.status = "refunded";
-      refund.signature = res.signature;
-      await finalizeStakeRefund(seasonId, refund.name, res.signature ?? "");
-    } else {
-      refund.status = "failed";
-      refund.error = res.error;
-      await releaseStakeRefund(seasonId, refund.name); // release for retry
-    }
-  }
 
   for (const line of lines) {
     // Claim the slot first — if another run already claimed/paid it, skip.
