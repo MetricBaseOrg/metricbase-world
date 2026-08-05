@@ -31,6 +31,30 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [0.205.2] — 2026-08-05 — Linking Telegram no longer strands standalone progress
+
+### Fixed
+
+- **A Telegram-first player couldn't link a wallet without abandoning their
+  character.** Linking Telegram to a wallet refused outright whenever that
+  Telegram account already had its own standalone character (played inside
+  the Mini App, never wallet-bonded) — even when the wallet side was
+  completely fresh and there was nothing to actually choose between. A
+  player who leveled up entirely inside Telegram, then bought a Founder NFT
+  to a wallet they'd never played from, had no way to reach `/founder`
+  without giving up their progress.
+  - **Fixed by upgrading in place** when the wallet has no character of its
+    own: the standalone character's `wallet_address` is re-keyed from the
+    synthetic `tg:<id>` to the real wallet, carrying every reference over
+    untouched — everything else (mail, jobs, guilds, zones, land, farms,
+    inventory, market orders, companies) is keyed by the durable player
+    *name*, not this column, so nothing needs to move.
+  - The genuinely ambiguous case — both the Telegram account and the wallet
+    already have their **own** real characters — still refuses; silently
+    picking a winner between two real progress histories is the one thing
+    this can't safely automate.
+  - `server/src/db/telegramLink.ts` `linkTelegramToWallet`.
+
 ## [0.205.1] — 2026-08-05 — Say the new deposit rules everywhere they're stated
 
 Docs and copy follow-up to v0.205.0. No behaviour change.
