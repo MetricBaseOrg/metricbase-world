@@ -31,6 +31,23 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [0.205.3] — 2026-08-05 — The dashboard hid the fix from the exact player it was for
+
+### Fixed
+
+- **v0.205.2's upgrade path was unreachable from the dashboard.** The
+  ✈️ Telegram section on `/dashboard` only rendered when the wallet already
+  had a bonded character (`data.found`) — which is precisely false for the
+  fresh-wallet case that upgrade exists to handle. A player with real
+  Telegram progress and an empty wallet saw "New Adventurer, hit Play Now,"
+  with nowhere to enter their link code, and Play Now would have created a
+  second empty character (the exact stub problem v0.205.2 fixed on the
+  server, reintroduced by a UI path with no server-side guard reachable that
+  way — `linkTelegramToWallet` never runs from the join form).
+  - Gate changed to `!data.isTelegramAccount` — the flag that actually
+    matters, since it marks "this session's OWN identity is a Telegram
+    account," not "this wallet has played before." `client/src/ui/DashboardPage.tsx`.
+
 ## [0.205.2] — 2026-08-05 — Linking Telegram no longer strands standalone progress
 
 ### Fixed

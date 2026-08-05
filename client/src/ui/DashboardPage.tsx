@@ -558,8 +558,12 @@ export function DashboardPage() {
                     )}
                     {/* Attach a Telegram login to this wallet account, so the
                         Mini App signs straight into this character instead of
-                        hopping out to a wallet browser every session. */}
-                    {data.found && !data.isTelegramAccount && (
+                        hopping out to a wallet browser every session.
+                        Deliberately NOT gated on data.found: a wallet with no
+                        character yet can still redeem a code from a Telegram
+                        account that already has one — that's the standalone-
+                        character upgrade path (see linkTelegramToWallet). */}
+                    {!data.isTelegramAccount && (
                       <>
                         <div className="mb-dash-stat" style={{ marginBottom: 2, marginTop: 10 }}>
                           ✈️ <span>Telegram</span>
