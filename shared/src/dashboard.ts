@@ -11,6 +11,18 @@ export const MOTTO_MAX_LENGTH = 80;
  */
 export const DASHBOARD_UPDATES: Array<{ title: string; body: string }> = [
   {
+    title: "v0.205 — Deposit more, score more",
+    body: "The Season 2 entry deposit is now a vault you can top up, and the amount in it multiplies every season point you earn — 10,000 $BASE is 1×, 20,000 is 1.41×, and it peaks at 2× for 40,000. The curve is smooth, so every token counts and there are no tier cliffs to game; past 40,000 it stops helping and we say so rather than quietly taking more. The multiplier applies to points you earn after depositing, never to points already banked. You now withdraw your deposit yourself once the season ends — any amount, any time, keeping the rest working for next season — with a 5% fee to the treasury on what you take out. Prize winnings are always paid in full. Playing and scoring stay free. ⚙️ → 📅 Daily & Season.",
+  },
+  {
+    title: "v0.204 — Coins you can hear",
+    body: "Every gold you earn now lands with a coin sound, wherever it came from: selling to a vendor, a gather drop, a quest or mob reward, mail, your shop's takings, World pass and gather tax, job payouts, daily rewards. Big payouts get a heavier cue, so a 50,000g windfall doesn't sound like picking up 2g.",
+  },
+  {
+    title: "v0.203 — Worlds run ads and keep half the revenue",
+    body: "Own a World? Switch on Run ads in ⚙️ → 🌍 Worlds and a billboard goes up by your spawn. Every impression it earns pays out in full: 50% to you as the owner, 50% to the ad-program members who saw it, and nothing to the platform. The owner half needs no invites — you earn because you built the place people are standing in. Your World has to be published and your character needs a bonded wallet, since it pays in $BASE.",
+  },
+  {
     title: "v0.202 — Founders earn boosted season points",
     body: "Holding a Founder now multiplies the season points you earn — Bronze ×1.5, Gold ×2, Ember ×3 — which means a bigger share of the $BASE prize pool for the same play. Combat and gathering are untouched (no extra damage, gather speed, or drop rate), and the game stays free for everyone. This is a real edge for holders; mint from ⚙️ → 👑 Membership.",
   },
@@ -52,7 +64,7 @@ export const DASHBOARD_UPDATES: Array<{ title: string; body: string }> = [
   },
   {
     title: "v0.188 — Enter the Season 2 prize race",
-    body: "From Season 2 the prize pool is split between players who enter it. Entry is a refundable 10,000 $BASE deposit — you get every token back when the season pays out, win or lose. Playing, earning season points and climbing the leaderboard all stay completely free; entering just puts you in the split. Season 1 is unaffected and pays out under its original rules.",
+    body: "From Season 2 the prize pool is split between players who enter it. Entry is a 10,000 $BASE deposit. Playing, earning season points and climbing the leaderboard all stay completely free; entering just puts you in the split. Season 1 is unaffected and pays out under its original rules. (Updated in v0.205: the deposit became a vault you top up for a points multiplier and withdraw yourself — see that entry for how it works now.)",
   },
   {
     title: "v0.187 — Earn by reposting on X",

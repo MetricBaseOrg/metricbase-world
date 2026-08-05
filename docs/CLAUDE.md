@@ -107,7 +107,15 @@ Holder detection needs a **DAS-capable RPC** (Helius/Shyft/QuickNode/Triton);
 - Token gate: **entry is free** (`MIN_TOKEN_UI_AMOUNT=0` since v0.172.0) — a
   signature-verified wallet is still required, it just isn't screened on
   balance. $BASE buys optional things (gold at Rudi's desk, Magic Chests, VIP
-  passes, land, World slots, the Season 2 entry stake), never entry.
+  passes, land, World slots, the Season 2 deposit vault), never entry.
+- **Season deposit vault** (`shared/src/season.ts`, `server/src/db/seasonVault.ts`):
+  the prize-race deposit is a balance, not a fee. Its size sets a season-point
+  multiplier (`min(2, sqrt(deposit/floor))`, applied at award time only), and
+  players withdraw it themselves after the season with a 5% fee to the treasury.
+  **Balance is derived from the deposit/withdrawal ledgers**, never stored as a
+  mutable number; `characters.season_vault_units` is only a read cache for the
+  points hot path. Withdrawals follow reserve → send → stamp, and an ambiguous
+  failure stays `pending` rather than being released.
 - On-chain reads go through `getRpcUrls()` (configured endpoint first, then the
   public fallbacks). Never build a `Connection` from a single URL — every
   verification path must be able to fall through when a provider fails.

@@ -31,6 +31,36 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [0.205.1] — 2026-08-05 — Say the new deposit rules everywhere they're stated
+
+Docs and copy follow-up to v0.205.0. No behaviour change.
+
+### Fixed
+
+- **The in-game dashboard was still promising the old refund.** The v0.188
+  "Recent Updates" entry told players their deposit was *"refundable — you get
+  every token back when the season pays out, win or lose"*, which stopped being
+  true the moment the 5% withdrawal fee shipped. That's live player-facing copy
+  about money, so it's corrected rather than left as history, with a pointer to
+  the entry that supersedes it.
+
+### Changed
+
+- Dashboard "Recent Updates" gained entries for **v0.205** (deposit vault),
+  **v0.204** (coin sounds) and **v0.203** (World ad revenue sharing) — the list
+  had fallen three releases behind.
+- `shared/src/season.ts` header and `handleSeasonStake`'s doc comment described
+  a stake "RETURNED at payout" and deduped "against `season_stake`" — both
+  describe code that no longer exists.
+- `docs/base-demand.md`: the P1 roadmap section is marked as superseded design
+  (kept for the reasoning), its open refundable-vs-burn question is recorded as
+  resolved, and the summary notes the fee is the first *recurring* $BASE inflow
+  tied to the pool — so it should be re-measured alongside `distinctBuyers`
+  after Season 2 closes.
+- `docs/CLAUDE.md`: added the vault to the gameplay systems, including the two
+  rules worth not re-deriving — balance is ledger-derived, and an ambiguous
+  withdrawal stays `pending`.
+
 ## [0.205.0] — 2026-08-05 — The season stake becomes a deposit vault
 
 ### Added

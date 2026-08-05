@@ -5107,12 +5107,15 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
   }
 
   /**
-   * Enter the season's prize race by staking $BASE (see shared/src/season.ts).
+   * Deposit $BASE into the season vault (see shared/src/season.ts). The first
+   * deposit must clear the entry floor and puts the player in the prize split;
+   * further top-ups raise their season-point multiplier.
    *
-   * The stake is TRANSFERRED to the treasury rather than burned, because it is
-   * returned at payout — so this verifies a transfer, not a burn, and the
-   * signature is deduped against season_stake so one transfer can't buy two
-   * entries. Playing without staking stays free; this only affects the split.
+   * The deposit is TRANSFERRED to the treasury rather than burned, because it
+   * stays the player's money — so this verifies a transfer, not a burn, and the
+   * signature is deduped against the deposit ledger so one transfer can't be
+   * credited twice. Playing without depositing stays free; this only affects
+   * the split and the multiplier.
    */
   private async handleSeasonStake(client: Client, signature: string): Promise<void> {
     const player = this.state.players.get(client.sessionId);

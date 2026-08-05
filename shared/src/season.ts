@@ -35,27 +35,30 @@ export function seasonRewardPool(seasonNumber: number): number {
 
 // ── Season entry stake ───────────────────────────────────────────────────────
 //
-// Competing for the prize pool costs a REFUNDABLE stake in $BASE. This exists
-// because the pool pays out continuously with essentially no matching inflow
-// (see docs/base-demand.md — 2 distinct wallets have ever paid the treasury).
-// The stake couples pool outflow to token inflow without re-gating entry:
+// Competing for the prize pool costs a $BASE DEPOSIT. This exists because the
+// pool pays out continuously with essentially no matching inflow (see
+// docs/base-demand.md — 2 distinct wallets have ever paid the treasury). The
+// deposit couples pool outflow to token inflow without re-gating entry:
 //
 //  - Playing stays free. Points still accrue for everyone, and the leaderboard
 //    still ranks everyone — a non-entrant simply isn't in the payout split.
-//  - The stake is RETURNED at payout, so it is a deposit, not a fee. It is a
-//    treasury liability for the length of the season, and the payout's solvency
-//    check covers refunds as well as prizes.
+//  - The deposit is the player's money throughout. It sits in a vault they
+//    withdraw from themselves (see below), so it is a treasury liability for as
+//    long as they leave it there — the payout's solvency check covers the whole
+//    outstanding vault as well as prizes.
 //  - It never mints $BASE and never converts gold → $BASE (the hard invariant
 //    in docs/company-coin.md). The pool is still fixed and pre-funded; the
-//    stake decides *who* is in the split, never how much exists.
+//    deposit decides *who* is in the split and their multiplier, never how much
+//    exists to be won.
 
-/** Default refundable stake, in $BASE, to compete for a season's prize pool.
+/** Minimum deposit, in $BASE, to be in a season's prize-pool split. Also the
+ * denominator of the multiplier curve, so it sets the whole ladder's scale.
  * Deliberately anchored to the cheapest existing sink (VIP pass burn / first
  * bag expansion are both 10,000) — "start low" per docs/base-demand.md, so it
  * never recreates the entry gate one layer in. */
 export const SEASON_STAKE_BASE = 10_000;
 
-/** First season the stake applies to. Season 1 ran to completion with no stake
+/** First season the deposit applies to. Season 1 ran to completion with no stake
  * and pays out under the rules its players actually competed under; changing
  * that retroactively would disqualify everyone who didn't pay, after the fact. */
 export const SEASON_STAKE_FIRST_SEASON = 2;
@@ -63,7 +66,7 @@ export const SEASON_STAKE_FIRST_SEASON = 2;
 /** Per-season stake overrides, same shape as the pool table (DAO-settable). */
 export const SEASON_STAKES: Record<number, number> = {};
 
-/** The refundable $BASE stake for a season — 0 when that season has no stake. */
+/** The minimum $BASE deposit for a season — 0 when that season has no stake. */
 export function seasonStakeAmount(seasonNumber: number): number {
   if (seasonNumber < SEASON_STAKE_FIRST_SEASON) return 0;
   return SEASON_STAKES[seasonNumber] ?? SEASON_STAKE_BASE;

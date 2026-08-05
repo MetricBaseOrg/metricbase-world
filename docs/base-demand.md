@@ -185,7 +185,11 @@ below if they drift that way in implementation.**
 
 ## The plan, in priority order
 
-### P1 — Season entry stake ✅ SHIPPED v0.188.0 (see the section at the top)
+### P1 — Season entry stake ✅ SHIPPED v0.188.0, extended v0.205.0
+
+> Both sections at the top of this file are the current design. This is the
+> original reasoning, kept because it records *why* — the numbers and mechanics
+> here were superseded by the deposit vault.
 
 Competing for the Season prize pool costs a **refundable stake** in $BASE, or a
 small non-refundable entry burn. Points still decide the split; the stake only
@@ -197,9 +201,10 @@ decides *who is playing for the pool*.
   prize race. **Casual play stays completely free.**
 - Keeps the invariant: no minting, no gold→$BASE.
 
-*Open question for the owner:* refundable stake (softer, more like a deposit) or
-a smaller burn (harder deflation, no liability to return)? Refundable is easier
-to sell to players; a burn is better for supply.
+*Resolved:* a returnable deposit, not a burn. v0.205.0 then answered the
+"no liability to return" half of the trade-off a different way — the deposit is
+still returned, but only on a manual withdrawal that keeps 5% for the treasury,
+so there is a real inflow without ever telling a player their money is gone.
 
 **Careful:** a stake creates an entry barrier to the *reward* system. If set too
 high it recreates the gate we just removed, one layer in. Start low.
@@ -339,9 +344,12 @@ demand — which is why the /stats card reports buyer concentration in words.
 
 1. ~~Instrument before building.~~ **Done, v0.177.0.** Re-read the panel before
    each decision below rather than trusting the snapshot above.
-2. ~~Decide P1 with the owner.~~ **Done + shipped, v0.188.0** — refundable
-   deposit, Season 2 onward, no cap. Decided before the Season 1 payout rather
-   than after, so Season 2 starts with the mechanism already live.
+2. ~~Decide P1 with the owner.~~ **Done + shipped, v0.188.0**, extended in
+   **v0.205.0** to a deposit vault: top up for a points multiplier (capped 2×),
+   withdraw manually with a 5% fee to the treasury. Decided before the Season 1
+   payout rather than after, so Season 2 starts with the mechanism already live.
+   The fee is the first *recurring* $BASE inflow tied to the pool — re-measure
+   `distinctBuyers` and fee take together after Season 2 closes.
 3. **Ship P2 cosmetics.** Safe, popular, no economic risk, works at any player
    count. Now the top unstarted item.
 4. **Re-measure after Season 2 opens.** The number that matters is how many of
