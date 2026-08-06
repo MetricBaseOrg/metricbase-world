@@ -47,6 +47,19 @@ export function railwayConfigHint(): string {
   return "";
 }
 
+/**
+ * Railway has two token types and they authenticate with DIFFERENT headers:
+ * account/team tokens use `Authorization: Bearer`, project tokens use
+ * `Project-Access-Token`. Send the wrong one and the API returns "Not
+ * Authorized" — which looks exactly like a bad token, so it is worth detecting
+ * rather than making the operator guess. Project tokens are bare UUIDs.
+ */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function authHeader(token: string): Record<string, string> {
+  return UUID_RE.test(token) ? { "Project-Access-Token": token } : { Authorization: `Bearer ${token}` };
+}
+
 async function gql<T>(query: string, variables: Record<string, unknown>): Promise<T | null> {
   const token = process.env.RAILWAY_API_TOKEN?.trim();
   if (!token) return null;
@@ -55,7 +68,7 @@ async function gql<T>(query: string, variables: Record<string, unknown>): Promis
   try {
     const res = await fetch(ENDPOINT, {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      headers: { "Content-Type": "application/json", ...authHeader(token) },
       body: JSON.stringify({ query, variables }),
       signal: controller.signal,
     });
