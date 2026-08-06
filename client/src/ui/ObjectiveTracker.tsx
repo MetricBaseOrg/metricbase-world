@@ -18,10 +18,91 @@ import { useMobileLayout } from "./useMobileLayout";
 
 const DISMISS_KEY = "mb.objectiveTracker.hidden";
 
+/** Breathing room between the bottom of the HUD panel and this card. */
+const TRACKER_GAP = 10;
+/** Used only when the top bar can't be found — matches its old hardcoded guess. */
+const FALLBACK_TOP = { mobile: 96, desktop: 108 };
+
+/**
+ * Track the bottom edge of the top-left HUD panel.
+ *
+ * This used to be a hardcoded `top: 96/108`, which was a guess at the HUD's
+ * height — and the HUD's height is not fixed. It grows with the notification
+ * badge, a long player name, the gold row wrapping, and the safe-area inset on
+ * mobile/TWA, and it shrinks when minimised. Whenever it grew past the guess,
+ * this card ended up underneath it and the current quest was invisible.
+ *
+ * Measuring means it is right for every one of those states instead of one.
+ */
+function useTopBarBottom(mobileLayout: boolean): number {
+  const fallback = mobileLayout ? FALLBACK_TOP.mobile : FALLBACK_TOP.desktop;
+  const [top, setTop] = useState(fallback);
+
+  useEffect(() => {
+    let resizeObserver: ResizeObserver | null = null;
+    let observed: Element | null = null;
+
+    const measure = () => {
+      const bar = document.querySelector(".chibi-topbar");
+      if (!bar) {
+        setTop(fallback);
+        return;
+      }
+      // Measure the HUD rows only. The ⚙️ and 🔔 dropdowns live inside the same
+      // element and can be several hundred pixels tall, so following the panel's
+      // full height would fling this card down the screen every time one opens.
+      let bottom = 0;
+      for (const child of Array.from(bar.children)) {
+        if (child.classList.contains("chibi-topbar__menu")) continue;
+        bottom = Math.max(bottom, child.getBoundingClientRect().bottom);
+      }
+      if (bottom === 0) bottom = bar.getBoundingClientRect().bottom;
+
+      // Clear the panel's own padding and border before adding the gap.
+      const next = bottom + 11 + TRACKER_GAP;
+      // Only guard against running off the bottom of a short screen. An earlier
+      // version clamped to 45% of the viewport height, which on a 360x640 phone
+      // resolved to 288px — above the 306px bottom of the HUD, quietly putting
+      // the card back underneath it. Any ceiling below the HUD recreates the
+      // exact bug this is fixing, so the floor has to win.
+      const ceiling = Math.max(next, window.innerHeight - 130);
+      setTop(Math.round(Math.min(next, ceiling)));
+    };
+
+    // The top bar is swapped for a different element when it minimises, so the
+    // observer has to be re-attached rather than bound once.
+    const attach = () => {
+      const bar = document.querySelector(".chibi-topbar");
+      if (bar === observed) return;
+      resizeObserver?.disconnect();
+      observed = bar;
+      if (bar) {
+        resizeObserver = new ResizeObserver(measure);
+        resizeObserver.observe(bar);
+      }
+      measure();
+    };
+
+    attach();
+    const mutationObserver = new MutationObserver(attach);
+    if (document.body) mutationObserver.observe(document.body, { childList: true, subtree: true });
+    window.addEventListener("resize", measure);
+
+    return () => {
+      resizeObserver?.disconnect();
+      mutationObserver.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, [fallback]);
+
+  return top;
+}
+
 export function ObjectiveTracker() {
   const questState = useGameStore((s) => s.questState);
   const anyPanelOpen = useGameStore(isAnyPanelOpen);
   const mobileLayout = useMobileLayout();
+  const trackerTop = useTopBarBottom(mobileLayout);
   const [hidden, setHidden] = useState(() => localStorage.getItem(DISMISS_KEY) === "1");
   const [flash, setFlash] = useState(false);
 
@@ -48,9 +129,12 @@ export function ObjectiveTracker() {
     <div
       style={{
         position: "absolute",
-        top: mobileLayout ? 96 : 108,
+        top: trackerTop,
         left: mobileLayout ? 8 : 16,
-        zIndex: 12,
+        // Just under the top bar's 18 (.chibi-anchor--top-left), not below it by
+        // six: at 12 this card lost to the HUD panel on any overlap and simply
+        // vanished. Staying under 18 keeps the ⚙️/🔔 dropdowns layered over it.
+        zIndex: 17,
         pointerEvents: "auto",
         maxWidth: mobileLayout ? 190 : 240,
         padding: "8px 10px",
