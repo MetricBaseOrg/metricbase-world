@@ -12,6 +12,8 @@ import {
   clearAttempts,
   clearSessionCookie,
   clientIp,
+  evictSession,
+  evictSessionsForEmail,
   hashPassword,
   isRateLimited,
   readCookie,
@@ -123,7 +125,10 @@ missionRouter.post(
   "/mission/logout",
   handler(async (req, res) => {
     const id = readCookie(req, SESSION_COOKIE);
-    if (id) await deleteSession(id);
+    if (id) {
+      await deleteSession(id);
+      evictSession(id);
+    }
     clearSessionCookie(res);
     res.json({ ok: true });
   }),
@@ -164,8 +169,11 @@ missionRouter.post(
     }
 
     await setAdminPassword(user.email, await hashPassword(next));
-    // Every other device is signed out; this one keeps its session.
+    // Every other device is signed out; this one keeps its session. Evict the
+    // whole cache for this email too, or the deleted sessions would keep working
+    // until their cached copies expired.
     await deleteSessionsFor(user.email, readCookie(req, SESSION_COOKIE) ?? undefined);
+    evictSessionsForEmail(user.email);
     await audit(user.email, "password_changed", {});
     res.json({ ok: true });
   }),

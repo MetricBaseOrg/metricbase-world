@@ -53,6 +53,7 @@ export const MISSION_APP_HTML = `<!doctype html>
 
   <!-- ============================ OPS ============================ -->
   <section data-panel="ops">
+    <div id="pauseNote"></div>
     <div id="opsBanners"></div>
     <div class="grid" id="opsTiles"></div>
 

@@ -174,12 +174,53 @@ export interface MissionRequest extends Request {
   missionUser: AdminUser;
 }
 
+/**
+ * Session lookups are cached in memory, the same trick db/bans.ts uses.
+ *
+ * This is a COST control, not a latency one. Neon bills compute active time and
+ * keeps a compute awake while any query is in flight — volume is irrelevant, so
+ * a console tab that authenticates twice per poll would pin the compute awake
+ * for as long as it is open. See the Neon compute-cost notes: a job polling
+ * faster than the 5-minute suspend window is exactly what produced a surprise
+ * bill once already.
+ *
+ * 60s TTL, and both logout and a password change evict explicitly, so a revoked
+ * session is never honoured for longer than the operator's own action takes.
+ */
+const SESSION_CACHE_TTL_MS = 60_000;
+const sessionCache = new Map<string, { user: AdminUser; at: number }>();
+
+export function evictSession(id: string): void {
+  sessionCache.delete(id);
+}
+
+export function evictSessionsForEmail(email: string): void {
+  const lower = email.toLowerCase();
+  for (const [id, entry] of sessionCache) if (entry.user.email === lower) sessionCache.delete(id);
+}
+
 async function resolveUser(req: Request): Promise<AdminUser | null> {
   const id = readCookie(req, SESSION_COOKIE);
   if (!id) return null;
+
+  const cached = sessionCache.get(id);
+  if (cached && Date.now() - cached.at < SESSION_CACHE_TTL_MS) return cached.user;
+
   const session = await getSession(id);
-  if (!session) return null;
-  return await getAdminUser(session.email);
+  if (!session) {
+    sessionCache.delete(id);
+    return null;
+  }
+  const user = await getAdminUser(session.email);
+  if (user) sessionCache.set(id, { user, at: Date.now() });
+  // The console has one operator; the map can't grow meaningfully, but don't
+  // let an attacker spraying cookies grow it either.
+  if (sessionCache.size > 200) {
+    for (const [key, entry] of sessionCache) {
+      if (Date.now() - entry.at >= SESSION_CACHE_TTL_MS) sessionCache.delete(key);
+    }
+  }
+  return user;
 }
 
 /** API guard: 401 JSON. Also 403s every route except the change-password one

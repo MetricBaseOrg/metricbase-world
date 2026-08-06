@@ -41,17 +41,33 @@ export interface OpsPayload {
 
 const BOOTED_AT = Date.now();
 
-async function pingDatabase(): Promise<{ configured: boolean; reachable: boolean; latencyMs: number | null }> {
+type DbHealth = { configured: boolean; reachable: boolean; latencyMs: number | null };
+
+/**
+ * Cached for a minute. Neon bills compute active time and a single query is
+ * enough to keep the compute awake, so an unattended Ops tab must not turn into
+ * a heartbeat that stops the database ever suspending. A minute-stale latency
+ * reading costs the operator nothing; a pinned compute costs real allowance.
+ */
+const PING_TTL_MS = 60_000;
+let pingCache: { at: number; value: DbHealth } | null = null;
+
+async function pingDatabase(): Promise<DbHealth> {
   const pool = getPool();
   if (!pool) return { configured: false, reachable: false, latencyMs: null };
+  if (pingCache && Date.now() - pingCache.at < PING_TTL_MS) return pingCache.value;
+
   const started = Date.now();
+  let value: DbHealth;
   try {
     await pool.query("SELECT 1");
-    return { configured: true, reachable: true, latencyMs: Date.now() - started };
+    value = { configured: true, reachable: true, latencyMs: Date.now() - started };
   } catch (error) {
     console.warn("[mission] database ping failed:", error);
-    return { configured: true, reachable: false, latencyMs: null };
+    value = { configured: true, reachable: false, latencyMs: null };
   }
+  pingCache = { at: Date.now(), value };
+  return value;
 }
 
 const TERMINAL_BAD = new Set(["FAILED", "CRASHED"]);

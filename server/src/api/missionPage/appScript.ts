@@ -193,16 +193,59 @@ $("logLevel").addEventListener("change", refreshLogs);
 $("logSearch").addEventListener("keydown", function (e) { if (e.key === "Enter") refreshLogs(); });
 
 // Ops is the tab you leave open, so it polls. The others refresh on visit.
+//
+// IDLE AUTO-PAUSE — this is a cost control, not a nicety. Neon bills compute
+// active time and one query is enough to keep the compute awake, so a console
+// left open overnight would stop the database ever suspending and quietly eat
+// the month's allowance. A job polling faster than the suspend window is
+// exactly what caused a surprise bill here once before. After IDLE_MS without
+// interaction the polling stops and says so; any click, key or scroll resumes it.
+var IDLE_MS = 10 * 60 * 1000;
+var lastInteraction = Date.now();
+var paused = false;
+
+function markActive() {
+  lastInteraction = Date.now();
+  if (paused) {
+    paused = false;
+    renderPauseState();
+    loaders.ops();
+  }
+}
+
+["click", "keydown", "scroll", "mousemove", "touchstart"].forEach(function (evt) {
+  window.addEventListener(evt, markActive, { passive: true });
+});
+
+function renderPauseState() {
+  var el = $("pauseNote");
+  if (!el) return;
+  el.innerHTML = paused
+    ? '<div class="banner warn">⏸ Live updates paused after 10 minutes idle, so the database can sleep. ' +
+      'Click anywhere to resume.</div>'
+    : "";
+}
+
+function opsVisible() {
+  return !document.querySelector('[data-panel="ops"]').classList.contains("hidden");
+}
+
+function shouldPoll() {
+  if (document.hidden || !opsVisible()) return false;
+  if (Date.now() - lastInteraction > IDLE_MS) {
+    if (!paused) { paused = true; renderPauseState(); }
+    return false;
+  }
+  return true;
+}
+
 setInterval(function () {
-  if (document.hidden) return;
-  var opsVisible = !document.querySelector('[data-panel="ops"]').classList.contains("hidden");
-  if (!opsVisible) return;
+  if (!shouldPoll()) return;
   if ($("logAuto").checked) refreshLogs();
 }, 10000);
 
 setInterval(function () {
-  if (document.hidden) return;
-  if (document.querySelector('[data-panel="ops"]').classList.contains("hidden")) return;
+  if (!shouldPoll()) return;
   loaders.ops();
 }, 30000);
 
