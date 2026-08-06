@@ -51,6 +51,19 @@ import { ZoneRoom } from "./rooms/ZoneRoom.js";
 import { buildStats, statsRouter } from "./api/stats.js";
 import { brandsRouter } from "./api/brands.js";
 import { STATS_PAGE_HTML } from "./api/statsPage.js";
+import { missionRouter } from "./api/mission.js";
+import { MISSION_APP_HTML, MISSION_LOGIN_HTML } from "./api/missionPage/index.js";
+import { requireMissionPage, seedBootstrapAdmin } from "./auth/missionAuth.js";
+import { purgeExpiredSessions } from "./db/missionAdmin.js";
+import { installLogCapture } from "./mission/logBuffer.js";
+import { requestMetrics } from "./mission/requestMetrics.js";
+import { captureShippedStories } from "./mission/xEval.js";
+
+// Capture console output for the Mission Center Logs panel. This runs after the
+// imports above have executed (ES modules are evaluated before any statement
+// here), so module-load-time logs are missed — everything from the boot sequence
+// onwards is captured, which is the part worth reading.
+installLogCapture();
 
 const PORT = Number(process.env.PORT ?? 2567);
 
@@ -58,6 +71,9 @@ const app = express();
 
 app.use(cors({ origin: true }));
 app.use(express.json());
+// Rolling p50/p95/5xx window for the Mission Center Ops tab. Must sit ahead of
+// the routers to see every response.
+app.use(requestMetrics);
 
 app.get("/health", (_req, res) => {
   // Report the live build + the loaded hub portal tiles so a stale deploy is
@@ -84,6 +100,16 @@ app.use("/api", xTasksRouter);
 app.use("/api", statsRouter);
 app.use("/api", brandsRouter);
 app.use("/api", daoRouter);
+app.use("/api", missionRouter);
+
+// Mission Center — the private operator console. Server-rendered on purpose:
+// it has to work when the client build is the thing that's broken.
+app.get("/mission/login", (_req, res) => {
+  res.type("html").send(MISSION_LOGIN_HTML);
+});
+app.get("/mission", requireMissionPage, (_req, res) => {
+  res.type("html").send(MISSION_APP_HTML);
+});
 // /stats is server-rendered with the live headline numbers baked into the
 // initial HTML (JS then keeps them fresh). Crawlers and game-discovery agents
 // (e.g. solgames.buzz) see real player counts instead of "—" placeholders.
@@ -158,6 +184,10 @@ gameServer.onBeforeShutdown(async () => {
 });
 
 await initDatabase();
+// Mission Center: seed the operator account (no-op once one exists) and clear
+// out sessions that have aged past their expiry.
+await seedBootstrapAdmin();
+void purgeExpiredSessions();
 await initSellPressure();
 await initLandRegistry();
 await initZoneRegistry();
@@ -257,6 +287,11 @@ void setupTelegramBot();
 
 void captureNetWorthSnapshot();
 setInterval(() => void captureNetWorthSnapshot(), MAINTENANCE_INTERVAL_MS).unref();
+
+// Turn each shipped version into a Mission Center post idea if it doesn't have
+// one yet. The story is best written while the detail that made it good is still
+// fresh, and this stops that from depending on anyone remembering. Idempotent.
+void captureShippedStories();
 
 // Re-check NFT holder status for online players so a mid-session buy/sell
 // reflects without a reconnect. Cosmetic-only + cached + inert when the NFT

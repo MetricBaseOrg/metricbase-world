@@ -921,3 +921,107 @@ CREATE TABLE IF NOT EXISTS share_dividends (
 );
 CREATE INDEX IF NOT EXISTS share_dividends_company_idx ON share_dividends (company_id, at DESC);
 CREATE INDEX IF NOT EXISTS asset_inventory_player_wallet_idx ON asset_inventory (player_wallet);
+
+-- ===========================================================================
+-- Mission Center — the private operator console at /mission.
+--
+-- Identity here is an EMAIL + PASSWORD, deliberately separate from the game's
+-- wallet identity: moderating shouldn't require being logged into the game with
+-- the treasury wallet. The bootstrap row is seeded from MISSION_BOOTSTRAP_PASSWORD
+-- with must_change_password set, so the default never survives the first login.
+-- ===========================================================================
+
+CREATE TABLE IF NOT EXISTS admin_users (
+  email VARCHAR(190) PRIMARY KEY,
+  password_hash TEXT NOT NULL,
+  must_change_password BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  last_login_at TIMESTAMPTZ
+);
+
+-- Row-backed sessions so logout and "sign out everywhere" are real, not just a
+-- cleared cookie. The id is 32 random bytes; nothing about the user is in it.
+CREATE TABLE IF NOT EXISTS mission_sessions (
+  id VARCHAR(64) PRIMARY KEY,
+  email VARCHAR(190) NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  expires_at TIMESTAMPTZ NOT NULL,
+  ip VARCHAR(64),
+  user_agent TEXT
+);
+CREATE INDEX IF NOT EXISTS mission_sessions_email_idx ON mission_sessions (email, expires_at DESC);
+
+-- Every mutating action taken through Mission Center. Append-only.
+CREATE TABLE IF NOT EXISTS mission_audit (
+  id BIGSERIAL PRIMARY KEY,
+  email VARCHAR(190) NOT NULL,
+  action VARCHAR(64) NOT NULL,
+  detail JSONB NOT NULL DEFAULT '{}'::jsonb,
+  at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS mission_audit_at_idx ON mission_audit (at DESC);
+
+-- ===========================================================================
+-- X growth system. Neon is the source of truth (the markdown in the owner's
+-- OneDrive folder was single-machine and unreachable from the server).
+-- ===========================================================================
+
+CREATE TABLE IF NOT EXISTS x_posts (
+  id BIGSERIAL PRIMARY KEY,
+  ref VARCHAR(32) UNIQUE,                -- "#7" from the calendar; import idempotency key
+  slot_date DATE,                        -- NULL = unscheduled (bank of extras)
+  slot_kind VARCHAR(24) NOT NULL DEFAULT 'extra',   -- mon_economy|wed_build|fri_game|extra
+  status VARCHAR(16) NOT NULL DEFAULT 'idea',       -- idea|drafted|scheduled|posted|skipped
+  format VARCHAR(40),                    -- economy_report|bug_story|design_tradeoff|...
+  title VARCHAR(200) NOT NULL DEFAULT '',
+  hook TEXT NOT NULL DEFAULT '',         -- the first line; what gets evaluated
+  body TEXT NOT NULL DEFAULT '',
+  image_prompt TEXT,
+  thread_of BIGINT,                      -- parent post id for thread continuations
+  tweet_url TEXT,
+  verified_handle VARCHAR(40),           -- author resolved via free oEmbed
+  posted_at TIMESTAMPTZ,
+  source_version VARCHAR(16),            -- GAME_VERSION this story came from
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS x_posts_slot_idx ON x_posts (slot_date);
+CREATE INDEX IF NOT EXISTS x_posts_status_idx ON x_posts (status, slot_date);
+
+-- Hand-entered (X gives nothing away free beyond oEmbed). One row per post,
+-- overwritten as the numbers mature.
+CREATE TABLE IF NOT EXISTS x_post_metrics (
+  post_id BIGINT PRIMARY KEY,
+  impressions INTEGER NOT NULL DEFAULT 0,
+  likes INTEGER NOT NULL DEFAULT 0,
+  replies INTEGER NOT NULL DEFAULT 0,
+  reposts INTEGER NOT NULL DEFAULT 0,
+  bookmarks INTEGER NOT NULL DEFAULT 0,
+  profile_clicks INTEGER NOT NULL DEFAULT 0,
+  link_clicks INTEGER NOT NULL DEFAULT 0,
+  captured_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS x_account_snapshots (
+  day DATE PRIMARY KEY,
+  followers INTEGER NOT NULL DEFAULT 0,
+  following INTEGER NOT NULL DEFAULT 0,
+  posts INTEGER NOT NULL DEFAULT 0,
+  note TEXT
+);
+
+CREATE TABLE IF NOT EXISTS x_targets (
+  handle VARCHAR(40) PRIMARY KEY,
+  why TEXT NOT NULL DEFAULT '',
+  cadence VARCHAR(40) NOT NULL DEFAULT '',
+  last_engaged_at TIMESTAMPTZ,
+  notes TEXT
+);
+
+CREATE TABLE IF NOT EXISTS x_templates (
+  id VARCHAR(64) PRIMARY KEY,
+  name VARCHAR(120) NOT NULL,
+  format VARCHAR(40) NOT NULL DEFAULT '',
+  skeleton TEXT NOT NULL DEFAULT '',
+  notes TEXT
+);

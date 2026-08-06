@@ -22,6 +22,18 @@
       "destination": "https://metricbaseserver-production.up.railway.app/api/x/link/callback"
     },
     {
+      "source": "/mission",
+      "destination": "https://metricbaseserver-production.up.railway.app/mission"
+    },
+    {
+      "source": "/mission/:path*",
+      "destination": "https://metricbaseserver-production.up.railway.app/mission/:path*"
+    },
+    {
+      "source": "/api/mission/:path*",
+      "destination": "https://metricbaseserver-production.up.railway.app/api/mission/:path*"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

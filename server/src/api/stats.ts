@@ -43,7 +43,7 @@ async function scalar(sql: string, def = 0): Promise<number> {
   }
 }
 
-interface EconomyStats {
+export interface EconomyStats {
   version: string;
   updatedAt: number;
   players: { registered: number; online: number; circulatingGold: number; avgLevel: number; maxLevel: number };
@@ -399,7 +399,10 @@ function statsTtlMs(): number {
   return ZoneRoom.onlinePlayerCount() > 0 ? STATS_TTL_ACTIVE_MS : STATS_TTL_IDLE_MS;
 }
 
-async function getStatsCached(): Promise<EconomyStats> {
+/** Exported so Mission Center's Game tab reads the SAME cached build. A second
+ *  caller doing its own buildStats() would double the 54-query pass and the Neon
+ *  compute bill that came with it. */
+export async function getStatsCached(): Promise<EconomyStats> {
   if (statsCache && Date.now() - statsCache.at < statsTtlMs()) return statsCache.payload;
   // Collapse concurrent misses into a single build. Without this a burst of
   // pollers arriving together each starts its own 54-query pass.
