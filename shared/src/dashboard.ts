@@ -11,6 +11,10 @@ export const MOTTO_MAX_LENGTH = 80;
  */
 export const DASHBOARD_UPDATES: Array<{ title: string; body: string }> = [
   {
+    title: "v0.206 — District Deeds, a property board game",
+    body: "Buy districts, charge rent, and be the last one standing. Tables run at /board — walk up to the table in the Community Lodge, or use the ⚙️ menu → 🎲 District Deeds. Play for gold against practice opponents (no wallet needed, so Telegram players are in too), or for $BASE or SOL against other players. Everything on the board — deeds, credits, buildings — exists only inside that game and grants nothing out in the world; only your entry stake and the prize are real, and a table always pays out in the same currency it was entered in. A stake table takes 5% of the pot; practice tables take nothing. Every dice roll is committed before the table opens and published when it ends, so you can recompute the whole game yourself from the Check the dice tab. If nobody has been bankrupted after 70 turns each, the richest player takes it. Disconnect and you have 5 minutes before your seat forfeits — but if the SERVER restarts, your table is saved, everyone gets 10 minutes, and nobody forfeits for that.",
+  },
+  {
     title: "v0.205 — Deposit more, score more",
     body: "The Season 2 entry deposit is now a vault you can top up, and the amount in it multiplies every season point you earn — 10,000 $BASE is 1×, 20,000 is 1.41×, and it peaks at 2× for 40,000. The curve is smooth, so every token counts and there are no tier cliffs to game; past 40,000 it stops helping and we say so rather than quietly taking more. The multiplier applies to points you earn after depositing, never to points already banked. You now withdraw your deposit yourself once the season ends — any amount, any time, keeping the rest working for next season — with a 5% fee to the treasury on what you take out. Prize winnings are always paid in full. Playing and scoring stay free. ⚙️ → 📅 Daily & Season.",
   },

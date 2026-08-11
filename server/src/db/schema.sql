@@ -1025,3 +1025,129 @@ CREATE TABLE IF NOT EXISTS x_templates (
   skeleton TEXT NOT NULL DEFAULT '',
   notes TEXT
 );
+-- === District Deeds (/board) ================================================
+-- A property board game with a real-value entry stake and prize.
+--
+-- Board cash is a SEALED abstract unit (⌬): nothing in these tables grants
+-- gold, items, or XP. Only the entry stake (in) and the prize (out) touch real
+-- value, and both are handled exclusively in server/src/board/bank.ts.
+--
+-- ONE CURRENCY PER TABLE, never mixed. A gold table pays gold; a $BASE table
+-- pays $BASE. Mixing them would let gold become $BASE, which
+-- docs/company-coin.md forbids outright ("THE HARD INVARIANT").
+
+CREATE TABLE IF NOT EXISTS board_tables (
+  id                   VARCHAR(32) PRIMARY KEY,
+  name                 VARCHAR(40)  NOT NULL DEFAULT '',
+  currency_id          VARCHAR(12)  NOT NULL,
+  stake_units          BIGINT       NOT NULL,
+  seat_count           SMALLINT     NOT NULL,
+  ai_count             SMALLINT     NOT NULL DEFAULT 0,
+  -- lobby|running|paused|settling|review|done|void
+  status               VARCHAR(16)  NOT NULL DEFAULT 'lobby',
+  host_pid             VARCHAR(64)  NOT NULL,
+  ai_difficulty        VARCHAR(8),
+  -- Published before anyone plays; the seed itself only after the table ends.
+  server_seed_hash     CHAR(64)     NOT NULL UNIQUE,
+  server_seed          CHAR(64),
+  combined_client_seed CHAR(64),
+  -- Advanced in the SAME transaction as the state it produced, so a crash can
+  -- never let one nonce yield two different rolls.
+  roll_nonce           INTEGER      NOT NULL DEFAULT 0,
+  -- Rotates every server boot. A mismatch on load means "we restarted", which
+  -- grants everyone a fresh grace window instead of a forfeit.
+  boot_id              UUID,
+  resume_grace_until   BIGINT,
+  turn_seat            SMALLINT,
+  turn_deadline        BIGINT,
+  version              INTEGER      NOT NULL DEFAULT 0,
+  state                JSONB        NOT NULL DEFAULT '{}'::jsonb,
+  pot_units            BIGINT       NOT NULL DEFAULT 0,
+  rake_units           BIGINT       NOT NULL DEFAULT 0,
+  risk_score           SMALLINT     NOT NULL DEFAULT 0,
+  winner_pid           VARCHAR(64),
+  created_at           TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+  started_at           TIMESTAMPTZ,
+  ended_at             TIMESTAMPTZ,
+  -- The last line of defence for "AI never sits at a money table". The lobby
+  -- checks it and startTable() checks it; this one survives a code bug.
+  CONSTRAINT board_tables_ai_gold_only CHECK (ai_count = 0 OR currency_id = 'gold')
+);
+CREATE INDEX IF NOT EXISTS board_tables_status_idx ON board_tables (status);
+CREATE INDEX IF NOT EXISTS board_tables_open_idx ON board_tables (created_at DESC) WHERE status = 'lobby';
+
+CREATE TABLE IF NOT EXISTS board_seats (
+  table_id      VARCHAR(32) NOT NULL REFERENCES board_tables(id) ON DELETE CASCADE,
+  seat_index    SMALLINT    NOT NULL,
+  kind          VARCHAR(8)  NOT NULL DEFAULT 'human',
+  pid           VARCHAR(64),
+  player_name   VARCHAR(16) NOT NULL DEFAULT '',
+  ai_difficulty VARCHAR(8),
+  client_seed   VARCHAR(64) NOT NULL DEFAULT '',
+  stake_paid    BOOLEAN     NOT NULL DEFAULT false,
+  ready         BOOLEAN     NOT NULL DEFAULT false,
+  -- PRESENTATION ONLY. A forfeit clock is in-memory and may only be started by
+  -- a live process that watched a live player go quiet — never by anything
+  -- read back from this column. See server/src/board/registry.ts.
+  connected     BOOLEAN     NOT NULL DEFAULT false,
+  seen_at       BIGINT,
+  status        VARCHAR(12) NOT NULL DEFAULT 'active',
+  -- HMAC of the join IP, never the IP itself.
+  ip_hash       CHAR(64),
+  funder_wallet VARCHAR(44),
+  PRIMARY KEY (table_id, seat_index),
+  CONSTRAINT board_seats_ai_no_pid CHECK ((kind = 'ai') = (pid IS NULL))
+);
+CREATE UNIQUE INDEX IF NOT EXISTS board_seats_one_per_pid
+  ON board_seats (table_id, pid) WHERE pid IS NOT NULL;
+CREATE INDEX IF NOT EXISTS board_seats_pid_idx ON board_seats (pid);
+
+-- Append-only. Carries both the roll log (what the fairness reveal publishes)
+-- and the trade log (what a collusion review reads).
+CREATE TABLE IF NOT EXISTS board_events (
+  id         BIGSERIAL PRIMARY KEY,
+  table_id   VARCHAR(32) NOT NULL,
+  seq        INTEGER     NOT NULL,
+  seat_index SMALLINT,
+  kind       VARCHAR(24) NOT NULL,
+  payload    JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (table_id, seq)
+);
+CREATE INDEX IF NOT EXISTS board_events_table_idx ON board_events (table_id, seq);
+
+-- The table bank. Balance is DERIVED — SUM(delta) WHERE status <> 'failed' —
+-- never a stored mutable number, the same discipline as season_vault_*. A
+-- pending cash-out is a negative row, so it reduces the balance the moment it
+-- is reserved and a second request cannot be sized against the same money.
+CREATE TABLE IF NOT EXISTS board_ledger (
+  id          BIGSERIAL   PRIMARY KEY,
+  pid         VARCHAR(64) NOT NULL,
+  player_name VARCHAR(16) NOT NULL DEFAULT '',
+  currency_id VARCHAR(12) NOT NULL,
+  -- fund_in|deposit|stake_in|refund|prize_out|cashout|rake
+  kind        VARCHAR(20) NOT NULL,
+  delta       BIGINT      NOT NULL,
+  table_id    VARCHAR(32),
+  request_id  VARCHAR(96) NOT NULL UNIQUE,
+  signature   VARCHAR(96),
+  status      VARCHAR(12) NOT NULL DEFAULT 'settled',
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS board_ledger_sig_idx
+  ON board_ledger (signature) WHERE signature IS NOT NULL;
+CREATE INDEX IF NOT EXISTS board_ledger_pid_idx ON board_ledger (pid, currency_id);
+CREATE INDEX IF NOT EXISTS board_ledger_pending_idx
+  ON board_ledger (created_at) WHERE status = 'pending';
+
+-- Persisted because social/presence.ts cannot reach a player who is only on
+-- /board: presence is populated in ZoneRoom.onJoin, and a board player has no
+-- room at all. The board page surfaces these on its poll.
+CREATE TABLE IF NOT EXISTS board_invites (
+  table_id   VARCHAR(32) NOT NULL REFERENCES board_tables(id) ON DELETE CASCADE,
+  to_pid     VARCHAR(64) NOT NULL,
+  from_name  VARCHAR(16) NOT NULL DEFAULT '',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (table_id, to_pid)
+);
+CREATE INDEX IF NOT EXISTS board_invites_to_idx ON board_invites (to_pid);

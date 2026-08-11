@@ -34,6 +34,8 @@ import { initLandRegistry } from "./housing/landRegistry.js";
 import { initZoneRegistry } from "./zones/zoneRegistry.js";
 import { initAssetInventory } from "./zones/assetInventory.js";
 import { initAssetMarket } from "./zones/assetMarket.js";
+import { boardRouter } from "./api/board.js";
+import { flushAllBoardTables, initBoardRegistry } from "./board/registry.js";
 import { initJobs } from "./jobs/jobRegistry.js";
 import { ensureMetricFloor, initMetrics } from "./economy/metrics.js";
 import { initItemFlows } from "./economy/itemFlows.js";
@@ -100,6 +102,7 @@ app.use("/api", xTasksRouter);
 app.use("/api", statsRouter);
 app.use("/api", brandsRouter);
 app.use("/api", daoRouter);
+app.use("/api", boardRouter);
 app.use("/api", missionRouter);
 
 // Mission Center — the private operator console. Server-rendered on purpose:
@@ -176,6 +179,9 @@ gameServer.define(PLAYER_ZONE_ROOM, ZoneRoom).filterBy(["zoneId"]);
 gameServer.onBeforeShutdown(async () => {
   console.log("[Shutdown] Graceful shutdown initiated. Saving all online characters...");
   try {
+    // Board tables first: they hold real stakes, and a table saved a beat late
+    // is a table that replays a turn on the way back up.
+    await flushAllBoardTables();
     await ZoneRoom.persistAllActivePlayers();
     console.log("[Shutdown] All characters saved successfully.");
   } catch (error) {
@@ -193,6 +199,9 @@ await initLandRegistry();
 await initZoneRegistry();
 await initAssetInventory();
 await initAssetMarket();
+// Board tables resume here. A table whose boot_id isn't ours was interrupted by
+// a restart, and everyone at it gets a fresh grace window instead of a forfeit.
+await initBoardRegistry();
 await initJobs();
 await initMetrics();
 await initItemFlows();

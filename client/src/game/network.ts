@@ -343,6 +343,11 @@ export class NetworkManager {
   private casinoStateListeners = new Set<(payload: CasinoStatePayload) => void>();
   private casinoResultListeners = new Set<(payload: CasinoActionResult) => void>();
   private openBlackjackListeners = new Set<(payload: { name: string }) => void>();
+  private openBoardGameListeners = new Set<(payload: { name: string }) => void>();
+  private boardBankStateListeners = new Set<(payload: { gold: number; bank: number }) => void>();
+  private boardBankResultListeners = new Set<
+    (payload: { ok: boolean; error?: string; moved?: number; gold?: number; bank?: number }) => void
+  >();
   private openCropMarketListeners = new Set<(payload: OpenCropMarketPayload) => void>();
   private cropMarketResultListeners = new Set<(payload: CropMarketResultPayload) => void>();
   private dailyStateListeners = new Set<(payload: DailyStatePayload) => void>();
@@ -963,6 +968,31 @@ export class NetworkManager {
   onOpenBlackjack(listener: (payload: { name: string }) => void) {
     this.openBlackjackListeners.add(listener);
     return () => this.openBlackjackListeners.delete(listener);
+  }
+
+  onOpenBoardGame(listener: (payload: { name: string }) => void) {
+    this.openBoardGameListeners.add(listener);
+    return () => this.openBoardGameListeners.delete(listener);
+  }
+
+  /** Move gold from this character into the District Deeds table bank. Handled
+   *  by ZoneRoom because it is authoritative over live gold. */
+  sendBoardBankFund(amount: number, requestId: string) {
+    this.room?.send("boardBankFund", { amount, requestId });
+  }
+
+  sendBoardBankState() {
+    this.room?.send("boardBankState", {});
+  }
+
+  onBoardBankState(listener: (payload: { gold: number; bank: number }) => void) {
+    this.boardBankStateListeners.add(listener);
+    return () => this.boardBankStateListeners.delete(listener);
+  }
+
+  onBoardBankResult(listener: (payload: { ok: boolean; error?: string; moved?: number; gold?: number; bank?: number }) => void) {
+    this.boardBankResultListeners.add(listener);
+    return () => this.boardBankResultListeners.delete(listener);
   }
 
   onOpenCropMarket(listener: (payload: OpenCropMarketPayload) => void) {
@@ -2177,6 +2207,18 @@ export class NetworkManager {
     this.room.onMessage("openBlackjack", (payload: { name: string }) => {
       for (const listener of this.openBlackjackListeners) listener(payload);
     });
+    this.room.onMessage("openBoardGame", (payload: { name: string }) => {
+      for (const listener of this.openBoardGameListeners) listener(payload);
+    });
+    this.room.onMessage("boardBankState", (payload: { gold: number; bank: number }) => {
+      for (const listener of this.boardBankStateListeners) listener(payload);
+    });
+    this.room.onMessage(
+      "boardBankResult",
+      (payload: { ok: boolean; error?: string; moved?: number; gold?: number; bank?: number }) => {
+        for (const listener of this.boardBankResultListeners) listener(payload);
+      },
+    );
     this.room.onMessage("openCropMarket", (payload: OpenCropMarketPayload) => {
       for (const listener of this.openCropMarketListeners) listener(payload);
     });

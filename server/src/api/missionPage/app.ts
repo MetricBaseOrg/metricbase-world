@@ -48,10 +48,23 @@ export const MISSION_APP_HTML = `<!doctype html>
     <button class="tab active" data-tab="ops">🚀 Ops</button>
     <button class="tab" data-tab="game">🎮 Game</button>
     <button class="tab" data-tab="x">𝕏 Growth</button>
+    <button class="tab" data-tab="tables">🎲 Tables</button>
     <button class="tab" data-tab="admin">🛡️ Admin</button>
   </div>
 
   <!-- ============================ OPS ============================ -->
+  <section data-panel="tables" class="hidden">
+    <div id="boardBanner"></div>
+    <div class="panel">
+      <h2>Tables in flight <span class="muted small">a deploy restarts these</span></h2>
+      <table id="boardTables"></table>
+    </div>
+    <div class="panel">
+      <h2>Cash-outs stuck pending <span class="muted small">never auto-resolved &mdash; an ambiguous send stays pending on purpose</span></h2>
+      <table id="boardPending"></table>
+    </div>
+  </section>
+
   <section data-panel="ops">
     <div id="pauseNote"></div>
     <div id="opsBanners"></div>

@@ -2299,7 +2299,12 @@ export class GameScene extends Phaser.Scene {
           id: node.id,
           worldX: x,
           worldY: y,
-          label: node.interact === "blackjack" ? "Play Blackjack" : "Play Base Rush",
+          label:
+            node.interact === "blackjack"
+              ? "Play Blackjack"
+              : node.interact === "board"
+                ? "Play District Deeds"
+                : "Play Base Rush",
         });
       }
 

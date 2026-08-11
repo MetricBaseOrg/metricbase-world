@@ -7,6 +7,8 @@
 import { Router, type Request, type Response } from "express";
 import { currentSeason, GAME_VERSION, type XTaskType } from "@metricbase/shared";
 import { adService } from "../ads/adService.js";
+import { liveTablesForOps, pauseTable, voidTable } from "../board/registry.js";
+import { countLiveMoneyTables, listPendingBoardCashouts } from "../db/board.js";
 import {
   BOOTSTRAP_EMAIL,
   clearAttempts,
@@ -182,6 +184,42 @@ missionRouter.post(
 // ---------------------------------------------------------------------------
 // Ops
 // ---------------------------------------------------------------------------
+
+// ── District Deeds ─────────────────────────────────────────────────────────
+// A deploy restarts every live table. They survive it (see board/registry.ts),
+// but players sit through a ten-minute amnesty, so this is the pre-deploy check.
+
+missionRouter.get(
+  "/mission/board-tables",
+  requireMissionAdmin,
+  handler(async (_req, res) => {
+    res.json({
+      tables: liveTablesForOps(),
+      pendingCashouts: await listPendingBoardCashouts(),
+      liveMoneyTables: await countLiveMoneyTables(),
+    });
+  }),
+);
+
+missionRouter.post(
+  "/mission/board-tables/:id/pause",
+  requireMissionAdmin,
+  handler(async (req, res) => {
+    const result = await pauseTable(String(req.params.id), req.body?.paused !== false);
+    res.status(result.ok ? 200 : 400).json(result);
+  }),
+);
+
+missionRouter.post(
+  "/mission/board-tables/:id/void",
+  requireMissionAdmin,
+  handler(async (req, res) => {
+    // Refunds every stake and reveals the seed. The right to do this is stated
+    // in BOARD_ENTRY_TERMS, which players see before they pay in.
+    const result = await voidTable(String(req.params.id), String(req.body?.reason ?? "ops"));
+    res.status(result.ok ? 200 : 400).json(result);
+  }),
+);
 
 missionRouter.get(
   "/mission/ops",

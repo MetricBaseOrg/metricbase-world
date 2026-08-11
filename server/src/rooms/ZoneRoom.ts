@@ -27,6 +27,7 @@ import {
   getZoneConfig,
   removeItemFromInventory,
   STARTING_GOLD,
+  BOARD_GOLD_POT_CAP,
   JoinOptions,
   normalizeCharacterAppearance,
   defaultAppearanceForGender,
@@ -537,6 +538,7 @@ import {
   reserveWithdrawal,
   syncVaultCache,
 } from "../db/seasonVault.js";
+import { boardBalances, fundBoardBankFromCharacter } from "../db/board.js";
 import { getXStatus } from "../db/xLink.js";
 import { hasPostedFor, isPostUrlUsed, recordSeasonPost } from "../db/seasonPost.js";
 import { syncNftHolder } from "../nft/holderSync.js";
@@ -991,6 +993,16 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
 
     this.onProtectedMessage("seasonWithdraw", (client, message: { amount?: number }) => {
       void this.handleSeasonWithdraw(client, Number(message.amount ?? 0));
+    });
+
+    // District Deeds keeps exactly two handlers in this file — everything else
+    // lives in server/src/board/ and server/src/api/board.ts. These two are
+    // here because only ZoneRoom is authoritative over a player's live gold.
+    this.onProtectedMessage("boardBankState", (client) => {
+      void this.handleBoardBankState(client);
+    });
+    this.onProtectedMessage("boardBankFund", (client, message: { amount?: number; requestId?: string }) => {
+      void this.handleBoardBankFund(client, Number(message.amount ?? 0), String(message.requestId ?? ""));
     });
     this.onProtectedMessage("seasonPostVerify", (client, message: { url?: string }) => {
       void this.handleSeasonPostVerify(client, String(message.url ?? ""));
@@ -2706,6 +2718,8 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         const market = getCropMarket(prop.prop);
         if (prop.interact === "arcade" && prop.arcadeUrl) {
           client.send("openArcade", { name: "Base Rush", url: prop.arcadeUrl });
+        } else if (prop.interact === "board") {
+          client.send("openBoardGame", { name: "District Deeds" });
         } else if (prop.interact === "blackjack") {
           client.send("openBlackjack", { name: "Blackjack" });
           void this.sendCasinoState(client);
@@ -5196,6 +5210,73 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
    * already reduced) before any transfer is attempted, so a double-submit or a
    * concurrent request cannot be sized against the same money.
    */
+  /** Current gold + what's already sitting in the board bank. */
+  private async handleBoardBankState(client: Client): Promise<void> {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const pid = this.pidOf(player);
+    const balances = await boardBalances(pid);
+    client.send("boardBankState", {
+      gold: this.playerGold.get(pid) ?? STARTING_GOLD,
+      bank: balances.gold ?? 0,
+      balances,
+    });
+  }
+
+  /**
+   * Move gold from this character into their board bank.
+   *
+   * This lives in ZoneRoom because ZoneRoom is authoritative over live gold: it
+   * holds `playerGold` in memory and writes it on persist. A /board page
+   * debiting `characters.gold` directly would be silently overwritten the next
+   * time this room persisted the player.
+   *
+   * Order matters. Flush memory to the row FIRST, then do the ledger insert and
+   * the conditional row debit in one transaction, then apply the same decrement
+   * to memory. If a tick awards gold during the awaits, memory is (G + award),
+   * the row is (G − amount), and memory becomes (G + award − amount) — which is
+   * what the next persist writes. Correct. A crash anywhere leaves
+   * `characters.gold` already correct, so a reload fixes it, and there is no
+   * ordering here that mints gold.
+   */
+  private async handleBoardBankFund(client: Client, amount: number, requestId: string): Promise<void> {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const fail = (error: string) => client.send("boardBankResult", { ok: false, error });
+
+    const want = Math.floor(amount);
+    if (!Number.isFinite(want) || want <= 0) return void fail("Enter an amount above zero.");
+    if (!requestId || requestId.length > 80) return void fail("Try that again.");
+
+    const pid = this.pidOf(player);
+    const have = this.playerGold.get(pid) ?? STARTING_GOLD;
+    if (have < want) return void fail("You don't have that much gold.");
+    if (want > BOARD_GOLD_POT_CAP) return void fail("That's more than a table can hold.");
+
+    await this.persistPlayer(player);
+
+    const result = await fundBoardBankFromCharacter({
+      pid,
+      playerName: player.name,
+      amount: want,
+      requestId: `fund:${pid}:${requestId}`,
+    });
+    if (!result.ok) return void fail(result.error);
+
+    const now = this.playerGold.get(pid) ?? STARTING_GOLD;
+    this.playerGold.set(pid, Math.max(0, now - want));
+    void this.persistPlayer(player);
+    this.sendProfile(client, player);
+
+    const balances = await boardBalances(pid);
+    client.send("boardBankResult", {
+      ok: true,
+      moved: result.credited,
+      gold: this.playerGold.get(pid) ?? 0,
+      bank: balances.gold ?? 0,
+    });
+  }
+
   private async handleSeasonWithdraw(client: Client, requested: number): Promise<void> {
     const player = this.state.players.get(client.sessionId);
     if (!player) return;

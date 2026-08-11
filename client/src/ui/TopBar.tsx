@@ -393,6 +393,25 @@ export function TopBar({ onLeave }: TopBarProps) {
           <a href="/dashboard" target="_blank" rel="noopener noreferrer" onClick={inShellNav("/dashboard")} className="chibi-stat-pill" style={{ display: "inline-flex", gap: 6, marginTop: 8, marginLeft: 8, textDecoration: "none", fontSize: "0.78rem" }}>
             🧑 Dashboard
           </a>
+          {/* District Deeds navigates IN PLACE, unlike the links above. The
+              access token lives in sessionStorage, and a target="_blank"
+              noopener tab does not inherit it — a Telegram-only player would
+              land on /board with no way to sign in again, because
+              loginWithTelegram() needs initData that only exists inside the
+              Mini App webview. Leaving the world is also the right call for a
+              sit-down game that runs an hour. */}
+          <a
+            href="/board"
+            className="chibi-stat-pill"
+            style={{ display: "inline-flex", gap: 6, marginTop: 8, marginLeft: 8, textDecoration: "none", fontSize: "0.78rem" }}
+            onClick={(e) => {
+              e.preventDefault();
+              playSfx("ui_click");
+              window.location.assign("/board");
+            }}
+          >
+            🎲 District Deeds
+          </a>
 
           <button type="button" className="chibi-btn chibi-btn--gold" style={{ width: "100%", marginTop: 8, padding: "8px 10px" }}
             onClick={() => { playSfx("ui_open"); useGameStore.getState().setDailyOpen(true); setMenuOpen(false); }}>

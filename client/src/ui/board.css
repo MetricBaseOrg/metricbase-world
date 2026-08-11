@@ -1,0 +1,202 @@
+/* District Deeds (/board). Standalone — this page never loads the game's CSS. */
+
+.dd-page {
+  --dd-bg: #22160f;
+  --dd-card: #2e2019;
+  --dd-line: #4a352a;
+  --dd-ink: #f3e6d8;
+  --dd-muted: #b39d8b;
+  --dd-gold: #e0b93c;
+  --dd-warn: #e07a5f;
+  --dd-ok: #6ac48a;
+  min-height: 100vh;
+  margin: 0;
+  padding: 16px;
+  background: var(--dd-bg);
+  color: var(--dd-ink);
+  font-family: "Nunito", system-ui, -apple-system, sans-serif;
+  box-sizing: border-box;
+}
+
+.dd-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.dd-header h1 { font-size: 1.5rem; margin: 0; }
+
+.dd-card {
+  background: var(--dd-card);
+  border: 1px solid var(--dd-line);
+  border-radius: 14px;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+}
+.dd-card h2 { margin: 0 0 8px; font-size: 1.1rem; }
+.dd-card h3 { margin: 0 0 8px; font-size: 0.95rem; color: var(--dd-gold); }
+.dd-card h4 { margin: 0 0 6px; font-size: 0.9rem; }
+
+.dd-muted { color: var(--dd-muted); font-size: 0.85rem; margin: 4px 0; }
+.dd-warn { color: var(--dd-warn); }
+.dd-ok { color: var(--dd-ok); }
+.dd-mono { font-family: ui-monospace, monospace; font-size: 0.72rem; word-break: break-all; }
+
+.dd-banner {
+  border-radius: 10px;
+  padding: 8px 12px;
+  margin-bottom: 10px;
+  font-size: 0.88rem;
+}
+.dd-banner-info { background: rgba(74, 159, 212, 0.16); border: 1px solid #4a9fd4; }
+.dd-banner-warn { background: rgba(224, 122, 95, 0.16); border: 1px solid var(--dd-warn); }
+
+.dd-btn {
+  background: #3d2b21;
+  color: var(--dd-ink);
+  border: 1px solid var(--dd-line);
+  border-radius: 10px;
+  padding: 8px 14px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin: 3px 4px 3px 0;
+}
+.dd-btn:hover:not(:disabled) { background: #4a352a; }
+.dd-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.dd-btn-primary { background: var(--dd-gold); color: #2b1d12; border-color: #c9a233; }
+.dd-btn-danger { background: var(--dd-warn); color: #2b1d12; border-color: #c96a52; }
+.dd-btn-ghost { background: transparent; }
+.dd-btn-sm { padding: 4px 9px; font-size: 0.78rem; }
+
+.dd-input {
+  background: #1c120c;
+  color: var(--dd-ink);
+  border: 1px solid var(--dd-line);
+  border-radius: 8px;
+  padding: 7px 10px;
+  font-size: 0.9rem;
+  min-width: 0;
+}
+.dd-input-sm { width: 110px; }
+
+.dd-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.dd-wrap { align-items: flex-end; }
+.dd-field { display: flex; flex-direction: column; gap: 4px; font-size: 0.8rem; color: var(--dd-muted); }
+
+.dd-back { color: var(--dd-muted); text-decoration: none; font-size: 0.9rem; }
+.dd-back:hover { color: var(--dd-ink); }
+.dd-or { color: var(--dd-muted); font-size: 0.8rem; margin: 8px 0; }
+.dd-signin { max-width: 420px; }
+
+/* ── the table ── */
+
+.dd-table-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 14px;
+  align-items: start;
+}
+.dd-board-wrap { min-width: 0; }
+.dd-side { min-width: 0; }
+
+.dd-board { width: 100%; height: auto; display: block; }
+.dd-board-bg { fill: #1a110b; }
+.dd-sq-bg { fill: #f0e2ce; stroke: #7a614c; stroke-width: 1.5; }
+.dd-sq-click { cursor: pointer; }
+.dd-sq-label { font-size: 11px; fill: #33241a; font-weight: 700; }
+.dd-sq-corner { font-size: 12px; }
+.dd-sq-price { font-size: 9px; fill: #6b5340; }
+.dd-sq-imp { font-size: 10px; fill: #2f6b45; }
+.dd-board-title { font-size: 26px; fill: var(--dd-gold); font-weight: 800; }
+.dd-board-sub { font-size: 13px; fill: var(--dd-muted); }
+.dd-board-roll { font-size: 18px; fill: var(--dd-ink); }
+
+.dd-seat {
+  display: grid;
+  grid-template-columns: 14px 1fr auto;
+  gap: 6px;
+  align-items: center;
+  padding: 5px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  font-size: 0.86rem;
+}
+.dd-seat-turn { background: rgba(224, 185, 60, 0.1); border-radius: 6px; padding-left: 4px; }
+.dd-dot { width: 11px; height: 11px; border-radius: 50%; display: inline-block; }
+.dd-seat-cash { font-variant-numeric: tabular-nums; }
+.dd-seat-tags { grid-column: 2 / -1; font-size: 0.72rem; color: var(--dd-muted); }
+.dd-seat-tags em { font-style: normal; margin-right: 6px; }
+
+.dd-actions .dd-btn { display: inline-block; }
+.dd-deed, .dd-offer {
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  font-size: 0.84rem;
+}
+.dd-deed { display: flex; justify-content: space-between; align-items: center; gap: 6px; flex-wrap: wrap; }
+.dd-deed-tags em { font-style: normal; color: var(--dd-muted); font-size: 0.75rem; margin-right: 5px; }
+.dd-log p { margin: 3px 0; font-size: 0.78rem; color: var(--dd-muted); }
+.dd-log { max-height: 240px; overflow-y: auto; }
+.dd-seatlist { margin: 6px 0; padding-left: 18px; font-size: 0.85rem; }
+.dd-tablerow { justify-content: space-between; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,.05); font-size: .85rem; }
+.dd-bankrow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 6px 0; }
+
+/* ── modals ── */
+
+.dd-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 9, 5, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 40;
+}
+.dd-modal-body {
+  background: var(--dd-card);
+  border: 1px solid var(--dd-line);
+  border-radius: 14px;
+  padding: 18px;
+  max-width: 520px;
+  width: 100%;
+  max-height: 86vh;
+  overflow-y: auto;
+}
+.dd-modal-wide { max-width: 760px; }
+.dd-trade-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.dd-chiplist { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px; }
+.dd-chip {
+  background: #1c120c;
+  color: var(--dd-ink);
+  border: 1px solid var(--dd-line);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+.dd-chip-on { background: var(--dd-gold); color: #2b1d12; }
+.dd-terms, .dd-spec { font-size: 0.85rem; line-height: 1.5; padding-left: 20px; }
+.dd-terms li, .dd-spec li { margin-bottom: 7px; }
+.dd-kv { font-size: 0.8rem; margin: 10px 0; }
+.dd-kv dt { color: var(--dd-muted); margin-top: 8px; }
+.dd-rolltable { display: flex; flex-wrap: wrap; gap: 4px; margin: 10px 0; }
+.dd-roll-ok, .dd-roll-bad {
+  font-size: 0.7rem;
+  padding: 2px 6px;
+  border-radius: 5px;
+  font-family: ui-monospace, monospace;
+}
+.dd-roll-ok { background: rgba(106, 196, 138, 0.18); color: var(--dd-ok); }
+.dd-roll-bad { background: rgba(224, 122, 95, 0.22); color: var(--dd-warn); }
+
+/* Phones: the board goes full width and the side rail stacks under it. The
+   page itself must never scroll sideways. */
+@media (max-width: 900px) {
+  .dd-table-grid { grid-template-columns: minmax(0, 1fr); }
+  .dd-trade-cols { grid-template-columns: 1fr; }
+  .dd-sq-label { font-size: 13px; }
+  .dd-sq-price { font-size: 11px; }
+}

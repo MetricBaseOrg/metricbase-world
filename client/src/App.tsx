@@ -23,6 +23,7 @@ import { InventoryHotkey } from "./ui/InventoryHotkey";
 import { InventoryPanel } from "./ui/InventoryPanel";
 import { SoftShopPanel } from "./ui/SoftShopPanel";
 import { BlackjackPanel } from "./ui/BlackjackPanel";
+import { BoardHandoffModal } from "./ui/BoardHandoffModal";
 import { WorldMapPanel } from "./ui/WorldMapPanel";
 import { MailPanel } from "./ui/MailPanel";
 import { AdsPanel } from "./ui/AdsPanel";
@@ -71,6 +72,7 @@ import { MembershipPanel } from "./ui/MembershipPanel";
 
 export function App() {
   const [joined, setJoined] = useState(false);
+
   const {
     setPlayerName,
     setCharacterAppearance,
@@ -208,6 +210,11 @@ export function App() {
       useGameStore.getState().setBlackjackOpen(true);
     });
 
+    const unsubscribeBoardGame = networkManager.onOpenBoardGame(() => {
+      playSfx("ui_open");
+      useGameStore.getState().setBoardHandoffOpen(true);
+    });
+
     let lastMailUnread: number | null = null;
     const unsubscribeMail = networkManager.onMailState((mailState) => {
       useGameStore.getState().setMailUnread(mailState.unread);
@@ -281,6 +288,7 @@ export function App() {
       unsubscribeEquipment();
       unsubscribeShopOpen();
       unsubscribeBlackjack();
+      unsubscribeBoardGame();
       unsubscribeMail();
       unsubscribeNpcDialogue();
       unsubscribeSkillState();
@@ -408,6 +416,7 @@ export function App() {
       {joined && <CraftPanel />}
       {joined && <SoftShopPanel />}
       {joined && <BlackjackPanel />}
+      {joined && <BoardHandoffModal />}
       {joined && <WorldMapPanel />}
       {joined && <MailPanel />}
       {joined && <AdsPanel />}

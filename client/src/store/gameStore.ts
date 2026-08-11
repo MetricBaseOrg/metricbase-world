@@ -60,6 +60,7 @@ interface GameStore {
   craftOpen: boolean;
   honorShopOpen: boolean;
   blackjackOpen: boolean;
+  boardHandoffOpen: boolean;
   mapOpen: boolean;
   mailOpen: boolean;
   mailUnread: number;
@@ -166,6 +167,7 @@ interface GameStore {
   toggleCraftOpen: () => void;
   setHonorShopOpen: (open: boolean) => void;
   setBlackjackOpen: (open: boolean) => void;
+  setBoardHandoffOpen: (open: boolean) => void;
   setMapOpen: (open: boolean) => void;
   setMailOpen: (open: boolean) => void;
   setMailUnread: (n: number) => void;
@@ -217,6 +219,7 @@ export function isAnyPanelOpen(s: GameStore): boolean {
     s.craftOpen ||
     s.honorShopOpen ||
     s.blackjackOpen ||
+    s.boardHandoffOpen ||
     s.mapOpen ||
     s.mailOpen ||
     s.adsOpen ||
@@ -285,6 +288,7 @@ export const useGameStore = create<GameStore>((set) => ({
   craftOpen: false,
   honorShopOpen: false,
   blackjackOpen: false,
+  boardHandoffOpen: false,
   mapOpen: false,
   mailOpen: false,
   mailUnread: 0,
@@ -407,6 +411,7 @@ export const useGameStore = create<GameStore>((set) => ({
   toggleCraftOpen: () => set((state) => ({ craftOpen: !state.craftOpen, inventoryOpen: false })),
   setHonorShopOpen: (honorShopOpen) => set({ honorShopOpen }),
   setBlackjackOpen: (blackjackOpen) => set({ blackjackOpen }),
+  setBoardHandoffOpen: (boardHandoffOpen) => set({ boardHandoffOpen }),
   setMapOpen: (mapOpen) => set({ mapOpen }),
   setMailOpen: (mailOpen) => set({ mailOpen }),
   setMailUnread: (mailUnread) => set({ mailUnread }),

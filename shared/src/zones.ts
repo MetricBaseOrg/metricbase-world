@@ -71,7 +71,7 @@ export interface SceneryNode {
   /** Flat props (rugs) render beneath players; others depth-sort by position. */
   flat?: boolean;
   /** If set, walking up + interacting opens this activity (no NPC needed). */
-  interact?: "arcade" | "blackjack";
+  interact?: "arcade" | "blackjack" | "board";
   /** Arcade URL for interact === "arcade". */
   arcadeUrl?: string;
   /** Blocks movement on its tile (big furniture); decorative props don't. */
@@ -1174,6 +1174,12 @@ export const ZONE_CONFIGS: Record<string, ZoneConfig> = {
       // The Arcade cabinet (NE) — walk up + interact to play Base Rush.
       { id: "lodge_arcade", tileX: 16, tileY: 9, prop: "arcade", interact: "arcade", arcadeUrl: BASE_RUSH_URL, solid: true },
       { id: "lodge_arcade_plant", tileX: 17, tileY: 10, prop: "plant" },
+      // The District Deeds table (south wall) — walk up + interact. It sends
+      // the player OUT to /board: the game runs on its own page, not in a HUD
+      // panel, because a table can run an hour.
+      { id: "lodge_board", tileX: 11, tileY: 8, prop: "table", interact: "board", solid: true },
+      { id: "lodge_board_chair_l", tileX: 10, tileY: 9, prop: "chair" },
+      { id: "lodge_board_chair_r", tileX: 12, tileY: 9, prop: "chair" },
       // West + east storage crates.
       { id: "lodge_crate_w", tileX: 5, tileY: 14, prop: "crate" },
       { id: "lodge_crate_e", tileX: 18, tileY: 14, prop: "crate" },

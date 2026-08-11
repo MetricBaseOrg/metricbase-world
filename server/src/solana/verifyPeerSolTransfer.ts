@@ -15,6 +15,9 @@ export interface PeerSolTransferVerification {
   ok: boolean;
   error?: string;
   uiAmount?: number;
+  /** True when the payment may simply not be indexed yet, so the caller should
+   *  retry rather than treat it as invalid. Mirrors verifyPeerTokenTransfer. */
+  retryable?: boolean;
 }
 
 /**
@@ -39,7 +42,9 @@ export async function verifyPeerSolTransfer(
   }
 
   if (!tx) {
-    return { ok: false, error: "Transaction not found yet. Wait a moment and try again." };
+    // Not found yet ≠ invalid. The payment may still be settling; the caller
+    // should treat this as retryable so a real payment is never dropped.
+    return { ok: false, retryable: true, error: "Transaction not found yet. Wait a moment and try again." };
   }
   if (tx.meta?.err) {
     return { ok: false, error: "Transaction failed on-chain." };

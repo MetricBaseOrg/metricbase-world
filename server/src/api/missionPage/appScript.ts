@@ -706,5 +706,62 @@ function boot() {
   });
 }
 
+// ---------------------------------------------------------------------------
+// TABLES (District Deeds)
+// ---------------------------------------------------------------------------
+
+function fmtAgo(ms) {
+  if (!ms) return "-";
+  var mins = Math.round((Date.now() - ms) / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return mins + "m";
+  return Math.floor(mins / 60) + "h " + (mins % 60) + "m";
+}
+
+loaders.tables = function () {
+  api("/board-tables").then(function (d) {
+    var live = d.liveMoneyTables || 0;
+    $("boardBanner").innerHTML = live > 0
+      ? '<div class="banner bad">' + live + ' stake table(s) in flight &mdash; a deploy restarts them. '
+        + 'They survive it, but everyone sits through a 10 minute amnesty. Deploy in a quiet window if you can.</div>'
+      : '<div class="banner good">No stake tables in flight. Safe to deploy.</div>';
+
+    rowsInto($("boardTables"), ["Table", "Currency", "Stake", "Seats", "Status", "Turn", "Pot", "Risk", "Started", ""],
+      (d.tables || []).map(function (t) {
+        var actions = '<button class="btn small" data-pause="' + esc(t.id) + '">'
+          + (t.status === "paused" ? "Resume" : "Pause") + "</button> "
+          + '<button class="btn small bad" data-void="' + esc(t.id) + '">Void + refund</button>';
+        return "<tr><td class=\"mono small\">" + esc(t.id.slice(0, 12)) + "</td><td>" + esc(t.currencyId)
+          + "</td><td>" + t.stake + "</td><td>" + t.seats + "</td><td>" + esc(t.status)
+          + "</td><td>" + (t.turnSeat === null ? "-" : t.turnSeat) + "</td><td>" + t.pot
+          + "</td><td>" + (t.risk > 50 ? '<span class="bad">' + t.risk + "</span>" : t.risk)
+          + "</td><td>" + fmtAgo(t.startedAt) + "</td><td>" + actions + "</td></tr>";
+      }), "No tables open.");
+
+    rowsInto($("boardPending"), ["Ledger id", "Player", "Currency", "Amount", "Waiting"],
+      (d.pendingCashouts || []).map(function (c) {
+        return "<tr><td>" + c.id + "</td><td class=\"mono small\">" + esc(String(c.pid).slice(0, 12))
+          + "</td><td>" + esc(c.currencyId) + "</td><td>" + Math.abs(c.delta)
+          + "</td><td>" + fmtAgo(c.createdAt) + "</td></tr>";
+      }), "Nothing stuck.");
+
+    Array.prototype.forEach.call($("boardTables").querySelectorAll("[data-pause]"), function (b) {
+      b.addEventListener("click", function () {
+        api("/board-tables/" + encodeURIComponent(b.dataset.pause) + "/pause",
+          { method: "POST", body: { paused: b.textContent.trim() === "Pause" } })
+          .then(function () { loaders.tables(); });
+      });
+    });
+    Array.prototype.forEach.call($("boardTables").querySelectorAll("[data-void]"), function (b) {
+      b.addEventListener("click", function () {
+        if (!window.confirm("Void this table? Every stake is refunded and the dice seed is revealed. This cannot be undone.")) return;
+        api("/board-tables/" + encodeURIComponent(b.dataset.void) + "/void",
+          { method: "POST", body: { reason: "ops" } })
+          .then(function () { loaders.tables(); });
+      });
+    });
+  });
+};
+
 boot();
 `;

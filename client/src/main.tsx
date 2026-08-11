@@ -1,13 +1,21 @@
 import { Buffer } from "buffer";
-import { StrictMode } from "react";
+import { StrictMode, Suspense, lazy } from "react";
 import { createRoot } from "react-dom/client";
-import { App } from "./App";
+// Lazy so Phaser stays OUT of every route that isn't the game. It is a 1.5MB
+// chunk and Vite was modulepreloading it on /board, /dao, /brands and the
+// landing page — all of which render fine without it. Only /play pays for it.
+const App = lazy(() => import("./App").then((m) => ({ default: m.App })));
 import { getHttpServerUrl } from "./game/serverUrl";
-import { BrandPortal } from "./ui/BrandPortal";
-import { DaoPage } from "./ui/DaoPage";
-import { DashboardPage } from "./ui/DashboardPage";
-import { LandingPage } from "./ui/LandingPage";
-import { ToolsPage } from "./ui/ToolsPage";
+// Every route is code-split. Without this, one page pulling a heavy dependency
+// imposes it on all of them: DashboardPage → CharacterPreview → Phaser meant
+// the 1.5MB Phaser chunk was modulepreloaded on the landing page, /dao,
+// /brands and /board, none of which render a single sprite.
+const BrandPortal = lazy(() => import("./ui/BrandPortal").then((m) => ({ default: m.BrandPortal })));
+const DaoPage = lazy(() => import("./ui/DaoPage").then((m) => ({ default: m.DaoPage })));
+const BoardPage = lazy(() => import("./ui/BoardPage").then((m) => ({ default: m.BoardPage })));
+const DashboardPage = lazy(() => import("./ui/DashboardPage").then((m) => ({ default: m.DashboardPage })));
+const LandingPage = lazy(() => import("./ui/LandingPage").then((m) => ({ default: m.LandingPage })));
+const ToolsPage = lazy(() => import("./ui/ToolsPage").then((m) => ({ default: m.ToolsPage })));
 import { applyTelegramStartParam, initTelegramMiniApp, isTelegramMiniApp } from "./telegram/telegramApp";
 import "./ui/chibiTheme.css";
 import {
@@ -63,12 +71,14 @@ if (!isTelegramMiniApp()) {
 //   /brands     → standalone advertiser portal (wallet-only, never boots the game)
 //   /dao        → MetricBase DAO: $BASE-holder polls (wallet-only, no game boot)
 //   /tools      → Kakushie Maker: X hidden-image generator (no wallet, no game boot)
+//   /board      → District Deeds: the property board game (no game boot, own transport)
 const path = window.location.pathname.replace(/\/+$/, "");
 const isBrandPortal = path === "/brands";
 const isDao = path === "/dao";
 const isDashboard = path === "/dashboard";
 const isPlay = path === "/play";
 const isTools = path === "/tools";
+const isBoard = path === "/board";
 
 // /stats is a server-rendered page (proxied to the backend by vercel.json), not
 // a SPA route. If the SPA still boots here it means the request never reached
@@ -82,7 +92,9 @@ if (path === "/stats") {
 } else {
   createRoot(document.getElementById("root")!).render(
     <StrictMode>
-      {isBrandPortal ? <BrandPortal /> : isDao ? <DaoPage /> : isTools ? <ToolsPage /> : isDashboard ? <DashboardPage /> : isPlay ? <App /> : <LandingPage />}
+      <Suspense fallback={null}>
+      {isBoard ? <BoardPage /> : isBrandPortal ? <BrandPortal /> : isDao ? <DaoPage /> : isTools ? <ToolsPage /> : isDashboard ? <DashboardPage /> : isPlay ? <App /> : <LandingPage />}
+      </Suspense>
     </StrictMode>,
   );
 }

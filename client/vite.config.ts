@@ -76,6 +76,12 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id) {
+          // Rollup's CommonJS interop helpers are used by almost every chunk.
+          // Left alone they get hoisted INTO the phaser chunk, and then every
+          // route — the landing page, /dao, /board — statically imports 1.5MB
+          // of Phaser just to reach two tiny functions. Give them their own
+          // chunk so the dependency edge disappears.
+          if (id.includes("commonjsHelpers")) return "cjs-helpers";
           if (id.includes("node_modules") && id.includes("phaser")) return "phaser";
           return undefined;
         },
