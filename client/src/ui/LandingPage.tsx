@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { METRICBASE_TOKEN_MINT } from "@metricbase/shared";
 import { telegramAppLink } from "../telegram/telegramApp";
 import "./landing.css";
+import { usePageScroll } from "./usePageScroll";
 
 /**
  * Marketing landing page served at "/". A polished front door (styled after
@@ -48,25 +49,7 @@ export function LandingPage() {
   const [stats, setStats] = useState<LiveStats | null>(null);
   const [copied, setCopied] = useState(false);
 
-  // The game shell locks page scrolling (html/body/#root are height:100% +
-  // overflow:hidden for the canvas). The landing is an ordinary web page, so
-  // undo that here — otherwise the page can't scroll past the first viewport.
-  useEffect(() => {
-    const root = document.getElementById("root");
-    const targets = [document.documentElement, document.body, root].filter(Boolean) as HTMLElement[];
-    const prev = targets.map((el) => ({ el, height: el.style.height, overflow: el.style.overflow }));
-    for (const el of targets) {
-      el.style.height = "auto";
-      el.style.overflow = "visible";
-    }
-    document.body.style.overflowY = "auto";
-    return () => {
-      for (const p of prev) {
-        p.el.style.height = p.height;
-        p.el.style.overflow = p.overflow;
-      }
-    };
-  }, []);
+  usePageScroll();
 
   useEffect(() => {
     void fetch("/api/stats", { cache: "no-store" })

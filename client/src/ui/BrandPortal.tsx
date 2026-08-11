@@ -12,6 +12,7 @@ import { discoverWallets, pickWalletConnector, type WalletConnector } from "../w
 import { isLikelyMobile, openInWalletBrowser, walletBrowserLinks, type MobileWalletLink } from "../wallet/mobileWallet";
 import { setSelectedWalletId } from "../wallet/discovery";
 import { sendMetricbaseTokenPayment } from "../wallet/tokenPayment";
+import { usePageScroll } from "./usePageScroll";
 
 /**
  * Standalone Brand Portal (served at /brands): advertisers fund and run ad
@@ -67,25 +68,7 @@ export function BrandPortal() {
   const [clickUrl, setClickUrl] = useState("");
   const [cpm, setCpm] = useState("5");
 
-  // The game shell locks page scrolling (html/body/#root are height:100% +
-  // overflow:hidden for the canvas). The portal is an ordinary web page, so
-  // undo that here — otherwise mobile visitors can't scroll at all.
-  useEffect(() => {
-    const root = document.getElementById("root");
-    const targets = [document.documentElement, document.body, root].filter(Boolean) as HTMLElement[];
-    const prev = targets.map((el) => ({ el, height: el.style.height, overflow: el.style.overflow }));
-    for (const el of targets) {
-      el.style.height = "auto";
-      el.style.overflow = "visible";
-    }
-    document.body.style.overflowY = "auto";
-    return () => {
-      for (const p of prev) {
-        p.el.style.height = p.height;
-        p.el.style.overflow = p.overflow;
-      }
-    };
-  }, []);
+  usePageScroll();
 
   useEffect(() => {
     void fetch(api("/brand/info")).then(async (r) => setInfo(await r.json())).catch(() => setNotice("Couldn't reach the ad service."));

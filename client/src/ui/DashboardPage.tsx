@@ -22,6 +22,7 @@ import { XTasksCard } from "./XTasksCard";
 import { ItemIcon } from "./ItemIcon";
 import { WalletPicker } from "./WalletPicker";
 import "./dashboard.css";
+import { usePageScroll } from "./usePageScroll";
 
 /**
  * Player dashboard at /dashboard — the landing spot after a wallet sign-in.
@@ -94,23 +95,7 @@ export function DashboardPage() {
   const [xNotice, setXNotice] = useState<string | null>(null);
   const [updatesExpanded, setUpdatesExpanded] = useState(false);
 
-  // The game shell locks page scrolling; this is an ordinary web page.
-  useEffect(() => {
-    const root = document.getElementById("root");
-    const targets = [document.documentElement, document.body, root].filter(Boolean) as HTMLElement[];
-    const prev = targets.map((el) => ({ el, height: el.style.height, overflow: el.style.overflow }));
-    for (const el of targets) {
-      el.style.height = "auto";
-      el.style.overflow = "visible";
-    }
-    document.body.style.overflowY = "auto";
-    return () => {
-      for (const p of prev) {
-        p.el.style.height = p.height;
-        p.el.style.overflow = p.overflow;
-      }
-    };
-  }, []);
+  usePageScroll();
 
   useEffect(() => {
     void fetch("/api/stats", { cache: "no-store" })

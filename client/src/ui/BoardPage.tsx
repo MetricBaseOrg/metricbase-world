@@ -54,6 +54,7 @@ import {
 import { BoardTable } from "./board/BoardTable";
 import { FairnessPanel } from "./board/FairnessPanel";
 import { TelegramLoginButton } from "./TelegramLoginButton";
+import { usePageScroll } from "./usePageScroll";
 import { WalletPicker } from "./WalletPicker";
 import "./board.css";
 
@@ -71,6 +72,10 @@ function toUi(currencyId: string, units: number): number {
 }
 
 export function BoardPage() {
+  // The game shell pins html/body/#root to height:100% + overflow:hidden for
+  // the canvas. Without this the page simply cannot be scrolled on a phone.
+  usePageScroll();
+
   const [wallet, setWallet] = useState<string | null>(null);
   const [signedIn, setSignedIn] = useState(false);
   const [config, setConfig] = useState<BoardConfig | null>(null);

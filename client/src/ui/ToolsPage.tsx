@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { BackgroundRemover } from "./BackgroundRemover";
 import { encodeCanvas, png8Supported, type OutFormat } from "./pngEncode";
 import "./tools.css";
+import { usePageScroll } from "./usePageScroll";
 
 /**
  * Hidden Image Maker at /tools — makes an X "hidden image": a transparent PNG
@@ -142,17 +143,7 @@ export function ToolsPage() {
     setRev((r) => r + 1);
   }, []);
 
-  // The game shell locks page scrolling (fixed height + overflow hidden on
-  // html/body/#root); this is an ordinary scrolling page, so unlock it while
-  // mounted and restore on leave — otherwise mobile can't scroll past the fold.
-  useEffect(() => {
-    const rootEl = document.getElementById("root");
-    const targets = [document.documentElement, document.body, rootEl].filter(Boolean) as HTMLElement[];
-    const prev = targets.map((el) => ({ el, height: el.style.height, overflow: el.style.overflow }));
-    for (const el of targets) { el.style.height = "auto"; el.style.overflow = "visible"; }
-    document.body.style.overflowY = "auto";
-    return () => { for (const p of prev) { p.el.style.height = p.height; p.el.style.overflow = p.overflow; } };
-  }, []);
+  usePageScroll();
 
   const paint = useCallback((W: number, H: number) => {
     const out = outRef.current;
