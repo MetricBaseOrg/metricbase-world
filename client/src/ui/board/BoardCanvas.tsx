@@ -9,6 +9,7 @@ import {
   BOARD_SQUARE_COUNT,
   type BoardState,
 } from "@metricbase/shared";
+import { useEffect, useState } from "react";
 
 const SIZE = 720;
 const EDGE = 11; // squares along one edge, corners shared
@@ -37,20 +38,35 @@ function groupColor(groupId: string | undefined): string | null {
 export function BoardCanvas({
   state,
   mySeat,
+  drawnSquares,
+  rolling,
+  activeSeat,
   onSelectSquare,
 }: {
   state: BoardState;
   mySeat: number | null;
+  /** Where each token is DRAWN — lags the real square while it hops. */
+  drawnSquares?: Record<number, number>;
+  rolling?: boolean;
+  activeSeat?: number;
   onSelectSquare?: (square: number) => void;
 }) {
+  const squareOf = (seat: { index: number; square: number }) =>
+    drawnSquares?.[seat.index] ?? seat.square;
+
   // Group tokens by square so several players on one square don't overlap.
   const bySquare = new Map<number, number[]>();
   state.seats.forEach((seat) => {
     if (seat.status === "bankrupt" || seat.status === "forfeit") return;
-    const list = bySquare.get(seat.square) ?? [];
+    const sq = squareOf(seat);
+    const list = bySquare.get(sq) ?? [];
     list.push(seat.index);
-    bySquare.set(seat.square, list);
+    bySquare.set(sq, list);
   });
+
+  // The square the seat on the clock is standing on, so it can be lit up.
+  const activeSquare =
+    activeSeat !== undefined && state.seats[activeSeat] ? squareOf(state.seats[activeSeat]) : -1;
 
   return (
     <svg className="dd-board" viewBox={`0 0 ${SIZE} ${SIZE}`} role="img" aria-label="District Deeds board">
@@ -63,11 +79,12 @@ export function BoardCanvas({
         const color = groupColor(sq.group);
         const stripeH = 14;
         const isCorner = sq.index % 10 === 0;
+        const isActive = sq.index === activeSquare;
 
         return (
           <g
             key={sq.index}
-            className={`dd-sq${onSelectSquare ? " dd-sq-click" : ""}`}
+            className={`dd-sq${onSelectSquare ? " dd-sq-click" : ""}${isActive ? " dd-sq-active" : ""}`}
             onClick={onSelectSquare ? () => onSelectSquare(sq.index) : undefined}
           >
             <rect x={r.x} y={r.y} width={r.w} height={r.h} className="dd-sq-bg" />
@@ -123,7 +140,8 @@ export function BoardCanvas({
           const cy = r.y + r.h / 2 + 20;
           return (
             <circle
-              key={`${square}-${seatIndex}`}
+              key={`token-${seatIndex}`}
+              className={`dd-token${seatIndex === activeSeat ? " dd-token-active" : ""}`}
               cx={cx}
               cy={cy}
               r={9}
@@ -142,11 +160,42 @@ export function BoardCanvas({
         turn {state.turnCount}
       </text>
       {state.lastRoll && (
-        <text x={SIZE / 2} y={SIZE / 2 + 46} className="dd-board-roll" textAnchor="middle">
-          🎲 {state.lastRoll.d1} + {state.lastRoll.d2}
-        </text>
+        <g className={rolling ? "dd-dice dd-dice-rolling" : "dd-dice"}>
+          <Die x={SIZE / 2 - 44} y={SIZE / 2 + 26} value={state.lastRoll.d1} rolling={!!rolling} />
+          <Die x={SIZE / 2 + 8} y={SIZE / 2 + 26} value={state.lastRoll.d2} rolling={!!rolling} />
+        </g>
       )}
     </svg>
+  );
+}
+
+/** One die. While `rolling` it shows a scramble rather than the real face, so
+ *  the result lands as a reveal instead of appearing before the animation. */
+function Die({ x, y, value, rolling }: { x: number; y: number; value: number; rolling: boolean }) {
+  // Self-ticking: the scramble has to re-render on its own, because nothing
+  // else changes between the roll landing on the server and the reveal here.
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    if (!rolling) return;
+    const t = window.setInterval(() => setTick((n) => n + 1), 70);
+    return () => window.clearInterval(t);
+  }, [rolling]);
+  const shown = rolling ? 1 + ((value + tick * 3 + x) % 6) : value;
+  const pips: Record<number, [number, number][]> = {
+    1: [[18, 18]],
+    2: [[9, 9], [27, 27]],
+    3: [[9, 9], [18, 18], [27, 27]],
+    4: [[9, 9], [27, 9], [9, 27], [27, 27]],
+    5: [[9, 9], [27, 9], [18, 18], [9, 27], [27, 27]],
+    6: [[9, 9], [27, 9], [9, 18], [27, 18], [9, 27], [27, 27]],
+  };
+  return (
+    <g transform={`translate(${x},${y})`}>
+      <rect width="36" height="36" rx="7" className="dd-die" />
+      {(pips[shown] ?? []).map(([px, py], i) => (
+        <circle key={i} cx={px} cy={py} r="3.4" className="dd-pip" />
+      ))}
+    </g>
   );
 }
 

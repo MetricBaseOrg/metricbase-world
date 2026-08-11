@@ -38,6 +38,7 @@ import {
   type BoardLobby,
   type BoardSubscription,
 } from "../board/boardClient";
+import { initSoundEffects, isSoundEnabled, playSfx, setSoundEnabled } from "../audio/soundEffects";
 import { isTelegramMiniApp } from "../telegram/telegramApp";
 import type { WalletConnector } from "../wallet/discovery";
 import { isLikelyMobile, openInWalletBrowser, walletBrowserLinks, type MobileWalletLink } from "../wallet/mobileWallet";
@@ -75,6 +76,22 @@ export function BoardPage() {
   // The game shell pins html/body/#root to height:100% + overflow:hidden for
   // the canvas. Without this the page simply cannot be scrolled on a phone.
   usePageScroll();
+
+  // WebAudio needs a user gesture before it will make a sound, so arm it on the
+  // first interaction rather than on mount (where it would be blocked anyway).
+  useEffect(() => {
+    const arm = () => {
+      initSoundEffects();
+      window.removeEventListener("pointerdown", arm);
+      window.removeEventListener("keydown", arm);
+    };
+    window.addEventListener("pointerdown", arm, { once: true });
+    window.addEventListener("keydown", arm, { once: true });
+    return () => {
+      window.removeEventListener("pointerdown", arm);
+      window.removeEventListener("keydown", arm);
+    };
+  }, []);
 
   const [wallet, setWallet] = useState<string | null>(null);
   const [signedIn, setSignedIn] = useState(false);
@@ -557,18 +574,34 @@ export function BoardPage() {
 }
 
 function Header({ onBack }: { onBack?: () => void }) {
+  const [muted, setMuted] = useState(!isSoundEnabled());
   return (
     <header className="dd-header">
       <h1>🎲 District Deeds</h1>
-      {onBack ? (
-        <button className="dd-btn dd-btn-ghost" onClick={onBack}>
-          ← All tables
+      <span className="dd-row">
+        <button
+          className="dd-btn dd-btn-ghost dd-btn-sm"
+          title={muted ? "Sound off" : "Sound on"}
+          aria-label={muted ? "Turn sound on" : "Turn sound off"}
+          onClick={() => {
+            const next = muted;
+            setSoundEnabled(next);
+            setMuted(!next);
+            if (next) playSfx("ui_click");
+          }}
+        >
+          {muted ? "🔇" : "🔊"}
         </button>
-      ) : (
-        <a className="dd-back" href="/play">
-          ← Back to the world
-        </a>
-      )}
+        {onBack ? (
+          <button className="dd-btn dd-btn-ghost" onClick={onBack}>
+            ← All tables
+          </button>
+        ) : (
+          <a className="dd-back" href="/play">
+            ← Back to the world
+          </a>
+        )}
+      </span>
     </header>
   );
 }

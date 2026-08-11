@@ -200,3 +200,159 @@
   .dd-sq-label { font-size: 13px; }
   .dd-sq-price { font-size: 11px; }
 }
+
+/* ── motion ─────────────────────────────────────────────────────────────────
+   The transport delivers whole board snapshots, so without movement the game
+   reads as a table that silently rearranges itself. Everything below exists to
+   make a change legible: where a token went, what a roll was, who is on the
+   clock, what just happened to your money. */
+
+.dd-board-wrap { position: relative; }
+
+/* Tokens glide between squares; the FX hook feeds them one square at a time. */
+.dd-token {
+  transition: cx 130ms ease-out, cy 130ms ease-out;
+}
+.dd-token-active {
+  filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.85));
+}
+
+/* The square the player on the clock is standing on. */
+.dd-sq-active .dd-sq-bg {
+  fill: #fffbe9;
+  stroke: var(--dd-gold);
+  stroke-width: 3;
+}
+
+.dd-die { fill: #f7efe0; stroke: #6b5340; stroke-width: 2; }
+.dd-pip { fill: #2b1d12; }
+.dd-dice-rolling { animation: dd-shake 180ms linear infinite; }
+@keyframes dd-shake {
+  0%   { transform: translate(0, 0) rotate(0deg); }
+  25%  { transform: translate(-2px, 1px) rotate(-3deg); }
+  50%  { transform: translate(2px, -1px) rotate(3deg); }
+  75%  { transform: translate(-1px, -1px) rotate(-2deg); }
+  100% { transform: translate(0, 0) rotate(0deg); }
+}
+
+/* Event toasts, over the board. */
+.dd-toasts {
+  position: absolute;
+  left: 50%;
+  top: 12px;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+  pointer-events: none;
+  width: min(92%, 460px);
+}
+.dd-toast {
+  background: rgba(28, 18, 12, 0.94);
+  border: 1px solid var(--dd-line);
+  border-left-width: 4px;
+  border-radius: 9px;
+  padding: 7px 12px;
+  font-size: 0.82rem;
+  color: var(--dd-ink);
+  animation: dd-toast-in 220ms ease-out;
+  max-width: 100%;
+}
+.dd-toast-good { border-left-color: var(--dd-ok); }
+.dd-toast-bad  { border-left-color: var(--dd-warn); }
+.dd-toast-info { border-left-color: #4a9fd4; }
+@keyframes dd-toast-in {
+  from { opacity: 0; transform: translateY(-8px) scale(0.97); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* Money moving, next to the seat it moved for. */
+.dd-seat-cash { position: relative; white-space: nowrap; }
+.dd-delta {
+  position: absolute;
+  right: 0;
+  top: -2px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  animation: dd-delta-float 1.6s ease-out forwards;
+  pointer-events: none;
+}
+.dd-delta-up { color: var(--dd-ok); }
+.dd-delta-down { color: var(--dd-warn); }
+@keyframes dd-delta-float {
+  0%   { opacity: 0; transform: translateY(6px); }
+  15%  { opacity: 1; transform: translateY(0); }
+  70%  { opacity: 1; transform: translateY(-12px); }
+  100% { opacity: 0; transform: translateY(-22px); }
+}
+
+/* Turn clock. */
+.dd-turnhead { display: flex; align-items: center; gap: 8px; }
+.dd-ring-track { fill: none; stroke: rgba(255, 255, 255, 0.14); stroke-width: 3; }
+.dd-ring-fill {
+  fill: none;
+  stroke: var(--dd-gold);
+  stroke-width: 3;
+  stroke-linecap: round;
+  transition: stroke-dasharray 480ms linear;
+}
+.dd-ring-low { stroke: var(--dd-warn); animation: dd-pulse 900ms ease-in-out infinite; }
+.dd-ring-text { fill: var(--dd-ink); font-size: 9px; font-weight: 700; }
+@keyframes dd-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+
+/* Someone else is deciding. */
+.dd-thinking {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--dd-muted);
+  display: inline-block;
+  animation: dd-blink 1.1s ease-in-out infinite;
+}
+@keyframes dd-blink { 0%, 100% { opacity: 0.25; } 50% { opacity: 1; } }
+
+.dd-seat-turn { animation: dd-seat-glow 1.8s ease-in-out infinite; }
+@keyframes dd-seat-glow {
+  0%, 100% { background: rgba(224, 185, 60, 0.08); }
+  50%      { background: rgba(224, 185, 60, 0.18); }
+}
+
+/* The ending. */
+.dd-win {
+  position: fixed; inset: 0; z-index: 50;
+  background: rgba(15, 9, 5, 0.82);
+  display: flex; align-items: center; justify-content: center;
+  padding: 16px;
+  animation: dd-fade 260ms ease-out;
+}
+.dd-win-card {
+  background: var(--dd-card);
+  border: 1px solid var(--dd-line);
+  border-radius: 16px;
+  padding: 26px 22px;
+  text-align: center;
+  max-width: 380px;
+  animation: dd-pop 320ms cubic-bezier(0.2, 1.3, 0.4, 1);
+}
+.dd-win-mine { border-color: var(--dd-gold); box-shadow: 0 0 40px rgba(224, 185, 60, 0.28); }
+.dd-win-emoji { font-size: 3rem; animation: dd-trophy 1.5s ease-in-out infinite; }
+@keyframes dd-trophy { 0%, 100% { transform: scale(1) rotate(-3deg); } 50% { transform: scale(1.12) rotate(3deg); } }
+@keyframes dd-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes dd-pop { from { opacity: 0; transform: scale(0.88) translateY(12px); } to { opacity: 1; transform: none; } }
+
+/* Buttons feel like buttons. */
+.dd-btn { transition: transform 90ms ease, background 140ms ease, box-shadow 140ms ease; }
+.dd-btn:active:not(:disabled) { transform: translateY(1px) scale(0.985); }
+.dd-btn-primary:hover:not(:disabled) { box-shadow: 0 3px 14px rgba(224, 185, 60, 0.35); }
+.dd-card { animation: dd-card-in 260ms ease-out; }
+@keyframes dd-card-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+/* Respect the system setting — a board that jitters is worse than a still one
+   for anyone who asked for less motion. */
+@media (prefers-reduced-motion: reduce) {
+  .dd-token, .dd-ring-fill { transition: none; }
+  .dd-dice-rolling, .dd-ring-low, .dd-thinking, .dd-seat-turn,
+  .dd-win-emoji, .dd-toast, .dd-card, .dd-win-card, .dd-delta {
+    animation: none;
+  }
+  .dd-delta { opacity: 1; }
+}

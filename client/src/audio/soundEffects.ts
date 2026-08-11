@@ -50,7 +50,15 @@ export type SfxType =
   | "chest_rattle"
   | "chest_burst"
   | "chest_reward"
-  | "chest_reward_rare";
+  | "chest_reward_rare"
+  | "dice_roll"
+  | "dice_land"
+  | "token_hop"
+  | "rent_paid"
+  | "deed_bought"
+  | "turn_alert"
+  | "table_win"
+  | "table_out";
 
 const MASTER_VOLUME = 0.32;
 const MUTE_STORAGE_KEY = "metricbase-sfx-muted";
@@ -216,6 +224,46 @@ export function playSfx(type: SfxType): void {
     case "footstep":
       playTone(ctx, masterGain, now, 90 + Math.random() * 16, "triangle", 0.05, 0.06);
       playNoiseBurst(ctx, masterGain, now, 0.03, 0.025);
+      break;
+    // ── District Deeds ──────────────────────────────────────────────────────
+    case "dice_roll":
+      // Tumbling: a short scatter of clicks, not a tone.
+      playNoiseBurst(ctx, masterGain, now, 0.05, 0.05);
+      playNoiseBurst(ctx, masterGain, now + 0.07, 0.04, 0.045);
+      playNoiseBurst(ctx, masterGain, now + 0.13, 0.04, 0.04);
+      playNoiseBurst(ctx, masterGain, now + 0.2, 0.03, 0.035);
+      break;
+    case "dice_land":
+      playNoiseBurst(ctx, masterGain, now, 0.06, 0.07);
+      playTone(ctx, masterGain, now + 0.01, 220, "triangle", 0.07, 0.06);
+      break;
+    case "token_hop":
+      playTone(ctx, masterGain, now, 880, "sine", 0.04, 0.05);
+      break;
+    case "deed_bought":
+      playTone(ctx, masterGain, now, 523, "triangle", 0.06, 0.1);
+      playTone(ctx, masterGain, now + 0.06, 784, "triangle", 0.08, 0.11);
+      playTone(ctx, masterGain, now + 0.13, 1047, "sine", 0.1, 0.09);
+      break;
+    case "rent_paid":
+      // Downward, so paying never sounds like earning.
+      playTone(ctx, masterGain, now, 587, "triangle", 0.06, 0.1);
+      playTone(ctx, masterGain, now + 0.07, 440, "triangle", 0.1, 0.11);
+      break;
+    case "turn_alert":
+      playTone(ctx, masterGain, now, 784, "sine", 0.07, 0.1);
+      playTone(ctx, masterGain, now + 0.09, 1047, "sine", 0.1, 0.11);
+      break;
+    case "table_win":
+      playTone(ctx, masterGain, now, 523, "triangle", 0.1, 0.12);
+      playTone(ctx, masterGain, now + 0.1, 659, "triangle", 0.1, 0.13);
+      playTone(ctx, masterGain, now + 0.2, 784, "triangle", 0.12, 0.14);
+      playTone(ctx, masterGain, now + 0.32, 1047, "sine", 0.26, 0.15);
+      playNoiseBurst(ctx, masterGain, now + 0.3, 0.12, 0.04);
+      break;
+    case "table_out":
+      playTone(ctx, masterGain, now, 392, "sawtooth", 0.14, 0.09);
+      playTone(ctx, masterGain, now + 0.13, 262, "sawtooth", 0.24, 0.1);
       break;
     case "coin":
       playTone(ctx, masterGain, now, 1568, "triangle", 0.04, 0.12);

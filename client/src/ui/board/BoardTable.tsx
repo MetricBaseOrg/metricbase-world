@@ -13,6 +13,7 @@ import {
 import { useEffect, useMemo, useState } from "react";
 
 import { sendAction } from "../../board/boardClient";
+import { useBoardFx } from "../../board/useBoardFx";
 import { BoardCanvas, SEAT_COLORS } from "./BoardCanvas";
 import { TradeDialog } from "./TradeDialog";
 
@@ -31,6 +32,30 @@ function actorOf(state: BoardState): number {
   return state.turn;
 }
 
+/** A shrinking ring around the turn countdown — a number alone doesn't read as
+ *  urgent until it's nearly gone. */
+function TurnRing({ seconds, total }: { seconds: number; total: number }) {
+  const frac = Math.max(0, Math.min(1, seconds / total));
+  const r = 9;
+  const c = 2 * Math.PI * r;
+  return (
+    <svg className="dd-ring" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+      <circle cx="12" cy="12" r={r} className="dd-ring-track" />
+      <circle
+        cx="12"
+        cy="12"
+        r={r}
+        className={`dd-ring-fill${frac < 0.25 ? " dd-ring-low" : ""}`}
+        strokeDasharray={`${c * frac} ${c}`}
+        transform="rotate(-90 12 12)"
+      />
+      <text x="12" y="15.5" textAnchor="middle" className="dd-ring-text">
+        {seconds}
+      </text>
+    </svg>
+  );
+}
+
 export function BoardTable({
   payload,
   onError,
@@ -46,6 +71,7 @@ export function BoardTable({
   const [tradeOpen, setTradeOpen] = useState(false);
   const [bidAmount, setBidAmount] = useState(0);
   const secondsLeft = useCountdown(payload.turnDeadline);
+  const fx = useBoardFx(payload, payload.mySeat);
 
   const inGrace = payload.resumeGraceUntil !== null;
   const graceLeft = useCountdown(payload.resumeGraceUntil);
@@ -91,7 +117,20 @@ export function BoardTable({
 
       <div className="dd-table-grid">
         <div className="dd-board-wrap">
-          <BoardCanvas state={state} mySeat={mySeat} />
+          <BoardCanvas
+            state={state}
+            mySeat={mySeat}
+            drawnSquares={fx.drawnSquares}
+            rolling={fx.rolling}
+            activeSeat={actor}
+          />
+          <div className="dd-toasts" aria-live="polite">
+            {fx.toasts.map((t) => (
+              <div key={t.id} className={`dd-toast dd-toast-${t.tone}`}>
+                {t.text}
+              </div>
+            ))}
+          </div>
         </div>
 
         <div className="dd-side">
@@ -107,7 +146,17 @@ export function BoardTable({
                     {seat.index === mySeat ? " (you)" : ""}
                     {info?.kind === "ai" ? " · practice" : ""}
                   </span>
-                  <span className="dd-seat-cash">{seat.cash.toLocaleString()} ⌬</span>
+                  <span className="dd-seat-cash">
+                    {seat.cash.toLocaleString()} ⌬
+                    {fx.cashDeltas
+                      .filter((d) => d.seat === seat.index)
+                      .map((d) => (
+                        <span key={d.id} className={`dd-delta ${d.amount > 0 ? "dd-delta-up" : "dd-delta-down"}`}>
+                          {d.amount > 0 ? "+" : "−"}
+                          {Math.abs(d.amount).toLocaleString()}
+                        </span>
+                      ))}
+                  </span>
                   <span className="dd-seat-tags">
                     {seat.status === "bankrupt" && <em>out</em>}
                     {seat.status === "forfeit" && <em>forfeited</em>}
@@ -122,12 +171,20 @@ export function BoardTable({
           </div>
 
           <div className="dd-card dd-actions">
-            <h3>
-              {state.phase.kind === "done"
-                ? "Table finished"
-                : myTurn
-                  ? `Your move · ${secondsLeft}s`
-                  : `${state.seats[actor]?.name ?? "…"} is thinking`}
+            <h3 className="dd-turnhead">
+              {state.phase.kind === "done" ? (
+                "Table finished"
+              ) : myTurn ? (
+                <>
+                  <TurnRing seconds={secondsLeft} total={45} />
+                  Your move
+                </>
+              ) : (
+                <>
+                  <span className="dd-thinking" />
+                  {state.seats[actor]?.name ?? "…"} is thinking
+                </>
+              )}
             </h3>
 
             {state.phase.kind === "done" && (
@@ -331,6 +388,30 @@ export function BoardTable({
           </div>
         </div>
       </div>
+
+      {fx.finished && (
+        <div className="dd-win" onClick={fx.dismissFinished}>
+          <div className={`dd-win-card${fx.finished.winner === mySeat ? " dd-win-mine" : ""}`}>
+            <div className="dd-win-emoji">{fx.finished.winner === mySeat ? "🏆" : "🎲"}</div>
+            <h2>
+              {fx.finished.winner === null
+                ? "Nobody took the table"
+                : fx.finished.winner === mySeat
+                  ? "You took the table"
+                  : `${state.seats[fx.finished.winner].name} took the table`}
+            </h2>
+            {payload.prizeUnits > 0 && fx.finished.winner === mySeat && (
+              <p>The prize is in your table bank.</p>
+            )}
+            <button className="dd-btn dd-btn-primary" onClick={fx.dismissFinished}>
+              See the final board
+            </button>
+            <button className="dd-btn" onClick={onOpenFairness}>
+              Check the dice
+            </button>
+          </div>
+        </div>
+      )}
 
       {tradeOpen && mySeat !== null && (
         <TradeDialog
