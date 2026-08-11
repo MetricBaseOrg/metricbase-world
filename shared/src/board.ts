@@ -556,6 +556,8 @@ export interface BoardStatePayload {
     index: number;
     name: string;
     kind: "human" | "ai";
+    /** Which hand-drawn hero to draw for this seat. */
+    avatar: "boy" | "girl";
     ready: boolean;
     connected: boolean;
     idle: boolean;

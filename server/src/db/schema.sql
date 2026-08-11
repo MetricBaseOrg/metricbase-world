@@ -1151,3 +1151,8 @@ CREATE TABLE IF NOT EXISTS board_invites (
   PRIMARY KEY (table_id, to_pid)
 );
 CREATE INDEX IF NOT EXISTS board_invites_to_idx ON board_invites (to_pid);
+
+-- Which hand-drawn hero to draw for this seat. Resolved from the character's
+-- appearance at join time so the board never has to read the characters table
+-- (or load Phaser) to draw a token.
+ALTER TABLE board_seats ADD COLUMN IF NOT EXISTS avatar VARCHAR(8);

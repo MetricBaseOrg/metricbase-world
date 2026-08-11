@@ -9,7 +9,7 @@ import {
   BOARD_SQUARE_COUNT,
   type BoardState,
 } from "@metricbase/shared";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const SIZE = 720;
 const EDGE = 11; // squares along one edge, corners shared
@@ -41,6 +41,7 @@ export function BoardCanvas({
   drawnSquares,
   rolling,
   activeSeat,
+  avatars,
   onSelectSquare,
 }: {
   state: BoardState;
@@ -49,6 +50,8 @@ export function BoardCanvas({
   drawnSquares?: Record<number, number>;
   rolling?: boolean;
   activeSeat?: number;
+  /** Seat index → which hand-drawn hero to use. */
+  avatars?: Record<number, "boy" | "girl">;
   onSelectSquare?: (square: number) => void;
 }) {
   const squareOf = (seat: { index: number; square: number }) =>
@@ -139,15 +142,15 @@ export function BoardCanvas({
           const cx = r.x + r.w / 2 + (n - (seats.length - 1) / 2) * 16;
           const cy = r.y + r.h / 2 + 20;
           return (
-            <circle
+            <Token
               key={`token-${seatIndex}`}
-              className={`dd-token${seatIndex === activeSeat ? " dd-token-active" : ""}`}
-              cx={cx}
-              cy={cy}
-              r={9}
-              fill={SEAT_COLORS[seatIndex % SEAT_COLORS.length]}
-              stroke={seatIndex === mySeat ? "#fff" : "rgba(0,0,0,.45)"}
-              strokeWidth={seatIndex === mySeat ? 3 : 1.5}
+              x={cx}
+              y={cy}
+              seatIndex={seatIndex}
+              avatar={avatars?.[seatIndex] ?? "boy"}
+              isMe={seatIndex === mySeat}
+              isActive={seatIndex === activeSeat}
+              square={square}
             />
           );
         }),
@@ -166,6 +169,76 @@ export function BoardCanvas({
         </g>
       )}
     </svg>
+  );
+}
+
+/**
+ * A player's token: their actual MetricBase hero standing on the square, on a
+ * seat-coloured disc so you can still tell four heroes apart at a glance.
+ *
+ * The art is loaded straight from /assets/characters as an SVG <image>. It
+ * deliberately does NOT go through the game's avatar renderer, which pulls in
+ * Phaser — 1.5MB this page has no other use for.
+ */
+function Token({
+  x,
+  y,
+  seatIndex,
+  avatar,
+  isMe,
+  isActive,
+  square,
+}: {
+  x: number;
+  y: number;
+  seatIndex: number;
+  avatar: "boy" | "girl";
+  isMe: boolean;
+  isActive: boolean;
+  square: number;
+}) {
+  // Walk while the token is moving between squares, idle once it settles. The
+  // square changing IS the movement signal, so the frame cycles off it.
+  const [frame, setFrame] = useState(0);
+  const [walking, setWalking] = useState(false);
+  const lastSquare = useRef(square);
+
+  useEffect(() => {
+    if (lastSquare.current === square) return;
+    lastSquare.current = square;
+    setWalking(true);
+    setFrame((f) => (f + 1) % 4);
+    const t = window.setTimeout(() => setWalking(false), 320);
+    return () => window.clearTimeout(t);
+  }, [square]);
+
+  const href = walking
+    ? `/assets/characters/${avatar}-front-walk-${frame}.webp`
+    : `/assets/characters/${avatar}-front-idle-0.webp`;
+  const size = 34;
+
+  return (
+    <g className={`dd-token${isActive ? " dd-token-active" : ""}`} transform={`translate(${x},${y})`}>
+      <ellipse cx="0" cy="4" rx="11" ry="4" className="dd-token-shadow" />
+      <circle
+        cx="0"
+        cy="0"
+        r="12"
+        fill={SEAT_COLORS[seatIndex % SEAT_COLORS.length]}
+        stroke={isMe ? "#fff" : "rgba(0,0,0,.5)"}
+        strokeWidth={isMe ? 2.5 : 1.5}
+        opacity="0.9"
+      />
+      <image
+        href={href}
+        x={-size / 2}
+        y={-size + 8}
+        width={size}
+        height={size}
+        className={walking ? "dd-token-art dd-token-walking" : "dd-token-art"}
+        preserveAspectRatio="xMidYMax meet"
+      />
+    </g>
   );
 }
 

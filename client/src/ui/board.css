@@ -209,13 +209,8 @@
 
 .dd-board-wrap { position: relative; }
 
-/* Tokens glide between squares; the FX hook feeds them one square at a time. */
-.dd-token {
-  transition: cx 130ms ease-out, cy 130ms ease-out;
-}
-.dd-token-active {
-  filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.85));
-}
+/* Tokens glide between squares; the FX hook feeds them one square at a time.
+   The token is a <g transform>, so the transition is on transform. */
 
 /* The square the player on the clock is standing on. */
 .dd-sq-active .dd-sq-bg {
@@ -355,4 +350,24 @@
     animation: none;
   }
   .dd-delta { opacity: 1; }
+}
+
+/* Hero tokens. The disc under the character carries the seat colour, because
+   four hand-drawn heroes at a distance are harder to tell apart than four
+   coloured dots were — the art is the charm, the disc is the identity. */
+.dd-token { transition: transform 130ms ease-out; }
+.dd-token-shadow { fill: rgba(0, 0, 0, 0.28); }
+.dd-token-art {
+  image-rendering: auto;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45));
+}
+.dd-token-walking { animation: dd-bob 160ms ease-in-out infinite alternate; }
+@keyframes dd-bob {
+  from { transform: translateY(0); }
+  to   { transform: translateY(-2px); }
+}
+.dd-token-active .dd-token-art { filter: drop-shadow(0 0 5px rgba(255, 240, 190, 0.95)); }
+
+@media (prefers-reduced-motion: reduce) {
+  .dd-token, .dd-token-walking { transition: none; animation: none; }
 }

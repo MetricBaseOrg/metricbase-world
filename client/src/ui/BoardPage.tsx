@@ -98,7 +98,12 @@ export function BoardPage() {
   const [config, setConfig] = useState<BoardConfig | null>(null);
   const [lobby, setLobby] = useState<BoardLobby | null>(null);
   const [balances, setBalances] = useState<Record<string, number>>({});
-  const [tableId, setTableId] = useState<string | null>(null);
+  // A table id in the URL opens straight to it. This is the whole point of the
+  // share link: someone pastes it in chat and the person who clicks arrives at
+  // the table, not at a lobby they have to search.
+  const [tableId, setTableId] = useState<string | null>(
+    () => new URLSearchParams(window.location.search).get("t"),
+  );
   const [payload, setPayload] = useState<BoardStatePayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -156,18 +161,30 @@ export function BoardPage() {
     })();
   }, [afterSignIn]);
 
+  // Keep the address bar in step so a refresh, a bookmark or a back button all
+  // land where the player expects.
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (tableId) url.searchParams.set("t", tableId);
+    else url.searchParams.delete("t");
+    window.history.replaceState(null, "", url.toString());
+  }, [tableId]);
+
   // Follow the selected table.
   useEffect(() => {
     subscription.current?.stop();
     subscription.current = null;
     setPayload(null);
-    if (!tableId) return;
+    // Wait for sign-in: a deep link lands here before there's a token, and
+    // polling without one just produces a "session expired" error over the
+    // sign-in card.
+    if (!tableId || !signedIn) return;
     subscription.current = subscribeToTable(tableId, setPayload, setError);
     return () => {
       subscription.current?.stop();
       subscription.current = null;
     };
-  }, [tableId]);
+  }, [tableId, signedIn]);
 
   // Keep the lobby fresh while we're looking at it.
   useEffect(() => {
@@ -222,6 +239,11 @@ export function BoardPage() {
     if (!res.ok || !res.data) return setError(res.error ?? "Couldn't open that table.");
     setTableId(res.data.tableId);
     await refreshLobby();
+  };
+
+  const doWatch = (id: string) => {
+    setError(null);
+    setTableId(id);
   };
 
   const doJoin = async (id: string) => {
@@ -355,6 +377,14 @@ export function BoardPage() {
       <div className="dd-page">
         <Header onBack={() => setTableId(null)} />
         {error && <p className="dd-warn dd-banner">{error}</p>}
+        {payload.mySeat === null && payload.table.status !== "lobby" && (
+          <div className="dd-banner dd-banner-info">
+            You're watching this table. {payload.table.filled < payload.table.seatCount
+              ? "There's a free seat — but a table can only be joined before it starts."
+              : "It's full."}{" "}
+            <ShareLink tableId={payload.table.id} />
+          </div>
+        )}
         {payload.table.status === "lobby" ? (
           <div className="dd-card">
             <h2>Waiting to start</h2>
@@ -382,6 +412,7 @@ export function BoardPage() {
                 {seat?.ready ? "Not ready" : "I'm ready"}
               </button>
               <InviteBox tableId={payload.table.id} onError={setError} />
+              <ShareLink tableId={payload.table.id} />
               {isHost && (
                 <button
                   className="dd-btn dd-btn-primary"
@@ -563,9 +594,13 @@ export function BoardPage() {
       <div className="dd-card">
         <h2>Open tables</h2>
         {(lobby?.open.length ?? 0) === 0 && <p className="dd-muted">Nothing open. Start one above.</p>}
-        {lobby?.open.map((t) => (
-          <TableRow key={t.id} table={t} label="Join" onPick={() => void doJoin(t.id)} />
-        ))}
+        {lobby?.open.map((t) =>
+          t.status === "lobby" ? (
+            <TableRow key={t.id} table={t} label="Join" onPick={() => void doJoin(t.id)} />
+          ) : (
+            <TableRow key={t.id} table={t} label="Watch" onPick={() => doWatch(t.id)} />
+          ),
+        )}
       </div>
 
       {termsOpen && <TermsModal terms={config?.terms ?? [...BOARD_ENTRY_TERMS]} onClose={() => setTermsOpen(false)} />}
@@ -709,6 +744,35 @@ function InviteBox({ tableId, onError }: { tableId: string; onError: (m: string)
         Invite
       </button>
     </span>
+  );
+}
+
+/** Copy a link straight to this table. Uses the share sheet on a phone, which
+ *  is where a link like this actually gets sent. */
+function ShareLink({ tableId }: { tableId: string }) {
+  const [copied, setCopied] = useState(false);
+  const url = `${window.location.origin}/board?t=${tableId}`;
+  return (
+    <button
+      className="dd-btn dd-btn-sm"
+      onClick={async () => {
+        try {
+          if (navigator.share) {
+            await navigator.share({ title: "District Deeds", text: "Come play a table with me", url });
+            return;
+          }
+          await navigator.clipboard.writeText(url);
+          setCopied(true);
+          window.setTimeout(() => setCopied(false), 2000);
+        } catch {
+          // Share cancelled, or the clipboard is blocked — show the raw link so
+          // it can still be copied by hand.
+          window.prompt("Copy this link:", url);
+        }
+      }}
+    >
+      {copied ? "Link copied" : "🔗 Invite by link"}
+    </button>
   );
 }
 

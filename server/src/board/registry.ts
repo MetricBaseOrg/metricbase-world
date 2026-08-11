@@ -38,6 +38,7 @@ import {
 import {
   addInvite,
   appendLedger,
+  avatarForWallet,
   clearInvite,
   deleteSeat,
   insertTable,
@@ -158,6 +159,7 @@ export function buildStatePayload(t: LiveTable, pid: string | null): BoardStateP
       index: s.seatIndex,
       name: s.playerName,
       kind: s.kind,
+      avatar: (s.avatar as "boy" | "girl" | null) ?? "boy",
       ready: s.ready,
       connected: s.kind === "ai" ? true : (t.lastSeen.get(s.seatIndex) ?? 0) > now - boardTimings().pollTimeoutMs,
       idle: (t.state?.seats[s.seatIndex]?.autoPlayStrikes ?? 0) >= BOARD_AUTOPLAY_STRIKES_IDLE,
@@ -363,6 +365,9 @@ export async function createTable(args: {
       aiDifficulty: args.aiDifficulty,
       stakePaid: true,
       ready: true,
+      // Alternate the heroes so a table of practice opponents isn't four of
+      // the same character.
+      avatar: i % 2 === 0 ? "girl" : "boy",
     });
   }
   t.seats = await loadSeats(id);
@@ -447,6 +452,7 @@ export async function joinTable(args: {
     kind: "human",
     pid: args.pid,
     playerName: args.playerName,
+    avatar: await avatarForWallet(args.pid),
     stakePaid: true,
     ready: false,
     connected: true,
@@ -973,10 +979,19 @@ export function getTable(tableId: string): LiveTable | undefined {
   return tables.get(tableId);
 }
 
+/**
+ * Everything worth showing in the lobby: tables you can still sit at, tables
+ * already running (which you can watch), and any table you hold a seat at.
+ *
+ * Running tables are listed deliberately. With a handful of players online, a
+ * lobby that only ever shows empty chairs reads as a dead feature — a game in
+ * progress is the strongest evidence that the thing is worth trying.
+ */
 export function listOpenTables(pid: string): BoardTableSummary[] {
   const out: BoardTableSummary[] = [];
   for (const t of tables.values()) {
-    if (t.row.status === "lobby" || seatOfPid(t, pid)) out.push(summaryOf(t));
+    const seated = !!seatOfPid(t, pid);
+    if (t.row.status === "lobby" || t.row.status === "running" || seated) out.push(summaryOf(t));
   }
   return out.sort((a, b) => b.createdAt - a.createdAt);
 }

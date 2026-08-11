@@ -123,6 +123,7 @@ export function BoardTable({
             drawnSquares={fx.drawnSquares}
             rolling={fx.rolling}
             activeSeat={actor}
+            avatars={Object.fromEntries(payload.seats.map((s) => [s.index, s.avatar ?? "boy"]))}
           />
           <div className="dd-toasts" aria-live="polite">
             {fx.toasts.map((t) => (

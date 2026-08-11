@@ -60,6 +60,7 @@ export interface BoardSeatRow {
   status: string;
   ipHash: string | null;
   funderWallet: string | null;
+  avatar: string | null;
 }
 
 const TABLE_COLS = `
@@ -116,6 +117,7 @@ function mapSeat(r: any): BoardSeatRow {
     status: r.status,
     ipHash: r.ip_hash ?? null,
     funderWallet: r.funder_wallet ?? null,
+    avatar: r.avatar ?? null,
   };
 }
 /* eslint-enable @typescript-eslint/no-explicit-any */
@@ -307,15 +309,16 @@ export async function upsertSeat(seat: {
   status?: string;
   ipHash?: string | null;
   funderWallet?: string | null;
+  avatar?: string | null;
 }): Promise<void> {
   const pool = getPool();
   if (!pool) return;
   await pool.query(
     `INSERT INTO board_seats
        (table_id, seat_index, kind, pid, player_name, ai_difficulty, client_seed,
-        stake_paid, ready, connected, seen_at, status, ip_hash, funder_wallet)
+        stake_paid, ready, connected, seen_at, status, ip_hash, funder_wallet, avatar)
      VALUES ($1,$2,$3,$4,$5,$6,COALESCE($7,''),COALESCE($8,false),COALESCE($9,false),
-             COALESCE($10,false),$11,COALESCE($12,'active'),$13,$14)
+             COALESCE($10,false),$11,COALESCE($12,'active'),$13,$14,$15)
      ON CONFLICT (table_id, seat_index) DO UPDATE SET
        kind = EXCLUDED.kind, pid = EXCLUDED.pid, player_name = EXCLUDED.player_name,
        ai_difficulty = EXCLUDED.ai_difficulty,
@@ -324,11 +327,12 @@ export async function upsertSeat(seat: {
        connected = EXCLUDED.connected, seen_at = EXCLUDED.seen_at,
        status = EXCLUDED.status,
        ip_hash = COALESCE(EXCLUDED.ip_hash, board_seats.ip_hash),
-       funder_wallet = COALESCE(EXCLUDED.funder_wallet, board_seats.funder_wallet)`,
+       funder_wallet = COALESCE(EXCLUDED.funder_wallet, board_seats.funder_wallet),
+       avatar = COALESCE(EXCLUDED.avatar, board_seats.avatar)`,
     [seat.tableId, seat.seatIndex, seat.kind, seat.pid, seat.playerName.slice(0, 16),
      seat.aiDifficulty ?? null, seat.clientSeed ?? "", seat.stakePaid ?? false,
      seat.ready ?? false, seat.connected ?? false, seat.seenAt ?? null,
-     seat.status ?? "active", seat.ipHash ?? null, seat.funderWallet ?? null],
+     seat.status ?? "active", seat.ipHash ?? null, seat.funderWallet ?? null, seat.avatar ?? null],
   );
 }
 
@@ -339,6 +343,21 @@ export async function deleteSeat(tableId: string, seatIndex: number): Promise<vo
 }
 
 // ── the bank ledger ─────────────────────────────────────────────────────────
+
+/** Which hero art a character uses, from their saved appearance. */
+export async function avatarForWallet(pid: string): Promise<"boy" | "girl"> {
+  const pool = getPool();
+  if (!pool) return "boy";
+  try {
+    const res = await pool.query<{ appearance: { gender?: string } | null }>(
+      "SELECT appearance FROM characters WHERE wallet_address = $1 LIMIT 1",
+      [pid],
+    );
+    return res.rows[0]?.appearance?.gender === "female" ? "girl" : "boy";
+  } catch {
+    return "boy";
+  }
+}
 
 /** Balance = SUM(delta) over everything that did not definitively fail. */
 export async function boardBalance(pid: string, currencyId: string): Promise<number> {
