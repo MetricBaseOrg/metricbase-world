@@ -25,6 +25,7 @@ import {
   getBoardBank,
   getBoardConfig,
   getLobby,
+  fundGold,
   joinTable,
   leaveTable,
   setBoardToken,
@@ -257,6 +258,16 @@ export function BoardPage() {
     }
   };
 
+  const doFundGold = async (amount: number) => {
+    setBusy(true);
+    setError(null);
+    const res = await fundGold(amount);
+    setBusy(false);
+    if (!res.ok || !res.data) return setError(res.error ?? "Couldn't move that gold.");
+    setBalances(res.data.balances);
+    setNotice(`Moved ${res.data.moved.toLocaleString()} gold into your table bank.`);
+  };
+
   const doCashOut = async (currencyId: string, uiAmount: number) => {
     setBusy(true);
     setError(null);
@@ -402,7 +413,7 @@ export function BoardPage() {
             <span>{CURRENCY_LABEL[c] ?? c}</span>
             <strong>{fmt(c, toUi(c, balances[c] ?? 0))}</strong>
             {c === "gold" ? (
-              <span className="dd-muted">Move gold in from the world (⚙️ menu → District Deeds)</span>
+              <GoldControls busy={busy} onFund={doFundGold} onCashOut={doCashOut} />
             ) : (
               <BankControls currencyId={c} busy={busy} onDeposit={doDeposit} onCashOut={doCashOut} />
             )}
@@ -576,6 +587,35 @@ function TableRow({
         {label}
       </button>
     </div>
+  );
+}
+
+function GoldControls({
+  busy,
+  onFund,
+  onCashOut,
+}: {
+  busy: boolean;
+  onFund: (amount: number) => Promise<void>;
+  onCashOut: (c: string, amount: number) => Promise<void>;
+}) {
+  const [amount, setAmount] = useState(10000);
+  return (
+    <span className="dd-row">
+      <input
+        type="number"
+        className="dd-input dd-input-sm"
+        min={1}
+        value={amount}
+        onChange={(e) => setAmount(Number(e.target.value))}
+      />
+      <button className="dd-btn dd-btn-sm" disabled={busy || amount <= 0} onClick={() => void onFund(amount)}>
+        Add from your character
+      </button>
+      <button className="dd-btn dd-btn-sm" disabled={busy || amount <= 0} onClick={() => void onCashOut("gold", amount)}>
+        Send back
+      </button>
+    </span>
   );
 }
 

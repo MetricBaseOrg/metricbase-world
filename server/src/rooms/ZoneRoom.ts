@@ -538,7 +538,7 @@ import {
   reserveWithdrawal,
   syncVaultCache,
 } from "../db/seasonVault.js";
-import { boardBalances, fundBoardBankFromCharacter } from "../db/board.js";
+import { boardBalances, fundBoardBankFromCharacter, type FundResult } from "../db/board.js";
 import { getXStatus } from "../db/xLink.js";
 import { hasPostedFor, isPostUrlUsed, recordSeasonPost } from "../db/seasonPost.js";
 import { syncNftHolder } from "../nft/holderSync.js";
@@ -5638,6 +5638,48 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
    * needed) — scans all active rooms and pays the online session by pid, or
    * falls back to pending_gold when they're offline. Used by the company daily
    * payout runner (which lives outside any room). */
+  /**
+   * Move gold into a player's District Deeds bank from ANY context — including
+   * the /board page, where there is no room and no client.
+   *
+   * Gold could originally only be funded from the in-world table, but the ⚙️
+   * menu link goes straight to /board, so the obvious path dead-ended on an
+   * empty bank. This is the same sequence handleBoardBankFund uses: flush the
+   * live in-memory gold to the row FIRST, run the atomic ledger+debit
+   * transaction, then apply the same decrement to memory. Offline players skip
+   * straight to the transaction, since the row is authoritative for them.
+   */
+  public static async fundBoardBankGlobal(
+    pid: string,
+    playerName: string,
+    amount: number,
+    requestId: string,
+  ): Promise<FundResult> {
+    for (const room of ZoneRoom.activeRooms) {
+      const sessionId = room.activePlayerSession.get(playerName);
+      const player = sessionId ? room.state.players.get(sessionId) : undefined;
+      const client = sessionId ? room.clients.find((c) => c.sessionId === sessionId) : undefined;
+      if (!player || !client) continue;
+      // Only the session whose pid matches owns this gold; anything else falls
+      // through to the offline path, where the character row decides.
+      if (room.pidOf(player) !== pid) break;
+
+      const have = room.playerGold.get(pid) ?? STARTING_GOLD;
+      if (have < amount) return { ok: false, error: "You don't have that much gold." };
+
+      await room.persistPlayer(player);
+      const result = await fundBoardBankFromCharacter({ pid, playerName, amount, requestId });
+      if (!result.ok) return result;
+
+      const now = room.playerGold.get(pid) ?? STARTING_GOLD;
+      room.playerGold.set(pid, Math.max(0, now - amount));
+      void room.persistPlayer(player);
+      room.sendProfile(client, player);
+      return result;
+    }
+    return fundBoardBankFromCharacter({ pid, playerName, amount, requestId });
+  }
+
   public static creditPlayerGlobal(name: string, amount: number) {
     if (amount <= 0) return;
     for (const room of ZoneRoom.activeRooms) {

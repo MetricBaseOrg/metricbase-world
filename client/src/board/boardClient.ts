@@ -86,6 +86,15 @@ export const depositToBank = (currencyId: string, signature: string, minUiAmount
     minUiAmount,
   });
 
+/** Move gold from the character into the table bank. Works whether or not the
+ *  player is currently standing in the world — the server routes it through
+ *  ZoneRoom either way, since that owns live gold. */
+export const fundGold = (amount: number) =>
+  call<{ moved: number; balances: Record<string, number> }>("POST", "/board/bank/fund-gold", {
+    amount,
+    requestId: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+  });
+
 export const cashOutBank = (currencyId: string, amount: number) =>
   call<{ paid?: number; signature?: string; balances: Record<string, number> }>(
     "POST",

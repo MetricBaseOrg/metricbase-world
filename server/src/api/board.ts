@@ -44,6 +44,7 @@ import {
   startTable,
 } from "../board/registry.js";
 import { listInvites } from "../db/board.js";
+import { ZoneRoom } from "../rooms/ZoneRoom.js";
 import { getPool } from "../db/pool.js";
 
 export const boardRouter = Router();
@@ -167,6 +168,30 @@ boardRouter.post("/board/bank/deposit", requireAuth, handler(async (req, res) =>
     return;
   }
   res.json({ ok: true, credited: result.credited, balances: await getBoardBalances(pid) });
+}));
+
+boardRouter.post("/board/bank/fund-gold", requireAuth, handler(async (req, res) => {
+  const pid = (req as AuthenticatedRequest).authWallet;
+  const amount = Math.floor(Number(req.body?.amount));
+  const requestId = String(req.body?.requestId ?? "").slice(0, 60);
+  if (!Number.isFinite(amount) || amount <= 0) {
+    res.status(400).json({ error: "Enter an amount above zero." });
+    return;
+  }
+  if (!requestId) {
+    res.status(400).json({ error: "Try that again." });
+    return;
+  }
+  const name = await nameFor(pid);
+  // Routed through ZoneRoom because it is authoritative over live gold: a
+  // player standing in the world holds their balance in memory, and writing
+  // characters.gold from here would be overwritten on their next persist.
+  const result = await ZoneRoom.fundBoardBankGlobal(pid, name, amount, `fund:${pid}:${requestId}`);
+  if (!result.ok) {
+    res.status(400).json({ error: result.error });
+    return;
+  }
+  res.json({ ok: true, moved: result.credited, balances: await getBoardBalances(pid) });
 }));
 
 boardRouter.post("/board/bank/cashout", requireAuth, handler(async (req, res) => {

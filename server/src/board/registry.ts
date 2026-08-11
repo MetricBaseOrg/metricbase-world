@@ -368,7 +368,15 @@ export async function createTable(args: {
   t.seats = await loadSeats(id);
 
   const joined = await joinTable({ pid: args.pid, playerName: args.playerName, tableId: id });
-  if (!joined.ok) return joined;
+  if (!joined.ok) {
+    // The host couldn't take their own seat — usually an empty table bank. Undo
+    // the whole thing rather than leaving an orphan lobby with AI seats and
+    // nobody in it, which is exactly what the first version did.
+    await setTableStatus(id, "void");
+    pendingSeeds.delete(id);
+    tables.delete(id);
+    return joined;
+  }
   return { ok: true, tableId: id };
 }
 
