@@ -253,6 +253,8 @@ export async function initBoardRegistry(): Promise<void> {
           { seatIndex: null, kind: "resume", payload: { prevBootId: row.bootId, bootAt: BOOT_AT } },
         ]);
       }
+      // Without this the seed chain is broken for the rest of the table's life.
+      if (row.serverSeed) pendingSeeds.set(row.id, row.serverSeed);
       tables.set(row.id, t);
     }
     if (rows.length > 0) {
@@ -321,15 +323,13 @@ export async function createTable(args: {
     aiDifficulty: args.aiCount > 0 ? args.aiDifficulty : null,
     hostPid: args.pid,
     serverSeedHash: commit(seed),
+    serverSeed: seed,
     bootId: BOOT_ID,
   });
   if (!created) return { ok: false, error: "Couldn't open that table." };
 
   const row = await loadTable(id);
   if (!row) return { ok: false, error: "Couldn't open that table." };
-  // The secret seed stays in memory until the table ends; the commitment is
-  // already public. Storing it now would mean an operator with DB access could
-  // predict rolls on a live table.
   pendingSeeds.set(id, seed);
 
   const t: LiveTable = {
@@ -380,7 +380,21 @@ export async function createTable(args: {
   return { ok: true, tableId: id };
 }
 
-/** Seeds for tables that have not ended yet. Never persisted while live. */
+/**
+ * Server seeds for live tables, mirrored from `board_tables.server_seed`.
+ *
+ * The seed IS persisted, and it has to be: it is the HMAC key for every roll,
+ * so a restart that loses it produces a table whose remaining rolls no longer
+ * belong to the published commitment — and whose reveal can never be verified.
+ * The first version kept it in memory only, and a restart silently broke the
+ * fairness guarantee it existed to provide.
+ *
+ * It is never SERVED while a table is live (`buildStatePayload` and
+ * `fairnessFor` both gate on the table having ended), so no player can predict
+ * a roll. An operator with database access could read it, which is a real but
+ * much smaller exposure: the commitment was published before play, so they
+ * still cannot CHANGE a roll without it being detectable — only foresee one.
+ */
 const pendingSeeds = new Map<string, string>();
 
 function aiName(i: number): string {
@@ -741,9 +755,6 @@ async function sweep(): Promise<void> {
     if (t.row.status !== "running") continue;
     if (!t.state || t.state.phase.kind === "done") continue;
 
-    // GUARD 1: nothing times out during the post-restart amnesty.
-    if (t.resumeGraceUntil && now < t.resumeGraceUntil) continue;
-
     try {
       await sweepTable(t, now);
     } catch (error) {
@@ -756,9 +767,15 @@ async function sweepTable(t: LiveTable, now: number): Promise<void> {
   const state = t.state;
   if (!state) return;
 
+  // The post-restart amnesty suppresses CLOCKS — forfeits and turn timeouts —
+  // and nothing else. It must not freeze the table itself: an earlier version
+  // returned here outright, so after every deploy the practice opponents sat
+  // motionless for ten minutes and the game looked dead.
+  const inAmnesty = !!(t.resumeGraceUntil && now < t.resumeGraceUntil);
+
   // Disconnect detection. GUARD 2: `disconnectedAt` is set ONLY here, by a
   // process that watched a live seat go quiet, and is never persisted.
-  for (const seat of t.seats) {
+  if (!inAmnesty) for (const seat of t.seats) {
     if (seat.kind === "ai") continue;
     const seatState = state.seats[seat.seatIndex];
     if (!seatState || seatState.status !== "active") continue;
@@ -800,8 +817,9 @@ async function sweepTable(t: LiveTable, now: number): Promise<void> {
     return;
   }
 
-  // Human on the clock.
-  if (t.turnDeadline !== null && now >= t.turnDeadline) {
+  // Human on the clock. Never during the amnesty — they did not see the clock
+  // that was running while the server was down.
+  if (!inAmnesty && t.turnDeadline !== null && now >= t.turnDeadline) {
     const action = autoAction(state, actor);
     if (!action) return;
     const rand = makeRandom(

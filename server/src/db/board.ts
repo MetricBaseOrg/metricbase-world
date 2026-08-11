@@ -132,6 +132,7 @@ export async function insertTable(row: {
   aiDifficulty: string | null;
   hostPid: string;
   serverSeedHash: string;
+  serverSeed: string;
   bootId: string;
 }): Promise<boolean> {
   const pool = getPool();
@@ -139,12 +140,12 @@ export async function insertTable(row: {
   const res = await pool.query(
     `INSERT INTO board_tables
        (id, name, currency_id, stake_units, seat_count, ai_count, ai_difficulty,
-        host_pid, server_seed_hash, boot_id, status)
-     VALUES ($1,$2,$3,$4::bigint,$5,$6,$7,$8,$9,$10::uuid,'lobby')
+        host_pid, server_seed_hash, server_seed, boot_id, status)
+     VALUES ($1,$2,$3,$4::bigint,$5,$6,$7,$8,$9,$10,$11::uuid,'lobby')
      ON CONFLICT (id) DO NOTHING
      RETURNING id`,
     [row.id, row.name, row.currencyId, Math.floor(row.stakeUnits), row.seatCount, row.aiCount,
-     row.aiDifficulty, row.hostPid, row.serverSeedHash, row.bootId],
+     row.aiDifficulty, row.hostPid, row.serverSeedHash, row.serverSeed, row.bootId],
   );
   return (res.rowCount ?? 0) > 0;
 }
