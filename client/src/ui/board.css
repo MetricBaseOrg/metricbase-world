@@ -99,10 +99,21 @@
   gap: 14px;
   align-items: start;
 }
-.dd-board-wrap { min-width: 0; }
+.dd-board-wrap { min-width: 0; display: flex; flex-direction: column; align-items: center; }
 .dd-side { min-width: 0; }
 
-.dd-board { width: 100%; height: auto; display: block; }
+/* The board is square, so the whole table only fits on screen if the board is
+   sized by whichever runs out first: the column it sits in, or the height the
+   viewport has left under the page padding and the header. Without the height
+   half of that, a wide window makes a board taller than the screen and the
+   bottom row scrolls out of sight. */
+.dd-table { --dd-chrome: 104px; }
+.dd-board {
+  width: min(100%, calc(100dvh - var(--dd-chrome)));
+  height: auto;
+  display: block;
+}
+.dd-side { max-height: calc(100dvh - var(--dd-chrome)); overflow-y: auto; }
 .dd-board-bg { fill: #1a110b; }
 .dd-sq-bg { fill: #f0e2ce; stroke: #7a614c; stroke-width: 1.5; }
 .dd-sq-click { cursor: pointer; }
@@ -196,6 +207,8 @@
    page itself must never scroll sideways. */
 @media (max-width: 900px) {
   .dd-table-grid { grid-template-columns: minmax(0, 1fr); }
+  .dd-board { width: 100%; }
+  .dd-side { max-height: none; overflow-y: visible; }
   .dd-trade-cols { grid-template-columns: 1fr; }
   .dd-sq-label { font-size: 13px; }
   .dd-sq-price { font-size: 11px; }
