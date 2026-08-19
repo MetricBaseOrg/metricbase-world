@@ -1002,6 +1002,30 @@ CREATE TABLE IF NOT EXISTS x_post_metrics (
   captured_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- The one number the Original Content Rewards Program actually counts.
+--
+-- X replaced Creator Revenue Sharing with Original Content Rewards in August
+-- 2026. Eligibility is 500,000 Home Timeline impressions from VERIFIED
+-- (Premium-subscriber) accounts over a rolling 90 days, replies excluded.
+--
+-- `impressions` above is the undifferentiated total off the X analytics row and
+-- cannot answer that question: verified impressions are a small and highly
+-- variable fraction of it, and the ratio swings by niche. Without this column
+-- the console can show a healthy impression count while the account is nowhere
+-- near qualifying.
+--
+-- Deliberately NULLable, unlike every other column here. Existing rows predate
+-- the program; defaulting them to 0 would be a fabricated zero that drags the
+-- 90-day sum down. NULL means "not recorded", 0 means "recorded as zero", and
+-- the rollup counts only what was actually entered.
+ALTER TABLE x_post_metrics ADD COLUMN IF NOT EXISTS verified_impressions INTEGER;
+
+-- The 90-day rollup filters on posted_at. Replies are excluded structurally:
+-- x_posts holds original posts and threads only, never replies. That is a
+-- property of what gets imported, not a constraint — don't start putting
+-- replies in this table.
+CREATE INDEX IF NOT EXISTS x_posts_posted_at_idx ON x_posts (posted_at) WHERE posted_at IS NOT NULL;
+
 CREATE TABLE IF NOT EXISTS x_account_snapshots (
   day DATE PRIMARY KEY,
   followers INTEGER NOT NULL DEFAULT 0,
@@ -1024,6 +1048,73 @@ CREATE TABLE IF NOT EXISTS x_templates (
   format VARCHAR(40) NOT NULL DEFAULT '',
   skeleton TEXT NOT NULL DEFAULT '',
   notes TEXT
+);
+
+-- The public trading ledger. Every call posted on X gets a row; the point is
+-- that the record is checkable, not curated — "calls closed / calls opened"
+-- must read 100%, and a hidden losing trade is the one thing that destroys it.
+--
+-- Design rules enforced in code (server/src/db/xTrades.ts), stated here so the
+-- schema explains itself:
+--   * There is NO currency column, by construction. Size is percentages and
+--     R-multiples only; a barrel of P&L in dollars can't leak because there's
+--     nowhere to store it.
+--   * R is COMPUTED from entry/stop/exit, never stored — one source of truth.
+--   * instrument matching /base/i is refused at the API: the operator issues
+--     $BASE, so calling a trade on it is market manipulation in substance.
+-- direction: 'long' | 'short'.  status: 'open' | 'closed' | 'scratched'.
+-- kind: 'call' (posted live) | 'postmortem' (written up after the fact).
+-- post_id optionally links the trade to the x_posts row that announced it.
+CREATE TABLE IF NOT EXISTS x_trades (
+  id BIGSERIAL PRIMARY KEY,
+  opened_at DATE NOT NULL,
+  closed_at DATE,
+  instrument VARCHAR(40) NOT NULL,
+  direction VARCHAR(5) NOT NULL DEFAULT 'long',
+  entry NUMERIC NOT NULL,
+  stop NUMERIC,
+  exit NUMERIC,
+  thesis TEXT NOT NULL DEFAULT '',
+  invalidation TEXT NOT NULL DEFAULT '',
+  status VARCHAR(12) NOT NULL DEFAULT 'open',
+  kind VARCHAR(12) NOT NULL DEFAULT 'call',
+  post_id BIGINT,
+  note TEXT NOT NULL DEFAULT '',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS x_trades_opened_idx ON x_trades (opened_at DESC);
+CREATE INDEX IF NOT EXISTS x_trades_status_idx ON x_trades (status);
+
+-- Cross-platform tracking. One capture (a clip) goes to X, TikTok and IG; each
+-- gets a row here. The metric that matters is TikTok -> profile visits, NOT
+-- views: TikTok out-reaches X by an order of magnitude and converts far worse,
+-- so it is judged on whether it sends anyone to the profile (plan metric 7).
+-- post_id optionally links back to the origin x_posts row.
+-- platform: 'x' | 'tiktok' | 'instagram'.
+CREATE TABLE IF NOT EXISTS x_crossposts (
+  id BIGSERIAL PRIMARY KEY,
+  post_id BIGINT,
+  platform VARCHAR(12) NOT NULL,
+  url TEXT NOT NULL DEFAULT '',
+  published_at DATE,
+  views INTEGER,
+  profile_visits INTEGER,
+  note TEXT NOT NULL DEFAULT '',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS x_crossposts_published_idx ON x_crossposts (published_at DESC);
+
+-- Reply discipline log. Replies are the INVESTMENT, not the harvest — they
+-- build followers and get you read but earn nothing toward the Creator Program
+-- (replies are excluded from that impression count). So this is a self-check
+-- against the 8-10/day cap, one row per day, not a growth surface.
+CREATE TABLE IF NOT EXISTS x_reply_log (
+  day DATE PRIMARY KEY,
+  count INTEGER NOT NULL DEFAULT 0,
+  rooms TEXT NOT NULL DEFAULT '',
+  note TEXT NOT NULL DEFAULT ''
 );
 -- === District Deeds (/board) ================================================
 -- A property board game with a real-value entry stake and prize.

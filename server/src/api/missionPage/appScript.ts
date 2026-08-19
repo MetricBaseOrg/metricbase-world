@@ -306,19 +306,66 @@ var SLOT_LABEL = {
 var STATUS_TONE = { idea: "", drafted: "info", scheduled: "warn", posted: "good", skipped: "" };
 
 loaders.x = function () {
-  Promise.all([api("/x"), api("/x/evaluation")]).then(function (results) {
+  // Returns the promise so callers that create a post and then want to open it
+  // (the thread follow-up) can wait for state to refresh first.
+  return Promise.all([
+    api("/x"), api("/x/evaluation"), api("/x/trades"), api("/x/crossposts"), api("/x/replies")
+  ]).then(function (results) {
     var data = results[0];
     xState.posts = data.posts;
     xState.targets = data.targets;
+    xState.templates = data.templates || [];
     xState.snapshots = data.snapshots;
     xState.statuses = data.statuses;
     xState.slotKinds = data.slotKinds;
     xState.evaluation = results[1];
+    xState.trades = results[2].trades || [];
+    xState.tradeStats = results[2].stats || null;
+    xState.tradeMeta = results[2];
+    xState.crossposts = results[3].crossposts || [];
+    xState.crossStats = results[3].stats || null;
+    xState.replies = results[4].replies || [];
     renderX();
   }).catch(function (e) {
     $("xBoard").innerHTML = '<div class="banner bad">' + esc(e.message) + "</div>";
   });
 };
+
+// Progress toward Original Content Rewards eligibility.
+//
+// The coverage line is not decoration. This total is a sum of hand-entered
+// figures, so it is only as true as the number of posts that actually have one.
+// A big total drawn from three of twenty posts reads as progress and is really
+// a sampling artefact — say so on the tile rather than let the bar imply it.
+function renderCreatorProgram(cp) {
+  if (!cp) return;
+  var pct = Math.round(cp.progress * 100);
+  var measured = cp.recorded + cp.missing;
+
+  $("xCreator").innerHTML = [
+    tile("Verified impressions", num(cp.total), "last 90 days, replies excluded",
+      cp.eligible ? "good" : ""),
+    tile("Threshold", num(cp.threshold), "Original Content Rewards"),
+    tile("Progress", pct + "%", cp.eligible ? "eligible" : num(cp.threshold - cp.total) + " to go",
+      cp.eligible ? "good" : ""),
+    tile("Coverage", cp.recorded + " / " + measured, "posts with a figure entered",
+      cp.missing === 0 && measured > 0 ? "good" : "bad")
+  ].join("");
+
+  var note;
+  if (measured === 0) {
+    note = "No posts in the last 90 days yet.";
+  } else if (cp.recorded === 0) {
+    note = "No verified-impression figures entered yet, so this total is 0 because nothing was measured — " +
+      "not because reach is zero. Enter the figure from X analytics per post; it is NOT the impressions column.";
+  } else if (cp.missing > 0) {
+    note = cp.missing + " of " + measured + " posts in the window have no figure entered, so the real total is " +
+      "higher than " + num(cp.total) + ". Treat this as a floor, not a measurement.";
+  } else {
+    note = "Every post in the window has a figure. This total is trustworthy.";
+  }
+  $("xCreatorNote").textContent = note;
+}
 
 function renderX() {
   var ev = xState.evaluation;
@@ -335,8 +382,12 @@ function renderX() {
     ? "Fewer than 6 posts have results entered — the breakdowns below are noise until more land."
     : "";
 
+  renderCreatorProgram(ev.creatorProgram);
   renderEval();
   renderBoard();
+  renderTrades();
+  renderCrossposts();
+  renderReplies();
   renderSnapshots();
 
   rowsInto($("targetTable"), ["Handle", "Room", "Who", "Last engaged", ""],
@@ -375,20 +426,42 @@ $("evalGroup").addEventListener("change", renderEval);
 
 function renderBoard() {
   var filter = $("xFilter").value;
+  // "Due this week" is the default working view: unposted posts slotted from
+  // today through the next 7 days, so the board opens on what actually needs
+  // writing rather than the whole backlog.
+  var today = new Date().toISOString().slice(0, 10);
+  var weekEnd = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
   var posts = xState.posts.filter(function (p) {
     if (filter === "all") return true;
+    if (filter === "due") {
+      return p.status !== "posted" && p.status !== "skipped" &&
+        p.slotDate && p.slotDate >= today && p.slotDate <= weekEnd;
+    }
     if (filter === "pipeline") return p.status !== "posted" && p.status !== "skipped";
     return p.status === filter;
   });
 
+  // Group a thread under its parent: a post with threadOf sorts immediately
+  // after its parent and is marked, so a multi-tweet thread reads in order.
+  var byId = {};
+  for (var k = 0; k < posts.length; k += 1) byId[posts[k].id] = posts[k];
+  posts = posts.slice().sort(function (a, b) {
+    var ak = a.threadOf && byId[a.threadOf] ? a.threadOf : a.id;
+    var bk = b.threadOf && byId[b.threadOf] ? b.threadOf : b.id;
+    if (ak !== bk) return ak - bk;
+    return (a.threadOf ? 1 : 0) - (b.threadOf ? 1 : 0);
+  });
+
   $("xBoard").innerHTML = posts.length ? posts.map(function (p) {
     var m = p.metrics;
-    return '<div class="card" data-post="' + p.id + '">' +
-      '<div class="when">' + esc(p.slotDate || "unscheduled") + " · " + esc(SLOT_LABEL[p.slotKind] || p.slotKind) + "</div>" +
+    var isChild = p.threadOf && byId[p.threadOf];
+    return '<div class="card" data-post="' + p.id + '"' + (isChild ? ' style="margin-left:16px;border-left:3px solid var(--line);"' : "") + ">" +
+      '<div class="when">' + (isChild ? "↳ " : "") + esc(p.slotDate || "unscheduled") + " · " + esc(SLOT_LABEL[p.slotKind] || p.slotKind) + "</div>" +
       '<div class="title">' + esc(p.ref ? p.ref + " " : "") + esc(p.title || "(untitled)") + "</div>" +
       '<div class="meta">' +
         badge(p.status, STATUS_TONE[p.status]) +
         (p.format ? badge(p.format) : "") +
+        (isChild ? badge("🧵 thread") : "") +
         (p.imagePrompt ? badge("🖼️ prompt") : badge("no image", "warn")) +
         (m ? badge(num(m.impressions) + " impr", "info") : "") +
         (p.verifiedHandle ? badge("✓ @" + p.verifiedHandle, "good") : "") +
@@ -444,6 +517,268 @@ $("xCapture").addEventListener("click", function () {
   }).catch(function (e) { alert(e.message); });
 });
 
+// ---------------------------------------------------------------------------
+// Trading ledger
+// ---------------------------------------------------------------------------
+
+var editingTrade = null;
+
+function rfmt(r) {
+  // R shown to one decimal with an explicit sign, so +2.0R and -1.0R read as a
+  // record at a glance. Blank when R can't be computed yet (no exit/stop).
+  if (r == null) return "—";
+  return (r >= 0 ? "+" : "") + r.toFixed(1) + "R";
+}
+
+function renderTrades() {
+  var st = xState.tradeStats;
+  if (st) {
+    var ratio = Math.round(st.closeRatio * 100);
+    $("tradeStats").innerHTML = [
+      // The headline: closed vs opened calls. Anything under 100% with open
+      // calls sitting unclosed is the failure the ledger exists to prevent.
+      tile("Calls closed / opened", st.closed + " / " + st.opened,
+        st.open ? (st.open + " still open") : "all closed",
+        st.open === 0 && st.opened > 0 ? "good" : (st.open > 0 ? "warn" : "")),
+      tile("Close rate", ratio + "%", "posted closes", ratio >= 100 ? "good" : (st.opened ? "warn" : "")),
+      tile("Win rate", st.winRate == null ? "—" : Math.round(st.winRate * 100) + "%",
+        st.wins + "W / " + st.losses + "L"),
+      tile("Total R", st.totalR == null ? "—" : rfmt(st.totalR),
+        st.avgR == null ? "no closed calls" : ("avg " + rfmt(st.avgR)),
+        st.totalR == null ? "" : (st.totalR >= 0 ? "good" : "bad"))
+    ].join("");
+  } else {
+    $("tradeStats").innerHTML = "";
+  }
+
+  var filter = $("tradeFilter").value;
+  var trades = (xState.trades || []).filter(function (t) {
+    return filter === "all" ? true : t.status === filter;
+  });
+
+  rowsInto($("tradeTable"),
+    ["Opened", "Instrument", "Dir", "Entry", "Stop", "Exit", "R", "Status", ""],
+    trades.map(function (t) {
+      var rTone = t.r == null ? "" : (t.r >= 0 ? "good" : "bad");
+      return "<tr>" +
+        '<td class="small">' + esc(t.openedAt) + (t.kind === "postmortem" ? ' <span class="muted">pm</span>' : "") + "</td>" +
+        "<td>" + esc(t.instrument) + "</td>" +
+        '<td class="small">' + esc(t.direction) + "</td>" +
+        '<td class="small">' + esc(t.entry) + "</td>" +
+        '<td class="small">' + esc(t.stop == null ? "—" : t.stop) + "</td>" +
+        '<td class="small">' + esc(t.exit == null ? "—" : t.exit) + "</td>" +
+        "<td>" + badge(rfmt(t.r), rTone) + "</td>" +
+        "<td>" + badge(t.status, t.status === "closed" ? "good" : (t.status === "open" ? "warn" : "")) + "</td>" +
+        '<td><button class="btn tiny" data-trade="' + t.id + '">Edit</button></td></tr>';
+    }), "No trades logged yet.");
+
+  Array.prototype.forEach.call($("tradeTable").querySelectorAll("[data-trade]"), function (b) {
+    b.addEventListener("click", function () { openTrade(Number(b.dataset.trade)); });
+  });
+}
+
+$("tradeFilter").addEventListener("change", renderTrades);
+
+function openTrade(id) {
+  var t = null, all = xState.trades || [];
+  for (var i = 0; i < all.length; i += 1) if (all[i].id === id) t = all[i];
+  if (t) openTradeData(t);
+}
+
+function openTradeData(t) {
+  editingTrade = t;
+  $("tradeHeading").textContent = t.id ? ("Trade — " + t.instrument) : "New trade";
+  $("tInstrument").value = t.instrument || "";
+  $("tDirection").value = t.direction || "long";
+  $("tKind").value = t.kind || "call";
+  $("tStatus").value = t.status || "open";
+  $("tOpened").value = t.openedAt || new Date().toISOString().slice(0, 10);
+  $("tEntry").value = t.entry == null ? "" : t.entry;
+  $("tStop").value = t.stop == null ? "" : t.stop;
+  $("tExit").value = t.exit == null ? "" : t.exit;
+  $("tClosed").value = t.closedAt || "";
+  $("tThesis").value = t.thesis || "";
+  $("tInvalidation").value = t.invalidation || "";
+  $("tNote").value = t.note || "";
+  $("tradeErr").textContent = "";
+  updateRHint();
+  $("tradeOverlay").classList.remove("hidden");
+}
+
+// Live R preview as entry/stop/exit are typed, so the operator sees a long
+// stopped out read −1.0R before saving.
+function updateRHint() {
+  var entry = parseFloat($("tEntry").value), stop = parseFloat($("tStop").value), exit = parseFloat($("tExit").value);
+  var dir = $("tDirection").value;
+  var out = "R is computed from entry, stop and exit. No currency — percentages and R only.";
+  if (isFinite(entry) && isFinite(stop) && isFinite(exit) && Math.abs(entry - stop) > 0) {
+    var reward = dir === "short" ? entry - exit : exit - entry;
+    var r = reward / Math.abs(entry - stop);
+    out = "This trade: " + rfmt(r) + ".";
+  }
+  $("tRHint").textContent = out;
+}
+["tEntry", "tStop", "tExit", "tDirection"].forEach(function (id) {
+  $(id).addEventListener("input", updateRHint);
+  $(id).addEventListener("change", updateRHint);
+});
+
+function closeTrade() { $("tradeOverlay").classList.add("hidden"); editingTrade = null; }
+$("tradeCloseBtn").addEventListener("click", closeTrade);
+$("tradeOverlay").addEventListener("click", function (e) { if (e.target === $("tradeOverlay")) closeTrade(); });
+
+$("tradeNew").addEventListener("click", function () {
+  openTradeData({ id: 0, status: "open", direction: "long", kind: "call",
+    openedAt: new Date().toISOString().slice(0, 10) });
+});
+
+function tradeBody() {
+  return {
+    instrument: $("tInstrument").value.trim(),
+    direction: $("tDirection").value,
+    kind: $("tKind").value,
+    status: $("tStatus").value,
+    openedAt: $("tOpened").value,
+    closedAt: $("tClosed").value || null,
+    entry: $("tEntry").value,
+    stop: $("tStop").value,
+    exit: $("tExit").value,
+    thesis: $("tThesis").value,
+    invalidation: $("tInvalidation").value,
+    note: $("tNote").value
+  };
+}
+
+$("tSave").addEventListener("click", function () {
+  $("tradeErr").textContent = "";
+  var isNew = !editingTrade || !editingTrade.id;
+  var path = isNew ? "/x/trades" : "/x/trades/" + editingTrade.id;
+  api(path, { method: isNew ? "POST" : "PATCH", body: tradeBody() })
+    .then(function () { closeTrade(); loaders.x(); })
+    .catch(function (e) { $("tradeErr").textContent = e.message; });
+});
+
+$("tDelete").addEventListener("click", function () {
+  if (!editingTrade || !editingTrade.id) { closeTrade(); return; }
+  if (!confirm("Delete this trade permanently?")) return;
+  api("/x/trades/" + editingTrade.id, { method: "DELETE" })
+    .then(function () { closeTrade(); loaders.x(); })
+    .catch(function (e) { $("tradeErr").textContent = e.message; });
+});
+
+// ---------------------------------------------------------------------------
+// Cross-platform
+// ---------------------------------------------------------------------------
+
+var PLATFORM_LABEL = { tiktok: "TikTok", instagram: "Instagram", x: "X" };
+
+function renderCrossposts() {
+  var s = xState.crossStats;
+  if (s) {
+    $("crossStats").innerHTML = [
+      // The one that matters. Views are shown as a sub, deliberately smaller —
+      // TikTok reach is large and converts poorly, so it isn't the scoreboard.
+      tile("TikTok → profile visits", num(s.tiktokProfileVisits),
+        num(s.tiktokViews) + " views · judge on this", s.tiktokProfileVisits > 0 ? "good" : ""),
+      tile("TikTok posts", num(s.tiktokPosts)),
+      tile("Instagram posts", num(s.igPosts))
+    ].join("");
+  } else {
+    $("crossStats").innerHTML = "";
+  }
+
+  rowsInto($("crossTable"),
+    ["Published", "Platform", "URL", "Views", "Profile visits", ""],
+    (xState.crossposts || []).map(function (c) {
+      var link = c.url
+        ? '<a href="' + esc(c.url) + '" target="_blank" rel="noopener" class="small">link</a>'
+        : '<span class="muted small">—</span>';
+      return "<tr>" +
+        '<td class="small">' + esc(c.publishedAt || "—") + "</td>" +
+        "<td>" + esc(PLATFORM_LABEL[c.platform] || c.platform) + "</td>" +
+        "<td>" + link + "</td>" +
+        '<td class="small">' + esc(c.views == null ? "—" : num(c.views)) + "</td>" +
+        '<td class="small">' + esc(c.profileVisits == null ? "—" : num(c.profileVisits)) + "</td>" +
+        '<td><button class="btn tiny" data-cross="' + c.id + '">Delete</button></td></tr>';
+    }), "No cross-posts logged yet.");
+
+  Array.prototype.forEach.call($("crossTable").querySelectorAll("[data-cross]"), function (b) {
+    b.addEventListener("click", function () {
+      if (!confirm("Delete this cross-post row?")) return;
+      api("/x/crossposts/" + b.dataset.cross, { method: "DELETE" })
+        .then(function (d) { xState.crossposts = d.crossposts; xState.crossStats = d.stats; renderCrossposts(); })
+        .catch(function (e) { alert(e.message); });
+    });
+  });
+}
+
+$("crossAdd").addEventListener("click", function () {
+  var url = $("crossUrl").value.trim();
+  if (!url) { alert("A URL is required."); return; }
+  api("/x/crossposts", { method: "POST", body: {
+    platform: $("crossPlatform").value,
+    url: url,
+    publishedAt: $("crossPublished").value || null,
+    views: $("crossViews").value,
+    profileVisits: $("crossVisits").value
+  }}).then(function (d) {
+    xState.crossposts = d.crossposts; xState.crossStats = d.stats;
+    $("crossUrl").value = ""; $("crossViews").value = ""; $("crossVisits").value = "";
+    renderCrossposts();
+  }).catch(function (e) { alert(e.message); });
+});
+
+// ---------------------------------------------------------------------------
+// Reply log
+// ---------------------------------------------------------------------------
+
+function renderReplies() {
+  var log = xState.replies || [];
+  var today = new Date().toISOString().slice(0, 10);
+  var todayRow = null;
+  for (var i = 0; i < log.length; i += 1) if (log[i].day === today) todayRow = log[i];
+  var n = todayRow ? todayRow.count : 0;
+  // Cap is 8-10/day: under 8 is green (room to spare), 8-10 is on target, over
+  // 10 is amber — replies are the investment and shouldn't eat the posting hour.
+  var tone = n > 10 ? "#e09b2d" : "#3fae74";
+  $("replyTodayHint").innerHTML = 'today: <b style="color:' + tone + '">' + n + "</b> / 8–10 cap";
+
+  var box = $("replyChart");
+  if (!log.length) { box.innerHTML = '<p class="muted small">No replies logged yet.</p>'; return; }
+
+  // 14-day bar sparkline, same spartan inline-SVG house style as the snapshot
+  // chart. The cap band (8-10) is drawn so a day over it reads at a glance.
+  var recent = log.slice(-14);
+  var w = 720, h = 130, pad = 24, bw = (w - pad * 2) / recent.length;
+  var maxC = Math.max(10, Math.max.apply(null, recent.map(function (r) { return r.count; })));
+  var capY = h - pad - (10 / maxC) * (h - pad * 2);
+  var bars = recent.map(function (r, i) {
+    var bh = (r.count / maxC) * (h - pad * 2);
+    var x = pad + i * bw + 2;
+    var col = r.count > 10 ? "#e09b2d" : "#3fae74";
+    return '<rect x="' + x.toFixed(1) + '" y="' + (h - pad - bh).toFixed(1) + '" width="' + (bw - 4).toFixed(1) +
+      '" height="' + bh.toFixed(1) + '" fill="' + col + '" />';
+  }).join("");
+  box.innerHTML =
+    '<svg viewBox="0 0 ' + w + " " + h + '" style="width:100%;height:auto;">' +
+      '<line x1="' + pad + '" y1="' + capY.toFixed(1) + '" x2="' + (w - pad) + '" y2="' + capY.toFixed(1) +
+        '" stroke="#9c8a6d" stroke-dasharray="4 4" stroke-width="1" />' +
+      '<text x="' + (w - pad) + '" y="' + (capY - 4).toFixed(1) + '" font-size="10" fill="#9c8a6d" text-anchor="end">cap 10</text>' +
+      bars +
+      '<text x="' + pad + '" y="' + (h - 6) + '" font-size="11" fill="#9c8a6d">' + esc(recent[0].day) + "</text>" +
+      '<text x="' + (w - pad) + '" y="' + (h - 6) + '" font-size="11" fill="#9c8a6d" text-anchor="end">' +
+        esc(recent[recent.length - 1].day) + "</text>" +
+    "</svg>";
+}
+
+$("replySave").addEventListener("click", function () {
+  var day = $("replyDay").value || new Date().toISOString().slice(0, 10);
+  api("/x/replies", { method: "POST", body: {
+    day: day, count: $("replyCount").value, rooms: $("replyRooms").value
+  }}).then(function (d) { xState.replies = d.replies; renderReplies(); })
+    .catch(function (e) { alert(e.message); });
+});
+
 $("xNew").addEventListener("click", function () {
   api("/x/posts", { method: "POST", body: { title: "New post", status: "idea", slotKind: "extra" } })
     .then(function (d) { loaders.x(); openPostData(d.post); })
@@ -489,12 +824,35 @@ function openPostData(post) {
   $("mBook").value = m.bookmarks || "";
   $("mProfile").value = m.profileClicks || "";
   $("mLink").value = m.linkClicks || "";
+  // A recorded 0 must render as 0, not blank. Blank means "never looked up",
+  // and the 90-day rollup counts the two differently.
+  $("mVerif").value = m.verifiedImpressions == null ? "" : m.verifiedImpressions;
+
+  // Template picker: one option per saved template, plus the empty default.
+  var tpls = xState.templates || [];
+  var opts = '<option value="">—</option>';
+  for (var t = 0; t < tpls.length; t += 1) {
+    opts += '<option value="' + esc(tpls[t].id) + '">' + esc(tpls[t].name) + "</option>";
+  }
+  $("pTemplate").innerHTML = opts;
+  $("pTemplate").value = "";
 
   $("postErr").textContent = "";
   $("verifyOut").textContent = "";
   $("copyWarn").innerHTML = "";
+  updateCount();
   $("postOverlay").classList.remove("hidden");
   checkCopy();
+}
+
+// Live character count. X's single-post limit is 280; past it the copy needs to
+// be a thread, which the copy-guard also flags. Amber is a nudge, not a block.
+function updateCount() {
+  var len = $("pBody").value.length;
+  var el = $("pCount");
+  el.textContent = len + " / 280";
+  el.style.color = len > 280 ? "#e09b2d" : "var(--mut)";
+  el.style.fontWeight = len > 280 ? "800" : "400";
 }
 
 function closePost() { $("postOverlay").classList.add("hidden"); editing = null; }
@@ -515,9 +873,67 @@ function checkCopy() {
 $("pCheck").addEventListener("click", checkCopy);
 $("pBody").addEventListener("blur", checkCopy);
 
+// Live counter + a debounced copy-check as you type, so the 280 / gambling /
+// stock-vs-flow warnings surface while writing rather than only on blur.
+var copyTimer = null;
+$("pBody").addEventListener("input", function () {
+  updateCount();
+  if (copyTimer) clearTimeout(copyTimer);
+  copyTimer = setTimeout(checkCopy, 500);
+});
+
+// Insert the chosen template's skeleton. Appends when there is already copy, so
+// a template can seed a thread mid-write without wiping what's there.
+$("pInsert").addEventListener("click", function () {
+  var id = $("pTemplate").value;
+  if (!id) return;
+  var tpl = null, tpls = xState.templates || [];
+  for (var i = 0; i < tpls.length; i += 1) if (tpls[i].id === id) tpl = tpls[i];
+  if (!tpl) return;
+  var box = $("pBody"), cur = box.value;
+  box.value = cur ? (cur.replace(/\s*$/, "") + "\n\n" + tpl.skeleton) : tpl.skeleton;
+  updateCount();
+  checkCopy();
+});
+
+// Save the current copy as a reusable template.
+$("pAsTemplate").addEventListener("click", function () {
+  var body = $("pBody").value.trim();
+  if (!body) { $("postErr").textContent = "Nothing to save — the copy is empty."; return; }
+  var name = prompt("Template name:", $("pTitle").value || "");
+  if (!name) return;
+  api("/x/templates", { method: "POST", body: {
+    name: name, format: $("pFormat").value || "", skeleton: body,
+  } }).then(function (d) {
+    xState.templates = d.templates || [];
+    $("postErr").textContent = "";
+    alert("Template saved.");
+  }).catch(function (e) { $("postErr").textContent = e.message; });
+});
+
+// Create a linked follow-up post (thread_of = this post) and open it, so a
+// thread is built one tweet at a time. Saves the current post first so the
+// parent's edits aren't lost on the reload.
+$("pFollow").addEventListener("click", function () {
+  if (!editing) return;
+  var parent = editing;
+  savePost().then(function () {
+    return api("/x/posts", { method: "POST", body: {
+      title: (parent.title || "Post") + " — follow-up",
+      status: parent.status, slotKind: parent.slotKind,
+      slotDate: parent.slotDate || null, threadOf: parent.id,
+    } });
+  }).then(function (d) {
+    return loaders.x().then(function () { openPost(d.post.id); });
+  }).catch(function (e) { if ($("postErr")) $("postErr").textContent = e.message; });
+});
+
 // Accept a row pasted straight out of X analytics.
 $("pBulk").addEventListener("input", function () {
   var parts = $("pBulk").value.split(/[\t,]+/).map(function (s) { return s.replace(/[^0-9]/g, ""); });
+  // mVerif is deliberately absent: verified impressions are not a column in
+  // the X analytics export, so mapping a pasted value onto it would invent a
+  // measurement. It stays hand-entered.
   var fields = ["mImpr", "mLikes", "mReplies", "mReposts", "mBook", "mProfile", "mLink"];
   for (var i = 0; i < fields.length; i += 1) if (parts[i]) $(fields[i]).value = parts[i];
 });
@@ -536,11 +952,14 @@ $("pVerify").addEventListener("click", function () {
     .catch(function (e) { $("verifyOut").innerHTML = '<div class="banner bad" style="margin-top:8px;">' + esc(e.message) + "</div>"; });
 });
 
-$("pSave").addEventListener("click", function () {
-  if (!editing) return;
+// Persist the open post (copy + metrics). Returns a promise and does NOT close
+// or reload, so it can be reused mid-flow — the thread follow-up saves the
+// parent before spawning the child.
+function savePost() {
+  if (!editing) return Promise.resolve();
   var id = editing.id;
   $("postErr").textContent = "";
-  api("/x/posts/" + id, { method: "PATCH", body: {
+  return api("/x/posts/" + id, { method: "PATCH", body: {
     title: $("pTitle").value,
     slotDate: $("pDate").value || null,
     slotKind: $("pSlot").value,
@@ -554,9 +973,14 @@ $("pSave").addEventListener("click", function () {
     return api("/x/posts/" + id + "/metrics", { method: "POST", body: {
       impressions: $("mImpr").value, likes: $("mLikes").value, replies: $("mReplies").value,
       reposts: $("mReposts").value, bookmarks: $("mBook").value,
-      profileClicks: $("mProfile").value, linkClicks: $("mLink").value
+      profileClicks: $("mProfile").value, linkClicks: $("mLink").value,
+      verifiedImpressions: $("mVerif").value
     }});
-  }).then(function () { closePost(); loaders.x(); })
+  });
+}
+
+$("pSave").addEventListener("click", function () {
+  savePost().then(function () { closePost(); loaders.x(); })
     .catch(function (e) { $("postErr").textContent = e.message; });
 });
 

@@ -9,7 +9,13 @@
 
 import { DASHBOARD_UPDATES, GAME_VERSION } from "@metricbase/shared";
 import { getPool } from "../db/pool.js";
-import { createPost, knownSourceVersions, listPosts, type XPost } from "../db/xContent.js";
+import {
+  createPost,
+  knownSourceVersions,
+  listPosts,
+  verifiedImpressions90d,
+  type XPost,
+} from "../db/xContent.js";
 
 /** Signups are attributed to a post inside this window after it went out. */
 const ATTRIBUTION_HOURS = 48;
@@ -47,9 +53,37 @@ export interface XEvaluation {
   bySlotKind: GroupStat[];
   byWeekday: GroupStat[];
   totals: { posts: number; impressions: number; signups: number; signupsPer10k: number };
+  /** Progress toward Original Content Rewards eligibility. */
+  creatorProgram: CreatorProgramStatus;
   /** True when there is too little data to read the aggregates honestly. */
   thin: boolean;
 }
+
+/** X's Original Content Rewards Program (replaced Creator Revenue Sharing in
+ *  August 2026) pays on 500,000 Home Timeline impressions from Premium
+ *  subscribers over a rolling 90 days, replies excluded.
+ *
+ *  Deliberately NOT derived from `totals.impressions`. Verified impressions are
+ *  a small and highly variable fraction of total impressions, so applying any
+ *  ratio here would be a guess presented as a measurement — and the point of
+ *  this whole panel is that the numbers are real. The figure is hand-entered
+ *  per post, like everything else in x_post_metrics. */
+export interface CreatorProgramStatus {
+  threshold: number;
+  /** Sum of entered verified-impression figures over the last 90 days. */
+  total: number;
+  /** Posts in the window that have a figure entered. */
+  recorded: number;
+  /** Posts in the window still missing one. The total is only as trustworthy
+   *  as this is small. */
+  missing: number;
+  /** 0–1 against the threshold, capped at 1. */
+  progress: number;
+  eligible: boolean;
+}
+
+/** 500,000 verified Home Timeline impressions per rolling 90 days. */
+const CREATOR_THRESHOLD = 500_000;
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -118,6 +152,7 @@ function group(outcomes: PostOutcome[], keyOf: (o: PostOutcome) => string): Grou
 export async function evaluate(): Promise<XEvaluation> {
   const posts = (await listPosts()).filter((p) => p.status === "posted" && p.postedAt != null);
   const signups = await signupsByPost(posts);
+  const verified = await verifiedImpressions90d();
 
   const outcomes: PostOutcome[] = posts.map((p) => {
     const m = p.metrics;
@@ -156,6 +191,14 @@ export async function evaluate(): Promise<XEvaluation> {
       impressions: totalImpressions,
       signups: totalSignups,
       signupsPer10k: per10k(totalSignups, totalImpressions),
+    },
+    creatorProgram: {
+      threshold: CREATOR_THRESHOLD,
+      total: verified.total,
+      recorded: verified.recorded,
+      missing: verified.missing,
+      progress: Math.min(1, verified.total / CREATOR_THRESHOLD),
+      eligible: verified.total >= CREATOR_THRESHOLD,
     },
     // Under 6 measured posts the medians are noise. Say so rather than let the
     // page imply a ranking exists — the same discipline the /stats retention

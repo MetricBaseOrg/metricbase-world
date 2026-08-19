@@ -21,6 +21,12 @@ export interface XPostMetrics {
   bookmarks: number;
   profileClicks: number;
   linkClicks: number;
+  /** Home Timeline impressions from Premium subscribers, replies excluded — the
+   *  Original Content Rewards eligibility metric. `null` means not recorded,
+   *  which is different from zero and must stay different: every post from
+   *  before the program exists with no figure, and counting those as 0 would
+   *  understate the 90-day rollup with numbers nobody entered. */
+  verifiedImpressions: number | null;
   capturedAt: number;
 }
 
@@ -48,7 +54,8 @@ export interface XPost {
 const POST_COLUMNS = `p.id, p.ref, p.slot_date, p.slot_kind, p.status, p.format, p.title, p.hook, p.body,
   p.image_prompt, p.thread_of, p.tweet_url, p.verified_handle, p.posted_at, p.source_version,
   p.created_at, p.updated_at,
-  m.impressions, m.likes, m.replies, m.reposts, m.bookmarks, m.profile_clicks, m.link_clicks, m.captured_at`;
+  m.impressions, m.verified_impressions, m.likes, m.replies, m.reposts, m.bookmarks,
+  m.profile_clicks, m.link_clicks, m.captured_at`;
 
 function toDateString(value: unknown): string | null {
   if (!value) return null;
@@ -85,6 +92,7 @@ function mapPost(r: Record<string, unknown>): XPost {
     metrics: hasMetrics
       ? {
           impressions: Number(r.impressions ?? 0),
+          verifiedImpressions: r.verified_impressions == null ? null : Number(r.verified_impressions),
           likes: Number(r.likes ?? 0),
           replies: Number(r.replies ?? 0),
           reposts: Number(r.reposts ?? 0),
@@ -211,12 +219,22 @@ export async function upsertMetrics(postId: number, m: Partial<XPostMetrics>): P
   const pool = getPool();
   if (!pool) throw new Error("Database is not configured.");
   const n = (v: unknown) => Math.max(0, Math.round(Number(v) || 0));
+  // Verified impressions keep NULL as a distinct state — see XPostMetrics. An
+  // omitted field must not become 0, or every save of the other numbers would
+  // silently record a zero nobody typed.
+  const nullable = (v: unknown) =>
+    v === undefined || v === null || v === "" ? null : Math.max(0, Math.round(Number(v) || 0));
   await pool.query(
-    `INSERT INTO x_post_metrics (post_id, impressions, likes, replies, reposts, bookmarks, profile_clicks, link_clicks, captured_at)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NOW())
+    `INSERT INTO x_post_metrics (post_id, impressions, likes, replies, reposts, bookmarks, profile_clicks, link_clicks, verified_impressions, captured_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NOW())
      ON CONFLICT (post_id) DO UPDATE SET
        impressions = $2, likes = $3, replies = $4, reposts = $5,
-       bookmarks = $6, profile_clicks = $7, link_clicks = $8, captured_at = NOW()`,
+       bookmarks = $6, profile_clicks = $7, link_clicks = $8,
+       -- COALESCE so a partial save (or an older client that doesn't send the
+       -- field at all) leaves a previously entered figure alone rather than
+       -- wiping it back to NULL.
+       verified_impressions = COALESCE($9, x_post_metrics.verified_impressions),
+       captured_at = NOW()`,
     [
       postId,
       n(m.impressions),
@@ -226,8 +244,37 @@ export async function upsertMetrics(postId: number, m: Partial<XPostMetrics>): P
       n(m.bookmarks),
       n(m.profileClicks),
       n(m.linkClicks),
+      nullable(m.verifiedImpressions),
     ],
   );
+}
+
+/** Rolling 90-day verified-impression total — the Original Content Rewards
+ *  eligibility figure.
+ *
+ *  Counts only posts that actually went out (`posted_at IS NOT NULL`) and only
+ *  rows where a figure was entered. `recorded`/`missing` are returned alongside
+ *  the total because the number is meaningless without them: 40k across 3 of 25
+ *  measured posts says something very different from 40k across all 25, and a
+ *  bare total would read as the second. */
+export async function verifiedImpressions90d(): Promise<{
+  total: number;
+  recorded: number;
+  missing: number;
+}> {
+  const pool = getPool();
+  if (!pool) return { total: 0, recorded: 0, missing: 0 };
+  const res = await pool.query(
+    `SELECT
+       COALESCE(SUM(m.verified_impressions), 0)::int AS total,
+       COUNT(m.verified_impressions)::int            AS recorded,
+       COUNT(*) FILTER (WHERE m.verified_impressions IS NULL)::int AS missing
+     FROM x_posts p
+     LEFT JOIN x_post_metrics m ON m.post_id = p.id
+     WHERE p.posted_at IS NOT NULL AND p.posted_at >= NOW() - INTERVAL '90 days'`,
+  );
+  const r = res.rows[0] ?? {};
+  return { total: Number(r.total ?? 0), recorded: Number(r.recorded ?? 0), missing: Number(r.missing ?? 0) };
 }
 
 /** Idempotent on `ref` — the importer can be re-run without duplicating the
@@ -293,6 +340,40 @@ export async function upsertSnapshot(s: XSnapshot): Promise<void> {
     `INSERT INTO x_account_snapshots (day, followers, following, posts, note) VALUES ($1,$2,$3,$4,$5)
      ON CONFLICT (day) DO UPDATE SET followers = $2, following = $3, posts = $4, note = $5`,
     [s.day, Math.max(0, Math.round(s.followers)), Math.max(0, Math.round(s.following)), Math.max(0, Math.round(s.posts)), s.note ?? null],
+  );
+}
+
+export interface XReplyLog {
+  day: string;
+  count: number;
+  rooms: string;
+  note: string;
+}
+
+export async function listReplyLog(limit = 60): Promise<XReplyLog[]> {
+  const pool = getPool();
+  if (!pool) return [];
+  const res = await pool.query(
+    "SELECT day, count, rooms, note FROM x_reply_log ORDER BY day DESC LIMIT $1",
+    [limit],
+  );
+  return res.rows
+    .map((r) => ({
+      day: toDateString(r.day)!,
+      count: Number(r.count),
+      rooms: (r.rooms as string) ?? "",
+      note: (r.note as string) ?? "",
+    }))
+    .reverse();
+}
+
+export async function upsertReplyLog(entry: XReplyLog): Promise<void> {
+  const pool = getPool();
+  if (!pool) throw new Error("Database is not configured.");
+  await pool.query(
+    `INSERT INTO x_reply_log (day, count, rooms, note) VALUES ($1,$2,$3,$4)
+     ON CONFLICT (day) DO UPDATE SET count = $2, rooms = $3, note = $4`,
+    [entry.day, Math.max(0, Math.round(entry.count)), entry.rooms ?? "", entry.note ?? ""],
   );
 }
 
