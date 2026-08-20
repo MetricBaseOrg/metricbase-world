@@ -33,20 +33,31 @@ if (!playerName || !postUrl) {
   process.exit(2);
 }
 
+// Load .env into process.env so the imported helpers (getXStatus → getPool)
+// find DATABASE_URL — they read process.env, not our local pg.Client.
 const env = fs.readFileSync(new URL("../../.env", import.meta.url), "utf8");
-const url = (env.match(/^DATABASE_URL=(.*)$/m)?.[1] || "").trim().replace(/^["']|["']$/g, "");
+for (const line of env.split(/\r?\n/)) {
+  const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)$/i);
+  if (m && !process.env[m[1]]) process.env[m[1]] = m[2].trim().replace(/^["']|["']$/g, "");
+}
+const url = process.env.DATABASE_URL || "";
 const db = new pg.Client({ connectionString: url, ssl: { rejectUnauthorized: false } });
 await db.connect();
 
 const die = async (msg) => { console.error("❌ " + msg); await db.end(); process.exit(1); };
 const ok = (msg) => console.log("✅ " + msg);
 
-// 1. Player exists, has points in S1, and a payable wallet.
+// 1. Player exists, has points in S1, and a payable wallet. Read standings from
+//    the frozen season_final ledger (season_state resets once the player starts
+//    the next season, so it can't be trusted for an ended season) and fall back
+//    to the live board only if this season was never snapshotted.
+const src = (await db.query(`SELECT 1 FROM season_final WHERE season_id=$1 LIMIT 1`, [SEASON_ID])).rowCount
+  ? "season_final" : "season_state";
 const pc = await db.query(
   `SELECT s.points, c.wallet_address, c.payout_wallet, c.x_user_id
-     FROM season_state s JOIN characters c ON c.name = s.player_name
+     FROM ${src} s JOIN characters c ON c.name = s.player_name
     WHERE s.season_id = $1 AND s.player_name = $2`, [SEASON_ID, playerName]);
-if (pc.rowCount === 0) await die(`No S1 season_state row for "${playerName}".`);
+if (pc.rowCount === 0) await die(`No S1 standings row for "${playerName}" in ${src}.`);
 const { points, wallet_address, payout_wallet, x_user_id } = pc.rows[0];
 const wallet = payout_wallet || wallet_address;
 if (!(points > 0)) await die(`"${playerName}" has ${points} points — not eligible.`);
