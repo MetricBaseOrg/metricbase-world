@@ -215,21 +215,61 @@ export interface PayoutTarget {
  * braces on purpose: this is the last point before an IRREVERSIBLE on-chain
  * transfer, and handing `tg:123` to a transfer must be impossible.
  */
+/**
+ * Freeze a season's standings into the immutable `season_final` ledger.
+ *
+ * Called at the start of a payout (preview or execute) so the board is captured
+ * the moment anyone first looks at an ended season's rewards — before players
+ * roll into the next season and overwrite their live `season_state` rows.
+ *
+ * Idempotent by design: the FIRST snapshot wins (ON CONFLICT DO NOTHING), so a
+ * re-run, a retry, or a later top-up never rewrites a frozen board. Only
+ * points>0 rows are frozen, matching what the payout pays.
+ */
+export async function snapshotSeasonFinal(seasonId: string): Promise<void> {
+  const pool = getPool();
+  if (!pool) return;
+  try {
+    await pool.query(
+      `INSERT INTO season_final (season_id, player_name, points, breakdown, source)
+       SELECT season_id, player_name, points, breakdown, 'snapshot'
+       FROM season_state
+       WHERE season_id = $1 AND points > 0
+       ON CONFLICT (season_id, player_name) DO NOTHING`,
+      [seasonId],
+    );
+  } catch (error) {
+    console.warn("[season] snapshot failed:", error);
+  }
+}
+
 export async function loadSeasonPayoutTargets(seasonId: string): Promise<PayoutTarget[]> {
   const pool = getPool();
   if (!pool) return [];
   try {
+    // Read standings from the IMMUTABLE per-season snapshot when the season has
+    // one. `season_state` is a single live row per player that resets on
+    // rollover (see awardSeasonPointsDb), so a player who plays the next season
+    // erases their prior-season row — which would silently drop a late claimant
+    // from the payout and shrink the divisor. `season_final` is frozen at the
+    // first payout (snapshotSeasonFinal), so an ended season pays the exact
+    // shares earned. Fall back to the live board for any season never frozen.
+    const hasSnap =
+      (await pool.query("SELECT 1 FROM season_final WHERE season_id = $1 LIMIT 1", [seasonId])).rowCount ?? 0;
+    const standings = hasSnap > 0 ? "season_final" : "season_state";
     const res = await pool.query<{
       player_name: string;
       wallet_address: string;
       points: number;
       x_user_id: string | null;
     }>(
+      // `standings` is a whitelisted table literal (season_final|season_state),
+      // never user input, so the interpolation carries no injection risk.
       `SELECT s.player_name,
               COALESCE(c.payout_wallet, c.wallet_address) AS wallet_address,
               s.points,
               c.x_user_id
-       FROM season_state s
+       FROM ${standings} s
        JOIN characters c ON c.name = s.player_name
        WHERE s.season_id = $1 AND s.points > 0
          AND COALESCE(c.payout_wallet, c.wallet_address) IS NOT NULL

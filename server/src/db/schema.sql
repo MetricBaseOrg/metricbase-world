@@ -412,6 +412,22 @@ CREATE TABLE IF NOT EXISTS season_state (
 );
 CREATE INDEX IF NOT EXISTS season_state_board_idx ON season_state (season_id, points DESC);
 
+-- Immutable end-of-season standings. `season_state` is a single LIVE row per
+-- player that RESETS on rollover (see awardSeasonPointsDb), so once players
+-- start the next season the previous season's board is gone. A season is frozen
+-- here the first time its payout is previewed/run (snapshotSeasonFinal), and the
+-- payout reads standings from here for any season present — so a late claimant
+-- is paid the exact share they earned, even after they've played on.
+CREATE TABLE IF NOT EXISTS season_final (
+  season_id   VARCHAR(12) NOT NULL,
+  player_name VARCHAR(16) NOT NULL,
+  points      INTEGER     NOT NULL,
+  breakdown   JSONB,
+  snapshot_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  source      VARCHAR(16) NOT NULL DEFAULT 'snapshot',
+  PRIMARY KEY (season_id, player_name)
+);
+
 -- One row per (season, UTC day) that the top-10 richest daily bonus has been
 -- awarded. The atomic insert-if-absent makes the daily award idempotent across
 -- zone rooms and restarts.

@@ -26,6 +26,7 @@ import { loadPostedPlayers } from "../db/seasonPost.js";
 import { getHouseWalletAddress, getHouseBalanceUi, isWithdrawEnabled, sendPayout } from "../solana/housePayout.js";
 import {
   loadSeasonPayoutTargets,
+  snapshotSeasonFinal,
   type PayoutTarget,
   claimSeasonPayout,
   finalizeSeasonPayout,
@@ -137,6 +138,14 @@ export async function distributeSeasonRewards(seasonNumber: number, execute: boo
   if (!Number.isInteger(seasonNumber) || seasonNumber < 1 || seasonNumber >= currentSeason().number) {
     return { ...report, error: "That season hasn't ended yet." };
   }
+
+  // Freeze this season's standings before reading them. `season_state` is a
+  // single live row per player that resets when they start the next season, so
+  // the board must be captured the first time anyone looks at the payout —
+  // otherwise a late claimant who has since played on is silently dropped and
+  // everyone else's share is diluted. Idempotent: the first snapshot wins, and
+  // loadSeasonPayoutTargets then reads standings from the frozen ledger.
+  await snapshotSeasonFinal(seasonId);
 
   // Who is in the split: everyone whose deposit vault still meets the entry
   // floor. It is a LIVE balance check rather than a record of having once paid,
