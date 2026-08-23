@@ -198,6 +198,30 @@ export async function saveCharacter(record: CharacterRecord): Promise<void> {
        bag_level = GREATEST(characters.bag_level, EXCLUDED.bag_level),
        updated_at = NOW()
      WHERE EXCLUDED.xp >= characters.xp
+       -- DEFAULT-STATE GUARD (companion to the xp guard above). The xp guard
+       -- only blocks a save whose xp REGRESSED. But a partial state load can
+       -- leave xp/level/skills correct (loaded straight off the record) while
+       -- the fields held in separate in-memory maps — gold, inventory,
+       -- equipment, pvp, craft_mastery — come back as DEFAULTS (a session race:
+       -- a new onJoin before the old onLeave finishes, see ZoneRoom). Then
+       -- incoming xp == stored xp, the xp guard passes, and those unprotected
+       -- fields get clobbered to defaults (gold->25, empty bag/gear, pvp->1000,
+       -- mastery cleared). This is what wiped "kamaboko" on 2026-08-23. So:
+       -- refuse a save that looks like a fresh/default record when the stored
+       -- character is clearly established. A real new player (INSERT, or a
+       -- genuinely near-default row) is unaffected; a normal save carrying real
+       -- gold/inventory always writes through.
+       AND NOT (
+         EXCLUDED.gold = ${STARTING_GOLD}
+         AND COALESCE(jsonb_array_length(CASE WHEN jsonb_typeof(EXCLUDED.inventory)='array' THEN EXCLUDED.inventory ELSE '[]'::jsonb END), 0) = 0
+         AND EXCLUDED.pvp_rating = 1000
+         AND (
+           characters.gold > ${STARTING_GOLD}
+           OR COALESCE(jsonb_array_length(CASE WHEN jsonb_typeof(characters.inventory)='array' THEN characters.inventory ELSE '[]'::jsonb END), 0) > 0
+           OR characters.pvp_rating <> 1000
+           OR jsonb_array_length(COALESCE(characters.craft_mastery->'specs','[]'::jsonb)) > 0
+         )
+       )
      RETURNING xp`,
     [
       record.name,
@@ -231,14 +255,18 @@ export async function saveCharacter(record: CharacterRecord): Promise<void> {
     ],
   );
 
-  // The guard rejected this save (incoming XP below stored) — a strong signal
-  // that this player's in-memory state didn't load correctly. Loud-log it so
-  // corruption is caught early instead of silently losing progress.
+  // A guard rejected this save — either the incoming XP regressed, or it looked
+  // like a fresh/default record (gold=STARTING_GOLD, empty bag, pvp=1000) about
+  // to overwrite an established character. Both are strong signals the player's
+  // in-memory state didn't load correctly. Loud-log so corruption is caught
+  // early instead of silently losing progress.
   if (result.rowCount === 0) {
+    const looksDefault =
+      record.gold === STARTING_GOLD && (record.inventory?.length ?? 0) === 0 && record.pvpRating === 1000;
     console.error(
-      `[characters] BLOCKED regressive save for "${record.name}" ` +
-        `(incoming xp=${record.xp}, level=${record.level}) — existing progress preserved. ` +
-        `Investigate: this player's state may have failed to load.`,
+      `[characters] BLOCKED ${looksDefault ? "default-state" : "regressive"} save for "${record.name}" ` +
+        `(incoming xp=${record.xp}, level=${record.level}, gold=${record.gold}) — existing progress preserved. ` +
+        `Investigate: this player's state may have failed to load (partial load / session race).`,
     );
   }
 }
