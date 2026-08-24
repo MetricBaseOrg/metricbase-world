@@ -303,6 +303,16 @@ The Telegram cohort may never hold $BASE. Meeting them where they are:
   pressure without asking the player to touch a wallet.
 - **Caution:** this adds a second currency rail and its own accounting. Only
   worth it once Telegram player volume justifies it — check the numbers first.
+- **TON on-ramp for the season vault — DESIGN ONLY, see `docs/ton-onramp.md`
+  (2026-08-06).** Same shape as the Stars idea above, but sourced from a
+  TonConnect payment instead of Telegram's billing, and feeding the deposit
+  vault directly instead of gold/cosmetics. Explicitly **not** a token bridge
+  — no wrapped `$BASE` on TON, no second market — a TON payment just buys
+  vault credit at a quoted rate, backed by the treasury actually converting
+  the TON to real `$BASE` (manual at first, see the doc's "invariant"
+  section). Came out of the same live case that motivates the rest of this
+  P5 section: a Telegram-only player with real progress and no Solana wallet.
+  Still needs the Stars-vs-TON prioritisation call before either is built.
 
 ## MEASURED 2026-07-22 — worse than this document originally assumed
 

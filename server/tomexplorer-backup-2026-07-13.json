@@ -1,0 +1,53 @@
+{
+  "id": "1a5784bf-6bc0-4029-94e9-1c9546002de4",
+  "name": "TomExplorer",
+  "zone_id": "zone_hub",
+  "x": 0,
+  "y": 384,
+  "level": 2,
+  "created_at": "2026-06-24T09:08:29.743Z",
+  "updated_at": "2026-06-27T15:24:54.640Z",
+  "xp": 230,
+  "quest_progress": {
+    "active": [],
+    "completed": [],
+    "objectiveIndex": {}
+  },
+  "appearance": {
+    "bodyColor": 16762967,
+    "hairColor": 2962486,
+    "hairStyle": "short",
+    "outfitColor": 3494000,
+    "outfitStyle": "robe"
+  },
+  "inventory": [],
+  "wallet_address": "yXNCYvofWmdH8zH1TNrUqdY9Ej2mVVYGU9YQRHhhmUL",
+  "gold": 11031,
+  "hp": 48,
+  "equipment": {
+    "toolId": null,
+    "weaponId": null
+  },
+  "npc_interact_at": {
+    "hub_merchant": 1782572488992
+  },
+  "mob_gold_claimed": {},
+  "knocked_out_until": null,
+  "skills": {
+    "mining": 0,
+    "farming": 0,
+    "fishing": 0,
+    "woodcutting": 14310
+  },
+  "stamina": 100,
+  "vip_pass_until": null,
+  "black_pass": false,
+  "pvp_rating": 1000,
+  "pvp_kills": 0,
+  "pvp_season": 0,
+  "honor": 0,
+  "guild_coin": 0,
+  "gems": 0,
+  "bag_level": 0,
+  "motto": ""
+}
