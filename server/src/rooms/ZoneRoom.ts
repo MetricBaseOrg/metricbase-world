@@ -7964,9 +7964,44 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
       const next = normalizeEquipment(current);
       // Remember the damage on the departing item so re-equipping resumes it.
       stashSlotWear(next, (slot ?? "weapon") as EquipmentSlot);
+      const departingId = (next as unknown as Record<string, unknown>)[field] as string | null;
       (next as unknown as Record<string, unknown>)[field] = null;
       const normalized = normalizeEquipment(next);
       this.playerEquipment.set(this.pidOf(player), normalized);
+
+      // DATA-SAFETY GUARD: equipped gear is meant to also live in the player's
+      // bag — equipping requires the item there and never removes it, so a
+      // normal unequip only clears the pointer and the item is still in the bag.
+      // But if a slot pointed at an item the bag does NOT hold (an equipment/
+      // inventory desync — e.g. a data restore that set the pointer without
+      // backing it), clearing the slot would delete the item outright. Return it
+      // to the bag instead so gear can never vanish on unequip. This no-ops in
+      // the normal case (the item is already in the bag, so quantity > 0).
+      let invForPayload = inventory;
+      if (departingId && getItemQuantity(inventory, departingId) <= 0) {
+        const { inventory: withReturned, added } = addItemToInventory(
+          inventory,
+          departingId,
+          1,
+          this.bagCapOf(player.name),
+        );
+        if (added > 0) {
+          this.inventories.set(this.pidOf(player), withReturned);
+          invForPayload = withReturned;
+        } else {
+          // Bag is full and the item isn't in it — re-equip rather than lose it.
+          (next as unknown as Record<string, unknown>)[field] = departingId;
+          this.playerEquipment.set(this.pidOf(player), normalizeEquipment(next));
+          this.sendProfile(client, player);
+          this.sendInventory(client, player.name);
+          client.send("inventoryResult", {
+            ok: false,
+            error: "Bag full — free a slot before unequipping.",
+          });
+          return;
+        }
+      }
+
       player.weaponId = normalized.weaponId ?? "";
       player.toolId = normalized.toolId ?? "";
       player.speedMult = getMountSpeed(normalized.mountId);
@@ -7977,7 +8012,7 @@ export class ZoneRoom extends Room<ZoneStateInstance, ZoneRoomOptions> {
         ok: true,
         equippedWeaponId: normalized.weaponId,
         equippedToolId: normalized.toolId,
-        inventory: buildInventoryPayload(inventory, normalized.weaponId, this.bagCapOf(player.name)),
+        inventory: buildInventoryPayload(invForPayload, normalized.weaponId, this.bagCapOf(player.name)),
       });
       await this.persistPlayer(player);
       return;
