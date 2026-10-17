@@ -1,7 +1,7 @@
 // One-time (re-runnable) import of the X content system from the owner's
-// OneDrive markdown into Neon, which becomes the source of truth.
+// D:\metricbase-x markdown into Neon, which becomes the source of truth.
 //
-//   node scripts/import-x-content.mjs [--dir "D:/OneDrive/metricbase-x"] [--dry]
+//   node scripts/import-x-content.mjs [--dir "D:/metricbase-x"] [--dry]
 //
 // Requires DATABASE_URL. Point it at a Neon BRANCH first — a bad parse against
 // prod is a mess to unpick, and the parse is heuristic by nature: it is reading
@@ -18,7 +18,7 @@ const argValue = (flag, fallback) => {
   const i = args.indexOf(flag);
   return i >= 0 && args[i + 1] ? args[i + 1] : fallback;
 };
-const DIR = argValue("--dir", "D:/OneDrive/metricbase-x");
+const DIR = argValue("--dir", "D:/metricbase-x");
 const DRY = args.includes("--dry");
 
 if (!process.env.DATABASE_URL && !DRY) {

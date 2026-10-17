@@ -65,7 +65,7 @@ must not be able to pay a season out.
 
 ## The X growth system
 
-Neon is the source of truth. The planning markdown in `D:\OneDrive\metricbase-x`
+Neon is the source of truth. The planning markdown in `D:\metricbase-x`
 was single-machine and unreachable from the server; it is now an archive.
 
 **Import (run once, re-runnable):**
